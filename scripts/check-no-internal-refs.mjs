@@ -10,14 +10,21 @@
  * Usage: `node scripts/check-no-internal-refs.mjs`
  * Exits 0 when clean, 1 when any forbidden token is found.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Directories (relative to repo root) scanned for forbidden tokens. */
-export const SCAN_DIRS = ['packages', 'demos']
+/**
+ * Directories (relative to repo root) scanned for forbidden tokens. Covers the
+ * publishable source, the demo source, and the CI/CD workflows that ship in the
+ * open-source repository.
+ */
+export const SCAN_DIRS = ['packages', 'demos', '.github']
+
+/** Individual repo-root files scanned in addition to the directories above. */
+export const SCAN_ROOT_FILES = ['README.md', 'package.json']
 
 /** File extensions that are scanned. */
 export const SCAN_EXTENSIONS = new Set([
@@ -30,6 +37,9 @@ export const SCAN_EXTENSIONS = new Set([
   '.css',
   '.json',
   '.html',
+  '.md',
+  '.yml',
+  '.yaml',
 ])
 
 /** Directory names skipped entirely while walking. */
@@ -67,28 +77,34 @@ export function collectFiles(dir) {
 }
 
 /**
- * Scan the given root for forbidden tokens.
+ * Scan the given root for forbidden tokens across `dirs` (recursively) plus
+ * `rootFiles` (individual repo-root files).
  * @returns {{file: string, line: number, label: string, text: string}[]}
  */
-export function scanForInternalRefs(root = repoRoot, dirs = SCAN_DIRS) {
+export function scanForInternalRefs(
+  root = repoRoot,
+  dirs = SCAN_DIRS,
+  rootFiles = SCAN_ROOT_FILES,
+) {
   /** @type {{file: string, line: number, label: string, text: string}[]} */
   const violations = []
+  const files = []
   for (const dir of dirs) {
-    const files = collectFiles(join(root, dir))
-    for (const file of files) {
-      const content = readFileSync(file, 'utf8')
-      const lines = content.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const text = lines[i]
-        for (const { label, re } of FORBIDDEN_PATTERNS) {
-          if (re.test(text)) {
-            violations.push({
-              file: relative(root, file),
-              line: i + 1,
-              label,
-              text: text.trim(),
-            })
-          }
+    files.push(...collectFiles(join(root, dir)))
+  }
+  for (const name of rootFiles) {
+    const candidate = join(root, name)
+    if (existsSync(candidate) && SCAN_EXTENSIONS.has(extname(candidate))) {
+      files.push(candidate)
+    }
+  }
+  for (const file of files) {
+    const lines = readFileSync(file, 'utf8').split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const text = lines[i]
+      for (const { label, re } of FORBIDDEN_PATTERNS) {
+        if (re.test(text)) {
+          violations.push({ file: relative(root, file), line: i + 1, label, text: text.trim() })
         }
       }
     }
@@ -109,6 +125,8 @@ function main() {
   console.log('No internal references found.')
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run main() only when invoked directly (not when imported by tests). Compare
+// normalized filesystem paths rather than raw file:// strings for portability.
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   main()
 }

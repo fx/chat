@@ -5,10 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege at the workflow level; the deploy job widens its own scope.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Allow one concurrent deployment; queue new pushes, don't cancel in-flight runs.
 concurrency:
@@ -42,6 +41,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -60,7 +60,7 @@ describe('scanForInternalRefs', () => {
   })
 
   it('ignores non-scanned file extensions', () => {
-    writeFileSync(join(root, 'packages', 'chat', 'src', 'notes.md'), 'fx/ai\n')
+    writeFileSync(join(root, 'packages', 'chat', 'src', 'notes.txt'), 'fx/ai\n')
     expect(scanForInternalRefs(root, SCAN_DIRS)).toEqual([])
   })
 
@@ -68,14 +68,28 @@ describe('scanForInternalRefs', () => {
     expect(collectFiles(join(root, 'does-not-exist'))).toEqual([])
   })
 
+  it('scans repo-root files when present', () => {
+    writeFileSync(join(root, 'README.md'), '# clean\nsee fx/ai\n')
+    const v = scanForInternalRefs(root, [], ['README.md'])
+    expect(v).toHaveLength(1)
+    expect(v[0].file).toBe('README.md')
+    expect(v[0].line).toBe(2)
+  })
+
+  it('ignores missing or non-scannable root files', () => {
+    writeFileSync(join(root, 'LICENSE'), 'fx/ai\n')
+    const v = scanForInternalRefs(root, [], ['LICENSE', 'absent.json'])
+    expect(v).toEqual([])
+  })
+
   it('exposes the forbidden pattern set', () => {
     expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(2)
   })
 
   it('actually keeps this repository clean', () => {
-    // Run against the real repo root (two levels up from this file's dir is the
-    // repo root; the scan is anchored there).
+    // Run against the real repo root with the production defaults (dirs + root
+    // files). The file's dir is `scripts/`, so the repo root is one level up.
     const repoRoot = join(import.meta.dirname, '..')
-    expect(scanForInternalRefs(repoRoot, SCAN_DIRS)).toEqual([])
+    expect(scanForInternalRefs(repoRoot)).toEqual([])
   })
 })
