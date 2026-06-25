@@ -14,8 +14,8 @@ through each registry with no change to the library.
 Per [architecture](../architecture/), the package injects every visual primitive, icon, and
 the markdown renderer via the [component-registry](../component-registry/). The three demos are
 the falsifiability test: if any conversation cannot render through all three registries without
-touching the library, the registry seam is in the wrong place. The user has specified: three
-demos (fx/ui, shadcn/ui, defaults), togglable in place to compare or render side-by-side
+touching the library, the registry seam is in the wrong place. The demo requirements are: three
+registries (fx/ui, shadcn/ui, defaults), toggleable in place to compare or render side-by-side
 (whichever is simpler to build well); deployed to GitHub Pages; slick and compact; explicitly
 **not** a marketing page.
 
