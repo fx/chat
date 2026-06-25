@@ -24,8 +24,9 @@ describe('@fx/chat public surface', () => {
 
   it('resolves the headless entry point via its package specifier', async () => {
     const headless = await import('@fx/chat/headless')
-    expect(headless.headlessRegistry).toBeDefined()
-    expect(typeof headless.isHeadlessSlot).toBe('function')
+    expect(headless.headlessComponents).toBeDefined()
+    expect(typeof headless.headlessComponents.Button).toBe('function')
+    expect(typeof headless.headlessComponents.icons).toBe('object')
   })
 
   it('declares the three required subpath exports', () => {
