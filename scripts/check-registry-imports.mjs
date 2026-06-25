@@ -46,6 +46,13 @@ export const FORBIDDEN_PATTERNS = [
     re: /from\s+['"]@fx\/chat\/headless['"]/,
   },
   {
+    // The in-package headless barrel (`packages/chat/src/headless.ts`) reached
+    // via a relative path, e.g. `../headless` or `../../headless` — the most
+    // likely in-package bypass form.
+    label: 'relative headless barrel import',
+    re: /from\s+['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/,
+  },
+  {
     label: 'ui-kit / icon-set / markdown-engine import',
     re: /from\s+['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/,
   },

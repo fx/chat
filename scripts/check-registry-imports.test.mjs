@@ -80,6 +80,16 @@ describe('scanForForbiddenImports', () => {
     expect(v[0].label).toContain('direct headless entry')
   })
 
+  it('flags a relative import of the in-package headless barrel', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'g.tsx'),
+      "import { headlessIcons } from '../../headless'\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('relative headless barrel')
+  })
+
   it('flags a UI-kit / icon-set / markdown-engine import', () => {
     writeFileSync(join(root, ...RENDER_DIR, 'e.tsx'), "import { Check } from 'lucide-react'\n")
     writeFileSync(join(root, ...INPUT_DIR, 'f.tsx'), "import md from 'react-markdown'\n")
@@ -119,7 +129,7 @@ describe('scanForForbiddenImports', () => {
   })
 
   it('exposes the forbidden pattern set', () => {
-    expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(3)
+    expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(4)
   })
 
   it('keeps the real repository clean', () => {
