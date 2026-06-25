@@ -46,7 +46,7 @@ describe('@fx/chat/headless entry', () => {
   })
 
   it('ships an inline SVG for every semantic icon name', () => {
-    expect(headless.HEADLESS_ICON_NAMES.sort()).toEqual(
+    expect([...headless.HEADLESS_ICON_NAMES].sort()).toEqual(
       [
         'audio',
         'brain',

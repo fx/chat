@@ -10,7 +10,11 @@ import { describe, expect, it } from 'vitest'
  * subtree must be `react`/`react-dom` only, never a forbidden family.
  */
 const here = dirname(fileURLToPath(import.meta.url))
+// Scan both the registry subtree and the published `@fx/chat/headless`
+// entrypoint (`src/headless.ts`) so the real export graph behind the entry is
+// covered, not just the registry folder.
 const registryDir = join(here, '..')
+const headlessEntry = join(here, '..', '..', 'headless.ts')
 
 const FORBIDDEN_PREFIXES = [
   '@fx/ui',
@@ -52,13 +56,20 @@ function collectSources(dir: string): string[] {
 
 /**
  * Extract bare-package specifiers (not relative `.`/`..`) from real
- * `import`/`export … from '…'` statements. Anchored at line start so prose in
- * doc comments (which may contain `from '@fx/chat'`) is never matched.
+ * `import`/`export … from '…'` statements AND from side-effect-only imports
+ * (`import '…'`). Anchored at line start so prose in doc comments (which may
+ * contain `from '@fx/chat'`) is never matched.
  */
 function bareImports(source: string): string[] {
   const specs: string[] = []
-  const re = /^\s*(?:import|export)\b[^'"]*\bfrom\s+['"]([^'"]+)['"]/gm
-  for (const match of source.matchAll(re)) {
+  const fromRe = /^\s*(?:import|export)\b[^'"]*\bfrom\s+['"]([^'"]+)['"]/gm
+  for (const match of source.matchAll(fromRe)) {
+    const spec = match[1] as string
+    if (!spec.startsWith('.')) specs.push(spec)
+  }
+  // Side-effect-only import: `import 'pkg'` (no binding, no `from`).
+  const sideEffectRe = /^\s*import\s+['"]([^'"]+)['"]/gm
+  for (const match of source.matchAll(sideEffectRe)) {
     const spec = match[1] as string
     if (!spec.startsWith('.')) specs.push(spec)
   }
@@ -67,7 +78,7 @@ function bareImports(source: string): string[] {
 
 describe('@fx/chat/headless dependency surface', () => {
   it('imports no UI-kit, icon set, or markdown engine across the registry source', () => {
-    const files = collectSources(registryDir)
+    const files = [...collectSources(registryDir), headlessEntry]
     expect(files.length).toBeGreaterThan(0)
     const offenders: string[] = []
     for (const file of files) {
@@ -82,7 +93,7 @@ describe('@fx/chat/headless dependency surface', () => {
   })
 
   it('only imports react/react-dom as bare packages', () => {
-    const files = collectSources(registryDir)
+    const files = [...collectSources(registryDir), headlessEntry]
     const bare = new Set<string>()
     for (const file of files) {
       for (const spec of bareImports(readFileSync(file, 'utf8'))) {

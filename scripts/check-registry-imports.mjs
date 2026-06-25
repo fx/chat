@@ -68,6 +68,13 @@ export const FORBIDDEN_PATTERNS = [
     label: 'ui-kit / icon-set / markdown-engine import',
     re: /from\s+['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
   },
+  {
+    // Side-effect-only (`import 'lucide-react'`) and CommonJS
+    // (`require('react-markdown')`) forms of the same forbidden families, which
+    // the `from`-based patterns above do not see.
+    label: 'ui-kit / icon-set / markdown-engine side-effect/require import',
+    re: /(?:import\s+|require\s*\(\s*)['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
+  },
 ]
 
 /**
