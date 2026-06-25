@@ -49,39 +49,52 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.vite'])
  * to a line via the match offset.
  *
  * The headless patterns accept every reference form a guarded module could use:
- * a static `from '…'`, a dynamic `import('…')`, and a CommonJS `require('…')`.
+ * a static `import …`/`export … from '…'`, a side-effect `import '…'`, a dynamic
+ * `import('…')`, and a CommonJS `require('…')`.
+ *
+ * False-positive avoidance: the STATIC import/export and side-effect-import arms
+ * are anchored to the start of a real statement via the `m` (multiline) flag and
+ * a leading `^\s*` — so a commented-out line (`// import … from '…'`) or a prose
+ * /string mention is NOT flagged. The dynamic `import(…)` and `require(…)` arms
+ * are deliberately NOT anchored: they are real call expressions that can appear
+ * mid-statement (`const m = await import('…')`), so they match anywhere.
+ *
+ * Both flags are set on every regex: `m` scopes the `^` anchors to line starts
+ * (a no-op for the un-anchored dynamic arms), and `g` collects every occurrence.
  */
 export const FORBIDDEN_PATTERNS = [
   {
     label: 'direct headless primitive/icon import',
-    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*\/registry\/headless(?:\/[^'"]*)?['"]/g,
+    re: /(?:^\s*(?:import|export)\b[^'"]*?from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*\/registry\/headless(?:\/[^'"]*)?['"]/gm,
   },
   {
     label: 'direct headless entry import',
-    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"]@fx\/chat\/headless['"]/g,
+    re: /(?:^\s*(?:import|export)\b[^'"]*?from\s+|import\s*\(\s*|require\s*\(\s*)['"]@fx\/chat\/headless['"]/gm,
   },
   {
     // The in-package headless barrel (`packages/chat/src/headless.ts`) reached
     // via a relative path, e.g. `../headless` or `../../headless` — the most
     // likely in-package bypass form.
     label: 'relative headless barrel import',
-    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/g,
+    re: /(?:^\s*(?:import|export)\b[^'"]*?from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/gm,
   },
   {
     // The headless registry's named exports (`headlessComponents`,
     // `headlessIcons`, `HeadlessMarkdown`) are also re-exported from
     // `../registry` and the package root `@fx/chat`, so a path-based rule misses
     // `import { headlessComponents } from '../registry'`. Flag the identifiers
-    // wherever they appear in an import binding, regardless of specifier.
+    // wherever they appear in a real import binding (anchored to a statement so
+    // a commented-out mention is ignored), regardless of specifier.
     label: 'headless registry symbol import',
-    re: /import\s+[^'"]*\{[^}]*\b(?:headlessComponents|headlessIcons|HeadlessMarkdown)\b[^}]*\}[^'"]*from\s+['"][^'"]+['"]/g,
+    re: /^\s*import\s+[^'"]*\{[^}]*\b(?:headlessComponents|headlessIcons|HeadlessMarkdown)\b[^}]*\}[^'"]*from\s+['"][^'"]+['"]/gm,
   },
   {
-    // Every reference form (static `from`, static side-effect `import '…'`,
-    // dynamic `import('…')`, CommonJS `require('…')`) of any forbidden UI-kit /
-    // icon-set / markdown-engine family.
+    // Every reference form of any forbidden UI-kit / icon-set / markdown-engine
+    // family: static `import …`/`export … from '…'` and side-effect `import '…'`
+    // (statement-anchored), plus dynamic `import('…')` and CommonJS `require('…')`
+    // (un-anchored real calls).
     label: 'ui-kit / icon-set / markdown-engine import',
-    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*|import\s+)['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
+    re: /(?:^\s*(?:import|export)\b[^'"]*?from\s+|^\s*import\s+|import\s*\(\s*|require\s*\(\s*)['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/gm,
   },
 ]
 

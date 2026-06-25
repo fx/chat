@@ -56,12 +56,16 @@ export function Badge({ tone, className, children }: BadgeProps) {
 }
 
 /**
- * Headless tooltip. The contract allows a passthrough; this default renders the
- * trigger and exposes the content via `title` for a native hover/focus hint —
- * zero dependency, SSR-safe, and accessible.
+ * Headless tooltip. The contract allows a passthrough; this default surfaces
+ * only primitive `string`/`number` content via the native `title` attribute
+ * (numbers are stringified) for a zero-dependency, SSR-safe, accessible hover/
+ * focus hint. Rich (non-primitive) `ReactNode` content cannot be expressed in a
+ * `title`, so the trigger renders without a title; host apps that need rich
+ * tooltip content must supply their own `Tooltip` slot via the registry.
  */
 export function Tooltip({ content, className, children }: TooltipProps) {
-  const title = typeof content === 'string' ? content : undefined
+  const title =
+    typeof content === 'string' || typeof content === 'number' ? String(content) : undefined
   return (
     <span className={classes('chat-tooltip', className)} title={title}>
       {children}

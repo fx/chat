@@ -62,7 +62,16 @@ describe('Tooltip', () => {
     expect(screen.getByText('trigger').closest('.chat-tooltip')).toHaveAttribute('title', 'tip')
   })
 
-  it('omits title for non-string content but still renders the trigger', () => {
+  it('stringifies numeric content into the title attribute', () => {
+    render(
+      <Tooltip content={42}>
+        <span>numtrig</span>
+      </Tooltip>,
+    )
+    expect(screen.getByText('numtrig').closest('.chat-tooltip')).toHaveAttribute('title', '42')
+  })
+
+  it('omits title for non-primitive content but still renders the trigger', () => {
     render(
       <Tooltip content={<b>rich</b>} className="t">
         <span>trig</span>
@@ -71,6 +80,8 @@ describe('Tooltip', () => {
     const wrap = screen.getByText('trig').closest('.chat-tooltip')
     expect(wrap).not.toHaveAttribute('title')
     expect(wrap).toHaveClass('t')
+    // The rich node itself is not rendered (content is surfaced only via title).
+    expect(screen.queryByText('rich')).toBeNull()
   })
 })
 

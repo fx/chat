@@ -145,6 +145,80 @@ describe('scanForForbiddenImports', () => {
     expect(v[0].text).not.toContain('\n')
   })
 
+  it('flags an `export … from` re-export of the headless registry', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'reexport.tsx'),
+      "export { Button } from '../registry/headless'\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('direct headless')
+  })
+
+  it('does NOT flag a commented-out static import of a forbidden module', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'commented.tsx'),
+      [
+        "import { useChatComponents } from '../registry'",
+        "// import { headlessComponents } from '../registry/headless'",
+        "// import { Check } from 'lucide-react'",
+        "  //   import '../../headless'",
+        "/* import { Avatar } from '@fx/chat/headless' */",
+      ].join('\n'),
+    )
+    expect(scanForForbiddenImports(root, GUARDED_DIRS)).toEqual([])
+  })
+
+  it('does NOT flag a prose/string mention of a forbidden specifier', () => {
+    writeFileSync(
+      join(root, ...INPUT_DIR, 'prose.tsx'),
+      [
+        "import { useChatComponents } from '../registry'",
+        "// Renderers must never import from 'lucide-react' directly.",
+        'const hint = "consume icons via the registry, not from \'lucide-react\'"',
+      ].join('\n'),
+    )
+    expect(scanForForbiddenImports(root, GUARDED_DIRS)).toEqual([])
+  })
+
+  it('does NOT flag a commented-out headless symbol import but still flags the real one', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'symmix.tsx'),
+      [
+        "// import { headlessIcons } from '../registry'",
+        "import { headlessComponents } from '../registry'",
+      ].join('\n'),
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('headless registry symbol')
+    expect(v[0].line).toBe(2)
+  })
+
+  it('still flags a real import that follows a commented-out one in the same file', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'mixed.tsx'),
+      [
+        "// import { Check } from 'lucide-react' (removed)",
+        "import { Check } from 'lucide-react'",
+      ].join('\n'),
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('ui-kit')
+    expect(v[0].line).toBe(2)
+  })
+
+  it('catches a multiline `export … from` re-export spanning several lines', () => {
+    writeFileSync(
+      join(root, ...INPUT_DIR, 'multiexport.tsx'),
+      'export {\n  Check,\n} from\n  "lucide-react"\n',
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('ui-kit')
+  })
+
   it('reports each occurrence when a file has multiple violations', () => {
     writeFileSync(
       join(root, ...RENDER_DIR, 'many.tsx'),
