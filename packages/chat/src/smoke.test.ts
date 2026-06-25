@@ -48,6 +48,35 @@ describe('@fx/chat public surface', () => {
     expect(pkg.dependencies ?? {}).toEqual({})
   })
 
+  it('applies the theme foreground at the render root so all message text is legible', () => {
+    // The user/system/plain-text path inherits color from the render root; if
+    // these declarations regress, dark-theme body text falls back to UA-default
+    // black (~1.1:1 on the dark surface). Assert the color is applied on both
+    // the log container and the standalone message container.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    expect(block('.chat-log')).toContain('color: var(--chat-fg)')
+    expect(block('.chat-message')).toContain('color: var(--chat-fg)')
+  })
+
+  it('gives interactive primitives a >=44px touch target', () => {
+    // Footer actions (Copy/Regenerate/Fork/Reset/compact reveal) and the
+    // disclosure summary row must be comfortably tappable on mobile.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    expect(block('.chat-button')).toContain('min-height: 44px')
+    expect(block('.chat-button')).toContain('min-width: 44px')
+    expect(block('.chat-copybutton')).toContain('min-height: 44px')
+    expect(block('.chat-copybutton')).toContain('min-width: 44px')
+    expect(block('.chat-collapsible-header')).toContain('min-height: 44px')
+  })
+
   it('depends on no UI kit, icon set, or markdown engine', () => {
     const graph = Object.keys({
       ...(pkg.dependencies ?? {}),
