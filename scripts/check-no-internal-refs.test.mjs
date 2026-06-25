@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -68,18 +68,34 @@ describe('scanForInternalRefs', () => {
     expect(collectFiles(join(root, 'does-not-exist'))).toEqual([])
   })
 
-  it('scans repo-root files when present', () => {
+  it('does not follow symlinked files or directories', () => {
+    const src = join(root, 'packages', 'chat', 'src')
+    writeFileSync(join(src, 'real.ts'), 'fx/ai\n')
+    // A symlink pointing back up at the repo would otherwise cause escape/loops.
+    symlinkSync(src, join(src, 'loop'))
+    symlinkSync(join(src, 'real.ts'), join(src, 'alias.ts'))
+    const files = collectFiles(src)
+    expect(files.map((f) => f.split('/').pop()).sort()).toEqual(['real.ts'])
+  })
+
+  it('scans every scannable repo-root file', () => {
     writeFileSync(join(root, 'README.md'), '# clean\nsee fx/ai\n')
-    const v = scanForInternalRefs(root, [], ['README.md'])
+    writeFileSync(join(root, 'tsconfig.json'), '{ "compilerOptions": {} }\n')
+    const v = scanForInternalRefs(root, [])
     expect(v).toHaveLength(1)
     expect(v[0].file).toBe('README.md')
     expect(v[0].line).toBe(2)
   })
 
-  it('ignores missing or non-scannable root files', () => {
+  it('ignores non-scannable root files and missing roots', () => {
     writeFileSync(join(root, 'LICENSE'), 'fx/ai\n')
-    const v = scanForInternalRefs(root, [], ['LICENSE', 'absent.json'])
-    expect(v).toEqual([])
+    expect(scanForInternalRefs(root, [])).toEqual([])
+    expect(scanForInternalRefs(join(root, 'absent'), [])).toEqual([])
+  })
+
+  it('can skip root-file scanning when disabled', () => {
+    writeFileSync(join(root, 'README.md'), 'fx/ai\n')
+    expect(scanForInternalRefs(root, [], false)).toEqual([])
   })
 
   it('exposes the forbidden pattern set', () => {

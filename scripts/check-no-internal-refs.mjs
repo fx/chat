@@ -10,7 +10,7 @@
  * Usage: `node scripts/check-no-internal-refs.mjs`
  * Exits 0 when clean, 1 when any forbidden token is found.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -23,8 +23,13 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  */
 export const SCAN_DIRS = ['packages', 'demos', '.github']
 
-/** Individual repo-root files scanned in addition to the directories above. */
-export const SCAN_ROOT_FILES = ['README.md', 'package.json']
+/**
+ * Repo-root files are scanned too (non-recursively): every scannable top-level
+ * file is checked, so newly added root config (tsconfig, biome, vitest, …) is
+ * covered without enumerating each by hand. `docs/` is intentionally not
+ * scanned — it holds the spec/change prose, which legitimately discusses the
+ * extraction's origin.
+ */
 
 /** File extensions that are scanned. */
 export const SCAN_EXTENSIONS = new Set([
@@ -54,23 +59,44 @@ export const FORBIDDEN_PATTERNS = [
   { label: 'alias-import (@/…)', re: /(^|[^\w@])@\/[\w-]/ },
 ]
 
-/** Recursively collect scannable files under `dir`. */
+/**
+ * Recursively collect scannable files under `dir`. Symlinks are skipped so the
+ * walk can never escape the repo or recurse infinitely.
+ */
 export function collectFiles(dir) {
   const files = []
   let entries
   try {
-    entries = readdirSync(dir)
+    entries = readdirSync(dir, { withFileTypes: true })
   } catch {
     return files
   }
   for (const entry of entries) {
-    const full = join(dir, entry)
-    const stat = statSync(full)
-    if (stat.isDirectory()) {
-      if (SKIP_DIRS.has(entry)) continue
+    if (entry.isSymbolicLink()) continue
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue
       files.push(...collectFiles(full))
-    } else if (SCAN_EXTENSIONS.has(extname(entry))) {
+    } else if (entry.isFile() && SCAN_EXTENSIONS.has(extname(entry.name))) {
       files.push(full)
+    }
+  }
+  return files
+}
+
+/** Collect scannable files directly in `dir` (non-recursive), skipping symlinks. */
+export function collectRootFiles(dir) {
+  const files = []
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return files
+  }
+  for (const entry of entries) {
+    if (entry.isSymbolicLink() || !entry.isFile()) continue
+    if (SCAN_EXTENSIONS.has(extname(entry.name))) {
+      files.push(join(dir, entry.name))
     }
   }
   return files
@@ -81,22 +107,15 @@ export function collectFiles(dir) {
  * `rootFiles` (individual repo-root files).
  * @returns {{file: string, line: number, label: string, text: string}[]}
  */
-export function scanForInternalRefs(
-  root = repoRoot,
-  dirs = SCAN_DIRS,
-  rootFiles = SCAN_ROOT_FILES,
-) {
+export function scanForInternalRefs(root = repoRoot, dirs = SCAN_DIRS, scanRootFiles = true) {
   /** @type {{file: string, line: number, label: string, text: string}[]} */
   const violations = []
   const files = []
   for (const dir of dirs) {
     files.push(...collectFiles(join(root, dir)))
   }
-  for (const name of rootFiles) {
-    const candidate = join(root, name)
-    if (existsSync(candidate) && SCAN_EXTENSIONS.has(extname(candidate))) {
-      files.push(candidate)
-    }
+  if (scanRootFiles) {
+    files.push(...collectRootFiles(root))
   }
   for (const file of files) {
     const lines = readFileSync(file, 'utf8').split('\n')
