@@ -61,9 +61,10 @@ describe('scanForForbiddenImports', () => {
   })
 
   it('flags a direct headless registry barrel import', () => {
+    // Use a non-headless binding name so only the path-based pattern fires.
     writeFileSync(
       join(root, ...INPUT_DIR, 'c.tsx'),
-      "import { headlessComponents } from '../registry/headless'\n",
+      "import { Button } from '../registry/headless'\n",
     )
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
@@ -73,7 +74,7 @@ describe('scanForForbiddenImports', () => {
   it('flags a direct @fx/chat/headless entry import', () => {
     writeFileSync(
       join(root, ...RENDER_DIR, 'd.tsx'),
-      "import { headlessIcons } from '@fx/chat/headless'\n",
+      "import { Avatar } from '@fx/chat/headless'\n",
     )
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
@@ -81,10 +82,7 @@ describe('scanForForbiddenImports', () => {
   })
 
   it('flags a relative import of the in-package headless barrel', () => {
-    writeFileSync(
-      join(root, ...RENDER_DIR, 'g.tsx'),
-      "import { headlessIcons } from '../../headless'\n",
-    )
+    writeFileSync(join(root, ...RENDER_DIR, 'g.tsx'), "import { Badge } from '../../headless'\n")
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
     expect(v[0].label).toContain('relative headless barrel')
@@ -105,6 +103,26 @@ describe('scanForForbiddenImports', () => {
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
     expect(v[0].label).toContain('relative headless barrel')
+  })
+
+  it('flags importing headlessComponents by name from the registry barrel', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'sym.tsx'),
+      "import { headlessComponents } from '../registry'\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('headless registry symbol')
+  })
+
+  it('flags importing a headless symbol from the package root specifier', () => {
+    writeFileSync(
+      join(root, ...INPUT_DIR, 'sym2.tsx'),
+      "import { ChatProvider, headlessIcons } from '@fx/chat'\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('headless registry symbol')
   })
 
   it('flags a UI-kit / icon-set / markdown-engine import', () => {
@@ -193,7 +211,7 @@ describe('scanForForbiddenImports', () => {
   })
 
   it('exposes the forbidden pattern set', () => {
-    expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(4)
+    expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(5)
   })
 
   it('keeps the real repository clean', () => {

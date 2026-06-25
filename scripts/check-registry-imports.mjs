@@ -68,6 +68,15 @@ export const FORBIDDEN_PATTERNS = [
     re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/g,
   },
   {
+    // The headless registry's named exports (`headlessComponents`,
+    // `headlessIcons`, `HeadlessMarkdown`) are also re-exported from
+    // `../registry` and the package root `@fx/chat`, so a path-based rule misses
+    // `import { headlessComponents } from '../registry'`. Flag the identifiers
+    // wherever they appear in an import binding, regardless of specifier.
+    label: 'headless registry symbol import',
+    re: /import\s+[^'"]*\{[^}]*\b(?:headlessComponents|headlessIcons|HeadlessMarkdown)\b[^}]*\}[^'"]*from\s+['"][^'"]+['"]/g,
+  },
+  {
     // Every reference form (static `from`, static side-effect `import '…'`,
     // dynamic `import('…')`, CommonJS `require('…')`) of any forbidden UI-kit /
     // icon-set / markdown-engine family.
