@@ -194,10 +194,33 @@ export function CopyButton({ value, className, 'aria-label': ariaLabel }: CopyBu
   const [copied, setCopied] = useState(false)
   const { icons } = useChatComponents()
   const Icon = copied ? icons.check : icons.copy
+  // Tracks the latest rendered `value` so async clipboard callbacks and the
+  // reset effect can compare against the current prop, not a stale closure.
+  const latestValue = useRef<string>(value)
+  latestValue.current = value
+  const copiedValue = useRef<string>(value)
+
+  // When the prop changes away from what was last copied, the "copied"
+  // affordance no longer reflects the clipboard, so reset it. Comparing against
+  // the last-copied value (rather than blindly resetting on every `value`
+  // render dep) keeps the reset scoped to genuine changes.
+  useEffect(() => {
+    if (copiedValue.current !== value) {
+      copiedValue.current = value
+      setCopied(false)
+    }
+  }, [value])
 
   const handleClick = useCallback(() => {
     const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
-    const done = () => setCopied(true)
+    // Only reflect success if the resolving write still matches the current
+    // value; a stale write for a since-changed value must not re-flip `copied`.
+    const done = () => {
+      if (latestValue.current === value) {
+        copiedValue.current = value
+        setCopied(true)
+      }
+    }
     if (clipboard?.writeText) {
       clipboard.writeText(value).then(done, done)
     } else {

@@ -317,6 +317,82 @@ describe('CopyButton', () => {
     expect(btn).toHaveAttribute('data-copied', 'true')
   })
 
+  it('resets the copied state and icon when the value prop changes', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+    function Harness() {
+      const [value, setValue] = useState('first')
+      return (
+        <div>
+          <button type="button" aria-label="change" onClick={() => setValue('second')}>
+            change
+          </button>
+          <CopyButton value={value} aria-label="Copy code" />
+        </div>
+      )
+    }
+    render(<Harness />)
+    const btn = screen.getByRole('button', { name: 'Copy code' })
+    // The copy icon (a check path) is not present before copying.
+    const copiedPath = 'M3 8.5l3 3 7-7'
+    expect(btn.querySelector(`path[d="${copiedPath}"]`)).toBeNull()
+
+    await act(async () => {
+      fireEvent.click(btn)
+    })
+    expect(btn).toHaveAttribute('data-copied', 'true')
+    expect(btn.querySelector(`path[d="${copiedPath}"]`)).not.toBeNull()
+
+    // Changing the value invalidates the copied affordance: it must revert.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'change' }))
+    })
+    expect(btn).not.toHaveAttribute('data-copied', 'true')
+    expect(btn.querySelector(`path[d="${copiedPath}"]`)).toBeNull()
+  })
+
+  it('ignores a stale clipboard write that resolves after the value changed', async () => {
+    let resolveWrite: (() => void) | undefined
+    const writeText = vi.fn().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWrite = resolve
+        }),
+    )
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+    function Harness() {
+      const [value, setValue] = useState('first')
+      return (
+        <div>
+          <button type="button" aria-label="change" onClick={() => setValue('second')}>
+            change
+          </button>
+          <CopyButton value={value} aria-label="Copy code" />
+        </div>
+      )
+    }
+    render(<Harness />)
+    const btn = screen.getByRole('button', { name: 'Copy code' })
+
+    // Click while the write is still pending, then change the value before it resolves.
+    fireEvent.click(btn)
+    fireEvent.click(screen.getByRole('button', { name: 'change' }))
+    expect(btn).not.toHaveAttribute('data-copied', 'true')
+
+    // The stale write now resolves: it must NOT re-flip the copied state.
+    await act(async () => {
+      resolveWrite?.()
+      await Promise.resolve()
+    })
+    expect(btn).not.toHaveAttribute('data-copied', 'true')
+  })
+
   it('degrades gracefully when navigator itself is undefined (server-like)', () => {
     render(<CopyButton value="x" />)
     const btn = screen.getByRole('button', { name: 'Copy' })
