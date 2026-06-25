@@ -8,7 +8,7 @@ complete headless default registry (zero UI-kit/icon/markdown deps), and the CSS
 theme tokens.
 
 **Spec:** [component-registry](../specs/component-registry/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0001
 
 ## Motivation
@@ -97,14 +97,14 @@ in the rule.
 
 ## Tasks
 
-- [ ] Implement `registry/context.tsx` (`ChatProvider`, `useChatComponents`, merge semantics)
+- [x] Implement `registry/context.tsx` (`ChatProvider`, `useChatComponents`, merge semantics)
       with tests
-- [ ] Implement `registry/contract.ts` (primitive/icon/Markdown interfaces, `IconName`)
-- [ ] Implement headless primitives (Button, Badge, Tooltip, Collapsible, CodeBlock, JsonView,
+- [x] Implement `registry/contract.ts` (primitive/icon/Markdown interfaces, `IconName`)
+- [x] Implement headless primitives (Button, Badge, Tooltip, Collapsible, CodeBlock, JsonView,
       ScrollArea, Avatar, CopyButton) + minimal `Markdown`, SSR-safe, with tests
-- [ ] Implement inline-SVG icon set covering all icon names
-- [ ] Implement `styles.css` CSS-variable theme (light/dark) and document the variables
-- [ ] Add lint rule/test forbidding direct primitive/icon imports in render/input layers and a
+- [x] Implement inline-SVG icon set covering all icon names
+- [x] Implement `styles.css` CSS-variable theme (light/dark) and document the variables
+- [x] Add lint rule/test forbidding direct primitive/icon imports in render/input layers and a
       no-UI-kit-dependency test for the headless import
 
 ## Open Questions

@@ -47,7 +47,7 @@ changes:
     path: changes/0003-component-registry.md
     description: ChatProvider, registry contract, headless defaults, theme tokens
     spec: component-registry
-    status: draft
+    status: complete
     depends_on: ["0001"]
   - id: "0004"
     name: message-rendering
