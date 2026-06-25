@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   FORBIDDEN_PATTERNS,
@@ -75,7 +75,7 @@ describe('scanForInternalRefs', () => {
     symlinkSync(src, join(src, 'loop'))
     symlinkSync(join(src, 'real.ts'), join(src, 'alias.ts'))
     const files = collectFiles(src)
-    expect(files.map((f) => f.split('/').pop()).sort()).toEqual(['real.ts'])
+    expect(files.map((f) => basename(f)).sort()).toEqual(['real.ts'])
   })
 
   it('scans every scannable repo-root file', () => {

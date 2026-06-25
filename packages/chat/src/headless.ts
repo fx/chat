@@ -8,8 +8,15 @@
  * and fully testable.
  */
 
+/**
+ * Immutable source of truth for the headless registry slot names. The guard and
+ * the registry both derive from this so narrowing stays correct regardless of
+ * how the exported registry object is consumed.
+ */
+const HEADLESS_SLOT_NAMES = ['Root', 'Message'] as const
+
 /** Names of the headless registry slots shipped so far. */
-export type HeadlessSlotName = 'Root' | 'Message'
+export type HeadlessSlotName = (typeof HEADLESS_SLOT_NAMES)[number]
 
 /**
  * The headless registry. Slots are intentionally `null` placeholders at the
@@ -22,7 +29,9 @@ export const headlessRegistry: Record<HeadlessSlotName, null> = {
   Message: null,
 }
 
+const slotNameSet: ReadonlySet<string> = new Set(HEADLESS_SLOT_NAMES)
+
 /** Returns true when the given name is a known headless registry slot. */
 export function isHeadlessSlot(name: string): name is HeadlessSlotName {
-  return Object.prototype.hasOwnProperty.call(headlessRegistry, name)
+  return slotNameSet.has(name)
 }

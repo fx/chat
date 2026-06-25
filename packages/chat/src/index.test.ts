@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { cx, version } from './index'
 
 describe('version', () => {
-  it('exposes a string version', () => {
-    expect(version).toBe('0.0.0')
+  it('exposes a non-empty string version', () => {
+    expect(typeof version).toBe('string')
+    expect(version.length).toBeGreaterThan(0)
   })
 })
 

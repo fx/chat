@@ -40,6 +40,8 @@ jobs:
 
   deploy:
     needs: build
+    # Only publish artifacts from the default branch, even on manual dispatch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       pages: write
