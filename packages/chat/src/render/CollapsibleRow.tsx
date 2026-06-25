@@ -87,6 +87,14 @@ export function CollapsibleRow({
   // Re-seed the uncontrolled open state when `defaultOpen` flips (verbose/
   // expand-all). Skip entirely while controlled — the parent owns `open`, so
   // touching internal state there is a wasted render.
+  //
+  // This is React's officially-supported "storing information from previous
+  // renders" pattern: adjust THIS component's own state during render, guarded
+  // by a ref holding the previous prop value so the set runs at most once per
+  // `defaultOpen` change (no infinite loop, no StrictMode warning). React
+  // re-renders the component immediately without committing the intermediate
+  // DOM, so `isOpen` below already reflects the new value this same render.
+  // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   if (!controlled && prevDefault.current !== defaultOpen) {
     prevDefault.current = defaultOpen
     if (internalOpen !== defaultOpen) setInternalOpen(defaultOpen)

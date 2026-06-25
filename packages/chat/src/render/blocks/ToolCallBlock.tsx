@@ -42,9 +42,10 @@ function MediaItem({
 }
 
 /**
- * Renders the tool_call block. The active state (spinner/live timer) follows
- * `status === 'running'`; error styling + default-open follow `status ===
- * 'error'`.
+ * Renders the tool_call block. The active state (spinner/live timer) covers any
+ * not-yet-complete call — `status === 'pending' || status === 'running'` (a
+ * queued/in-flight call is not done); error styling + default-open follow
+ * `status === 'error'`.
  */
 export function ToolCallBlockView({ block, defaultOpen }: ToolCallBlockViewProps) {
   const { JsonView } = useChatComponents()
