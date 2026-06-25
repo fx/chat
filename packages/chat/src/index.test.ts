@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { cx, version } from './index'
+import {
+  ChatInput,
+  CompletionPopup,
+  REFERENCE_TRIGGER,
+  autosize,
+  computeAtomicMentionDeletion,
+  computePopupAnchor,
+  cx,
+  getCaretCoords,
+  referenceProvider,
+  version,
+} from './index'
 
 describe('version', () => {
   it('exposes a non-empty string version', () => {
@@ -31,5 +42,19 @@ describe('cx', () => {
 
   it('drops nested arrays that produce no output', () => {
     expect(cx('a', [false, null, []], 'b')).toBe('a b')
+  })
+})
+
+describe('input surface re-exports', () => {
+  it('re-exports the composer, popup, completion contract, and caret utils', () => {
+    expect(typeof ChatInput).toBe('function')
+    // forwardRef yields an exotic object, not a plain function.
+    expect(CompletionPopup).toBeDefined()
+    expect(CompletionPopup.displayName).toBe('CompletionPopup')
+    expect(typeof computeAtomicMentionDeletion).toBe('function')
+    expect(typeof autosize).toBe('function')
+    expect(typeof getCaretCoords).toBe('function')
+    expect(typeof computePopupAnchor).toBe('function')
+    expect(referenceProvider.trigger).toBe(REFERENCE_TRIGGER)
   })
 })

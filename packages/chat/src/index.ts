@@ -45,3 +45,5 @@ export * from './registry'
 export * from './mentions'
 
 export * from './render'
+
+export * from './input'

@@ -429,3 +429,139 @@
     animation: none;
   }
 }
+
+/* ── Input composer (change 0005) ───────────────────────────────────────────
+   The headless `ChatInput` + `CompletionPopup`. Styling is intentionally
+   minimal and token-driven; the mention overlay sits behind the textarea and
+   must share its text metrics so highlighted runs line up exactly. */
+
+.chat-input {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-input-attachments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-input-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--chat-gap) / 4);
+  padding: calc(var(--chat-gap) / 4) calc(var(--chat-gap) / 2);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  font-size: 0.8125rem;
+}
+
+.chat-input-attachment-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The overlay and textarea share one box; the overlay paints highlights and the
+   textarea (transparent-ish background) sits on top to receive input. */
+.chat-input-field {
+  position: relative;
+}
+
+.chat-input-overlay,
+.chat-input-textarea {
+  margin: 0;
+  padding: calc(var(--chat-gap) / 2);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.chat-input-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  overflow: hidden;
+  border-color: transparent;
+}
+
+.chat-input-mention {
+  border-radius: calc(var(--chat-radius) / 2);
+  background: color-mix(in srgb, var(--chat-accent) 18%, transparent);
+  color: var(--chat-accent);
+}
+
+.chat-input-textarea {
+  position: relative;
+  display: block;
+  width: 100%;
+  resize: none;
+  background: transparent;
+  color: var(--chat-fg);
+}
+
+.chat-input-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-completion-popup {
+  z-index: 1000;
+  min-width: 12rem;
+  max-width: 24rem;
+  background: var(--chat-bg);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.chat-completion-scroll {
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.chat-completion-list {
+  list-style: none;
+  margin: 0;
+  padding: calc(var(--chat-gap) / 4);
+}
+
+.chat-completion-option {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--chat-gap) / 2);
+  padding: calc(var(--chat-gap) / 4) calc(var(--chat-gap) / 2);
+  border-radius: calc(var(--chat-radius) / 2);
+  cursor: pointer;
+}
+
+.chat-completion-option[data-active="true"] {
+  background: color-mix(in srgb, var(--chat-accent) 16%, transparent);
+}
+
+.chat-completion-description {
+  color: var(--chat-muted);
+  font-size: 0.8125rem;
+}
+
+.chat-completion-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--chat-gap);
+  color: var(--chat-muted);
+}
