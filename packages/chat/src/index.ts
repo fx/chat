@@ -37,3 +37,5 @@ export function cx(...values: ClassValue[]): string {
   }
   return out.join(' ')
 }
+
+export * from './registry'
