@@ -30,7 +30,9 @@
   --chat-accent-fg: #ffffff;
   --chat-border: #e5e7eb;
   --chat-error: #dc2626;
-  --chat-success: #16a34a;
+  /* Darkened from #16a34a (3.30:1 on white) to clear WCAG AA (≥4.5:1) for
+     success text on the light badge background: #15803d is 5.02:1 on #fff. */
+  --chat-success: #15803d;
   --chat-radius: 0.5rem;
   --chat-gap: 0.75rem;
   --chat-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -43,7 +45,10 @@
     --chat-muted: #9ca3af;
     --chat-bg: #0b0f19;
     --chat-accent: #3b82f6;
-    --chat-accent-fg: #ffffff;
+    /* White text on the lighter dark-theme accent (#3b82f6) is only 3.68:1.
+       A dark foreground (#0b1220) clears WCAG AA at 5.09:1 while the lighter
+       accent stays usable for links (accent-on-bg is 5.21:1). */
+    --chat-accent-fg: #0b1220;
     --chat-border: #1f2937;
     --chat-error: #f87171;
     --chat-success: #4ade80;
@@ -56,7 +61,8 @@
   --chat-muted: #9ca3af;
   --chat-bg: #0b0f19;
   --chat-accent: #3b82f6;
-  --chat-accent-fg: #ffffff;
+  /* See the prefers-color-scheme: dark block: dark accent-fg clears WCAG AA. */
+  --chat-accent-fg: #0b1220;
   --chat-border: #1f2937;
   --chat-error: #f87171;
   --chat-success: #4ade80;
@@ -74,6 +80,18 @@
   color: var(--chat-fg);
   font-family: var(--chat-font-family);
   cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+/* Subtle, theme-aware hover/active affordance: tint the surface toward the
+   foreground so it reads in both light and dark themes without new tokens. */
+.chat-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--chat-fg) 8%, var(--chat-bg));
+  border-color: color-mix(in srgb, var(--chat-fg) 24%, var(--chat-border));
+}
+
+.chat-button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--chat-fg) 16%, var(--chat-bg));
 }
 
 .chat-button:disabled {
@@ -121,6 +139,15 @@
   padding: calc(var(--chat-gap) / 2) var(--chat-gap);
   cursor: pointer;
   list-style: none;
+  transition: background-color 0.12s ease;
+}
+
+.chat-collapsible-header:hover {
+  background: color-mix(in srgb, var(--chat-fg) 8%, var(--chat-bg));
+}
+
+.chat-collapsible-header:active {
+  background: color-mix(in srgb, var(--chat-fg) 16%, var(--chat-bg));
 }
 
 .chat-collapsible-header::-webkit-details-marker {
@@ -174,6 +201,16 @@
   background: var(--chat-bg);
   color: var(--chat-fg);
   cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.chat-copybutton:hover {
+  background: color-mix(in srgb, var(--chat-fg) 8%, var(--chat-bg));
+  border-color: color-mix(in srgb, var(--chat-fg) 24%, var(--chat-border));
+}
+
+.chat-copybutton:active {
+  background: color-mix(in srgb, var(--chat-fg) 16%, var(--chat-bg));
 }
 
 .chat-copybutton[data-copied="true"] {
@@ -187,4 +224,27 @@
 
 .chat-md-link {
   color: var(--chat-accent);
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.15em;
+  transition: text-decoration-color 0.12s ease, color 0.12s ease;
+}
+
+.chat-md-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.chat-md-link:active {
+  color: color-mix(in srgb, var(--chat-fg) 30%, var(--chat-accent));
+}
+
+/* Reduced-motion: drop all transitions on interactive primitives so state
+   changes apply instantly (hover/active affordances remain). */
+@media (prefers-reduced-motion: reduce) {
+  .chat-button,
+  .chat-collapsible-header,
+  .chat-copybutton,
+  .chat-md-link {
+    transition: none;
+  }
 }
