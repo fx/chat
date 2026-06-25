@@ -54,7 +54,7 @@ changes:
     path: changes/0004-message-rendering.md
     description: Message log, block renderers, streaming hooks, grouping, affordances
     spec: message-rendering
-    status: draft
+    status: complete
     depends_on: ["0002", "0003"]
   - id: "0005"
     name: input-composer

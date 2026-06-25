@@ -9,7 +9,7 @@ grouping registry with the grouped renderer, the message footer affordances (cop
 regenerate/fork/reset), and the scroll-to-message utility.
 
 **Spec:** [message-rendering](../specs/message-rendering/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0002, 0003
 
 ## Motivation
@@ -110,16 +110,16 @@ in the rule.
 
 ## Tasks
 
-- [ ] Implement `MessageLog` + `MessageItem` with `data-message-id` anchor and streaming props
-- [ ] Implement `CollapsibleRow` substrate (affordance precedence, auto-hide, controlled/uncontrolled)
-- [ ] Implement block renderers (text, reasoning, tool_call w/ media + error, status, system,
+- [x] Implement `MessageLog` + `MessageItem` with `data-message-id` anchor and streaming props
+- [x] Implement `CollapsibleRow` substrate (affordance precedence, auto-hide, controlled/uncontrolled)
+- [x] Implement block renderers (text, reasoning, tool_call w/ media + error, status, system,
       raw-json) over the registry
-- [ ] Implement timing hooks (`useElapsedTimer`, `useFlashComplete`, `useLiveTokensPerSecond`)
+- [x] Implement timing hooks (`useElapsedTimer`, `useFlashComplete`, `useLiveTokensPerSecond`)
       with fake-timer tests + reasoning-duration formatter
-- [ ] Implement `getTimelineBehavior` registry + pure grouping pass + `BlockGroup` renderer with
+- [x] Implement `getTimelineBehavior` registry + pure grouping pass + `BlockGroup` renderer with
       header-summary + `+N`
-- [ ] Implement `MessageFooter` affordances (copy + optional regenerate/fork/reset, compact mode)
-- [ ] Implement `scrollToMessage` utility and a cross-registry agnosticism render test
+- [x] Implement `MessageFooter` affordances (copy + optional regenerate/fork/reset, compact mode)
+- [x] Implement `scrollToMessage` utility and a cross-registry agnosticism render test
 
 ## Open Questions
 
