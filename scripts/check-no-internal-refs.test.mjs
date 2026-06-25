@@ -87,6 +87,14 @@ describe('scanForInternalRefs', () => {
     expect(v[0].line).toBe(2)
   })
 
+  it('scans extensionless root dotfiles', () => {
+    writeFileSync(join(root, '.npmrc'), 'see fx/ai\n')
+    const v = scanForInternalRefs(root, [])
+    expect(v).toHaveLength(1)
+    expect(v[0].file).toBe('.npmrc')
+    expect(v[0].line).toBe(1)
+  })
+
   it('ignores non-scannable root files and missing roots', () => {
     writeFileSync(join(root, 'LICENSE'), 'fx/ai\n')
     expect(scanForInternalRefs(root, [])).toEqual([])

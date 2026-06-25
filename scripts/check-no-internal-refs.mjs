@@ -84,6 +84,15 @@ export function collectFiles(dir) {
   return files
 }
 
+/**
+ * True for files that should be scanned at the repo root: any file with a
+ * scannable extension, plus extensionless dotfiles (e.g. `.gitignore`,
+ * `.npmrc`) which can leak internal registry hosts or aliases.
+ */
+export function isScannableRootFile(name) {
+  return SCAN_EXTENSIONS.has(extname(name)) || /^\.[^.]+$/.test(name)
+}
+
 /** Collect scannable files directly in `dir` (non-recursive), skipping symlinks. */
 export function collectRootFiles(dir) {
   const files = []
@@ -95,7 +104,7 @@ export function collectRootFiles(dir) {
   }
   for (const entry of entries) {
     if (entry.isSymbolicLink() || !entry.isFile()) continue
-    if (SCAN_EXTENSIONS.has(extname(entry.name))) {
+    if (isScannableRootFile(entry.name)) {
       files.push(join(dir, entry.name))
     }
   }

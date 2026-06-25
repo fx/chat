@@ -8,7 +8,7 @@
     "emitDeclarationOnly": true,
     "declaration": true,
     "tsBuildInfoFile": "dist/.tsbuildinfo",
-    "types": ["node"]
+    "types": []
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "dist"]
