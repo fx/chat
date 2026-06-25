@@ -60,18 +60,27 @@ export const FORBIDDEN_PATTERNS = [
 ]
 
 /**
+ * Read a directory's entries. A missing directory (ENOENT) yields `[]` — that's
+ * an expected, benign case (an optional scan root may not exist). Any other
+ * error (permissions, I/O) is rethrown so a broken scan fails loudly instead of
+ * silently reporting the repo clean.
+ */
+export function readDirSafe(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return []
+    throw err
+  }
+}
+
+/**
  * Recursively collect scannable files under `dir`. Symlinks are skipped so the
  * walk can never escape the repo or recurse infinitely.
  */
 export function collectFiles(dir) {
   const files = []
-  let entries
-  try {
-    entries = readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return files
-  }
-  for (const entry of entries) {
+  for (const entry of readDirSafe(dir)) {
     if (entry.isSymbolicLink()) continue
     const full = join(dir, entry.name)
     if (entry.isDirectory()) {
@@ -96,13 +105,7 @@ export function isScannableRootFile(name) {
 /** Collect scannable files directly in `dir` (non-recursive), skipping symlinks. */
 export function collectRootFiles(dir) {
   const files = []
-  let entries
-  try {
-    entries = readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return files
-  }
-  for (const entry of entries) {
+  for (const entry of readDirSafe(dir)) {
     if (entry.isSymbolicLink() || !entry.isFile()) continue
     if (isScannableRootFile(entry.name)) {
       files.push(join(dir, entry.name))
@@ -140,21 +143,34 @@ export function scanForInternalRefs(root = repoRoot, dirs = SCAN_DIRS, scanRootF
   return violations
 }
 
-function main() {
-  const violations = scanForInternalRefs()
+/**
+ * Run the check against `root` and report. Returns the process exit code
+ * (0 clean, 1 violations) instead of calling `process.exit`, so it is testable.
+ * @param {string} [root]
+ * @param {{ error: (msg: string) => void, log: (msg: string) => void }} [io]
+ */
+export function runCheck(root = repoRoot, io = console) {
+  const violations = scanForInternalRefs(root)
   if (violations.length > 0) {
-    console.error('Found forbidden internal references:\n')
+    io.error('Found forbidden internal references:\n')
     for (const v of violations) {
-      console.error(`  ${v.file}:${v.line} [${v.label}] ${v.text}`)
+      io.error(`  ${v.file}:${v.line} [${v.label}] ${v.text}`)
     }
-    console.error(`\n${violations.length} violation(s). This is an open-source repository.`)
-    process.exit(1)
+    io.error(`\n${violations.length} violation(s). This is an open-source repository.`)
+    return 1
   }
-  console.log('No internal references found.')
+  io.log('No internal references found.')
+  return 0
 }
 
-// Run main() only when invoked directly (not when imported by tests). Compare
-// normalized filesystem paths rather than raw file:// strings for portability.
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  main()
+/** True when this module is the process entry point (invoked directly). */
+export function isMainModule(metaUrl = import.meta.url, argv1 = process.argv[1]) {
+  // Compare normalized filesystem paths rather than raw file:// strings.
+  return Boolean(argv1) && fileURLToPath(metaUrl) === resolve(argv1)
 }
+
+/* c8 ignore start -- entry-point side effect; logic is covered via runCheck/isMainModule */
+if (isMainModule()) {
+  process.exit(runCheck())
+}
+/* c8 ignore stop */

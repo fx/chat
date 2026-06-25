@@ -1,11 +1,16 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   FORBIDDEN_PATTERNS,
   SCAN_DIRS,
   collectFiles,
+  isMainModule,
+  isScannableRootFile,
+  readDirSafe,
+  runCheck,
   scanForInternalRefs,
 } from './check-no-internal-refs.mjs'
 
@@ -115,5 +120,69 @@ describe('scanForInternalRefs', () => {
     // files). The file's dir is `scripts/`, so the repo root is one level up.
     const repoRoot = join(import.meta.dirname, '..')
     expect(scanForInternalRefs(repoRoot)).toEqual([])
+  })
+})
+
+describe('isScannableRootFile', () => {
+  it('accepts files with scannable extensions and extensionless dotfiles', () => {
+    expect(isScannableRootFile('package.json')).toBe(true)
+    expect(isScannableRootFile('.gitignore')).toBe(true)
+    expect(isScannableRootFile('.npmrc')).toBe(true)
+  })
+
+  it('rejects unscannable files and dotted directories-as-names', () => {
+    expect(isScannableRootFile('LICENSE')).toBe(false)
+    expect(isScannableRootFile('binary.bin')).toBe(false)
+    expect(isScannableRootFile('.config.local')).toBe(false)
+  })
+})
+
+describe('readDirSafe', () => {
+  it('returns entries for a real directory', () => {
+    const entries = readDirSafe(root)
+    expect(Array.isArray(entries)).toBe(true)
+  })
+
+  it('returns an empty list for a missing directory (ENOENT)', () => {
+    expect(readDirSafe(join(root, 'nope'))).toEqual([])
+  })
+
+  it('rethrows non-ENOENT errors', () => {
+    // A path that exists but is a file, not a directory, throws ENOTDIR.
+    const file = join(root, 'a-file.ts')
+    writeFileSync(file, 'x\n')
+    expect(() => readDirSafe(file)).toThrow()
+  })
+})
+
+describe('runCheck', () => {
+  it('returns 0 and logs success on a clean tree', () => {
+    const logs = []
+    const errors = []
+    const code = runCheck(root, { log: (m) => logs.push(m), error: (m) => errors.push(m) })
+    expect(code).toBe(0)
+    expect(logs.join('\n')).toContain('No internal references found')
+    expect(errors).toEqual([])
+  })
+
+  it('returns 1 and reports each violation', () => {
+    writeFileSync(join(root, 'packages', 'chat', 'src', 'leak.ts'), 'fx/ai\n')
+    const errors = []
+    const code = runCheck(root, { log: () => {}, error: (m) => errors.push(m) })
+    expect(code).toBe(1)
+    expect(errors.join('\n')).toContain('leak.ts')
+    expect(errors.join('\n')).toContain('violation(s)')
+  })
+})
+
+describe('isMainModule', () => {
+  it('is true when argv1 resolves to the module url', () => {
+    const url = import.meta.url
+    expect(isMainModule(url, fileURLToPath(url))).toBe(true)
+  })
+
+  it('is false for a different entry point or no argv', () => {
+    expect(isMainModule(import.meta.url, '/some/other/file.mjs')).toBe(false)
+    expect(isMainModule(import.meta.url, undefined)).toBe(false)
   })
 })
