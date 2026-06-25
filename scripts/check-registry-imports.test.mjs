@@ -172,18 +172,28 @@ describe('scanForForbiddenImports', () => {
     writeFileSync(join(root, ...RENDER_DIR, 'sfx.tsx'), "import 'lucide-react'\n")
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
-    expect(v[0].label).toContain('side-effect/require')
+    expect(v[0].label).toContain('ui-kit')
   })
 
   it('flags a CommonJS require of a forbidden package', () => {
     writeFileSync(join(root, ...INPUT_DIR, 'req.tsx'), "const md = require('react-markdown')\n")
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
-    expect(v[0].label).toContain('side-effect/require')
+    expect(v[0].label).toContain('ui-kit')
+  })
+
+  it('flags a dynamic import() of a forbidden package', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'dynpkg.tsx'),
+      "const i = await import('lucide-react')\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('ui-kit')
   })
 
   it('exposes the forbidden pattern set', () => {
-    expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(5)
+    expect(FORBIDDEN_PATTERNS.length).toBeGreaterThanOrEqual(4)
   })
 
   it('keeps the real repository clean', () => {

@@ -68,15 +68,11 @@ export const FORBIDDEN_PATTERNS = [
     re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/g,
   },
   {
+    // Every reference form (static `from`, static side-effect `import '…'`,
+    // dynamic `import('…')`, CommonJS `require('…')`) of any forbidden UI-kit /
+    // icon-set / markdown-engine family.
     label: 'ui-kit / icon-set / markdown-engine import',
-    re: /from\s+['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
-  },
-  {
-    // Side-effect-only (`import 'lucide-react'`) and CommonJS
-    // (`require('react-markdown')`) forms of the same forbidden families, which
-    // the `from`-based patterns above do not see.
-    label: 'ui-kit / icon-set / markdown-engine side-effect/require import',
-    re: /(?:import\s+|require\s*\(\s*)['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
+    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*|import\s+)['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
   },
 ]
 
