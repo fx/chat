@@ -1,0 +1,72 @@
+# Documentation Index
+# Machine-readable index of specs and change documents.
+
+specs:
+  - name: architecture
+    path: specs/architecture/
+    description: Project-level concerns — identity, layout, build, distribution, CI, testing conventions
+    status: active
+  - name: component-registry
+    path: specs/component-registry/
+    description: Design-system-agnostic injection contract — provider, primitives, icons, markdown slot, theme tokens
+    status: active
+  - name: demos
+    path: specs/demos/
+    description: Static three-registry GitHub Pages demo proving design-system agnosticism
+    status: active
+  - name: input-composer
+    path: specs/input-composer/
+    description: Headless message composer, completion-provider contract, completion popup, mentions
+    status: active
+  - name: message-model
+    path: specs/message-model/
+    description: Normalized transport-agnostic message/content-block model and codec
+    status: active
+  - name: message-rendering
+    path: specs/message-rendering/
+    description: Message log, block renderers, streaming/timing hooks, auxiliary-block grouping, affordances
+    status: active
+
+changes:
+  - id: "0001"
+    name: bootstrap-monorepo
+    path: changes/0001-bootstrap-monorepo.md
+    description: Monorepo skeleton, build pipelines, tooling, CI, and GitHub Pages deploy
+    spec: architecture
+    status: draft
+    depends_on: []
+  - id: "0002"
+    name: message-model
+    path: changes/0002-message-model.md
+    description: Normalized message model types and pure codec
+    spec: message-model
+    status: draft
+    depends_on: ["0001"]
+  - id: "0003"
+    name: component-registry
+    path: changes/0003-component-registry.md
+    description: ChatProvider, registry contract, headless defaults, theme tokens
+    spec: component-registry
+    status: draft
+    depends_on: ["0001"]
+  - id: "0004"
+    name: message-rendering
+    path: changes/0004-message-rendering.md
+    description: Message log, block renderers, streaming hooks, grouping, affordances
+    spec: message-rendering
+    status: draft
+    depends_on: ["0002", "0003"]
+  - id: "0005"
+    name: input-composer
+    path: changes/0005-input-composer.md
+    description: Headless composer, completion providers, completion popup, mentions
+    spec: input-composer
+    status: draft
+    depends_on: ["0002", "0003"]
+  - id: "0006"
+    name: demos
+    path: changes/0006-demos.md
+    description: Three-registry static demo on GitHub Pages
+    spec: demos
+    status: draft
+    depends_on: ["0004", "0005"]
