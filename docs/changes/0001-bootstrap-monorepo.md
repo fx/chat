@@ -8,7 +8,7 @@ CI with a GitHub Pages deploy. No chat features yet — this establishes the gro
 changes build on.
 
 **Spec:** [architecture](../specs/architecture/)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -94,20 +94,22 @@ in the rule.
 
 ## Tasks
 
-- [ ] Initialize workspace monorepo, lockfile, `packages/chat` package manifest with `exports`
+- [x] Initialize workspace monorepo, lockfile, `packages/chat` package manifest with `exports`
       map and React peerDeps
-- [ ] Configure strict TypeScript, linter/formatter, and test runner (fake timers enabled)
-- [ ] Configure library build (`tsdown`/`tsup`) emitting ESM + `.d.ts`; add placeholder entry
+- [x] Configure strict TypeScript, linter/formatter, and test runner (fake timers enabled)
+- [x] Configure library build (`tsdown`/`tsup`) emitting ESM + `.d.ts`; add placeholder entry
       points (`.`, `./headless`, `./styles.css`) with a smoke test
-- [ ] Configure Vite demo skeleton with base-path-aware config (full demo in 0006)
-- [ ] Add `ci.yml` (type-check, lint, test+coverage threshold, lib build, demo build) and
+- [x] Configure Vite demo skeleton with base-path-aware config (full demo in 0006)
+- [x] Add `ci.yml` (type-check, lint, test+coverage threshold, lib build, demo build) and
       `pages.yml` (deploy on default branch)
-- [ ] Add automated "no private-application references" check over source + demos
+- [x] Add automated "no private-application references" check over source + demos
 
 ## Open Questions
 
-- [ ] Package manager / workspace tool — pnpm vs bun vs npm workspaces
-- [ ] Coverage threshold value to enforce in CI
+- [x] Package manager / workspace tool — **Resolved: Bun workspaces** (single lockfile,
+      `workspaces: ["packages/*", "demos/*"]`).
+- [x] Coverage threshold value to enforce in CI — **Resolved: 100%** (lines, branches,
+      functions, statements) scoped to `packages/chat/src` and the repo `scripts/`.
 
 ## References
 

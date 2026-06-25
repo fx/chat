@@ -33,7 +33,7 @@ changes:
     path: changes/0001-bootstrap-monorepo.md
     description: Monorepo skeleton, build pipelines, tooling, CI, and GitHub Pages deploy
     spec: architecture
-    status: draft
+    status: complete
     depends_on: []
   - id: "0002"
     name: message-model
