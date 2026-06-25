@@ -104,6 +104,23 @@ describe('ChatProvider', () => {
   })
 })
 
+describe('icon overrides reach the built-in headless primitives', () => {
+  it('Collapsible and CopyButton resolve their icons from the effective registry', () => {
+    const Caret = (_p: IconProps) => <i data-icon="caret" />
+    const CopyIcon = (_p: IconProps) => <i data-icon="copy" />
+    render(
+      <ChatProvider components={{ icons: { caretRight: Caret, copy: CopyIcon } }}>
+        <headlessComponents.Collapsible header="h">body</headlessComponents.Collapsible>
+        <headlessComponents.CopyButton value="v" />
+      </ChatProvider>,
+    )
+    // The overridden caret (closed → caretRight) and copy icon render, proving
+    // icon-only overrides flow into the default primitives.
+    expect(document.querySelector('[data-icon="caret"]')).toBeTruthy()
+    expect(document.querySelector('[data-icon="copy"]')).toBeTruthy()
+  })
+})
+
 describe('mergeRegistry', () => {
   it('returns the inherited registry unchanged when no components are supplied', () => {
     const merged = mergeRegistry(headlessComponents, undefined)

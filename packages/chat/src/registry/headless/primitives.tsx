@@ -7,6 +7,7 @@
  * no `window`/`document` access at module scope or during render).
  */
 import { useCallback, useState } from 'react'
+import { useChatComponents } from '../context'
 import type {
   AvatarProps,
   BadgeProps,
@@ -18,7 +19,6 @@ import type {
   ScrollAreaProps,
   TooltipProps,
 } from '../contract'
-import { headlessIcons } from './icons'
 
 /** Joins truthy class-name parts with a single space. */
 function classes(...parts: Array<string | false | null | undefined>): string {
@@ -85,6 +85,7 @@ export function Collapsible({
   const controlled = open !== undefined
   const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false)
   const isOpen = controlled ? open : internalOpen
+  const { icons } = useChatComponents()
 
   const handleToggle = useCallback(
     (event: React.SyntheticEvent<HTMLDetailsElement>) => {
@@ -95,7 +96,7 @@ export function Collapsible({
     [controlled, onOpenChange],
   )
 
-  const Caret = isOpen ? headlessIcons.caretDown : headlessIcons.caretRight
+  const Caret = isOpen ? icons.caretDown : icons.caretRight
   return (
     <details
       className={classes('chat-collapsible', className)}
@@ -157,7 +158,8 @@ export function Avatar({ role, className }: AvatarProps) {
  */
 export function CopyButton({ value, className, 'aria-label': ariaLabel }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
-  const Icon = copied ? headlessIcons.check : headlessIcons.copy
+  const { icons } = useChatComponents()
+  const Icon = copied ? icons.check : icons.copy
 
   const handleClick = useCallback(() => {
     const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
