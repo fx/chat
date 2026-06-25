@@ -16,6 +16,8 @@
  */
 export const version = '0.0.0'
 
+export * from './model'
+
 /**
  * A `clsx`-style class-name joiner. Accepts strings, falsy values, and nested
  * arrays; ignores anything falsy; joins the rest with a single space.

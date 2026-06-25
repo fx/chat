@@ -19,7 +19,6 @@ export type {
   JsonViewProps,
   MarkdownProps,
   PartialChatComponents,
-  Role,
   ScrollAreaProps,
   TooltipProps,
 } from './contract'
