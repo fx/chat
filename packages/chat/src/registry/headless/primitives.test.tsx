@@ -125,6 +125,23 @@ describe('Collapsible', () => {
     details.open = false
     expect(() => fireEvent(details, new Event('toggle'))).not.toThrow()
   })
+
+  it('controlled: forces the DOM back to the open prop when it drifts', () => {
+    render(
+      <Collapsible open header={<span>Sync</span>}>
+        <p>B</p>
+      </Collapsible>,
+    )
+    const details = screen.getByText('Sync').closest('details') as HTMLDetailsElement
+    expect(details.open).toBe(true)
+    // Simulate the native element closing itself against the controlled prop.
+    act(() => {
+      details.open = false
+      fireEvent(details, new Event('toggle'))
+    })
+    // The sync effect must restore the DOM to match the controlled `open`.
+    expect(details.open).toBe(true)
+  })
 })
 
 describe('CodeBlock', () => {

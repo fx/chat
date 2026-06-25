@@ -90,10 +90,21 @@ export function Collapsible({
   const handleToggle = useCallback(
     (event: React.SyntheticEvent<HTMLDetailsElement>) => {
       const next = event.currentTarget.open
-      if (!controlled) setInternalOpen(next)
-      onOpenChange?.(next)
+      if (controlled) {
+        // A native `<details>` flips its own DOM `open` before `onToggle` runs.
+        // In controlled mode React will not re-write `open` when the prop is
+        // unchanged (a read-only disclosure, or a parent that rejects the
+        // change), so the DOM would drift. Notify the parent and immediately
+        // force the element back to the controlled value; if the parent did
+        // change `open`, the subsequent render reconciles it anyway.
+        onOpenChange?.(next)
+        event.currentTarget.open = open
+      } else {
+        setInternalOpen(next)
+        onOpenChange?.(next)
+      }
     },
-    [controlled, onOpenChange],
+    [controlled, onOpenChange, open],
   )
 
   const Caret = isOpen ? icons.caretDown : icons.caretRight
