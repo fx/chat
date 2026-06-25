@@ -220,6 +220,16 @@
 .chat-md {
   color: var(--chat-fg);
   font-family: var(--chat-font-family);
+  /* Mobile hardening: break long unbroken URLs/strings so prose never overflows
+     the page at narrow widths (e.g. 375px). */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.chat-md-code-inline {
+  /* Inline code can hold long unbroken tokens; allow them to wrap. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-md-link {
@@ -228,6 +238,9 @@
   text-decoration-color: transparent;
   text-underline-offset: 0.15em;
   transition: text-decoration-color 0.12s ease, color 0.12s ease;
+  /* A long bare URL as link text must not push the layout wider than the page. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-md-link:hover {
@@ -238,6 +251,142 @@
   color: color-mix(in srgb, var(--chat-fg) 30%, var(--chat-accent));
 }
 
+/* ── Render layer (change 0004) ─────────────────────────────────────────── */
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-gap);
+}
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-message-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-row-header {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--chat-gap) / 2);
+  min-width: 0;
+}
+
+.chat-row-label,
+.chat-group-summary-label {
+  /* min-width:0 lets the label shrink inside its flex row so long unbroken text
+     wraps (via the break rules below) instead of forcing horizontal overflow. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.chat-row {
+  font-family: var(--chat-font-family);
+  color: var(--chat-fg);
+}
+
+/* CollapsibleRow owns the affordance icon (spinner / check / caret / filler)
+   via .chat-row-affordance, applying the documented precedence. The headless
+   Collapsible also renders its own caret in the summary; hide that built-in
+   caret inside a chat-row so only one expand/collapse chevron shows. Hosts that
+   inject their own Collapsible without a built-in caret are unaffected. */
+.chat-row .chat-collapsible-caret {
+  display: none;
+}
+
+.chat-row-error,
+.chat-row[data-tone="error"] {
+  border-color: var(--chat-error);
+  color: var(--chat-error);
+}
+
+.chat-row-affordance {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  color: var(--chat-muted);
+}
+
+.chat-row-affordance[data-affordance="success"] {
+  color: var(--chat-success);
+}
+
+/* The active spinner rotates unless reduced motion is preferred. */
+.chat-row-affordance[data-affordance="active"] .chat-row-affordance-icon {
+  animation: chat-spin 0.8s linear infinite;
+}
+
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chat-text-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.chat-mention {
+  color: var(--chat-accent);
+  font-weight: 600;
+}
+
+.chat-tool-section {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chat-gap) / 4);
+  margin-bottom: calc(var(--chat-gap) / 2);
+}
+
+.chat-tool-section-label {
+  font-size: 0.75rem;
+  color: var(--chat-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chat-tool-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-tool-media-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--chat-radius);
+}
+
+.chat-footer {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--chat-gap) / 2);
+  flex-wrap: wrap;
+}
+
+.chat-footer-metrics {
+  font-size: 0.75rem;
+  color: var(--chat-muted);
+}
+
+.chat-group-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--chat-gap) / 2);
+  min-width: 0;
+}
+
 /* Reduced-motion: drop all transitions on interactive primitives so state
    changes apply instantly (hover/active affordances remain). */
 @media (prefers-reduced-motion: reduce) {
@@ -246,5 +395,10 @@
   .chat-copybutton,
   .chat-md-link {
     transition: none;
+  }
+
+  /* Honor reduced-motion for the render layer's spinner. */
+  .chat-row-affordance[data-affordance="active"] .chat-row-affordance-icon {
+    animation: none;
   }
 }
