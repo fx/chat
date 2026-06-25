@@ -87,16 +87,16 @@ export function Collapsible({
   const isOpen = controlled ? open : internalOpen
   const { icons } = useChatComponents()
   const ref = useRef<HTMLDetailsElement>(null)
-  // Bumped on every native toggle in controlled mode to force a render (and
-  // thus the sync effect below) even when the controlled `open` value is
-  // unchanged by the parent.
+  // Bumped on every user toggle in controlled mode to force a render (and thus
+  // the sync effect below) even when the controlled `open` value is unchanged
+  // by the parent.
   const [, forceRender] = useState(0)
 
   // A native `<details>` flips its own DOM `open` before `onToggle` runs, and
   // React won't re-write `open` when the prop is unchanged (a read-only
   // disclosure, or a parent that rejects the change). After every render in
   // controlled mode, force the DOM back to the authoritative `open` so it never
-  // drifts. Writing only when it diverges avoids emitting a redundant toggle.
+  // drifts.
   useEffect(() => {
     const el = ref.current
     if (controlled && el && el.open !== open) {
@@ -108,16 +108,21 @@ export function Collapsible({
     (event: React.SyntheticEvent<HTMLDetailsElement>) => {
       const next = event.currentTarget.open
       if (controlled) {
-        // Report the intent once; never mutate the DOM here (that would emit a
-        // second toggle). The effect reconciles the DOM to the resulting `open`.
-        onOpenChange?.(next)
-        forceRender((n) => n + 1)
+        // The reconciliation write (`el.open = open` in the effect) also emits a
+        // native toggle; when it fires, `next === open` (the DOM now matches the
+        // authoritative value), so we report nothing — only a genuine user
+        // change (`next !== open`) is forwarded. This avoids a duplicate
+        // `onOpenChange` and is correct regardless of when the toggle fires.
+        if (next !== open) {
+          onOpenChange?.(next)
+          forceRender((n) => n + 1)
+        }
       } else {
         setInternalOpen(next)
         onOpenChange?.(next)
       }
     },
-    [controlled, onOpenChange],
+    [controlled, onOpenChange, open],
   )
 
   const Caret = isOpen ? icons.caretDown : icons.caretRight

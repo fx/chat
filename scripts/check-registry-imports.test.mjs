@@ -90,6 +90,23 @@ describe('scanForForbiddenImports', () => {
     expect(v[0].label).toContain('relative headless barrel')
   })
 
+  it('flags a dynamic import() of the headless registry', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'dyn.tsx'),
+      "const m = await import('../registry/headless')\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('direct headless')
+  })
+
+  it('flags a CommonJS require() of the relative headless barrel', () => {
+    writeFileSync(join(root, ...INPUT_DIR, 'cjs.tsx'), "const h = require('../../headless')\n")
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('relative headless barrel')
+  })
+
   it('flags a UI-kit / icon-set / markdown-engine import', () => {
     writeFileSync(join(root, ...RENDER_DIR, 'e.tsx'), "import { Check } from 'lucide-react'\n")
     writeFileSync(join(root, ...INPUT_DIR, 'f.tsx'), "import md from 'react-markdown'\n")

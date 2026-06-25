@@ -47,22 +47,25 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.vite'])
  * a multiline `import { … } from\n  '…'` is still caught. `\s` spans newlines,
  * and the `g` flag lets the scanner collect every occurrence and attribute it
  * to a line via the match offset.
+ *
+ * The headless patterns accept every reference form a guarded module could use:
+ * a static `from '…'`, a dynamic `import('…')`, and a CommonJS `require('…')`.
  */
 export const FORBIDDEN_PATTERNS = [
   {
     label: 'direct headless primitive/icon import',
-    re: /from\s+['"][^'"]*\/registry\/headless(?:\/[^'"]*)?['"]/g,
+    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*\/registry\/headless(?:\/[^'"]*)?['"]/g,
   },
   {
     label: 'direct headless entry import',
-    re: /from\s+['"]@fx\/chat\/headless['"]/g,
+    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"]@fx\/chat\/headless['"]/g,
   },
   {
     // The in-package headless barrel (`packages/chat/src/headless.ts`) reached
     // via a relative path, e.g. `../headless` or `../../headless` — the most
     // likely in-package bypass form.
     label: 'relative headless barrel import',
-    re: /from\s+['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/g,
+    re: /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/g,
   },
   {
     label: 'ui-kit / icon-set / markdown-engine import',

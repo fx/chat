@@ -170,6 +170,30 @@ describe('Collapsible', () => {
     // The sync effect must restore the DOM to match the controlled `open`.
     expect(details.open).toBe(true)
   })
+
+  it('controlled read-only (rejecting parent): reports the user change once, no echo', () => {
+    const onOpenChange = vi.fn()
+    // `open` is pinned to false (parent rejects every change).
+    render(
+      <Collapsible open={false} onOpenChange={onOpenChange} header={<span>RO</span>}>
+        <p>B</p>
+      </Collapsible>,
+    )
+    const details = screen.getByText('RO').closest('details') as HTMLDetailsElement
+    act(() => {
+      details.open = true
+      fireEvent(details, new Event('toggle'))
+    })
+    // The DOM is reconciled back to the pinned value...
+    expect(details.open).toBe(false)
+    // The reconciliation echo (next === open) must NOT produce a second call.
+    act(() => {
+      // Simulate the native toggle emitted by the effect's reconciliation write.
+      fireEvent(details, new Event('toggle'))
+    })
+    expect(onOpenChange).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+  })
 })
 
 describe('CodeBlock', () => {
