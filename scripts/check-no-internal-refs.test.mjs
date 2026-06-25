@@ -1,7 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   FORBIDDEN_PATTERNS,
@@ -118,7 +120,7 @@ describe('scanForInternalRefs', () => {
   it('actually keeps this repository clean', () => {
     // Run against the real repo root with the production defaults (dirs + root
     // files). The file's dir is `scripts/`, so the repo root is one level up.
-    const repoRoot = join(import.meta.dirname, '..')
+    const repoRoot = join(__dirname, '..')
     expect(scanForInternalRefs(repoRoot)).toEqual([])
   })
 })
