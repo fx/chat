@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -124,6 +125,33 @@ describe('Collapsible', () => {
     const details = screen.getByText('NoCb').closest('details') as HTMLDetailsElement
     details.open = false
     expect(() => fireEvent(details, new Event('toggle'))).not.toThrow()
+  })
+
+  it('controlled with the onOpenChange={setOpen} pattern stays stable after a toggle', () => {
+    function Controlled() {
+      const [open, setOpen] = useState(false)
+      return (
+        <Collapsible open={open} onOpenChange={setOpen} header={<span>Std</span>}>
+          <p>B</p>
+        </Collapsible>
+      )
+    }
+    render(<Controlled />)
+    const details = screen.getByText('Std').closest('details') as HTMLDetailsElement
+    expect(details.open).toBe(false)
+    // User opens it: the native toggle drives onOpenChange -> setOpen(true).
+    act(() => {
+      details.open = true
+      fireEvent(details, new Event('toggle'))
+    })
+    // The disclosure settles open and is NOT immediately undone.
+    expect(details.open).toBe(true)
+    // And it can be closed again the same way.
+    act(() => {
+      details.open = false
+      fireEvent(details, new Event('toggle'))
+    })
+    expect(details.open).toBe(false)
   })
 
   it('controlled: forces the DOM back to the open prop when it drifts', () => {

@@ -6,7 +6,7 @@
  * third-party UI kit is referenced. All components are SSR-safe (pure render,
  * no `window`/`document` access at module scope or during render).
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useChatComponents } from '../context'
 import type {
   AvatarProps,
@@ -86,30 +86,44 @@ export function Collapsible({
   const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false)
   const isOpen = controlled ? open : internalOpen
   const { icons } = useChatComponents()
+  const ref = useRef<HTMLDetailsElement>(null)
+  // Bumped on every native toggle in controlled mode to force a render (and
+  // thus the sync effect below) even when the controlled `open` value is
+  // unchanged by the parent.
+  const [, forceRender] = useState(0)
+
+  // A native `<details>` flips its own DOM `open` before `onToggle` runs, and
+  // React won't re-write `open` when the prop is unchanged (a read-only
+  // disclosure, or a parent that rejects the change). After every render in
+  // controlled mode, force the DOM back to the authoritative `open` so it never
+  // drifts. Writing only when it diverges avoids emitting a redundant toggle.
+  useEffect(() => {
+    const el = ref.current
+    if (controlled && el && el.open !== open) {
+      el.open = open
+    }
+  })
 
   const handleToggle = useCallback(
     (event: React.SyntheticEvent<HTMLDetailsElement>) => {
       const next = event.currentTarget.open
       if (controlled) {
-        // A native `<details>` flips its own DOM `open` before `onToggle` runs.
-        // In controlled mode React will not re-write `open` when the prop is
-        // unchanged (a read-only disclosure, or a parent that rejects the
-        // change), so the DOM would drift. Notify the parent and immediately
-        // force the element back to the controlled value; if the parent did
-        // change `open`, the subsequent render reconciles it anyway.
+        // Report the intent once; never mutate the DOM here (that would emit a
+        // second toggle). The effect reconciles the DOM to the resulting `open`.
         onOpenChange?.(next)
-        event.currentTarget.open = open
+        forceRender((n) => n + 1)
       } else {
         setInternalOpen(next)
         onOpenChange?.(next)
       }
     },
-    [controlled, onOpenChange, open],
+    [controlled, onOpenChange],
   )
 
   const Caret = isOpen ? icons.caretDown : icons.caretRight
   return (
     <details
+      ref={ref}
       className={classes('chat-collapsible', className)}
       open={isOpen}
       onToggle={handleToggle}
