@@ -235,10 +235,17 @@ function resolveMapping(mapping?: NormalizeMapping): Required<NormalizeMapping> 
  * Blocks are emitted in the order `[reasoning?, text?, tool_call…]`. Tool
  * arguments/results are parsed (multiply-encoded strings unwrapped) and each
  * tool call carries an explicit status. This single-message normalizer cannot
- * fold separate tool-role messages — use {@link normalizeTranscript} for that.
+ * fold a tool-role message into a *separate* assistant message — use
+ * {@link normalizeTranscript} for that — but a lone `role:'tool'` message is
+ * never dropped: its `result`/`status` are preserved on a synthesized
+ * `tool_call` block (the single-message analog of the transcript normalizer's
+ * unmatched-result preservation).
  */
 export function normalizeMessage(input: HostMessage, mapping?: NormalizeMapping): ChatMessage {
   const resolved = resolveMapping(mapping)
+  if (isToolRoleMessage(input)) {
+    return synthesizeUnmatchedToolCall(input, resolved).message
+  }
   const role = normalizeRole(input.role)
   const blocks: ContentBlock[] = []
   const messageId = input.id ?? resolved.generateId('message')
@@ -257,7 +264,7 @@ export function normalizeMessage(input: HostMessage, mapping?: NormalizeMapping)
 
   if (typeof input.content === 'string' && input.content.length > 0) {
     if (role === 'system') {
-      blocks.push({ type: 'system', id: `${messageId}:text`, text: input.content })
+      blocks.push({ type: 'system', id: `${messageId}:system`, text: input.content })
     } else {
       blocks.push({
         type: 'text',
@@ -329,6 +336,14 @@ function applyToolResult(
  * are NOT emitted as their own `ChatMessage`. A tool result with no matching
  * prior tool call is preserved by synthesizing a tool_call block on a new
  * assistant message rather than being dropped.
+ *
+ * Folding is **proximity-scoped**, not keyed by a global id map: each tool-role
+ * result is matched to the NEAREST PRECEDING tool_call with the same id that
+ * does NOT yet carry a result. Because `ToolCallBlock.id` is only unique within
+ * its owning message (not across the transcript), a global id map could
+ * mis-fold a result into a duplicate-id call in an unrelated earlier message.
+ * Scanning the most-recent unfilled call backwards removes that
+ * cross-transcript-uniqueness assumption.
  */
 export function normalizeTranscript(
   inputs: HostMessage[],
@@ -336,9 +351,10 @@ export function normalizeTranscript(
 ): ChatMessage[] {
   const resolved = resolveMapping(mapping)
   const output: ChatMessage[] = []
-  // Index every emitted tool_call block by id so later tool-role messages can
-  // be folded back into the originating assistant message.
-  const toolCallIndex = new Map<string, ToolCallBlock>()
+  // Ordered list of every emitted tool_call block that has not yet had a result
+  // folded into it, in emission order. A tool-role result is matched against the
+  // nearest preceding (most-recent) unfilled entry with the same id.
+  const unfilled: ToolCallBlock[] = []
 
   for (const [position, input] of inputs.entries()) {
     // Scope fallback ids by transcript position so multiple id-less messages
@@ -346,28 +362,50 @@ export function normalizeTranscript(
     const positioned = positionScopedMapping(resolved, position)
 
     if (isToolRoleMessage(input)) {
-      const target =
-        input.toolCallId !== undefined ? toolCallIndex.get(input.toolCallId) : undefined
+      const target = takeNearestUnfilled(unfilled, input.toolCallId)
       if (target) {
         applyToolResult(target, input, resolved)
       } else {
         // Unmatched result: preserve it on a synthesized tool_call block rather
-        // than dropping it.
+        // than dropping it. Only a synthesized block still awaiting a result
+        // stays eligible (so a later tool-role message can complete it); one that
+        // already carries a result is complete and must NOT be overwritten — a
+        // later same-id orphan is preserved at its own position instead.
         const synthesized = synthesizeUnmatchedToolCall(input, positioned)
         output.push(synthesized.message)
-        toolCallIndex.set(synthesized.block.id, synthesized.block)
+        if (synthesized.block.result === undefined) unfilled.push(synthesized.block)
       }
       continue
     }
 
     const message = normalizeMessage(input, positioned)
     for (const block of message.blocks) {
-      if (block.type === 'tool_call') toolCallIndex.set(block.id, block)
+      // Only calls still awaiting a result are foldable; one whose result was
+      // already inlined on the host call is complete and must not be overwritten.
+      if (block.type === 'tool_call' && block.result === undefined) unfilled.push(block)
     }
     output.push(message)
   }
 
   return output
+}
+
+/**
+ * Remove and return the nearest preceding (most-recent) unfilled tool_call
+ * block whose id matches `id`, or `undefined` when none matches (including when
+ * `id` itself is absent). Searching from the end implements most-recent-unfilled
+ * proximity scoping; removing the match prevents a later result from re-folding
+ * into an already-filled call.
+ */
+function takeNearestUnfilled(
+  unfilled: ToolCallBlock[],
+  id: string | undefined,
+): ToolCallBlock | undefined {
+  if (id === undefined) return undefined
+  for (let i = unfilled.length - 1; i >= 0; i--) {
+    if (unfilled[i]?.id === id) return unfilled.splice(i, 1)[0]
+  }
+  return undefined
 }
 
 /**

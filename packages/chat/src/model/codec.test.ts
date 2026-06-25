@@ -166,9 +166,46 @@ describe('normalizeMessage — flat-content normalization', () => {
     expect(message.blocks.map((b) => b.type)).toEqual(['text'])
   })
 
-  it('emits a system block for a system message', () => {
+  it('emits a system block for a system message with a :system id suffix', () => {
     const message = normalizeMessage({ id: 's1', role: 'system', content: 'be nice' })
-    expect(message.blocks[0]).toMatchObject({ type: 'system', text: 'be nice' })
+    expect(message.blocks[0]).toMatchObject({ type: 'system', id: 's1:system', text: 'be nice' })
+  })
+
+  it('preserves a lone tool-role message as a synthesized tool_call (no data loss)', () => {
+    const message = normalizeMessage({
+      id: 'tr',
+      role: 'tool',
+      toolCallId: 't1',
+      result: '{"hits":3}',
+    })
+    expect(message.role).toBe('assistant')
+    expect(message.blocks).toHaveLength(1)
+    const [tool] = toolBlocks(message)
+    expect(tool).toMatchObject({
+      type: 'tool_call',
+      id: 't1',
+      name: '',
+      arguments: null,
+      result: { hits: 3 },
+      status: 'success',
+    })
+  })
+
+  it('preserves a lone tool-role message honoring an explicit status and synthesizing ids', () => {
+    const message = normalizeMessage({ role: 'tool', result: { v: 1 }, status: 'error' })
+    expect(message.id).toBe('fallback-unmatched-tool:message')
+    const [tool] = toolBlocks(message)
+    expect(tool?.id).toBe('fallback-unmatched-tool')
+    expect(tool?.status).toBe('error')
+    expect(tool?.result).toEqual({ v: 1 })
+  })
+
+  it('preserves a lone tool-role message that carries no result', () => {
+    const message = normalizeMessage({ id: 'tr0', role: 'tool', toolCallId: 'tNo' })
+    const [tool] = toolBlocks(message)
+    expect(tool?.id).toBe('tNo')
+    expect(tool && 'result' in tool).toBe(false)
+    expect(tool?.status).toBe('pending')
   })
 
   it('treats an unknown role as assistant', () => {
@@ -408,17 +445,88 @@ describe('normalizeTranscript — folding tool-role messages', () => {
     expect(tool?.status).toBe('pending')
   })
 
-  it('allows a later tool-role message to fold into an earlier synthesized unmatched call', () => {
+  it('completes a result-less synthesized orphan with a later same-id tool-role message', () => {
+    // The first orphan carries NO result, so it stays unfilled; the second
+    // same-id orphan folds into it (completing it) rather than spawning a
+    // second message.
     const inputs: HostMessage[] = [
-      { role: 'tool', toolCallId: 'tDup', result: { first: true } },
+      { role: 'tool', toolCallId: 'tDup' },
       { role: 'tool', toolCallId: 'tDup', result: { second: true }, status: 'running' },
     ]
     const out = normalizeTranscript(inputs)
-    // Only one synthesized message; the second folds into it.
     expect(out).toHaveLength(1)
     const tool = toolBlocks(out[0] as ChatMessage)[0]
     expect(tool?.result).toEqual({ second: true })
     expect(tool?.status).toBe('running')
+  })
+
+  it('preserves each of two same-id orphan results that already carry a result (no data loss)', () => {
+    // Both orphans already carry a result. A result-bearing synthesized block is
+    // complete, so the second must NOT overwrite the first — both results are
+    // preserved at their own positions.
+    const inputs: HostMessage[] = [
+      { role: 'tool', toolCallId: 'tDup', result: { first: true } },
+      { role: 'tool', toolCallId: 'tDup', result: { second: true } },
+    ]
+    const out = normalizeTranscript(inputs)
+    expect(out).toHaveLength(2)
+    expect(toolBlocks(out[0] as ChatMessage)[0]?.result).toEqual({ first: true })
+    expect(toolBlocks(out[1] as ChatMessage)[0]?.result).toEqual({ second: true })
+  })
+
+  it('proximity-scopes folding when the same tool-call id appears in multiple messages', () => {
+    // `t1` recurs across two separate assistant messages (ids are only
+    // unique-within-message). Each result must fold into its own nearest
+    // preceding unfilled call, not into the first occurrence via a global map.
+    const inputs: HostMessage[] = [
+      { id: 'a1', role: 'assistant', toolCalls: [{ id: 't1', name: 'search' }] },
+      { id: 'tr1', role: 'tool', toolCallId: 't1', result: { hits: 1 } },
+      { id: 'a2', role: 'assistant', toolCalls: [{ id: 't1', name: 'search' }] },
+      { id: 'tr2', role: 'tool', toolCallId: 't1', result: { hits: 2 } },
+    ]
+    const out = normalizeTranscript(inputs)
+
+    expect(out.map((m) => m.id)).toEqual(['a1', 'a2'])
+    expect(toolBlocks(out[0] as ChatMessage)[0]?.result).toEqual({ hits: 1 })
+    expect(toolBlocks(out[1] as ChatMessage)[0]?.result).toEqual({ hits: 2 })
+  })
+
+  it('folds the second of two same-id results into the second call when the first is already filled', () => {
+    // Both calls share id `t1` and BOTH results arrive after both calls. The
+    // first result fills the nearest unfilled (the second call); the second
+    // result then fills the remaining (first) call. Proximity scoping keeps the
+    // two results from both landing on a single globally-indexed entry.
+    const inputs: HostMessage[] = [
+      { id: 'a1', role: 'assistant', toolCalls: [{ id: 't1', name: 's' }] },
+      { id: 'a2', role: 'assistant', toolCalls: [{ id: 't1', name: 's' }] },
+      { id: 'tr1', role: 'tool', toolCallId: 't1', result: { r: 'first' } },
+      { id: 'tr2', role: 'tool', toolCallId: 't1', result: { r: 'second' } },
+    ]
+    const out = normalizeTranscript(inputs)
+
+    expect(out.map((m) => m.id)).toEqual(['a1', 'a2'])
+    // Nearest-unfilled: first result → a2 (most recent), second result → a1.
+    expect(toolBlocks(out[1] as ChatMessage)[0]?.result).toEqual({ r: 'first' })
+    expect(toolBlocks(out[0] as ChatMessage)[0]?.result).toEqual({ r: 'second' })
+  })
+
+  it('does not re-fold into a call whose result was already inlined on the host call', () => {
+    // The assistant call already carries an inlined result; a later tool-role
+    // message with the same id must not overwrite it — it is unmatched and
+    // preserved on its own synthesized message instead.
+    const inputs: HostMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        toolCalls: [{ id: 't1', name: 's', result: { inlined: true } }],
+      },
+      { id: 'tr1', role: 'tool', toolCallId: 't1', result: { late: true } },
+    ]
+    const out = normalizeTranscript(inputs)
+
+    expect(out).toHaveLength(2)
+    expect(toolBlocks(out[0] as ChatMessage)[0]?.result).toEqual({ inlined: true })
+    expect(toolBlocks(out[1] as ChatMessage)[0]?.result).toEqual({ late: true })
   })
 
   it('normalizes plain (non-tool) messages without folding', () => {

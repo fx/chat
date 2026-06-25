@@ -42,7 +42,14 @@ export interface ToolMedia {
  */
 export interface ToolCallBlock {
   type: 'tool_call'
-  /** Stable id, unique within the owning message; usable as a render key. */
+  /**
+   * Stable id, usable as a render key. Uniqueness is guaranteed only **within
+   * the owning message**, not across a transcript — the same id MAY recur on
+   * tool calls in different messages. The transcript codec therefore folds a
+   * tool-role result into the NEAREST PRECEDING tool_call with this id that does
+   * not yet carry a result (most-recent-unfilled proximity scoping), rather than
+   * relying on global id uniqueness. See {@link normalizeTranscript}.
+   */
   id: string
   /** Tool name. */
   name: string
