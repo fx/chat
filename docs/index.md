@@ -16,7 +16,7 @@
 | # | Change | Spec | Status | Depends On |
 |---|--------|------|--------|------------|
 | 0001 | [Bootstrap Monorepo](changes/0001-bootstrap-monorepo.md) | [Architecture](specs/architecture/) | complete | — |
-| 0002 | [Message Model](changes/0002-message-model.md) | [Message Model](specs/message-model/) | draft | 0001 |
+| 0002 | [Message Model](changes/0002-message-model.md) | [Message Model](specs/message-model/) | complete | 0001 |
 | 0003 | [Component Registry](changes/0003-component-registry.md) | [Component Registry](specs/component-registry/) | draft | 0001 |
 | 0004 | [Message Rendering](changes/0004-message-rendering.md) | [Message Rendering](specs/message-rendering/) | draft | 0002, 0003 |
 | 0005 | [Input Composer](changes/0005-input-composer.md) | [Input Composer](specs/input-composer/) | draft | 0002, 0003 |

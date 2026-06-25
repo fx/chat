@@ -8,7 +8,7 @@ shape — including unwrapping multiply-encoded tool JSON and assigning explicit
 into the model. Pure data and pure functions; no React, no DOM.
 
 **Spec:** [message-model](../specs/message-model/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0001
 
 ## Motivation
@@ -96,13 +96,13 @@ in the rule.
 
 ## Tasks
 
-- [ ] Implement `model/types.ts` (ChatMessage, ContentBlock union, ToolCallBlock, Attachment,
+- [x] Implement `model/types.ts` (ChatMessage, ContentBlock union, ToolCallBlock, Attachment,
       MessageMetrics) with full unit-tested type coverage via type tests
-- [ ] Implement `model/codec.ts` (`normalizeMessage`, `normalizeTranscript` with tool-role
+- [x] Implement `model/codec.ts` (`normalizeMessage`, `normalizeTranscript` with tool-role
       folding by back-reference + unmatched-result preservation, bounded `deepParseJson`,
       tool-status mapping, attachment kind derivation) with unit tests for every scenario
-- [ ] Implement `assertChatMessage` dev guard with tests
-- [ ] Export model + codec from the root entry point and add a non-DOM import test
+- [x] Implement `assertChatMessage` dev guard with tests
+- [x] Export model + codec from the root entry point and add a non-DOM import test
 
 ## Open Questions
 
