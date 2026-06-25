@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@fx/chat": "workspace:*",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.1.0",
     "@types/node": "22.10.5",

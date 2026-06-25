@@ -14,14 +14,16 @@ const pkgDir = resolve(here, '..')
  * than from pixels.
  */
 describe('@fx/chat public surface', () => {
-  it('resolves the root entry point', async () => {
-    const root = await import('./index')
+  it('resolves the root entry point via its package specifier', async () => {
+    // Import through the published name so a broken `exports` map or a missing
+    // built subpath fails the test exactly as it would fail a consumer.
+    const root = await import('@fx/chat')
     expect(typeof root.cx).toBe('function')
     expect(root.version).toBe('0.0.0')
   })
 
-  it('resolves the headless entry point', async () => {
-    const headless = await import('./headless')
+  it('resolves the headless entry point via its package specifier', async () => {
+    const headless = await import('@fx/chat/headless')
     expect(headless.headlessRegistry).toBeDefined()
     expect(typeof headless.isHeadlessSlot).toBe('function')
   })
