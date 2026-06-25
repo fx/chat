@@ -12,6 +12,12 @@
  * The directories may not exist yet (they arrive in later changes); the check
  * passes trivially until they do.
  *
+ * CI enforcement: the companion test (`check-registry-imports.test.mjs`) runs
+ * `scanForForbiddenImports(repoRoot)` against the real repository and asserts it
+ * is clean. That test runs under `bun run test`, which CI executes — so the
+ * boundary is enforced on every PR without touching the CI workflow. This file
+ * also exposes a standalone CLI (`bun run check:registry-imports`) for local use.
+ *
  * Usage: `node scripts/check-registry-imports.mjs`
  * Exits 0 when clean, 1 when any forbidden import is found.
  */
@@ -36,25 +42,31 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.vite'])
  *  - direct imports of the headless registry internals (primitives/icons), and
  *  - any UI-kit / icon-set / markdown-engine package import.
  */
+/**
+ * Each pattern is matched against the ENTIRE file content (not line by line) so
+ * a multiline `import { … } from\n  '…'` is still caught. `\s` spans newlines,
+ * and the `g` flag lets the scanner collect every occurrence and attribute it
+ * to a line via the match offset.
+ */
 export const FORBIDDEN_PATTERNS = [
   {
     label: 'direct headless primitive/icon import',
-    re: /from\s+['"][^'"]*\/registry\/headless(?:\/[^'"]*)?['"]/,
+    re: /from\s+['"][^'"]*\/registry\/headless(?:\/[^'"]*)?['"]/g,
   },
   {
     label: 'direct headless entry import',
-    re: /from\s+['"]@fx\/chat\/headless['"]/,
+    re: /from\s+['"]@fx\/chat\/headless['"]/g,
   },
   {
     // The in-package headless barrel (`packages/chat/src/headless.ts`) reached
     // via a relative path, e.g. `../headless` or `../../headless` — the most
     // likely in-package bypass form.
     label: 'relative headless barrel import',
-    re: /from\s+['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/,
+    re: /from\s+['"](?:\.\.?\/)+headless(?:\.[jt]sx?)?['"]/g,
   },
   {
     label: 'ui-kit / icon-set / markdown-engine import',
-    re: /from\s+['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/,
+    re: /from\s+['"](?:@fx\/ui|shadcn|@radix-ui\/|@mui\/|@chakra-ui\/|antd|lucide|lucide-react|react-icons|@heroicons\/|@tabler\/icons|react-markdown|markdown-it|marked|remark|rehype)/g,
   },
 ]
 
@@ -100,13 +112,17 @@ export function scanForForbiddenImports(root = repoRoot, dirs = GUARDED_DIRS) {
     files.push(...collectFiles(join(root, dir)))
   }
   for (const file of files) {
-    const lines = readFileSync(file, 'utf8').split('\n')
-    for (let i = 0; i < lines.length; i++) {
-      const text = lines[i]
-      for (const { label, re } of FORBIDDEN_PATTERNS) {
-        if (re.test(text)) {
-          violations.push({ file: relative(root, file), line: i + 1, label, text: text.trim() })
-        }
+    const content = readFileSync(file, 'utf8')
+    for (const { label, re } of FORBIDDEN_PATTERNS) {
+      // Reset lastIndex: the regexes are module-level and `g`-flagged, so they
+      // carry state across calls/files.
+      re.lastIndex = 0
+      for (const match of content.matchAll(re)) {
+        // `matchAll` always sets `index`. 1-based line number of the match start.
+        const line = content.slice(0, match.index).split('\n').length
+        // Report the matched text with internal newlines collapsed to a space.
+        const text = match[0].replace(/\s+/g, ' ').trim()
+        violations.push({ file: relative(root, file), line, label, text })
       }
     }
   }

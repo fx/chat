@@ -98,6 +98,29 @@ describe('scanForForbiddenImports', () => {
     expect(v.every((x) => x.label.includes('ui-kit'))).toBe(true)
   })
 
+  it('catches a multiline import statement spanning several lines', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'multi.tsx'),
+      'import {\n  Button,\n  Badge,\n} from\n  "../registry/headless"\n',
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(1)
+    expect(v[0].label).toContain('direct headless')
+    // The matched text has its internal newlines collapsed to single spaces.
+    expect(v[0].text).not.toContain('\n')
+  })
+
+  it('reports each occurrence when a file has multiple violations', () => {
+    writeFileSync(
+      join(root, ...RENDER_DIR, 'many.tsx'),
+      "import a from 'lucide-react'\nimport b from 'react-markdown'\n",
+    )
+    const v = scanForForbiddenImports(root, GUARDED_DIRS)
+    expect(v).toHaveLength(2)
+    expect(v[0].line).toBe(1)
+    expect(v[1].line).toBe(2)
+  })
+
   it('ignores non-source extensions', () => {
     writeFileSync(join(root, ...RENDER_DIR, 'notes.txt'), "from 'lucide-react'\n")
     expect(scanForForbiddenImports(root, GUARDED_DIRS)).toEqual([])
