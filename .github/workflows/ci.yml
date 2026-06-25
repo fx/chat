@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: No internal references
+        run: bun run check:no-internal-refs
+
+      - name: Lint + format check (Biome)
+        run: bun run check
+
+      - name: Build library
+        run: bun run build
+
+      - name: Type-check
+        run: bun run typecheck
+
+      - name: Unit tests + coverage
+        run: bun run test
+
+      - name: Build demo
+        run: bun run build:demo

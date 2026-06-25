@@ -1,0 +1,46 @@
+{
+  "name": "@fx/chat",
+  "version": "0.0.0",
+  "description": "Framework-light, design-system-agnostic React components for rendering and composing LLM chat conversations.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "files": ["dist", "src/styles.css"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./headless": {
+      "types": "./dist/headless.d.ts",
+      "import": "./dist/headless.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --build"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": false
+    }
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fx/chat.git",
+    "directory": "packages/chat"
+  },
+  "homepage": "https://github.com/fx/chat#readme",
+  "bugs": {
+    "url": "https://github.com/fx/chat/issues"
+  }
+}

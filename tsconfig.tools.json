@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["vitest.setup.ts", "packages/chat/src/**/*.ts", "packages/chat/src/**/*.tsx"]
+}
