@@ -10,6 +10,8 @@
  * flattened block stream, so it is fully unit-testable without rendering.
  */
 import type { ContentBlock } from '../model'
+import type { RenderableBlock } from './extensions'
+import { NON_AUX_BEHAVIOR, isCoreBlockType, lookupExtension } from './extensions'
 
 /** Per-kind timeline behavior flags. */
 export interface TimelineBehavior {
@@ -33,22 +35,72 @@ const BEHAVIOR: Record<ContentBlock['type'], TimelineBehavior> = {
   system: { auxEligible: false, eligibleForHeaderSummary: false },
 }
 
-/** Returns the {@link TimelineBehavior} for a block kind. Pure and total. */
-export function getTimelineBehavior(kind: ContentBlock['type']): TimelineBehavior {
-  return BEHAVIOR[kind]
+/**
+ * Returns the {@link TimelineBehavior} for a block kind. Pure and total.
+ *
+ * For a CORE kind, returns the built-in policy, optionally overridden by a
+ * host-supplied entry (e.g. a host overriding a tool's grouping). For a CUSTOM
+ * (non-core) kind, the host-supplied entry — when present — fills in its flags
+ * over the safe default (non-aux, not header-eligible), so an unknown block never
+ * folds silently into a collapsed disclosure unless the host opts in.
+ */
+export function getTimelineBehavior(
+  kind: string,
+  overrides?: Record<string, Partial<TimelineBehavior>>,
+): TimelineBehavior {
+  // `isCoreBlockType` is a Set membership check (own keys only), so a custom kind
+  // named like an inherited Object member (e.g. `constructor`, `toString`) does
+  // NOT resolve to a prototype function — it correctly gets the non-aux default.
+  const base: TimelineBehavior = isCoreBlockType(kind) ? BEHAVIOR[kind] : NON_AUX_BEHAVIOR
+  const override = lookupExtension(overrides, kind)
+  if (!override) return base
+  return {
+    auxEligible: override.auxEligible ?? base.auxEligible,
+    eligibleForHeaderSummary: override.eligibleForHeaderSummary ?? base.eligibleForHeaderSummary,
+  }
+}
+
+/**
+ * Resolve the {@link TimelineBehavior} for a concrete block, honoring per-tool
+ * overrides. For a `tool_call`, a host override keyed by the tool `name` wins (so
+ * one tool's grouping can change WITHOUT affecting every `tool_call`); when no
+ * name-keyed override exists, it falls back to the `tool_call` type behavior. For
+ * any other block, this is the type-keyed {@link getTimelineBehavior}.
+ */
+export function getBlockTimelineBehavior(
+  block: RenderableBlock,
+  overrides?: Record<string, Partial<TimelineBehavior>>,
+): TimelineBehavior {
+  if (block.type === 'tool_call') {
+    const name = (block as Extract<ContentBlock, { type: 'tool_call' }>).name
+    // A name-keyed override is resolved over the `tool_call` base policy so a
+    // partial `{ auxEligible }` keeps the inherited header-eligibility. Own-prop
+    // lookup avoids matching inherited members for a tool literally named e.g.
+    // `constructor`.
+    const override = lookupExtension(overrides, name)
+    if (override) {
+      const base = getTimelineBehavior('tool_call')
+      return {
+        auxEligible: override.auxEligible ?? base.auxEligible,
+        eligibleForHeaderSummary:
+          override.eligibleForHeaderSummary ?? base.eligibleForHeaderSummary,
+      }
+    }
+  }
+  return getTimelineBehavior(block.type, overrides)
 }
 
 /** A bare (ungrouped) item in the grouped output. */
 export interface BareItem {
   kind: 'bare'
-  block: ContentBlock
+  block: RenderableBlock
 }
 
 /** A collapsed run of consecutive auxiliary blocks. */
 export interface GroupItem {
   kind: 'group'
   /** The auxiliary blocks folded under one disclosure, in order. */
-  blocks: ContentBlock[]
+  blocks: RenderableBlock[]
 }
 
 /** One entry in the grouped stream: a bare block or a collapsed group. */
@@ -63,14 +115,17 @@ export type GroupedItem = BareItem | GroupItem
  * assistant steps — the caller flattens those into one array, and this pass
  * folds an aux run that crosses step boundaries into one disclosure.
  */
-export function groupBlocks(blocks: ContentBlock[]): GroupedItem[] {
+export function groupBlocks(
+  blocks: RenderableBlock[],
+  overrides?: Record<string, Partial<TimelineBehavior>>,
+): GroupedItem[] {
   const out: GroupedItem[] = []
-  let run: ContentBlock[] = []
+  let run: RenderableBlock[] = []
 
   const flush = () => {
     if (run.length === 0) return
     if (run.length === 1) {
-      out.push({ kind: 'bare', block: run[0] as ContentBlock })
+      out.push({ kind: 'bare', block: run[0] as RenderableBlock })
     } else {
       out.push({ kind: 'group', blocks: run })
     }
@@ -78,7 +133,7 @@ export function groupBlocks(blocks: ContentBlock[]): GroupedItem[] {
   }
 
   for (const block of blocks) {
-    if (getTimelineBehavior(block.type).auxEligible) {
+    if (getBlockTimelineBehavior(block, overrides).auxEligible) {
       run.push(block)
     } else {
       flush()
@@ -95,7 +150,7 @@ export function groupBlocks(blocks: ContentBlock[]): GroupedItem[] {
  */
 export interface HeaderSummary {
   /** The block whose label heads the collapsed disclosure. */
-  block: ContentBlock
+  block: RenderableBlock
   /** Count of the other blocks in the group (the `+N` badge value). */
   hiddenCount: number
 }
@@ -114,19 +169,24 @@ export interface HeaderSummary {
  * `hiddenCount` is always `blocks.length - 1`. The group is guaranteed
  * non-empty by construction (groups only exist for runs of length ≥ 2).
  */
-export function selectHeaderSummary(blocks: ContentBlock[], trailingActive = false): HeaderSummary {
-  const last = blocks[blocks.length - 1] as ContentBlock
-  const lastBehavior = getTimelineBehavior(last.type)
-  let chosen: ContentBlock
+export function selectHeaderSummary(
+  blocks: RenderableBlock[],
+  trailingActive = false,
+  overrides?: Record<string, Partial<TimelineBehavior>>,
+): HeaderSummary {
+  const last = blocks[blocks.length - 1] as RenderableBlock
+  const lastBehavior = getBlockTimelineBehavior(last, overrides)
+  let chosen: RenderableBlock
   if (trailingActive && lastBehavior.auxEligible && !lastBehavior.eligibleForHeaderSummary) {
     // Trailing ACTIVE header-ineligible item (the live status row) wins so its
     // timer stays visible on the collapsed header.
     chosen = last
   } else {
     // Latest header-eligible block, else fall back to the trailing block.
-    let headerEligible: ContentBlock | undefined
+    let headerEligible: RenderableBlock | undefined
     for (const block of blocks) {
-      if (getTimelineBehavior(block.type).eligibleForHeaderSummary) headerEligible = block
+      if (getBlockTimelineBehavior(block, overrides).eligibleForHeaderSummary)
+        headerEligible = block
     }
     chosen = headerEligible ?? last
   }

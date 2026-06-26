@@ -10,8 +10,10 @@
  * No data fetching, router, or store — it renders exactly what it is given.
  */
 import type { ReactNode } from 'react'
-import type { ChatMessage } from '../model'
 import { MessageItem } from './MessageItem'
+import { TimelineItemView } from './TimelineItemView'
+import type { ChatExtensions, RenderableMessage } from './extensions'
+import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
 export interface MessageCallbacks {
@@ -22,7 +24,7 @@ export interface MessageCallbacks {
 
 /** Props for {@link MessageLog}. */
 export interface MessageLogProps extends MessageCallbacks {
-  messages: ChatMessage[]
+  messages: RenderableMessage[]
   /** Whether the conversation is actively streaming. */
   isStreaming?: boolean
   /** The id of the actively-streaming message, if any. */
@@ -37,6 +39,12 @@ export interface MessageLogProps extends MessageCallbacks {
   showFooter?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
+  /**
+   * Optional render-layer extensions: custom block renderers, tool-name
+   * overrides, and custom timeline items. Additive — when absent, output is the
+   * default behavior unchanged.
+   */
+  extensions?: ChatExtensions
   /**
    * Optional host-provided list renderer (e.g. a virtualizer). Receives the
    * already-built per-message nodes; defaults to rendering them directly. The
@@ -55,16 +63,34 @@ export function MessageLog({
   defaultOpen,
   showFooter,
   compactFooter,
+  extensions,
   onRegenerate,
   onFork,
   onReset,
   renderList,
 }: MessageLogProps) {
-  const items = messages.map((message) => {
+  // Interleave messages and host-supplied custom timeline items by createdAt/at.
+  // With no timeline items, this is the messages in order (default path).
+  const timeline = mergeTimeline(messages, extensions?.timelineItems)
+  const items = timeline.map((entry) => {
+    if (entry.kind === 'item') {
+      // An item entry only exists when `extensions.timelineItems` was non-empty,
+      // so `extensions` is guaranteed defined here.
+      return (
+        <TimelineItemView
+          key={`item-${entry.item.id}`}
+          item={entry.item}
+          extensions={extensions as ChatExtensions}
+        />
+      )
+    }
+    const message = entry.message
     const isActive = isStreaming && message.id === streamingMessageId
     return (
+      // Namespace message keys (`msg-`) disjointly from item keys (`item-`) so a
+      // host message id can never collide with a timeline item id among siblings.
       <MessageItem
-        key={message.id}
+        key={`msg-${message.id}`}
         message={message}
         isActive={isActive}
         {...(flat !== undefined ? { flat } : {})}
@@ -72,6 +98,7 @@ export function MessageLog({
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}
+        {...(extensions ? { extensions } : {})}
         {...(onRegenerate ? { onRegenerate: () => onRegenerate(message.id) } : {})}
         {...(onFork ? { onFork: () => onFork(message.id) } : {})}
         {...(onReset ? { onReset: () => onReset(message.id) } : {})}

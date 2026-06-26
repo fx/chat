@@ -10,7 +10,7 @@ and (c) interleave custom top-level timeline items alongside messages. Unknown b
 render inert (never crash). With no extension prop supplied, behavior is unchanged.
 
 **Spec:** [message-rendering](../specs/message-rendering/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0003, 0004
 
 ## Motivation
@@ -159,21 +159,30 @@ in the rule.
 
 ## Tasks
 
-- [ ] Add the `extensions` prop type (`blockRenderers`, `toolRenderers`, `timelineItems`, optional
+- [x] Add the `extensions` prop type (`blockRenderers`, `toolRenderers`, `timelineItems`, optional
       per-kind grouping flags) and thread it through `MessageLog` → `MessageItem` → `BlockView`
-- [ ] Implement the block-dispatch resolver (tool override → core → custom → inert fallback) and
+- [x] Implement the block-dispatch resolver (tool override → core → custom → inert fallback) and
       the shared inert fallback component
-- [ ] Implement the pure `mergeTimeline` helper + `data-timeline-item-id` wrapper for custom items
-- [ ] Extend the grouping pass to consult host per-kind flags (default non-aux) for custom types
-- [ ] Tests: unknown-type fallback (no-throw, with/without `extensions`), tool override by name,
+- [x] Implement the pure `mergeTimeline` helper + `data-timeline-item-id` wrapper for custom items
+- [x] Extend the grouping pass to consult host per-kind flags (default non-aux) for custom types
+- [x] Tests: unknown-type fallback (no-throw, with/without `extensions`), tool override by name,
       timeline merge ordering, grouping default + opt-in, additivity snapshot, cross-registry
       agnosticism through the extension path
 
 ## Open Questions
 
-- [ ] Custom-kind grouping flags: co-located on each `blockRenderers` entry vs a separate
-      `timelineBehavior` map on `extensions`
-- [ ] Whether `data-timeline-item-id` should be part of the documented public test-id surface
+- [x] Custom-kind grouping flags: co-located on each `blockRenderers` entry vs a separate
+      `timelineBehavior` map on `extensions` — **Resolved:** a separate
+      `extensions.timelineBehavior` map keyed by custom block `type` (and, to override a core
+      tool's grouping, by tool `name`). Keeping the flags off the renderer entry lets the same
+      map override a custom kind's default (non-aux), the `tool_call` type policy, AND a single
+      tool's grouping by `name` — resolved by `getBlockTimelineBehavior(block, overrides)`, which
+      prefers a `name`-keyed override for a `tool_call` (so one tool's grouping changes without
+      affecting every `tool_call`) and otherwise falls back to the `type`-keyed lookup. This keeps
+      `blockRenderers` a plain `type → Component` map.
+- [x] Whether `data-timeline-item-id` should be part of the documented public test-id surface —
+      **Resolved:** yes. It mirrors the `data-message-id` anchor contract and is documented as a
+      public contract in the spec's Constraints; `TimelineItemView` always emits it.
 
 ## References
 

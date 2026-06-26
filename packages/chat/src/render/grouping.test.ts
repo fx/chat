@@ -7,7 +7,12 @@ import type {
   TextBlock,
   ToolCallBlock,
 } from '../model'
-import { getTimelineBehavior, groupBlocks, selectHeaderSummary } from './grouping'
+import {
+  getBlockTimelineBehavior,
+  getTimelineBehavior,
+  groupBlocks,
+  selectHeaderSummary,
+} from './grouping'
 
 const text = (id: string): TextBlock => ({ type: 'text', id, text: id })
 const reasoning = (id: string, durationMs?: number): ReasoningBlock => ({
@@ -49,6 +54,133 @@ describe('getTimelineBehavior', () => {
     expect(getTimelineBehavior('text').auxEligible).toBe(false)
     expect(getTimelineBehavior('system').auxEligible).toBe(false)
   })
+
+  it('defaults an unknown (custom) kind to non-aux, not header-eligible', () => {
+    expect(getTimelineBehavior('host_marker')).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: false,
+    })
+  })
+
+  it('applies a host override over the custom-kind default (partial flags fill in)', () => {
+    expect(getTimelineBehavior('host_marker', { host_marker: { auxEligible: true } })).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: false,
+    })
+    expect(
+      getTimelineBehavior('host_marker', {
+        host_marker: { auxEligible: true, eligibleForHeaderSummary: true },
+      }),
+    ).toEqual({ auxEligible: true, eligibleForHeaderSummary: true })
+  })
+
+  it('fills in only the supplied flag, keeping the base for the other', () => {
+    // Override supplies ONLY eligibleForHeaderSummary → auxEligible falls back to
+    // the base (custom default false), exercising the `?? base` on auxEligible.
+    expect(
+      getTimelineBehavior('host_marker', { host_marker: { eligibleForHeaderSummary: true } }),
+    ).toEqual({ auxEligible: false, eligibleForHeaderSummary: true })
+  })
+
+  it('applies a host override over a CORE kind (e.g. demote a tool to non-aux)', () => {
+    expect(getTimelineBehavior('tool_call', { tool_call: { auxEligible: false } })).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: true,
+    })
+  })
+
+  it('ignores an overrides map with no entry for the kind', () => {
+    expect(getTimelineBehavior('reasoning', { other: { auxEligible: false } })).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
+
+  it('defaults a custom kind named like an Object.prototype member to non-aux', () => {
+    // `constructor`/`toString` are on Object.prototype; the base policy must come
+    // from an own-membership check, not the `in` operator — so these resolve to
+    // the safe non-aux default, never a prototype function.
+    expect(getTimelineBehavior('constructor')).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: false,
+    })
+    expect(getTimelineBehavior('toString')).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: false,
+    })
+    // A partial override for such a kind fills missing flags from the safe
+    // default, not from `undefined`.
+    expect(getTimelineBehavior('constructor', { constructor: { auxEligible: true } })).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: false,
+    })
+  })
+})
+
+describe('getBlockTimelineBehavior', () => {
+  it('falls back to type behavior for a non-tool block', () => {
+    expect(getBlockTimelineBehavior(reasoning('r'))).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
+
+  it('applies a per-tool-NAME override over the tool_call base (partial keeps header-eligible)', () => {
+    // `{ search: { auxEligible: false } }` demotes ONLY the `search` tool to
+    // non-aux while keeping inherited header-eligibility, and without affecting
+    // other tools.
+    expect(
+      getBlockTimelineBehavior(tool('t', 'search'), { search: { auxEligible: false } }),
+    ).toEqual({ auxEligible: false, eligibleForHeaderSummary: true })
+    // A different tool name is unaffected → inherits the tool_call base policy.
+    expect(
+      getBlockTimelineBehavior(tool('t2', 'other'), { search: { auxEligible: false } }),
+    ).toEqual({ auxEligible: true, eligibleForHeaderSummary: true })
+  })
+
+  it('fills in only the supplied name-override flag, inheriting the rest from tool_call', () => {
+    // Override supplies ONLY eligibleForHeaderSummary → auxEligible falls back to
+    // the tool_call base (true), exercising the `?? base.auxEligible` arm.
+    expect(
+      getBlockTimelineBehavior(tool('t', 'search'), {
+        search: { eligibleForHeaderSummary: false },
+      }),
+    ).toEqual({ auxEligible: true, eligibleForHeaderSummary: false })
+  })
+
+  it('prefers a name-keyed override over a type-keyed one for a tool_call', () => {
+    const overrides = {
+      tool_call: { auxEligible: false },
+      search: { auxEligible: true, eligibleForHeaderSummary: false },
+    }
+    // The `search` name override wins over the `tool_call` type override.
+    expect(getBlockTimelineBehavior(tool('t', 'search'), overrides)).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: false,
+    })
+  })
+
+  it('uses the type-keyed override for a tool whose name is not in the map', () => {
+    expect(
+      getBlockTimelineBehavior(tool('t', 'search'), { tool_call: { auxEligible: false } }),
+    ).toEqual({ auxEligible: false, eligibleForHeaderSummary: true })
+  })
+
+  it('returns the tool_call base when no overrides are supplied', () => {
+    expect(getBlockTimelineBehavior(tool('t', 'search'))).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
+
+  it('does not match an Object.prototype member for a tool named like one', () => {
+    // A tool named `constructor` with an empty overrides map must inherit the
+    // tool_call base, NOT an inherited prototype member.
+    expect(getBlockTimelineBehavior(tool('t', 'constructor'), {})).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
 })
 
 describe('groupBlocks', () => {
@@ -85,6 +217,37 @@ describe('groupBlocks', () => {
 
   it('returns an empty array for no blocks', () => {
     expect(groupBlocks([])).toEqual([])
+  })
+
+  it('treats a custom block as non-aux by default (breaks aux runs, renders bare)', () => {
+    const marker = { type: 'host_marker', id: 'm' }
+    const blocks = [reasoning('r'), marker, tool('t')]
+    // The custom marker breaks the aux run: reasoning and tool become two
+    // separate single-item bare runs, with the marker bare between them.
+    expect(groupBlocks(blocks)).toEqual([
+      { kind: 'bare', block: reasoning('r') },
+      { kind: 'bare', block: marker },
+      { kind: 'bare', block: tool('t') },
+    ])
+  })
+
+  it('folds a custom block into an aux run when the host opts it in', () => {
+    const marker = { type: 'host_marker', id: 'm' }
+    const blocks = [reasoning('r'), marker, tool('t')]
+    const result = groupBlocks(blocks, { host_marker: { auxEligible: true } })
+    expect(result).toEqual([{ kind: 'group', blocks }])
+  })
+
+  it('breaks a run on a per-tool-NAME non-aux override without affecting other tools', () => {
+    const blocks = [reasoning('r'), tool('t1', 'render_ui'), tool('t2', 'search')]
+    // `render_ui` is demoted to non-aux; `search` stays aux. The render_ui tool
+    // renders bare and breaks the run; reasoning is now a single-item bare run.
+    const result = groupBlocks(blocks, { render_ui: { auxEligible: false } })
+    expect(result).toEqual([
+      { kind: 'bare', block: reasoning('r') },
+      { kind: 'bare', block: tool('t1', 'render_ui') },
+      { kind: 'bare', block: tool('t2', 'search') },
+    ])
   })
 })
 
@@ -125,5 +288,17 @@ describe('selectHeaderSummary', () => {
     // block.
     const blocks: ContentBlock[] = [text('a'), text('b')]
     expect(selectHeaderSummary(blocks)).toEqual({ block: text('b'), hiddenCount: 1 })
+  })
+
+  it('honors host overrides making a custom kind header-eligible', () => {
+    const marker = { type: 'host_marker', id: 'm' }
+    const blocks = [reasoning('r'), marker]
+    // With the marker opted into header eligibility, it (the latest eligible)
+    // heads the summary over the reasoning.
+    expect(
+      selectHeaderSummary(blocks, false, {
+        host_marker: { auxEligible: true, eligibleForHeaderSummary: true },
+      }),
+    ).toEqual({ block: marker, hiddenCount: 1 })
   })
 })
