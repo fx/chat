@@ -75,7 +75,7 @@ changes:
     path: changes/0007-render-extensibility.md
     description: Render-layer extension API — custom block/tool renderers, custom timeline items, inert unknown-type fallback
     spec: message-rendering
-    status: draft
+    status: complete
     depends_on: ["0003", "0004"]
   - id: "0008"
     name: attachment-rendering
