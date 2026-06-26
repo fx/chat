@@ -466,6 +466,191 @@ summary .chat-row-header,
   min-width: 0;
 }
 
+/* ── User attachments (change 0008) ─────────────────────────────────────────
+   The attachment region for a user message: a responsive image thumbnail grid
+   with an expand/lightbox affordance, and video/audio/file chips with a
+   scheme-safe download/open control. All colors/spacing come from `--chat-*`
+   tokens so hosts restyle via variables, not component overrides. */
+
+.chat-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-attachment-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* Reflow by available width: as many ~7rem columns as fit, each filling the
+     track. This is the responsiveness contract — no fixed column count. */
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-attachment-grid-item {
+  margin: 0;
+  min-width: 0;
+}
+
+.chat-attachment-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  background: var(--chat-code-bg);
+  color: var(--chat-fg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.chat-attachment-thumb[data-inert="true"] {
+  cursor: default;
+}
+
+.chat-attachment-thumb:hover:not([data-inert="true"]) {
+  border-color: color-mix(in srgb, var(--chat-fg) 24%, var(--chat-border));
+}
+
+.chat-attachment-thumb-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-attachment-thumb-expand {
+  position: absolute;
+  top: calc(var(--chat-gap) / 4);
+  right: calc(var(--chat-gap) / 4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--chat-gap) / 4);
+  border-radius: calc(var(--chat-radius) / 2);
+  background: color-mix(in srgb, var(--chat-bg) 70%, transparent);
+  color: var(--chat-fg);
+}
+
+.chat-attachment-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--chat-gap) / 2);
+}
+
+.chat-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--chat-gap) / 2);
+  padding: calc(var(--chat-gap) / 4) calc(var(--chat-gap) / 2);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  color: var(--chat-fg);
+  font-family: var(--chat-font-family);
+  font-size: 0.8125rem;
+}
+
+.chat-attachment-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--chat-muted);
+}
+
+.chat-attachment-chip-name {
+  min-width: 0;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-attachment-chip-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chat-accent);
+}
+
+.chat-attachment-chip-download[data-inert="true"] {
+  color: var(--chat-muted);
+}
+
+/* ── Lightbox overlay (change 0008) ─────────────────────────────────────────
+   The headless enlarged-image overlay. Fixed full-viewport backdrop with the
+   dialog centered; theme-token-driven. The open fade is suppressed under
+   reduced-motion via the `data-reduced-motion` hook the component sets. */
+
+.chat-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--chat-gap);
+  background: color-mix(in srgb, #000 72%, transparent);
+  animation: chat-lightbox-fade 0.12s ease;
+}
+
+.chat-lightbox[data-reduced-motion="true"] {
+  animation: none;
+}
+
+@keyframes chat-lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chat-lightbox-dialog {
+  position: relative;
+  display: flex;
+  max-width: min(90vw, 64rem);
+  max-height: 90vh;
+  border-radius: var(--chat-radius);
+  background: var(--chat-bg);
+}
+
+.chat-lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: var(--chat-radius);
+  object-fit: contain;
+}
+
+.chat-lightbox-close {
+  position: absolute;
+  top: calc(var(--chat-gap) / 2);
+  right: calc(var(--chat-gap) / 2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: calc(var(--chat-gap) / 2);
+  border: 1px solid var(--chat-border);
+  border-radius: var(--chat-radius);
+  background: var(--chat-bg);
+  color: var(--chat-fg);
+  cursor: pointer;
+}
+
+.chat-lightbox-close:hover {
+  background: color-mix(in srgb, var(--chat-fg) 8%, var(--chat-bg));
+}
+
 /* Reduced-motion: drop all transitions on interactive primitives so state
    changes apply instantly (hover/active affordances remain). */
 @media (prefers-reduced-motion: reduce) {
