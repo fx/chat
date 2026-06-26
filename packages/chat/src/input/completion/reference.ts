@@ -51,6 +51,8 @@ export const REFERENCE_ITEMS: readonly CompletionItem[] = [
  * `query` is still the prefix up to the caret, the conventional filter text.
  */
 function matchReference(text: string, caret: number): CompletionMatch | null {
+  // Guard out-of-range carets before any character scanning.
+  if (caret < 0 || caret > text.length) return null
   let start = caret
   while (start > 0 && TOKEN_CHAR.test(text[start - 1] as string)) start--
   // The char before the token run must be the trigger.

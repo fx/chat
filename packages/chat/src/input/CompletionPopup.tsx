@@ -336,6 +336,8 @@ function CompletionPopupImpl(
     (index: number) => `chat-completion-option-${baseId}-${index}`,
     [baseId],
   )
+  // Stable per-instance listbox id so the textarea can `aria-controls` it.
+  const listboxId = `chat-completion-listbox-${baseId}`
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>): boolean => {
@@ -389,30 +391,33 @@ function CompletionPopupImpl(
 
   useImperativeHandle(ref, () => ({ handleKeyDown, syncCaret }), [handleKeyDown, syncCaret])
 
-  // Maintain `aria-activedescendant` on the textarea so focus stays in the input
-  // while the active option is announced.
+  // Maintain `aria-activedescendant` + `aria-controls` on the textarea so the
+  // combobox is wired to its listbox and focus stays in the input while the
+  // active option is announced.
   useEffect(() => {
     const textarea = textareaRef.current
     if (open && items.length > 0) {
       textarea?.setAttribute('aria-activedescendant', optionId(highlight))
+      textarea?.setAttribute('aria-controls', listboxId)
     } else {
       textarea?.removeAttribute('aria-activedescendant')
+      textarea?.removeAttribute('aria-controls')
     }
     return () => {
       textareaRef.current?.removeAttribute('aria-activedescendant')
+      textareaRef.current?.removeAttribute('aria-controls')
     }
-  }, [open, items.length, highlight, optionId, textareaRef])
+  }, [open, items.length, highlight, optionId, listboxId, textareaRef])
 
   // Render nothing while key-active but with no visible content yet (a request
-  // is pending before the loading indicator), or before coords are measured.
-  if (!openMatch || !hasVisibleContent || !coords) return null
+  // is pending before the loading indicator), or before coords are measured, or
+  // if the textarea unmounted after coords were set.
+  const textarea = textareaRef.current
+  if (!openMatch || !hasVisibleContent || !coords || !textarea) return null
 
   // Default to the textarea's OWN document body (not the global one) so the
   // popup renders into the right document for iframe / alternate-document hosts.
-  // The textarea is guaranteed present here: `coords` is only set while it is
-  // mounted (see `updateCoords`), and we returned null above when it is missing.
-  const container =
-    portalContainer ?? (textareaRef.current as HTMLTextAreaElement).ownerDocument.body
+  const container = portalContainer ?? textarea.ownerDocument.body
 
   const content: ReactNode = (
     <div
@@ -434,10 +439,15 @@ function CompletionPopupImpl(
           // WAI-ARIA listbox/option pattern: focus stays on the textarea (via
           // aria-activedescendant), so the listbox and options are not focusable
           // themselves — correct for a combobox-style popup. Suppressions follow.
-          // biome-ignore lint/a11y/useSemanticElements: ARIA listbox role is intended here.
-          // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: driven via the textarea.
           // biome-ignore lint/a11y/useFocusableInteractive: focus stays in the textarea by design.
-          <ul className="chat-completion-list" role="listbox" aria-label="Completions">
+          <ul
+            id={listboxId}
+            className="chat-completion-list"
+            // biome-ignore lint/a11y/useSemanticElements: ARIA listbox role is intended here.
+            // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: driven via the textarea.
+            role="listbox"
+            aria-label="Completions"
+          >
             {items.map((item, index) => (
               // biome-ignore lint/a11y/useFocusableInteractive: options are never focused directly.
               <li

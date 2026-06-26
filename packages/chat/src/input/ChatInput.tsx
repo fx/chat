@@ -33,12 +33,20 @@ import { useChatComponents } from '../registry'
 import { CompletionPopup, type CompletionPopupHandle } from './CompletionPopup'
 import type { CompletionProvider } from './completion/types'
 
-/** Props for {@link ChatInput}. */
-export interface ChatInputProps {
-  /** Controlled value. Omit for uncontrolled (the composer owns its value). */
-  value?: string
-  /** Change callback. Required for controlled use; also fired in uncontrolled mode. */
-  onChange?: (value: string) => void
+/**
+ * Controlled vs uncontrolled value props, modeled as a discriminated union so
+ * the two modes are mutually exclusive at the type level:
+ * - **Controlled**: `value` is required and `onChange` is REQUIRED (the host
+ *   must apply updates, or completion/mention edits would silently no-op).
+ * - **Uncontrolled**: `value` MUST be omitted; `onChange` is optional (fired as
+ *   a change notification while the composer owns the value).
+ */
+export type ChatInputValueProps =
+  | { value: string; onChange: (value: string) => void }
+  | { value?: undefined; onChange?: (value: string) => void }
+
+/** Props for {@link ChatInput} other than the controlled/uncontrolled value pair. */
+export interface ChatInputBaseProps {
   /** Submit callback. Receives the text and any attachments. */
   onSend: (text: string, attachments?: Attachment[]) => void
   /** Stop callback. When `isStreaming`, the send affordance becomes a stop button. */
@@ -78,6 +86,12 @@ export interface ChatInputProps {
   /** Portal target for the completion popup. */
   portalContainer?: HTMLElement
 }
+
+/**
+ * Props for {@link ChatInput}: the base props plus the controlled/uncontrolled
+ * value pair ({@link ChatInputValueProps}).
+ */
+export type ChatInputProps = ChatInputBaseProps & ChatInputValueProps
 
 /** Default maximum visible lines before the textarea begins to scroll. */
 const DEFAULT_MAX_LINES = 8
@@ -370,6 +384,7 @@ export function ChatInput({
               <Button
                 className="chat-input-attachment-remove"
                 aria-label={`Remove ${attachment.name ?? attachment.url}`}
+                disabled={disabled}
                 onClick={() => removeAttachment(attachmentList, index)}
               >
                 <CloseIcon className="chat-input-attachment-remove-icon" />
@@ -429,14 +444,16 @@ export function ChatInput({
           // Selection-only caret moves (clicks, arrow keys that don't edit) must
           // re-sync the popup so it closes when the caret leaves an active token.
           onSelect={() => popupRef.current?.syncCaret()}
-          // Paste hook: surface any pasted files to the host (text paste is left
-          // to the browser's default insertion).
+          // Paste hook: surface pasted files to the host. Default insertion is
+          // suppressed ONLY for a files-only paste; a paste that also carries
+          // text keeps the browser's text insertion (we still emit the files).
           onPaste={
             attachEnabled
               ? (event) => {
                   const files = Array.from(event.clipboardData.files)
                   if (files.length > 0) {
-                    event.preventDefault()
+                    const hasText = event.clipboardData.getData('text/plain').length > 0
+                    if (!hasText) event.preventDefault()
                     emitFiles(files)
                   }
                 }

@@ -37,6 +37,11 @@ describe('referenceProvider.match', () => {
     expect(referenceProvider.match('~apple', 3)).toEqual({ query: 'ap', range: [0, 6] })
   })
 
+  it('returns null for an out-of-range caret', () => {
+    expect(referenceProvider.match('~ap', -1)).toBeNull()
+    expect(referenceProvider.match('~ap', 99)).toBeNull()
+  })
+
   it('returns null when the caret is not inside a token', () => {
     expect(referenceProvider.match('hello', 5)).toBeNull()
   })

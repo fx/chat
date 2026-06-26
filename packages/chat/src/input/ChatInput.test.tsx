@@ -288,6 +288,18 @@ describe('ChatInput attachments', () => {
     expect(onAttachmentsChange).toHaveBeenCalledWith([attachment('b.png')])
   })
 
+  it('disables the remove chip button when disabled', () => {
+    render(
+      <ChatInput
+        onSend={vi.fn()}
+        attachments={[attachment('a.png')]}
+        onAttachmentsChange={vi.fn()}
+        disabled
+      />,
+    )
+    expect(screen.getByLabelText('Remove a.png')).toBeDisabled()
+  })
+
   it('includes attachments in the onSend payload', async () => {
     const user = userEvent.setup()
     const onSend = vi.fn()
@@ -358,19 +370,36 @@ describe('ChatInput file hooks', () => {
     expect(onAddFiles).not.toHaveBeenCalled()
   })
 
-  it('forwards pasted files to onAddFiles', () => {
+  const clipboard = (files: File[], text = '') => ({
+    files,
+    getData: (type: string) => (type === 'text/plain' ? text : ''),
+  })
+
+  it('forwards a files-only paste and suppresses the default', () => {
     const onAddFiles = vi.fn()
     render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
     const textarea = screen.getByRole('textbox')
-    fireEvent.paste(textarea, { clipboardData: { files: [file('p.png')] } })
+    const ev = fireEvent.paste(textarea, { clipboardData: clipboard([file('p.png')]) })
     expect(onAddFiles).toHaveBeenCalledWith([expect.any(File)])
+    // Files-only paste: the default is prevented.
+    expect(ev).toBe(false)
+  })
+
+  it('emits files but keeps default text insertion for a files+text paste', () => {
+    const onAddFiles = vi.fn()
+    render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
+    const textarea = screen.getByRole('textbox')
+    // A paste carrying both files AND text: files emitted, default NOT prevented.
+    const ev = fireEvent.paste(textarea, { clipboardData: clipboard([file('p.png')], 'hello') })
+    expect(onAddFiles).toHaveBeenCalledWith([expect.any(File)])
+    expect(ev).toBe(true)
   })
 
   it('does not intercept a text-only paste', () => {
     const onAddFiles = vi.fn()
     render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
     const textarea = screen.getByRole('textbox')
-    fireEvent.paste(textarea, { clipboardData: { files: [] } })
+    fireEvent.paste(textarea, { clipboardData: clipboard([], 'hello') })
     expect(onAddFiles).not.toHaveBeenCalled()
   })
 
@@ -396,7 +425,7 @@ describe('ChatInput file hooks', () => {
     const { container } = render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} disabled />)
     const field = container.querySelector('.chat-input-field') as HTMLElement
     fireEvent.drop(field, { dataTransfer: { files: [file('d.png')] } })
-    fireEvent.paste(screen.getByRole('textbox'), { clipboardData: { files: [file('p.png')] } })
+    fireEvent.paste(screen.getByRole('textbox'), { clipboardData: clipboard([file('p.png')]) })
     expect(onAddFiles).not.toHaveBeenCalled()
   })
 })

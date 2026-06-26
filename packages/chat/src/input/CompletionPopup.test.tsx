@@ -510,15 +510,20 @@ describe('CompletionPopup accessibility', () => {
     h.current?.press({ key: 'ArrowDown' })
     expect(activeId()).toBe(selectedId())
     expect(activeId()).not.toBe(first)
+    // The textarea is also wired to the listbox via aria-controls.
+    expect(ta.getAttribute('aria-controls')).toBe(screen.getByRole('listbox').id)
+    expect(screen.getByRole('listbox').id).not.toBe('')
   })
 
-  it('clears aria-activedescendant when the popup closes', async () => {
+  it('clears aria-activedescendant and aria-controls when the popup closes', async () => {
     const h = setup([referenceProvider])
     h.current?.type('~ap', 3)
     await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
     h.current?.type('hello', 5)
     await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
-    expect(screen.getByTestId('ta').getAttribute('aria-activedescendant')).toBeNull()
+    const ta = screen.getByTestId('ta')
+    expect(ta.getAttribute('aria-activedescendant')).toBeNull()
+    expect(ta.getAttribute('aria-controls')).toBeNull()
   })
 })
 
