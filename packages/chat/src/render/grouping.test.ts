@@ -49,6 +49,47 @@ describe('getTimelineBehavior', () => {
     expect(getTimelineBehavior('text').auxEligible).toBe(false)
     expect(getTimelineBehavior('system').auxEligible).toBe(false)
   })
+
+  it('defaults an unknown (custom) kind to non-aux, not header-eligible', () => {
+    expect(getTimelineBehavior('host_marker')).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: false,
+    })
+  })
+
+  it('applies a host override over the custom-kind default (partial flags fill in)', () => {
+    expect(getTimelineBehavior('host_marker', { host_marker: { auxEligible: true } })).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: false,
+    })
+    expect(
+      getTimelineBehavior('host_marker', {
+        host_marker: { auxEligible: true, eligibleForHeaderSummary: true },
+      }),
+    ).toEqual({ auxEligible: true, eligibleForHeaderSummary: true })
+  })
+
+  it('fills in only the supplied flag, keeping the base for the other', () => {
+    // Override supplies ONLY eligibleForHeaderSummary → auxEligible falls back to
+    // the base (custom default false), exercising the `?? base` on auxEligible.
+    expect(
+      getTimelineBehavior('host_marker', { host_marker: { eligibleForHeaderSummary: true } }),
+    ).toEqual({ auxEligible: false, eligibleForHeaderSummary: true })
+  })
+
+  it('applies a host override over a CORE kind (e.g. demote a tool to non-aux)', () => {
+    expect(getTimelineBehavior('tool_call', { tool_call: { auxEligible: false } })).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: true,
+    })
+  })
+
+  it('ignores an overrides map with no entry for the kind', () => {
+    expect(getTimelineBehavior('reasoning', { other: { auxEligible: false } })).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
 })
 
 describe('groupBlocks', () => {
@@ -85,6 +126,25 @@ describe('groupBlocks', () => {
 
   it('returns an empty array for no blocks', () => {
     expect(groupBlocks([])).toEqual([])
+  })
+
+  it('treats a custom block as non-aux by default (breaks aux runs, renders bare)', () => {
+    const marker = { type: 'host_marker', id: 'm' }
+    const blocks = [reasoning('r'), marker, tool('t')]
+    // The custom marker breaks the aux run: reasoning and tool become two
+    // separate single-item bare runs, with the marker bare between them.
+    expect(groupBlocks(blocks)).toEqual([
+      { kind: 'bare', block: reasoning('r') },
+      { kind: 'bare', block: marker },
+      { kind: 'bare', block: tool('t') },
+    ])
+  })
+
+  it('folds a custom block into an aux run when the host opts it in', () => {
+    const marker = { type: 'host_marker', id: 'm' }
+    const blocks = [reasoning('r'), marker, tool('t')]
+    const result = groupBlocks(blocks, { host_marker: { auxEligible: true } })
+    expect(result).toEqual([{ kind: 'group', blocks }])
   })
 })
 
@@ -125,5 +185,17 @@ describe('selectHeaderSummary', () => {
     // block.
     const blocks: ContentBlock[] = [text('a'), text('b')]
     expect(selectHeaderSummary(blocks)).toEqual({ block: text('b'), hiddenCount: 1 })
+  })
+
+  it('honors host overrides making a custom kind header-eligible', () => {
+    const marker = { type: 'host_marker', id: 'm' }
+    const blocks = [reasoning('r'), marker]
+    // With the marker opted into header eligibility, it (the latest eligible)
+    // heads the summary over the reasoning.
+    expect(
+      selectHeaderSummary(blocks, false, {
+        host_marker: { auxEligible: true, eligibleForHeaderSummary: true },
+      }),
+    ).toEqual({ block: marker, hiddenCount: 1 })
   })
 })
