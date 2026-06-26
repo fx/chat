@@ -68,6 +68,15 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
   - `Avatar` — OPTIONAL role/author indicator.
   - `CopyButton` — copy-to-clipboard affordance with a copied state (MAY be composed from
     `Button` + an icon).
+  - `Lightbox` (a.k.a. `ImageOverlay`) — OPTIONAL overlay slot that displays an enlarged image
+    over the conversation for the attachment image grid (see
+    [message-rendering › User Attachments](../message-rendering/)). It MUST receive at least
+    `{ src; alt; open; onClose }`, MUST be keyboard-dismissable, MUST trap focus while open and
+    restore it on close, and MUST honor `prefers-reduced-motion`. The headless default MUST
+    implement a self-contained accessible overlay (no third-party dependency); hosts MAY
+    override it with their own dialog/lightbox. (Proposed in
+    [0008-attachment-rendering](../../changes/0008-attachment-rendering.md); not yet
+    implemented.)
 - Each primitive's props MUST be defined as a stable interface so adapters are pure mappings.
 - Primitives MUST forward a `className` and/or accept style hooks so hosts can theme them, but
   the package MUST NOT require any particular class names.
@@ -84,7 +93,7 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - The registry MUST include an `icons` map covering every semantic icon the renderers use
   (e.g. `spinner`, `check`, `caretRight`, `caretDown`, `copy`, `wrench`, `brain`, `gear`,
   `regenerate`, `fork`, `reset`, `file`, `audio`, `video`, `send`, `stop`, `paperclip`,
-  `close`).
+  `close`, and — for attachment affordances — `download` and `expand`).
 - Each icon slot MUST accept a `className` and a size, and MUST be replaceable by any icon
   library's component or an inline SVG.
 - The headless default icon set MUST be self-contained (inline SVGs), introducing no icon
@@ -165,6 +174,10 @@ interface ChatComponents {
   ScrollArea: ComponentType<{ className?: string; children?: ReactNode }>
   Avatar?: ComponentType<{ role: Role; className?: string }>
   CopyButton: ComponentType<{ value: string; className?: string }>
+  Lightbox?: ComponentType<{ src: string; alt: string; open: boolean;
+    onClose: () => void; className?: string }>   // attachment image overlay (0008)
+  // `alt` is REQUIRED: callers MUST always pass an alt string, falling back to the
+  // attachment `name` (or a generic label when unnamed) so the overlay is accessible.
   Markdown: ComponentType<{ content: string; streaming?: boolean }>
   icons: Record<IconName, ComponentType<{ className?: string; size?: number }>>
 }
@@ -172,7 +185,7 @@ interface ChatComponents {
 type IconName =
   | 'spinner' | 'check' | 'caretRight' | 'caretDown' | 'copy' | 'wrench'
   | 'brain' | 'gear' | 'regenerate' | 'fork' | 'reset' | 'file' | 'audio'
-  | 'video' | 'send' | 'stop' | 'paperclip' | 'close'
+  | 'video' | 'send' | 'stop' | 'paperclip' | 'close' | 'download' | 'expand'
 ```
 
 ### Business Logic
@@ -214,3 +227,4 @@ type IconName =
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0003-component-registry](../../changes/0003-component-registry.md) |
+| 2026-06-26 | Added OPTIONAL `Lightbox`/`ImageOverlay` slot and `download`/`expand` icons for attachment rendering — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
