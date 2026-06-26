@@ -119,6 +119,29 @@ describe('CollapsibleRow pills + icon', () => {
     expect(container.querySelector('[data-tone="error"]')).not.toBeNull()
   })
 
+  it('renders a non-color "Error" marker and aria-invalid on an error row', () => {
+    row({ label: 'E', children: <span>e</span>, error: true })
+    const marker = screen.getByText('Error')
+    expect(marker).toHaveClass('chat-row-error-marker')
+    expect(marker).toHaveAttribute('data-tone', 'error')
+    expect(marker.closest('.chat-row-header')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('renders the error marker on a static (no-body) error row', () => {
+    row({ label: 'E', alwaysShow: true, error: true })
+    expect(screen.getByText('Error')).toHaveClass('chat-row-error-marker')
+    expect(screen.getByText('E').closest('.chat-row-header')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+  })
+
+  it('omits the error marker and aria-invalid on non-error rows', () => {
+    row({ label: 'OK', children: <span>e</span> })
+    expect(screen.queryByText('Error')).toBeNull()
+    expect(screen.getByText('OK').closest('.chat-row-header')).not.toHaveAttribute('aria-invalid')
+  })
+
   it('forwards a custom className', () => {
     const { container } = row({ label: 'C', alwaysShow: true, className: 'mine' })
     expect(container.querySelector('.mine')).not.toBeNull()

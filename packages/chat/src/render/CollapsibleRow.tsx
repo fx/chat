@@ -127,12 +127,26 @@ export function CollapsibleRow({
   const tps = formatTokensPerSecond(tokensPerSecond)
 
   const header = (
-    <span className="chat-row-header" data-affordance={affordanceTone}>
+    <span
+      className="chat-row-header"
+      data-affordance={affordanceTone}
+      // Convey the error non-visually: assistive tech announces the row as
+      // invalid, so the state never rests on color alone (WCAG 1.4.1).
+      {...(error ? { 'aria-invalid': true } : {})}
+    >
       <span className="chat-row-affordance" data-affordance={affordanceTone}>
         {Affordance ? <Affordance className="chat-row-affordance-icon" /> : null}
       </span>
       {LeadingIcon ? <LeadingIcon className="chat-row-icon" /> : null}
       <span className="chat-row-label">{label}</span>
+      {error ? (
+        // Non-color glanceable marker on the collapsed header: a text "Error"
+        // chip (in addition to the error color/border) so the failure reads
+        // without relying on color. Pending/running/success rows omit it.
+        <Badge className="chat-row-error-marker" tone="error">
+          Error
+        </Badge>
+      ) : null}
       {timerPill ? (
         <Badge className="chat-row-timer" tone="default">
           {formatDuration(elapsed)}
