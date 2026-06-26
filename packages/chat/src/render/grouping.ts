@@ -59,6 +59,34 @@ export function getTimelineBehavior(
   }
 }
 
+/**
+ * Resolve the {@link TimelineBehavior} for a concrete block, honoring per-tool
+ * overrides. For a `tool_call`, a host override keyed by the tool `name` wins (so
+ * one tool's grouping can change WITHOUT affecting every `tool_call`); when no
+ * name-keyed override exists, it falls back to the `tool_call` type behavior. For
+ * any other block, this is the type-keyed {@link getTimelineBehavior}.
+ */
+export function getBlockTimelineBehavior(
+  block: RenderableBlock,
+  overrides?: Record<string, Partial<TimelineBehavior>>,
+): TimelineBehavior {
+  if (block.type === 'tool_call') {
+    const name = (block as Extract<ContentBlock, { type: 'tool_call' }>).name
+    // A name-keyed override is resolved over the `tool_call` base policy so a
+    // partial `{ auxEligible }` keeps the inherited header-eligibility.
+    if (overrides && name in overrides) {
+      const base = getTimelineBehavior('tool_call')
+      const override = overrides[name] as Partial<TimelineBehavior>
+      return {
+        auxEligible: override.auxEligible ?? base.auxEligible,
+        eligibleForHeaderSummary:
+          override.eligibleForHeaderSummary ?? base.eligibleForHeaderSummary,
+      }
+    }
+  }
+  return getTimelineBehavior(block.type, overrides)
+}
+
 /** A bare (ungrouped) item in the grouped output. */
 export interface BareItem {
   kind: 'bare'
@@ -102,7 +130,7 @@ export function groupBlocks(
   }
 
   for (const block of blocks) {
-    if (getTimelineBehavior(block.type, overrides).auxEligible) {
+    if (getBlockTimelineBehavior(block, overrides).auxEligible) {
       run.push(block)
     } else {
       flush()
@@ -144,7 +172,7 @@ export function selectHeaderSummary(
   overrides?: Record<string, Partial<TimelineBehavior>>,
 ): HeaderSummary {
   const last = blocks[blocks.length - 1] as RenderableBlock
-  const lastBehavior = getTimelineBehavior(last.type, overrides)
+  const lastBehavior = getBlockTimelineBehavior(last, overrides)
   let chosen: RenderableBlock
   if (trailingActive && lastBehavior.auxEligible && !lastBehavior.eligibleForHeaderSummary) {
     // Trailing ACTIVE header-ineligible item (the live status row) wins so its
@@ -154,7 +182,7 @@ export function selectHeaderSummary(
     // Latest header-eligible block, else fall back to the trailing block.
     let headerEligible: RenderableBlock | undefined
     for (const block of blocks) {
-      if (getTimelineBehavior(block.type, overrides).eligibleForHeaderSummary)
+      if (getBlockTimelineBehavior(block, overrides).eligibleForHeaderSummary)
         headerEligible = block
     }
     chosen = headerEligible ?? last

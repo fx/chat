@@ -175,8 +175,10 @@ in the rule.
       `timelineBehavior` map on `extensions` — **Resolved:** a separate
       `extensions.timelineBehavior` map keyed by custom block `type` (and, to override a core
       tool's grouping, by tool `name`). Keeping the flags off the renderer entry lets the same
-      map override BOTH a custom kind's default (non-aux) and a core `tool_call` override's
-      grouping through one uniform lookup in `getTimelineBehavior(kind, overrides)`, and keeps
+      map override a custom kind's default (non-aux), the `tool_call` type policy, AND a single
+      tool's grouping by `name` — resolved by `getBlockTimelineBehavior(block, overrides)`, which
+      prefers a `name`-keyed override for a `tool_call` (so one tool's grouping changes without
+      affecting every `tool_call`) and otherwise falls back to the `type`-keyed lookup. This keeps
       `blockRenderers` a plain `type → Component` map.
 - [x] Whether `data-timeline-item-id` should be part of the documented public test-id surface —
       **Resolved:** yes. It mirrors the `data-message-id` anchor contract and is documented as a

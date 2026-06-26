@@ -7,7 +7,12 @@ import type {
   TextBlock,
   ToolCallBlock,
 } from '../model'
-import { getTimelineBehavior, groupBlocks, selectHeaderSummary } from './grouping'
+import {
+  getBlockTimelineBehavior,
+  getTimelineBehavior,
+  groupBlocks,
+  selectHeaderSummary,
+} from './grouping'
 
 const text = (id: string): TextBlock => ({ type: 'text', id, text: id })
 const reasoning = (id: string, durationMs?: number): ReasoningBlock => ({
@@ -92,6 +97,63 @@ describe('getTimelineBehavior', () => {
   })
 })
 
+describe('getBlockTimelineBehavior', () => {
+  it('falls back to type behavior for a non-tool block', () => {
+    expect(getBlockTimelineBehavior(reasoning('r'))).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
+
+  it('applies a per-tool-NAME override over the tool_call base (partial keeps header-eligible)', () => {
+    // `{ search: { auxEligible: false } }` demotes ONLY the `search` tool to
+    // non-aux while keeping inherited header-eligibility, and without affecting
+    // other tools.
+    expect(
+      getBlockTimelineBehavior(tool('t', 'search'), { search: { auxEligible: false } }),
+    ).toEqual({ auxEligible: false, eligibleForHeaderSummary: true })
+    // A different tool name is unaffected → inherits the tool_call base policy.
+    expect(
+      getBlockTimelineBehavior(tool('t2', 'other'), { search: { auxEligible: false } }),
+    ).toEqual({ auxEligible: true, eligibleForHeaderSummary: true })
+  })
+
+  it('fills in only the supplied name-override flag, inheriting the rest from tool_call', () => {
+    // Override supplies ONLY eligibleForHeaderSummary → auxEligible falls back to
+    // the tool_call base (true), exercising the `?? base.auxEligible` arm.
+    expect(
+      getBlockTimelineBehavior(tool('t', 'search'), {
+        search: { eligibleForHeaderSummary: false },
+      }),
+    ).toEqual({ auxEligible: true, eligibleForHeaderSummary: false })
+  })
+
+  it('prefers a name-keyed override over a type-keyed one for a tool_call', () => {
+    const overrides = {
+      tool_call: { auxEligible: false },
+      search: { auxEligible: true, eligibleForHeaderSummary: false },
+    }
+    // The `search` name override wins over the `tool_call` type override.
+    expect(getBlockTimelineBehavior(tool('t', 'search'), overrides)).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: false,
+    })
+  })
+
+  it('uses the type-keyed override for a tool whose name is not in the map', () => {
+    expect(
+      getBlockTimelineBehavior(tool('t', 'search'), { tool_call: { auxEligible: false } }),
+    ).toEqual({ auxEligible: false, eligibleForHeaderSummary: true })
+  })
+
+  it('returns the tool_call base when no overrides are supplied', () => {
+    expect(getBlockTimelineBehavior(tool('t', 'search'))).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
+})
+
 describe('groupBlocks', () => {
   it('renders a single-item aux run bare', () => {
     const result = groupBlocks([reasoning('r1')])
@@ -145,6 +207,18 @@ describe('groupBlocks', () => {
     const blocks = [reasoning('r'), marker, tool('t')]
     const result = groupBlocks(blocks, { host_marker: { auxEligible: true } })
     expect(result).toEqual([{ kind: 'group', blocks }])
+  })
+
+  it('breaks a run on a per-tool-NAME non-aux override without affecting other tools', () => {
+    const blocks = [reasoning('r'), tool('t1', 'render_ui'), tool('t2', 'search')]
+    // `render_ui` is demoted to non-aux; `search` stays aux. The render_ui tool
+    // renders bare and breaks the run; reasoning is now a single-item bare run.
+    const result = groupBlocks(blocks, { render_ui: { auxEligible: false } })
+    expect(result).toEqual([
+      { kind: 'bare', block: reasoning('r') },
+      { kind: 'bare', block: tool('t1', 'render_ui') },
+      { kind: 'bare', block: tool('t2', 'search') },
+    ])
   })
 })
 

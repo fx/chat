@@ -50,7 +50,12 @@ export type {
   HeaderSummary,
   TimelineBehavior,
 } from './grouping'
-export { getTimelineBehavior, groupBlocks, selectHeaderSummary } from './grouping'
+export {
+  getBlockTimelineBehavior,
+  getTimelineBehavior,
+  groupBlocks,
+  selectHeaderSummary,
+} from './grouping'
 export type { ElapsedTimerInput, LiveTokensInput } from './hooks'
 export {
   useElapsedTimer,
