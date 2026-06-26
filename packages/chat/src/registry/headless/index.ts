@@ -9,6 +9,7 @@
  */
 import type { ChatComponents } from '../contract'
 import { headlessIcons } from './icons'
+import { Lightbox } from './lightbox'
 import { HeadlessMarkdown } from './markdown'
 import {
   Avatar,
@@ -34,10 +35,12 @@ export const headlessComponents: ChatComponents = {
   Avatar,
   CopyButton,
   Markdown: HeadlessMarkdown,
+  Lightbox,
   icons: headlessIcons,
 }
 
 export { headlessIcons, HEADLESS_ICON_NAMES } from './icons'
+export { Lightbox } from './lightbox'
 export { HeadlessMarkdown, parseBlocks } from './markdown'
 export {
   Avatar,

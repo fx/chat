@@ -19,6 +19,7 @@ describe('@fx/chat/headless entry', () => {
     expect(typeof r.Avatar).toBe('function')
     expect(typeof r.CopyButton).toBe('function')
     expect(typeof r.Markdown).toBe('function')
+    expect(typeof r.Lightbox).toBe('function')
     expect(typeof r.icons).toBe('object')
   })
 
@@ -31,6 +32,7 @@ describe('@fx/chat/headless entry', () => {
       'Collapsible',
       'CopyButton',
       'JsonView',
+      'Lightbox',
       'ScrollArea',
       'Tooltip',
     ] as const) {
@@ -55,6 +57,8 @@ describe('@fx/chat/headless entry', () => {
         'check',
         'close',
         'copy',
+        'download',
+        'expand',
         'file',
         'fork',
         'gear',

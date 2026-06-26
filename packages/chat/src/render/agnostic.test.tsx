@@ -1,4 +1,4 @@
-import { render, within } from '@testing-library/react'
+import { fireEvent, render, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../model'
 import { ChatProvider } from '../registry'
@@ -8,6 +8,7 @@ import type {
   CollapsibleProps,
   CopyButtonProps,
   JsonViewProps,
+  LightboxProps,
   MarkdownProps,
   PartialChatComponents,
 } from '../registry'
@@ -55,10 +56,24 @@ const styledStub: PartialChatComponents = {
     </button>
   ),
   Markdown: ({ content }: MarkdownProps) => <article data-stub="md">{content}</article>,
+  Lightbox: ({ src, alt, open, onClose }: LightboxProps) =>
+    open ? (
+      <div data-stub="lightbox">
+        <img src={src} alt={alt} />
+        <button type="button" onClick={onClose}>
+          x
+        </button>
+      </div>
+    ) : null,
 }
 
 const fixture: ChatMessage[] = [
-  { id: 'u1', role: 'user', blocks: [{ type: 'text', id: 'ut', text: 'ask @bot' }] },
+  {
+    id: 'u1',
+    role: 'user',
+    blocks: [{ type: 'text', id: 'ut', text: 'ask @bot' }],
+    attachments: [{ url: 'https://x/a.png', mediaType: 'image/png', kind: 'image', name: 'pic' }],
+  },
   {
     id: 'a1',
     role: 'assistant',
@@ -86,6 +101,9 @@ function assertStructure(root: HTMLElement) {
   const assistant = root.querySelector('[data-message-id="a1"]') as HTMLElement
   // User text is plain with a highlighted mention (never markdown).
   expect(within(user).getByText('@bot')).toHaveAttribute('data-agent-id', 'bot')
+  // The user message's image attachment renders a thumbnail with accessible alt
+  // text in every registry.
+  expect(within(user).getByAltText('pic')).toBeInTheDocument()
   // Assistant answer text renders bare beneath the grouped metadata.
   expect(within(assistant).getByText('the answer')).toBeInTheDocument()
   // Two metadata blocks (reasoning + tool) collapse: a +1 badge is shown.
@@ -114,5 +132,9 @@ describe('design-system agnosticism', () => {
     expect(stubbed.container.querySelector('[data-stub="collapsible"]')).not.toBeNull()
     expect(stubbed.container.querySelector('[data-stub="md"]')).not.toBeNull()
     expect(stubbed.container.querySelector('[data-stub="json"]')).not.toBeNull()
+    // Expanding the user's image thumbnail opens the host-overridden Lightbox.
+    const user = stubbed.container.querySelector('[data-message-id="u1"]') as HTMLElement
+    fireEvent.click(within(user).getByRole('button', { name: 'Expand pic' }))
+    expect(stubbed.container.querySelector('[data-stub="lightbox"]')).not.toBeNull()
   })
 })

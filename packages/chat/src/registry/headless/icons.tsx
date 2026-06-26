@@ -157,6 +157,19 @@ const Close = (props: IconProps) => (
   </Svg>
 )
 
+const Download = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M8 2v8M4.5 6.5L8 10l3.5-3.5" />
+    <path d="M2.5 11.5v1A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-1" />
+  </Svg>
+)
+
+const Expand = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M6 2.5H2.5V6M10 13.5h3.5V10M13.5 6V2.5H10M2.5 10v3.5H6" />
+  </Svg>
+)
+
 /**
  * The complete headless icon registry — one inline SVG per {@link IconName}.
  * Frozen so the shared default cannot be mutated by a consumer.
@@ -180,6 +193,8 @@ export const headlessIcons: IconRegistry = Object.freeze({
   stop: Stop,
   paperclip: Paperclip,
   close: Close,
+  download: Download,
+  expand: Expand,
 }) as IconRegistry
 
 /** Ordered list of every icon name the headless set ships. */

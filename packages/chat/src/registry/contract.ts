@@ -95,6 +95,27 @@ export interface MarkdownProps {
   streaming?: boolean
 }
 
+/**
+ * Props for the {@link ChatComponents.Lightbox} attachment image overlay.
+ *
+ * `alt` is REQUIRED: callers MUST always pass an alternative-text string
+ * (falling back to the attachment `name`, or a generic label when unnamed) so
+ * the enlarged image is accessible. The overlay is controlled — it renders the
+ * enlarged image only while `open` is `true` and reports dismissal (Escape /
+ * close control / backdrop) via `onClose`.
+ */
+export interface LightboxProps {
+  /** Source URL of the enlarged image (already scheme-validated by the caller). */
+  src: string
+  /** Required accessible alternative text for the enlarged image. */
+  alt: string
+  /** Whether the overlay is currently open. */
+  open: boolean
+  /** Invoked when the user dismisses the overlay (Escape, close control, backdrop). */
+  onClose: () => void
+  className?: string
+}
+
 /** Props every icon slot must accept. */
 export interface IconProps {
   className?: string
@@ -127,6 +148,8 @@ export type IconName =
   | 'stop'
   | 'paperclip'
   | 'close'
+  | 'download'
+  | 'expand'
 
 /** The full icon map: one component per {@link IconName}. */
 export type IconRegistry = Record<IconName, IconComponent>
@@ -148,6 +171,13 @@ export interface ChatComponents {
   Avatar: ComponentType<AvatarProps>
   CopyButton: ComponentType<CopyButtonProps>
   Markdown: ComponentType<MarkdownProps>
+  /**
+   * OPTIONAL enlarged-image overlay for the attachment image grid. The headless
+   * default ships a self-contained accessible overlay; hosts MAY map it to their
+   * own dialog/lightbox. Renderers MUST treat it as possibly absent and fall back
+   * to the headless default when a host omits it.
+   */
+  Lightbox?: ComponentType<LightboxProps>
   icons: IconRegistry
 }
 

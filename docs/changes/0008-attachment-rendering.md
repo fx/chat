@@ -12,7 +12,7 @@ registry slot for the enlarged-image overlay.
 
 **Spec:** [message-rendering](../specs/message-rendering/),
 [component-registry](../specs/component-registry/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0002, 0004
 
 ## Motivation
@@ -146,15 +146,15 @@ in the rule.
 
 ## Tasks
 
-- [ ] Add `isSafeAttachmentUrl` pure guard + tests
-- [ ] Add the `Lightbox`/`ImageOverlay` registry slot, accessible headless default, and
+- [x] Add `isSafeAttachmentUrl` pure guard + tests
+- [x] Add the `Lightbox`/`ImageOverlay` registry slot, accessible headless default, and
       `download`/`expand` icons
-- [ ] Implement `AttachmentImageGrid` (lazy thumbnails, alt text, responsive, theme-aware) with
+- [x] Implement `AttachmentImageGrid` (lazy thumbnails, alt text, responsive, theme-aware) with
       the lightbox trigger
-- [ ] Implement `AttachmentChip` for video/audio/file with safe download/open affordance
-- [ ] Wire `MessageAttachments` into `MessageItem` for `user` messages (gated on
+- [x] Implement `AttachmentChip` for video/audio/file with safe download/open affordance
+- [x] Wire `MessageAttachments` into `MessageItem` for `user` messages (gated on
       `attachments?.length`; no change when absent)
-- [ ] Tests: grid a11y, lightbox keyboard/focus-trap/restore, chip labels + download, URL guard,
+- [x] Tests: grid a11y, lightbox keyboard/focus-trap/restore, chip labels + download, URL guard,
       additivity (no-attachment parity), cross-registry agnosticism incl. host-overridden
       `Lightbox`
 
