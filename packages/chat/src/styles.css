@@ -310,6 +310,20 @@
   min-width: 0;
 }
 
+/* The renderer-owned header (`.chat-row-header`) is placed inside whatever
+   disclosure trigger the host registry injects. The headless `<summary>`
+   already carries `cursor: pointer`, but a host whose `Collapsible` trigger is
+   a `<div role="button">`/`[aria-expanded]` would otherwise leave the header
+   reading `cursor: default` despite being clickable. Scope `cursor: pointer`
+   to any header that lives inside an actual interactive trigger so the row
+   reads as interactive in every registry. The static (bodyless) `.chat-row`
+   renders no such trigger ancestor, so it correctly stays non-pointer. */
+summary .chat-row-header,
+[role="button"] .chat-row-header,
+[aria-expanded] .chat-row-header {
+  cursor: pointer;
+}
+
 .chat-row-label,
 .chat-group-summary-label {
   /* min-width:0 lets the label shrink inside its flex row so long unbroken text

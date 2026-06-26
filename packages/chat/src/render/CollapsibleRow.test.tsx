@@ -119,6 +119,29 @@ describe('CollapsibleRow pills + icon', () => {
     expect(container.querySelector('[data-tone="error"]')).not.toBeNull()
   })
 
+  it('renders a non-color "Error" text marker on an error row, with no aria-invalid', () => {
+    row({ label: 'E', children: <span>e</span>, error: true })
+    const marker = screen.getByText('Error')
+    expect(marker).toHaveClass('chat-row-error-marker')
+    expect(marker).toHaveAttribute('data-tone', 'error')
+    // The text Badge is the WCAG 1.4.1 non-color signal; aria-invalid (a
+    // form-field validity attr) is semantically wrong on a disclosure header
+    // and must not appear.
+    expect(marker.closest('.chat-row-header')).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('renders the error marker on a static (no-body) error row, with no aria-invalid', () => {
+    row({ label: 'E', alwaysShow: true, error: true })
+    expect(screen.getByText('Error')).toHaveClass('chat-row-error-marker')
+    expect(screen.getByText('E').closest('.chat-row-header')).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('omits the error marker on non-error rows, with no aria-invalid', () => {
+    row({ label: 'OK', children: <span>e</span> })
+    expect(screen.queryByText('Error')).toBeNull()
+    expect(screen.getByText('OK').closest('.chat-row-header')).not.toHaveAttribute('aria-invalid')
+  })
+
   it('forwards a custom className', () => {
     const { container } = row({ label: 'C', alwaysShow: true, className: 'mine' })
     expect(container.querySelector('.mine')).not.toBeNull()
