@@ -88,14 +88,17 @@ export function getCaretCoords(textarea: HTMLTextAreaElement, caret: number): Ca
   mirror.style.whiteSpace = 'pre-wrap'
   mirror.style.overflowWrap = 'break-word'
 
-  // Text up to the caret drives the marker's position; a trailing newline needs
-  // a placeholder so the mirror reserves the new (empty) line's height.
+  // Text up to the caret drives the marker's position. When `head` ends with a
+  // newline the marker lands at the START of the next line (column 0) — which is
+  // exactly where the caret is — so NO placeholder space is prepended (a space
+  // would mis-anchor the marker one column to the right).
   const value = textarea.value
   const head = value.slice(0, caret)
-  mirror.textContent = head.endsWith('\n') ? `${head} ` : head
+  mirror.textContent = head
 
   const marker = doc.createElement('span')
-  // A zero-width but non-empty marker so it has a layout box at the caret.
+  // A non-empty marker so it has a layout box at the caret. The tail text gives
+  // it width/position; an empty tail falls back to a single char.
   marker.textContent = value.slice(caret) || '.'
   mirror.appendChild(marker)
 

@@ -62,11 +62,14 @@ describe('getCaretCoords', () => {
     expect(coords.height).toBe(20)
   })
 
-  it('adds a placeholder when the text up to the caret ends in a newline', () => {
+  it('measures a caret at the start of a new line without offsetting it', () => {
     const textarea = makeTextarea('line1\n', '20px')
-    // Caret at the very end (after the newline) — exercises the placeholder arm.
+    // Caret after the trailing newline: the marker lands at column 0 of the new
+    // line with no prepended placeholder space (which would mis-anchor it).
     const coords = getCaretCoords(textarea, 6)
     expect(coords.height).toBe(20)
+    // offsetLeft is 0 in jsdom; the key assertion is no extra offset is added.
+    expect(coords.left).toBe(0)
   })
 
   it('uses a "." marker when there is no text after the caret', () => {
