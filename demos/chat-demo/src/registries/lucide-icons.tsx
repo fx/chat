@@ -1,0 +1,64 @@
+/**
+ * Lucide icon map — maps every library {@link IconName} to a `lucide-react`
+ * component, adapting lucide's `size`/`className` props to the library's
+ * {@link IconProps} contract.
+ *
+ * Shared by the shadcn and fx-ui adapters (both wire lucide), demonstrating that
+ * the icon set is host-injected: the library references icons only by semantic
+ * name and never depends on an icon package.
+ */
+import type { IconName, IconProps, IconRegistry } from '@fx/chat'
+import {
+  AudioLines,
+  Brain,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  FileText,
+  GitFork,
+  Loader2,
+  type LucideIcon,
+  Paperclip,
+  RefreshCw,
+  RotateCcw,
+  SendHorizontal,
+  Settings,
+  Square,
+  Video,
+  Wrench,
+  X,
+} from 'lucide-react'
+
+/** Wrap a lucide component as a library {@link IconProps} icon. */
+function wrap(Icon: LucideIcon) {
+  return function WrappedIcon({ className, size }: IconProps) {
+    return <Icon className={className} size={size ?? 16} aria-hidden />
+  }
+}
+
+const MAP: Record<IconName, LucideIcon> = {
+  spinner: Loader2,
+  check: Check,
+  caretRight: ChevronRight,
+  caretDown: ChevronDown,
+  copy: Copy,
+  wrench: Wrench,
+  brain: Brain,
+  gear: Settings,
+  regenerate: RefreshCw,
+  fork: GitFork,
+  reset: RotateCcw,
+  file: FileText,
+  audio: AudioLines,
+  video: Video,
+  send: SendHorizontal,
+  stop: Square,
+  paperclip: Paperclip,
+  close: X,
+}
+
+/** The full lucide icon registry, one component per {@link IconName}. */
+export const lucideIcons: IconRegistry = Object.fromEntries(
+  (Object.keys(MAP) as IconName[]).map((name) => [name, wrap(MAP[name])]),
+) as IconRegistry

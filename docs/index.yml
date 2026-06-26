@@ -68,5 +68,5 @@ changes:
     path: changes/0006-demos.md
     description: Three-registry static demo on GitHub Pages
     spec: demos
-    status: draft
+    status: complete
     depends_on: ["0004", "0005"]

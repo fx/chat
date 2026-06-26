@@ -8,7 +8,7 @@ a compact controls strip, polished light/dark styling, and a GitHub Pages deploy
 marketing copy.
 
 **Spec:** [demos](../specs/demos/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0004, 0005
 
 ## Motivation
@@ -97,14 +97,14 @@ in the rule.
 
 ## Tasks
 
-- [ ] Scaffold the Vite demo app, fixtures (covering all required surfaces), and base-path
+- [x] Scaffold the Vite demo app, fixtures (covering all required surfaces), and base-path
       config
-- [ ] Implement the three registry adapters (fx-ui, shadcn, headless) as thin mappings, each
+- [x] Implement the three registry adapters (fx-ui, shadcn, headless) as thin mappings, each
       with icons (+ optional markdown engine)
-- [ ] Implement `App.tsx`: controls strip (registry, single/side-by-side, theme, grouped/flat,
+- [x] Implement `App.tsx`: controls strip (registry, single/side-by-side, theme, grouped/flat,
       verbose) + panes wrapping `ChatProvider` → `MessageLog` + `ChatInput`
-- [ ] Wire the streaming fixture through the library timing hooks (reduced-motion aware)
-- [ ] Add the cross-registry parity test, the no-network/no-private-refs check, and finalize the
+- [x] Wire the streaming fixture through the library timing hooks (reduced-motion aware)
+- [x] Add the cross-registry parity test, the no-network/no-private-refs check, and finalize the
       Pages deploy workflow
 
 ## Open Questions
