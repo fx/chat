@@ -74,4 +74,40 @@ describe('mergeTimeline', () => {
       'b',
     ])
   })
+
+  it('preserves the GIVEN message order even when createdAt is non-monotonic', () => {
+    // Host passes messages in deliberate display order, NOT createdAt order.
+    const messages = [msg('m2', 300), msg('m1', 100)]
+    const items = [item('mid', 200)]
+    const merged = mergeTimeline(messages, items)
+    // m2 stays first (its given position); the item slots before m1 (at <= 200
+    // is false for m2 at 300, so the item lands before it) — messages never flip.
+    expect(merged.map((e) => (e.kind === 'message' ? e.message.id : e.item.id))).toEqual([
+      'mid',
+      'm2',
+      'm1',
+    ])
+  })
+
+  it('keeps an item with `at` past all messages at the tail', () => {
+    const messages = [msg('a', 100), msg('b', 200)]
+    const items = [item('late', 999)]
+    const merged = mergeTimeline(messages, items)
+    expect(merged.map((e) => (e.kind === 'message' ? e.message.id : e.item.id))).toEqual([
+      'a',
+      'b',
+      'late',
+    ])
+  })
+
+  it('orders two items at the same `at` by their given order (stable)', () => {
+    const messages = [msg('a', 100)]
+    const items = [item('first', 50), item('second', 50)]
+    const merged = mergeTimeline(messages, items)
+    expect(merged.map((e) => (e.kind === 'message' ? e.message.id : e.item.id))).toEqual([
+      'first',
+      'second',
+      'a',
+    ])
+  })
 })

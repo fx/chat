@@ -29,27 +29,50 @@ export interface MergedItemEntry {
 export type MergedEntry = MergedMessageEntry | MergedItemEntry
 
 /**
- * Merge `messages` and `items` into a single stream ordered by position. A
- * message's position is its `createdAt` (or `0` when absent, matching the
- * downstream timing default). Ordering is STABLE: entries that compare equal keep
- * their original relative order (messages before items at the same position,
- * preserving the messages' order). With no `items`, the output is the messages in
- * order — the additive, default-unchanged path.
+ * Merge `messages` and `items` into a single stream, INSERTING custom items by
+ * `at` WITHOUT reordering the messages.
+ *
+ * `MessageLog` renders exactly the message order it is given — that contract is
+ * preserved here: messages keep their given relative order even when their
+ * `createdAt` values are non-monotonic (a host may pass messages in deliberate
+ * display order). Each item is slotted in by `at` relative to the message
+ * sequence: it is emitted just before the FIRST not-yet-emitted message whose
+ * position (`createdAt`, or `0` when absent) is strictly greater than the item's
+ * `at`; items past all messages land at the end. Items are ordered among
+ * themselves by `at` (stable for equal `at`). With no `items`, the output is the
+ * messages in their given order — the additive, default-unchanged path.
  */
 export function mergeTimeline(messages: ChatMessage[], items?: TimelineItem[]): MergedEntry[] {
-  const entries: MergedEntry[] = messages.map((message) => ({
+  const messageEntries: MergedMessageEntry[] = messages.map((message) => ({
     kind: 'message',
     message,
     at: message.createdAt ?? 0,
   }))
-  if (!items || items.length === 0) return entries
+  if (!items || items.length === 0) return messageEntries
 
-  for (const item of items) {
-    entries.push({ kind: 'item', item, at: item.at })
+  // Items ordered by `at` (stable for ties) so they slot in deterministically.
+  const itemEntries: MergedItemEntry[] = items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => a.item.at - b.item.at || a.index - b.index)
+    .map(({ item }) => ({ kind: 'item' as const, item, at: item.at }))
+
+  const out: MergedEntry[] = []
+  let mi = 0
+  for (const itemEntry of itemEntries) {
+    // Emit messages (in their GIVEN order) until the next message would sort
+    // after this item; the item slots in just before it.
+    while (
+      mi < messageEntries.length &&
+      (messageEntries[mi] as MergedMessageEntry).at <= itemEntry.at
+    ) {
+      out.push(messageEntries[mi] as MergedMessageEntry)
+      mi++
+    }
+    out.push(itemEntry)
   }
-  // Stable sort by `at`. `Array.prototype.sort` is stable in modern engines, so a
-  // 0-comparison preserves insertion order: all messages were pushed first (in
-  // order), then items — so at an equal position a message precedes an item.
-  entries.sort((a, b) => a.at - b.at)
-  return entries
+  // Any remaining messages keep their order at the tail.
+  for (; mi < messageEntries.length; mi++) {
+    out.push(messageEntries[mi] as MergedMessageEntry)
+  }
+  return out
 }
