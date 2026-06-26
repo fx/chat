@@ -95,6 +95,26 @@ describe('getTimelineBehavior', () => {
       eligibleForHeaderSummary: true,
     })
   })
+
+  it('defaults a custom kind named like an Object.prototype member to non-aux', () => {
+    // `constructor`/`toString` are on Object.prototype; the base policy must come
+    // from an own-membership check, not the `in` operator — so these resolve to
+    // the safe non-aux default, never a prototype function.
+    expect(getTimelineBehavior('constructor')).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: false,
+    })
+    expect(getTimelineBehavior('toString')).toEqual({
+      auxEligible: false,
+      eligibleForHeaderSummary: false,
+    })
+    // A partial override for such a kind fills missing flags from the safe
+    // default, not from `undefined`.
+    expect(getTimelineBehavior('constructor', { constructor: { auxEligible: true } })).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: false,
+    })
+  })
 })
 
 describe('getBlockTimelineBehavior', () => {
