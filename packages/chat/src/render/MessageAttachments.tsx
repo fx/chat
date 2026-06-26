@@ -30,8 +30,18 @@ export interface MessageAttachmentsProps {
   attachments: Attachment[]
 }
 
-/** Generic accessible fallback when an image attachment has no `name`. */
+/** Generic accessible fallback when an image attachment has no usable `name`. */
 const IMAGE_ALT_FALLBACK = 'image attachment'
+
+/**
+ * Resolve accessible alt text for an image attachment: its `name` when it is a
+ * non-empty (non-whitespace) string, otherwise the generic fallback. Guards
+ * against an empty/blank `name` (allowed by the model) producing an empty,
+ * inaccessible `alt`/`aria-label`.
+ */
+function imageAlt(name: string | undefined): string {
+  return name && name.trim().length > 0 ? name : IMAGE_ALT_FALLBACK
+}
 
 /** Maps a non-image attachment kind to its registry icon name. */
 const CHIP_ICON: Record<'video' | 'audio' | 'file', IconName> = {
@@ -76,7 +86,7 @@ function ImageGrid({
   return (
     <ul className="chat-attachment-grid">
       {images.map((image, index) => {
-        const alt = image.name ?? IMAGE_ALT_FALLBACK
+        const alt = imageAlt(image.name)
         const safe = isSafeAttachmentUrl(image.url)
         return (
           <li
@@ -189,7 +199,7 @@ export function MessageAttachments({ attachments }: MessageAttachmentsProps) {
       {Lightbox ? (
         <Lightbox
           src={active?.url ?? ''}
-          alt={active?.name ?? IMAGE_ALT_FALLBACK}
+          alt={imageAlt(active?.name)}
           open={active !== null}
           onClose={handleClose}
         />

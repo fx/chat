@@ -78,6 +78,15 @@ describe('MessageAttachments image grid', () => {
     expect(screen.getByAltText('third.png')).toBeInTheDocument()
   })
 
+  it('uses the fallback alt when an image name is empty or whitespace', () => {
+    renderAttachments([
+      img({ url: 'https://x/d.png', name: '' }),
+      img({ url: 'https://x/e.png', name: '   ' }),
+    ])
+    // Both blank-named images collapse onto the generic fallback alt.
+    expect(screen.getAllByAltText('image attachment')).toHaveLength(2)
+  })
+
   it('opens the lightbox with the enlarged image when a thumbnail is expanded', () => {
     renderAttachments([img({ name: 'first.png' })])
     expect(screen.queryByRole('dialog')).toBeNull()
