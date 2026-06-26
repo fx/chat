@@ -475,6 +475,21 @@ describe('ChatInput completion wiring', () => {
     expect(onChange).toHaveBeenLastCalledWith('~apple ')
   })
 
+  it('closes the popup when a selection-only caret move leaves the token', async () => {
+    const user = userEvent.setup()
+    render(<ChatInput onSend={vi.fn()} providers={[referenceProvider]} />)
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+    await user.type(textarea, '~ap done')
+    // Caret is now at the end (past the token); type back into the token first.
+    textarea.setSelectionRange(3, 3)
+    fireEvent.select(textarea)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    // Move the caret out of the token via a selection-only change (e.g. a click).
+    textarea.setSelectionRange(8, 8)
+    fireEvent.select(textarea)
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+  })
+
   it('forwards a custom portalContainer to the popup', async () => {
     const user = userEvent.setup()
     const container = document.createElement('div')

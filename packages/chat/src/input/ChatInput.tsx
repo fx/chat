@@ -351,6 +351,9 @@ export function ChatInput({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onScroll={syncScroll}
+          // Selection-only caret moves (clicks, arrow keys that don't edit) must
+          // re-sync the popup so it closes when the caret leaves an active token.
+          onSelect={() => popupRef.current?.syncCaret()}
         />
       </div>
 
