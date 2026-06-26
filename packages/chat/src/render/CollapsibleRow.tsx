@@ -127,13 +127,7 @@ export function CollapsibleRow({
   const tps = formatTokensPerSecond(tokensPerSecond)
 
   const header = (
-    <span
-      className="chat-row-header"
-      data-affordance={affordanceTone}
-      // Convey the error non-visually: assistive tech announces the row as
-      // invalid, so the state never rests on color alone (WCAG 1.4.1).
-      {...(error ? { 'aria-invalid': true } : {})}
-    >
+    <span className="chat-row-header" data-affordance={affordanceTone}>
       <span className="chat-row-affordance" data-affordance={affordanceTone}>
         {Affordance ? <Affordance className="chat-row-affordance-icon" /> : null}
       </span>
