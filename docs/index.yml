@@ -61,7 +61,7 @@ changes:
     path: changes/0005-input-composer.md
     description: Headless composer, completion providers, completion popup, mentions
     spec: input-composer
-    status: draft
+    status: complete
     depends_on: ["0002", "0003"]
   - id: "0006"
     name: demos
