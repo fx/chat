@@ -77,6 +77,40 @@ describe('@fx/chat public surface', () => {
     expect(block('.chat-collapsible-header')).toContain('min-height: 44px')
   })
 
+  it('makes an explicit data-theme win over prefers-color-scheme', () => {
+    // Precedence contract: `[data-theme="light"]` is light always,
+    // `[data-theme="dark"]` is dark always, and a root with NO `data-theme`
+    // follows the OS. This is encoded by (a) a `[data-theme="light"]` block
+    // and (b) scoping the OS-dark media block to `:root:not([data-theme])` so
+    // it cannot override an element that explicitly opts into light.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+
+    // (a) An explicit light hook exists to reclaim light under OS-dark.
+    expect(css).toContain('[data-theme="light"] {')
+
+    // (b) The OS-dark media block targets only roots WITHOUT a data-theme.
+    expect(css).toMatch(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme\]\) \{/)
+    // ...and never the bare `:root` (which would override an explicit theme).
+    expect(css).not.toMatch(/@media \(prefers-color-scheme: dark\) \{\s*:root \{/)
+
+    // (c) The `:root` light defaults and the `[data-theme="light"]` values must
+    // stay in sync — duplicated literals are allowed only if they match exactly.
+    const tokensOf = (selector: string): Record<string, string> => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      const body = m?.[1] ?? ''
+      const tokens: Record<string, string> = {}
+      for (const decl of body.split(';')) {
+        const dm = decl.match(/(--chat-[\w-]+)\s*:\s*(.+)/)
+        if (dm?.[1] && dm[2]) tokens[dm[1]] = dm[2].trim()
+      }
+      return tokens
+    }
+    const root = tokensOf(':root')
+    const explicitLight = tokensOf('\\[data-theme="light"\\]')
+    expect(Object.keys(explicitLight).length).toBeGreaterThan(0)
+    expect(explicitLight).toEqual(root)
+  })
+
   it('depends on no UI kit, icon set, or markdown engine', () => {
     const graph = Object.keys({
       ...(pkg.dependencies ?? {}),

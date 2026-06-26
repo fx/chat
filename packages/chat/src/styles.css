@@ -7,6 +7,18 @@
  * (it relies on semantic HTML), and hosts MAY override every variable to
  * restyle the whole surface without overriding any component.
  *
+ * Theming precedence — an explicit `data-theme` ALWAYS wins over the OS
+ * `prefers-color-scheme`:
+ *   - `[data-theme="light"]` → light tokens, regardless of OS preference.
+ *   - `[data-theme="dark"]`  → dark tokens, regardless of OS preference.
+ *   - no `data-theme`        → follows `prefers-color-scheme` (light default,
+ *                              dark under `prefers-color-scheme: dark`).
+ * This is achieved by scoping the OS-dark media block to
+ * `:root:not([data-theme])` so it never overrides an explicit theme, and by
+ * re-asserting the light tokens under `[data-theme="light"]`. The `:root` and
+ * `[data-theme="light"]` light values are kept identical on purpose (a smoke
+ * test asserts they stay in sync).
+ *
  * Tokens (light defaults under `:root`; dark overrides under
  * `prefers-color-scheme: dark` and an explicit `[data-theme="dark"]` hook):
  *   --chat-fg          foreground / body text
@@ -44,8 +56,10 @@
   --chat-code-bg: #f3f4f6;
 }
 
+/* Scope OS-dark to a root with NO explicit data-theme so an element/root that
+   sets `data-theme="light"` is never pulled dark by the OS preference. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --chat-fg: #f9fafb;
     --chat-muted: #9ca3af;
     --chat-bg: #0b0f19;
@@ -59,6 +73,25 @@
     --chat-success: #4ade80;
     --chat-code-bg: #111827;
   }
+}
+
+/* Explicit light theme: re-assert the SAME light tokens as `:root` so an
+   element/root with `data-theme="light"` reclaims light even when the OS
+   prefers dark. These values MUST match the `:root` light defaults above (a
+   smoke test enforces parity). */
+[data-theme="light"] {
+  --chat-fg: #111827;
+  --chat-muted: #565f6b;
+  --chat-bg: #ffffff;
+  --chat-accent: #2563eb;
+  --chat-accent-fg: #ffffff;
+  --chat-border: #e5e7eb;
+  --chat-error: #dc2626;
+  --chat-success: #15803d;
+  --chat-radius: 0.5rem;
+  --chat-gap: 0.75rem;
+  --chat-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --chat-code-bg: #f3f4f6;
 }
 
 [data-theme="dark"] {
