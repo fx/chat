@@ -576,6 +576,10 @@ summary .chat-row-header,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Expand the tappable hit area to the 44×44 minimum (the icon stays its own
+     size; the surrounding box grows). Mirrors `.chat-lightbox-close`. */
+  min-width: 44px;
+  min-height: 44px;
   color: var(--chat-accent);
 }
 
@@ -654,6 +658,7 @@ summary .chat-row-header,
 /* Reduced-motion: drop all transitions on interactive primitives so state
    changes apply instantly (hover/active affordances remain). */
 @media (prefers-reduced-motion: reduce) {
+  .chat-attachment-thumb,
   .chat-button,
   .chat-collapsible-header,
   .chat-copybutton,

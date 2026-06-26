@@ -138,6 +138,33 @@ describe('headless Lightbox', () => {
     ).not.toThrow()
   })
 
+  it('locks body scroll while open and restores the previous value on close', () => {
+    document.body.style.overflow = 'auto'
+    const { rerender } = render(<Lightbox src="https://x/a.png" alt="a" open onClose={() => {}} />)
+    expect(document.body.style.overflow).toBe('hidden')
+
+    rerender(<Lightbox src="https://x/a.png" alt="a" open={false} onClose={() => {}} />)
+    expect(document.body.style.overflow).toBe('auto')
+    document.body.style.overflow = ''
+  })
+
+  it('restores the prior body overflow when unmounted while open', () => {
+    document.body.style.overflow = 'scroll'
+    const { unmount } = render(<Lightbox src="https://x/a.png" alt="a" open onClose={() => {}} />)
+    expect(document.body.style.overflow).toBe('hidden')
+
+    unmount()
+    expect(document.body.style.overflow).toBe('scroll')
+    document.body.style.overflow = ''
+  })
+
+  it('does not lock body scroll while closed', () => {
+    document.body.style.overflow = 'auto'
+    render(<Lightbox src="https://x/a.png" alt="a" open={false} onClose={() => {}} />)
+    expect(document.body.style.overflow).toBe('auto')
+    document.body.style.overflow = ''
+  })
+
   it('marks reduced-motion on the backdrop when the OS prefers reduce', () => {
     stubMatchMedia(true)
     const { container } = render(<Lightbox src="https://x/a.png" alt="a" open onClose={() => {}} />)

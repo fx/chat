@@ -71,6 +71,20 @@ export function Lightbox({ src, alt, open, onClose, className }: LightboxProps) 
     }
   }, [open])
 
+  // Lock body scroll while the overlay is open so the page behind the backdrop
+  // can't scroll, restoring the previous `overflow` value on close/unmount. The
+  // effect runs client-side only, so `document` is available; the cleanup always
+  // restores the captured value, so unmounting while open never leaks the lock.
+  useEffect(() => {
+    if (!open) return
+    const { style } = document.body
+    const previous = style.overflow
+    style.overflow = 'hidden'
+    return () => {
+      style.overflow = previous
+    }
+  }, [open])
+
   // Keyboard handling: Escape closes; Tab/Shift+Tab is trapped within the
   // overlay's focusable controls. `event.currentTarget` is the dialog node the
   // handler is bound to, so it is always present — no null guard needed.
