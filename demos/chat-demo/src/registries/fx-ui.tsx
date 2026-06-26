@@ -137,7 +137,7 @@ export const fxUiRegistry: ChatComponents = {
           render={
             <button
               type="button"
-              className="flex w-full items-center gap-1.5 text-left text-sm hover:text-foreground/80"
+              className="flex w-full cursor-pointer items-center gap-1.5 text-left text-sm hover:text-foreground/80"
             >
               <ChevronIcon size={14} className="shrink-0 text-muted-foreground" />
               {header}
