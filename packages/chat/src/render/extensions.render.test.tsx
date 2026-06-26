@@ -281,6 +281,23 @@ describe('TimelineItemView', () => {
     expect(container.querySelector('[data-label="L"]')).not.toBeNull()
   })
 
+  it('resolves an empty-string `kind` through blockRenderers (presence, not truthiness)', () => {
+    // `kind` is typed `string`, so '' is a legitimate registry key. The body must
+    // discriminate on presence, not truthiness, or it would render inertly here.
+    const Renderer = vi.fn(({ block, message }: CustomRenderProps) => (
+      <div data-empty-kind data-type={(block as { type: string }).type} data-msg={message.id} />
+    ))
+    const extensions: ChatExtensions = { blockRenderers: { '': Renderer } }
+    const { container } = render(
+      <TimelineItemView item={{ id: 'w1', at: 1, kind: '' }} extensions={extensions} />,
+    )
+    const el = container.querySelector('[data-empty-kind]') as HTMLElement
+    expect(el).not.toBeNull()
+    expect(el.getAttribute('data-type')).toBe('')
+    expect(el.getAttribute('data-msg')).toBe('w1')
+    expect(Renderer).toHaveBeenCalledTimes(1)
+  })
+
   it('renders inertly (anchor only) when a kind has no matching renderer', () => {
     const { container } = render(
       <TimelineItemView item={{ id: 'w1', at: 1, kind: 'unknown' }} extensions={{}} />,

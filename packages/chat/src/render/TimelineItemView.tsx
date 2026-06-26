@@ -30,7 +30,10 @@ export function TimelineItemView({ item, extensions }: TimelineItemViewProps) {
 function TimelineItemBody({ item, extensions }: TimelineItemViewProps) {
   if (item.render) return <>{item.render()}</>
 
-  if (item.kind) {
+  // Discriminate on PRESENCE, not truthiness: `kind` is typed `string`, so an
+  // empty string is a legitimate `blockRenderers` key. A truthiness check would
+  // misclassify `kind: ''` as "no kind" and render the item inertly.
+  if (item.kind !== undefined) {
     const Renderer = lookupExtension(extensions?.blockRenderers, item.kind)
     if (Renderer) {
       const block: CustomBlock = item.block ?? { id: item.id, type: item.kind }

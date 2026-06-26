@@ -11,7 +11,7 @@
  */
 import type { ContentBlock } from '../model'
 import type { RenderableBlock } from './extensions'
-import { isCoreBlockType, lookupExtension } from './extensions'
+import { NON_AUX_BEHAVIOR, isCoreBlockType, lookupExtension } from './extensions'
 
 /** Per-kind timeline behavior flags. */
 export interface TimelineBehavior {
@@ -51,9 +51,7 @@ export function getTimelineBehavior(
   // `isCoreBlockType` is a Set membership check (own keys only), so a custom kind
   // named like an inherited Object member (e.g. `constructor`, `toString`) does
   // NOT resolve to a prototype function — it correctly gets the non-aux default.
-  const base: TimelineBehavior = isCoreBlockType(kind)
-    ? BEHAVIOR[kind]
-    : { auxEligible: false, eligibleForHeaderSummary: false }
+  const base: TimelineBehavior = isCoreBlockType(kind) ? BEHAVIOR[kind] : NON_AUX_BEHAVIOR
   const override = lookupExtension(overrides, kind)
   if (!override) return base
   return {
