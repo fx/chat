@@ -133,6 +133,14 @@ export function CollapsibleRow({
       </span>
       {LeadingIcon ? <LeadingIcon className="chat-row-icon" /> : null}
       <span className="chat-row-label">{label}</span>
+      {error ? (
+        // Non-color glanceable marker on the collapsed header: a text "Error"
+        // chip (in addition to the error color/border) so the failure reads
+        // without relying on color. Pending/running/success rows omit it.
+        <Badge className="chat-row-error-marker" tone="error">
+          Error
+        </Badge>
+      ) : null}
       {timerPill ? (
         <Badge className="chat-row-timer" tone="default">
           {formatDuration(elapsed)}

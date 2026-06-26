@@ -4,7 +4,9 @@
  * Shows the tool name, the INPUT arguments, the OUTPUT result when present, and
  * any extracted `media` (image/audio). Error state is driven solely by
  * `status === 'error'` (never by inspecting `result`): an error is styled as an
- * error and defaults to expanded.
+ * error, defaults to expanded, and surfaces a non-color "Error" text marker on
+ * the collapsed header (via {@link CollapsibleRow}'s `error` prop) so the
+ * failure never rests on color alone (WCAG 1.4.1).
  */
 import type { ToolCallBlock } from '../../model'
 import { useChatComponents } from '../../registry'

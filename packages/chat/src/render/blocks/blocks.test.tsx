@@ -155,6 +155,37 @@ describe('ToolCallBlockView', () => {
     expect(screen.getByText('bad').closest('details')).toHaveProperty('open', true)
   })
 
+  it('surfaces a non-color "Error" text marker on an error tool row, with no aria-invalid', () => {
+    const block: ToolCallBlock = {
+      type: 'tool_call',
+      id: 'tc',
+      name: 'bad',
+      arguments: {},
+      status: 'error',
+    }
+    render(<ToolCallBlockView block={block} />)
+    const marker = screen.getByText('Error')
+    expect(marker).toHaveClass('chat-row-error-marker')
+    // Text Badge is the non-color signal; no aria-invalid on the header.
+    expect(marker.closest('.chat-row-header')).not.toHaveAttribute('aria-invalid')
+  })
+
+  it.each(['success', 'pending', 'running'] as const)(
+    'omits the error marker on a %s tool row, with no aria-invalid',
+    (status) => {
+      const block: ToolCallBlock = {
+        type: 'tool_call',
+        id: 'tc',
+        name: 'ok',
+        arguments: {},
+        status,
+      }
+      render(<ToolCallBlockView block={block} />)
+      expect(screen.queryByText('Error')).toBeNull()
+      expect(screen.getByText('ok').closest('.chat-row-header')).not.toHaveAttribute('aria-invalid')
+    },
+  )
+
   it('renders image and audio media', () => {
     const block: ToolCallBlock = {
       type: 'tool_call',
