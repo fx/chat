@@ -596,10 +596,13 @@ describe('CompletionPopup rendering', () => {
     const container = document.createElement('div')
     container.id = 'portal'
     document.body.appendChild(container)
-    const h = setup([referenceProvider], container)
-    h.current?.type('~ap', 3)
-    await waitFor(() => expect(container.querySelector('[role="listbox"]')).not.toBeNull())
-    document.body.removeChild(container)
+    try {
+      const h = setup([referenceProvider], container)
+      h.current?.type('~ap', 3)
+      await waitFor(() => expect(container.querySelector('[role="listbox"]')).not.toBeNull())
+    } finally {
+      container.remove()
+    }
   })
 
   it('flips above the caret near the viewport bottom', async () => {

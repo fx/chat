@@ -407,7 +407,12 @@ function CompletionPopupImpl(
   // is pending before the loading indicator), or before coords are measured.
   if (!openMatch || !hasVisibleContent || !coords) return null
 
-  const container = portalContainer ?? document.body
+  // Default to the textarea's OWN document body (not the global one) so the
+  // popup renders into the right document for iframe / alternate-document hosts.
+  // The textarea is guaranteed present here: `coords` is only set while it is
+  // mounted (see `updateCoords`), and we returned null above when it is missing.
+  const container =
+    portalContainer ?? (textareaRef.current as HTMLTextAreaElement).ownerDocument.body
 
   const content: ReactNode = (
     <div

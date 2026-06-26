@@ -83,6 +83,10 @@ export function getCaretCoords(textarea: HTMLTextAreaElement, caret: number): Ca
   for (const prop of MIRRORED_PROPERTIES) {
     mirror.style[prop] = style[prop]
   }
+  // Reserve the same vertical scrollbar gutter as the textarea so wrapped-line
+  // measurements don't drift when the input is scrollable.
+  mirror.style.height = `${textarea.clientHeight}px`
+  mirror.style.overflowY = style.overflowY
   // Take the mirror out of flow and hide it while preserving text metrics.
   mirror.style.position = 'absolute'
   mirror.style.top = '0'
