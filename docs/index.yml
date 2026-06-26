@@ -70,3 +70,17 @@ changes:
     spec: demos
     status: complete
     depends_on: ["0004", "0005"]
+  - id: "0007"
+    name: render-extensibility
+    path: changes/0007-render-extensibility.md
+    description: Render-layer extension API — custom block/tool renderers, custom timeline items, inert unknown-type fallback
+    spec: message-rendering
+    status: draft
+    depends_on: ["0003", "0004"]
+  - id: "0008"
+    name: attachment-rendering
+    path: changes/0008-attachment-rendering.md
+    description: User-attachment rendering — image grid + lightbox, media/file chips, scheme-safe download, Lightbox registry slot
+    spec: message-rendering
+    status: draft
+    depends_on: ["0002", "0004"]

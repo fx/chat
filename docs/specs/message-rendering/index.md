@@ -169,16 +169,173 @@ scope** and MUST NOT appear in this package.
   `data-message-id` contract, honoring `prefers-reduced-motion`, and SSR-safe (guarded for
   `document`).
 
+### Render-Layer Extensibility
+
+> Status: **not yet implemented** (proposed in
+> [0007-render-extensibility](../../changes/0007-render-extensibility.md)). The core
+> `ContentBlock` union and the default rendering behavior MUST remain unchanged for hosts that
+> do not use these extension points.
+
+A host application carries surfaces this package intentionally excludes — host-defined block
+kinds (e.g. timeline markers), bespoke rendering for specific tools, and custom top-level
+timeline items. These MUST be expressible **without** mutating the closed core `ContentBlock`
+union and **without** forking the renderers. Extension is registry/prop-driven and additive.
+
+- `MessageLog` and `BlockView` MUST accept an OPTIONAL renderer-extension API, supplied as a
+  single OPTIONAL `extensions` prop (a plain object; SSR-safe; identity-stable by the host).
+  When `extensions` is absent, behavior MUST be byte-for-byte the default behavior specified
+  above.
+- The `extensions` object MUST support three independent capabilities, each OPTIONAL:
+  1. **Custom block renderers** — a `blockRenderers` map keyed by a custom block `type` string
+     (any value outside the core union). When the renderer encounters a block whose `type` is
+     not a core variant, it MUST look the `type` up in `blockRenderers` and render the
+     host-supplied component, passing at least `{ block, message, isStreaming }`.
+  2. **Tool-call renderer overrides** — a `toolRenderers` map keyed by tool `name`. When a
+     `tool_call` block's `name` matches a key, the renderer MUST render the host-supplied
+     component **instead of** the default tool block, passing at least
+     `{ block, message, isStreaming }`. Tool names that are not present in the map MUST render
+     with the default tool block.
+  3. **Custom timeline items** — an OPTIONAL `timelineItems` array of host-defined items, each
+     with a stable `id`, an `at` ordering key (epoch ms, the same axis as message `createdAt`),
+     and a `render` function (or a `kind` resolved through `blockRenderers`). `MessageLog` MUST
+     interleave these items into the rendered timeline ordered by `at` relative to messages,
+     and MUST wrap each with a stable `data-timeline-item-id` attribute (mirroring the
+     `data-message-id` anchor contract).
+- **Unknown block types MUST NOT crash.** When a block's `type` is neither a core variant nor
+  present in `blockRenderers`, the renderer MUST fall back to a safe, inert placeholder (the
+  registry `JsonView` of the block in raw/debug mode, an empty render otherwise) and MUST NOT
+  throw. This fallback MUST hold even when no `extensions` prop is supplied.
+- Custom block renderers and tool overrides MUST receive their visual atoms from the registry
+  via `useChatComponents()` like every other renderer; the package MUST NOT require the host to
+  import a UI kit to participate.
+- **Grouping interaction.** Custom blocks MUST default to **non-aux** (they render bare and
+  break auxiliary runs), so an unknown block never silently disappears into a collapsed
+  disclosure. A host MAY opt a custom block kind into the timeline-behavior policy by supplying
+  per-kind `{ auxEligible, eligibleForHeaderSummary }` flags alongside its renderer; absent
+  flags, the kind is treated as non-aux and not header-eligible. Tool-call overrides MUST
+  inherit the existing `tool_call` grouping behavior (aux-eligible, header-eligible) unless the
+  host overrides those flags for that tool.
+- All extension points MUST be SSR-safe and MUST NOT introduce a runtime dependency. The core
+  union, the default renderers, and the grouping policy MUST be unchanged for non-extended use.
+
+#### Scenario: Unknown block type renders inert, not a crash
+
+- **GIVEN** a message containing a block whose `type` is `'host_marker'` and no `extensions`
+  prop is supplied
+- **WHEN** the log renders
+- **THEN** the block renders a safe placeholder (or nothing) and no error is thrown; all other
+  blocks render normally.
+
+#### Scenario: Host-supplied custom block renderer
+
+- **GIVEN** `extensions.blockRenderers = { host_marker: HostMarker }` and a message containing a
+  `host_marker` block
+- **WHEN** the log renders
+- **THEN** `HostMarker` is invoked with `{ block, message, isStreaming }`, draws its atoms from
+  the registry, and renders bare (non-aux) unless the host opted it into the grouping policy.
+
+#### Scenario: Tool-call override by name
+
+- **GIVEN** `extensions.toolRenderers = { render_ui: HostToolUI }` and an assistant turn with a
+  `tool_call` block whose `name` is `render_ui`
+- **WHEN** the log renders
+- **THEN** `HostToolUI` renders in place of the default tool block, while a sibling `tool_call`
+  with a different `name` still renders with the default tool block.
+
+#### Scenario: Custom top-level timeline item interleaves by order
+
+- **GIVEN** messages at `createdAt` 100 and 300 and `extensions.timelineItems = [{ id:'m1',
+  at:200, render }]`
+- **WHEN** the log renders
+- **THEN** the custom item renders between the two messages, wrapped with
+  `data-timeline-item-id="m1"`, ordered by `at`.
+
+### User Attachments
+
+> Status: **not yet implemented** (proposed in
+> [0008-attachment-rendering](../../changes/0008-attachment-rendering.md)). The model already
+> defines message-level `attachments`; the render layer does not yet display them.
+
+The [message-model](../message-model/) carries message-level `attachments`
+(`{ url, mediaType, kind: 'image'|'video'|'audio'|'file', name? }`) on `user` messages, but the
+render layer does not currently render them. The package MUST render a user message's
+attachments through the registry, accessibly, responsively, and theme-aware.
+
+- `MessageLog`/`MessageItem` MUST render a `user` message's `attachments` (when present) in a
+  dedicated attachment region distinct from the message's text blocks. Messages without
+  attachments MUST render exactly as today.
+- Attachments of `kind: 'image'` MUST render as a responsive thumbnail **grid**: each thumbnail
+  MUST use the attachment `url`, MUST carry accessible alternative text (the attachment `name`
+  when present, otherwise a generic localized fallback such as "image attachment"), and MUST be
+  lazy-loaded. The grid MUST be responsive (reflow by available width) and theme-aware (driven
+  by the package CSS custom properties, no hard-coded colors).
+- The image grid MUST provide an **expand/lightbox affordance**: activating a thumbnail (click
+  or keyboard) MUST open a larger view of that image via a registry-supplied overlay slot. The
+  overlay MUST be keyboard-operable (focusable, dismissable via `Escape` and a close control),
+  MUST trap focus while open, MUST restore focus to the originating thumbnail on close, and MUST
+  honor `prefers-reduced-motion`.
+- Attachments of `kind: 'video'`, `'audio'`, and `'file'` MUST render as **chips** showing the
+  attachment `name` (or a derived label from the `url`/`mediaType` when `name` is absent) with a
+  kind-appropriate registry icon (`video`, `audio`, `file`), and MUST offer a **download/open**
+  affordance.
+- All attachment URLs MUST be **scheme-safe**: the renderer MUST only honor `http(s):`, `data:`,
+  and `blob:` URLs and MUST refuse to render or link other schemes (e.g. `javascript:`),
+  degrading to an inert, non-interactive chip. The renderer MUST NOT execute or interpret
+  attachment content.
+- Attachment rendering MUST draw every visual atom (thumbnail frame, chip, overlay, icons) from
+  the registry via `useChatComponents()`; the package MUST NOT hard-code a UI kit. Any new
+  visual primitive required (e.g. an image/lightbox overlay) MUST be added as a registry slot
+  (see [component-registry](../component-registry/)).
+- Attachment rendering MUST be SSR-safe: DOM/clipboard/overlay portal access MUST live in
+  effects/handlers, and the markup MUST render server-side without `window`/`document`.
+
+#### Scenario: Image attachments render as an accessible grid
+
+- **GIVEN** a `user` message with three `kind:'image'` attachments
+- **WHEN** the message renders
+- **THEN** three lazy-loaded thumbnails render in a responsive grid, each with accessible alt
+  text (the attachment `name` when present), driven by the package theme tokens.
+
+#### Scenario: Lightbox open/close is keyboard-operable
+
+- **GIVEN** a rendered image thumbnail
+- **WHEN** the user activates it via keyboard and then presses `Escape`
+- **THEN** the registry overlay opens with the enlarged image, focus is trapped while open, and
+  on `Escape` the overlay closes and focus returns to the originating thumbnail.
+
+#### Scenario: Non-image attachment chips with safe download
+
+- **GIVEN** a `user` message with a `kind:'file'` attachment named `report.pdf` at an `https:`
+  URL
+- **WHEN** the message renders
+- **THEN** a chip shows `report.pdf` with the `file` icon and a download/open affordance pointing
+  at the safe URL.
+
+#### Scenario: Unsafe scheme is refused
+
+- **GIVEN** an attachment whose `url` uses a `javascript:` scheme
+- **WHEN** the message renders
+- **THEN** the attachment renders as an inert, non-interactive chip and the unsafe URL is not
+  linked or executed.
+
 ## Design
 
 ### Architecture
 
 ```
-<MessageLog messages isStreaming streamingMessageId onRegenerate? onFork? onReset?>
-  for each message → <MessageItem data-message-id=id>
-     grouped renderer applies timeline-behavior registry:
-        run of auxEligible blocks → <BlockGroup> (collapsed disclosure)
-        non-aux block             → bare renderer
+<MessageLog messages isStreaming streamingMessageId onRegenerate? onFork? onReset? extensions?>
+  merge messages + extensions.timelineItems → ordered timeline (by createdAt / at)
+  for each timeline entry:
+     message     → <MessageItem data-message-id=id>
+        grouped renderer applies timeline-behavior registry (+ host custom-kind flags):
+           run of auxEligible blocks → <BlockGroup> (collapsed disclosure)
+           non-aux block             → bare renderer
+        block dispatch:
+           core type                 → default renderer
+           tool_call w/ override name → extensions.toolRenderers[name]
+           custom/unknown type        → extensions.blockRenderers[type] | inert fallback
+        user attachments region      → image grid (+ lightbox slot) | media/file chips
+     custom item → <div data-timeline-item-id=id> item.render()
   block renderers ← registry primitives/icons/Markdown
   streaming hooks ← message timestamps/metrics (model)
 ```
@@ -189,6 +346,10 @@ scope** and MUST NOT appear in this package.
   `ReasoningBlock`, `ToolCallBlock`, `StatusBlock`, `SystemBlock`, `RawJsonBlock`,
   `MessageFooter`).
 - A shared `CollapsibleRow` substrate over the registry `Collapsible`.
+- An `extensions` prop carrying `blockRenderers`, `toolRenderers`, optional per-custom-kind
+  grouping flags, and `timelineItems`; an inert fallback renderer for unknown block types.
+- An attachment region (`MessageAttachments`) composing an image grid, a registry-backed
+  lightbox/overlay slot, and media/file chips.
 
 ### Business Logic
 
@@ -197,13 +358,26 @@ scope** and MUST NOT appear in this package.
 - **grouping pass** — single linear walk producing bare items and grouped runs; deterministic
   and unit-testable without the DOM.
 - **timing hooks** — pure-input hooks driven by epoch timestamps; tested with fake timers.
+- **block dispatch with extensions** — a single dispatch resolves, in order: tool-name override
+  (for `tool_call`), core renderer (for core `type`s), host `blockRenderers[type]` (for custom
+  `type`s), then the inert fallback. The grouping pass consults host per-kind flags so custom
+  kinds participate in (or stay out of) auxiliary runs deterministically.
+- **timeline merge** — `MessageLog` merges `messages` and `extensions.timelineItems` into one
+  ordered stream by `createdAt`/`at`; pure and unit-testable without the DOM.
+- **scheme-safe URL guard** — a small pure helper validates attachment `url` schemes before any
+  thumbnail `src`, chip link, or download is rendered; shared by the attachment renderers.
 
 ## Constraints
 
-- Renderers MUST be SSR-safe; DOM access (scroll, clipboard) MUST be in effects/handlers.
-- No router, store, server, or UI-kit imports anywhere in this layer.
-- The `data-message-id` attribute and the timeline-behavior flags are a **public contract**;
-  changing them is a breaking change.
+- Renderers MUST be SSR-safe; DOM access (scroll, clipboard, lightbox portal) MUST be in
+  effects/handlers.
+- No router, store, server, or UI-kit imports anywhere in this layer; custom block/tool
+  renderers and attachment views MUST draw their atoms from the registry.
+- The `data-message-id` attribute, the `data-timeline-item-id` attribute, the timeline-behavior
+  flags, and the `extensions` prop shape are a **public contract**; changing them is a breaking
+  change.
+- Extension points MUST be additive: with no `extensions` prop and no attachments, output MUST
+  be identical to the pre-extension behavior.
 
 ## Open Questions
 
@@ -214,6 +388,14 @@ scope** and MUST NOT appear in this package.
 - **Test-id surface** — whether to ship stable `data-testid`s as public API.
   - Current default: ship a documented, minimal set for the grouped disclosure and footer
     controls.
+- **Custom-kind grouping flags location** — whether per-custom-kind `{ auxEligible,
+  eligibleForHeaderSummary }` flags ride on each `blockRenderers` entry or live in a separate
+  `timelineBehavior` map on `extensions`.
+  - Current default: co-locate the flags with the renderer entry; absent flags ⇒ non-aux.
+- **Lightbox: registry slot vs headless built-in** — whether the enlarged-image overlay is a
+  required registry slot or a headless-default component hosts MAY override.
+  - Current default: add an OPTIONAL `Lightbox`/`ImageOverlay` registry slot with a headless
+    default, so zero-config rendering still works.
 
 ## References
 
@@ -226,3 +408,5 @@ scope** and MUST NOT appear in this package.
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0004-message-rendering](../../changes/0004-message-rendering.md) |
+| 2026-06-26 | Added render-layer extensibility (custom block/tool renderers, custom timeline items, inert unknown-type fallback) — not yet implemented | [0007-render-extensibility](../../changes/0007-render-extensibility.md) |
+| 2026-06-26 | Added user-attachment rendering (image grid + lightbox, media/file chips, scheme-safe download) — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |

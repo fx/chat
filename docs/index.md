@@ -21,3 +21,5 @@
 | 0004 | [Message Rendering](changes/0004-message-rendering.md) | [Message Rendering](specs/message-rendering/) | complete | 0002, 0003 |
 | 0005 | [Input Composer](changes/0005-input-composer.md) | [Input Composer](specs/input-composer/) | complete | 0002, 0003 |
 | 0006 | [Demos](changes/0006-demos.md) | [Demos](specs/demos/) | complete | 0004, 0005 |
+| 0007 | [Render Extensibility](changes/0007-render-extensibility.md) | [Message Rendering](specs/message-rendering/) | draft | 0003, 0004 |
+| 0008 | [Attachment Rendering](changes/0008-attachment-rendering.md) | [Message Rendering](specs/message-rendering/) | draft | 0002, 0004 |
