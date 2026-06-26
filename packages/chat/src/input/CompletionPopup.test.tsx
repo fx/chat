@@ -701,6 +701,88 @@ describe('CompletionPopup rendering', () => {
     }
   })
 
+  it('copies the resolved --chat-* theme tokens onto the portaled popup root', async () => {
+    // The popup portals to document.body, escaping a wrapper-scoped theme hook.
+    // It must copy the RESOLVED tokens from the textarea's themed context onto
+    // its own root so a `[data-theme="dark"]` on a SUBTREE wrapper still themes
+    // the popup. jsdom does not resolve INHERITED custom properties, so we set
+    // the resolved value directly on the textarea (what getComputedStyle would
+    // return in a real browser under an ancestor theme) and assert it lands on
+    // the popup as an inline custom property.
+    const h = setup([referenceProvider])
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    ta.style.setProperty('--chat-bg', '#0b0f19')
+    ta.style.setProperty('--chat-fg', '#f9fafb')
+    h.current?.type('~ap', 3)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    const popup = document.querySelector('.chat-completion-popup') as HTMLElement
+    await waitFor(() => expect(popup.style.getPropertyValue('--chat-bg')).toBe('#0b0f19'))
+    expect(popup.style.getPropertyValue('--chat-fg')).toBe('#f9fafb')
+  })
+
+  it('does not copy tokens that resolve to empty (keeps the popup CSS default)', async () => {
+    // With no resolved tokens on the textarea (jsdom returns empty for unset
+    // custom properties), the popup root carries no inline --chat-* overrides,
+    // so its own stylesheet defaults apply.
+    const h = setup([referenceProvider])
+    h.current?.type('~ap', 3)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    const popup = document.querySelector('.chat-completion-popup') as HTMLElement
+    expect(popup.style.getPropertyValue('--chat-bg')).toBe('')
+  })
+
+  it('clamps the popup left to stay on-screen when measured near the right edge', async () => {
+    // Drive a 375px viewport with the caret anchored near the right edge and a
+    // measured popup width of 192px. The post-render measurement re-clamps the
+    // left so the popup stays fully within the viewport.
+    const ta = screen.queryByTestId('ta')
+    void ta
+    // Pin the viewport width and the textarea's rect (caret anchors at rect.left
+    // since offsetLeft is 0 in jsdom).
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(375)
+    const realRect = HTMLElement.prototype.getBoundingClientRect
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.tagName === 'TEXTAREA') {
+        return {
+          top: 40,
+          left: 320,
+          bottom: 64,
+          right: 490,
+          width: 170,
+          height: 24,
+          x: 320,
+          y: 40,
+          toJSON: () => ({}),
+        } as DOMRect
+      }
+      if (this.classList.contains('chat-completion-popup')) {
+        return {
+          top: 0,
+          left: 0,
+          bottom: 0,
+          right: 192,
+          width: 192,
+          height: 100,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect
+      }
+      return realRect.call(this)
+    })
+    const h = setup([referenceProvider])
+    h.current?.type('~ap', 3)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    const popup = document.querySelector('.chat-completion-popup') as HTMLElement
+    // After measurement re-clamps: left = 375 - 192 - 8 = 175; right edge 367 ≤ 375.
+    await waitFor(() => expect(popup.style.left).toBe('175px'))
+    const left = Number.parseFloat(popup.style.left)
+    expect(left).toBeGreaterThanOrEqual(0)
+    expect(left + 192).toBeLessThanOrEqual(375)
+  })
+
   it('flips above the caret near the viewport bottom', async () => {
     const h = setup([referenceProvider])
     // Position the textarea near the bottom of the viewport so the popup flips.

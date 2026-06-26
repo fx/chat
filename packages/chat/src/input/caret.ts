@@ -146,31 +146,63 @@ export interface PopupAnchor {
 }
 
 /**
+ * Margin (px) kept between the popup and the viewport edges when clamping the
+ * horizontal position so the popup never sits flush against (or off) the screen.
+ */
+const VIEWPORT_MARGIN = 8
+
+/** Clamp `value` into the inclusive `[min, max]` range. Never returns `< min`. */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max))
+}
+
+/**
  * Compute the fixed-position anchor for a caret-attached popup of approximately
  * `popupHeight` px. Anchors just below the caret normally; flips to anchor at
  * the caret's top (so the popup grows upward) when there is not enough room
  * below AND there is enough room above.
  *
- * The viewport height is taken from the textarea's own document view (falling
- * back to `0` for a detached element with no view, which simply disables the
- * flip). Pure given a textarea + caret offset: it composes {@link getCaretCoords}
- * with the textarea's bounding rect, so it is unit-testable without real layout.
+ * Horizontally, the popup is anchored at the caret but CLAMPED so it stays fully
+ * on-screen: when the caret sits near the right edge and the popup would overflow
+ * (its measured `popupWidth` runs past the viewport), `left` is pulled left so
+ * the popup's right edge stays within `viewportWidth - VIEWPORT_MARGIN`; `left`
+ * is never less than `VIEWPORT_MARGIN`. When there is room, the caret-anchored
+ * position is preserved. Pass the popup's MEASURED width (like `popupHeight` for
+ * the vertical flip); when `0`/omitted (pre-measure), no horizontal clamp is
+ * applied and the raw caret-anchored left is returned.
+ *
+ * The viewport height/width are taken from the textarea's own document view
+ * (falling back to `0` for a detached element with no view, which disables the
+ * flip and the clamp). Pure given a textarea + caret offset: it composes
+ * {@link getCaretCoords} with the textarea's bounding rect, so it is
+ * unit-testable without real layout.
  */
 export function computePopupAnchor(
   textarea: HTMLTextAreaElement,
   caret: number,
   popupHeight: number,
+  popupWidth = 0,
 ): PopupAnchor {
   const c = getCaretCoords(textarea, caret)
   const rect = textarea.getBoundingClientRect()
-  const viewportHeight = textarea.ownerDocument.defaultView?.innerHeight ?? 0
+  const view = textarea.ownerDocument.defaultView
+  const viewportHeight = view?.innerHeight ?? 0
+  const viewportWidth = view?.innerWidth ?? 0
   const caretViewportTop = rect.top + c.top
   const spaceBelow = viewportHeight - (caretViewportTop + c.height)
   // Flip when there isn't room below AND the caret sits at least `popupHeight`
   // from the viewport top (an exact fit above counts).
   const flip = spaceBelow < popupHeight && caretViewportTop >= popupHeight
+  const desiredLeft = rect.left + c.left
+  // Clamp horizontally only when we know both the popup width and the viewport
+  // width; otherwise keep the raw caret-anchored left. The max bound keeps the
+  // popup's right edge on-screen; `clamp` also floors `left` at the margin.
+  const left =
+    popupWidth > 0 && viewportWidth > 0
+      ? clamp(desiredLeft, VIEWPORT_MARGIN, viewportWidth - popupWidth - VIEWPORT_MARGIN)
+      : desiredLeft
   return {
-    left: rect.left + c.left,
+    left,
     top: flip ? caretViewportTop : caretViewportTop + c.height,
     flip,
   }

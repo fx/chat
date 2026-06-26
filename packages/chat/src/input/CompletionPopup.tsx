@@ -29,6 +29,7 @@
  * React state.
  */
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
@@ -38,6 +39,7 @@ import {
   useId,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -50,6 +52,47 @@ export const LOADING_DELAY = 150
 
 /** Estimated popup height (px) used to decide whether to flip above the caret. */
 const ESTIMATED_POPUP_HEIGHT = 220
+
+/**
+ * The `--chat-*` custom properties the popup paints with. The popup portals to
+ * `document.body` by default, which escapes any theme hook applied to a SUBTREE
+ * wrapper (e.g. `[data-theme="dark"]` on a div around the composer) — only a
+ * theme on `:root`/`<html>` would reach it. To keep the body-portaled popup
+ * theme-correct WHEREVER the hook lives, the popup copies these tokens' RESOLVED
+ * values from the textarea's themed DOM context onto its own root as inline
+ * custom properties, so its CSS rules (which read `var(--chat-*)`) inherit the
+ * active theme. Keep this list in sync with the tokens the popup CSS consumes.
+ */
+const THEMED_TOKENS = [
+  '--chat-fg',
+  '--chat-muted',
+  '--chat-bg',
+  '--chat-accent',
+  '--chat-accent-fg',
+  '--chat-border',
+  '--chat-radius',
+  '--chat-gap',
+  '--chat-font-family',
+] as const
+
+/**
+ * Read the resolved `--chat-*` token values from `el`'s themed context and
+ * return them as inline custom properties to spread onto the popup root. Only
+ * non-empty values are included so a token left to its CSS default (the popup's
+ * own stylesheet) is not overwritten with an empty string. Returns an empty
+ * object when no view is available (detached element).
+ */
+function resolveThemedTokens(el: HTMLElement): CSSProperties {
+  const view = el.ownerDocument.defaultView
+  if (!view) return {}
+  const computed = view.getComputedStyle(el)
+  const vars: Record<string, string> = {}
+  for (const token of THEMED_TOKENS) {
+    const value = computed.getPropertyValue(token).trim()
+    if (value) vars[token] = value
+  }
+  return vars as CSSProperties
+}
 
 /** The imperative surface the composer drives. */
 export interface CompletionPopupHandle {
@@ -155,6 +198,15 @@ function CompletionPopupImpl(
   const [pending, setPending] = useState(false)
   const [loading, setLoading] = useState(false)
   const [coords, setCoords] = useState<{ left: number; top: number; flip: boolean } | null>(null)
+  // The popup's measured width (px), fed back into the anchor computation so the
+  // horizontal position can be clamped to keep the popup fully on-screen. `0`
+  // before the first measurement (caret-anchored, unclamped).
+  const [popupWidth, setPopupWidth] = useState(0)
+  // Resolved `--chat-*` tokens copied from the textarea's themed context onto the
+  // portaled popup so it inherits a wrapper-scoped theme (see THEMED_TOKENS).
+  const [themeVars, setThemeVars] = useState<CSSProperties>({})
+  // The popup root element, measured after render for the clamp + theming.
+  const popupElRef = useRef<HTMLDivElement | null>(null)
   // The token range the user dismissed via Escape; suppresses re-open until the
   // caret leaves that token or the token text changes.
   const [dismissed, setDismissed] = useState<{ range: Range; query: string } | null>(null)
@@ -286,8 +338,8 @@ function CompletionPopupImpl(
       setCoords(null)
       return
     }
-    setCoords(computePopupAnchor(textarea, caret, ESTIMATED_POPUP_HEIGHT))
-  }, [open, caret, textareaRef])
+    setCoords(computePopupAnchor(textarea, caret, ESTIMATED_POPUP_HEIGHT, popupWidth))
+  }, [open, caret, textareaRef, popupWidth])
 
   // Measure on open and whenever the caret/value moves (the `void value` read
   // makes the re-measure-on-reflow dependency explicit), and keep the anchor in
@@ -308,6 +360,23 @@ function CompletionPopupImpl(
       textarea?.removeEventListener('scroll', updateCoords)
     }
   }, [open, value, updateCoords, textareaRef])
+
+  // After the popup paints, measure its width (to clamp the horizontal anchor so
+  // it stays on-screen) and copy the resolved `--chat-*` theme tokens from the
+  // textarea's themed context onto the popup root (so the body-portaled popup
+  // inherits a wrapper-scoped theme). Runs whenever the popup's visible content
+  // or position could change. `setPopupWidth` only re-renders when the width
+  // actually changes, so this does not loop. The themed tokens are re-read each
+  // pass so a runtime theme switch is reflected.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: coords is read indirectly to re-measure after the popup repositions.
+  useEffect(() => {
+    const el = popupElRef.current
+    const textarea = textareaRef.current
+    if (!el || !textarea) return
+    const width = el.getBoundingClientRect().width
+    if (width > 0) setPopupWidth((prev) => (prev === width ? prev : width))
+    setThemeVars(resolveThemedTokens(textarea))
+  }, [open, hasVisibleContent, coords, value, textareaRef])
 
   // Apply an item against a known-open match: rewrite value + caret. Only ever
   // called with the current `openMatch` (from a rendered option or a consumed
@@ -432,6 +501,7 @@ function CompletionPopupImpl(
 
   const content: ReactNode = (
     <div
+      ref={popupElRef}
       className="chat-completion-popup"
       data-flip={coords.flip ? 'true' : undefined}
       style={{
@@ -439,6 +509,9 @@ function CompletionPopupImpl(
         left: coords.left,
         top: coords.top,
         transform: coords.flip ? 'translateY(-100%)' : undefined,
+        // Resolved theme tokens copied from the composer's themed context so the
+        // body-portaled popup inherits a wrapper-scoped theme (see THEMED_TOKENS).
+        ...themeVars,
       }}
     >
       <ScrollArea className="chat-completion-scroll">

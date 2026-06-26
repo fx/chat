@@ -141,21 +141,30 @@ describe('computePopupAnchor', () => {
    * A textarea whose caret height (line-height), bounding rect, and viewport
    * height (via its document's `defaultView.innerHeight`) are stubbed.
    */
-  function anchored(rectTop: number, viewportHeight: number, lineHeight = '20px') {
+  function anchored(
+    rectTop: number,
+    viewportHeight: number,
+    lineHeight = '20px',
+    rectLeft = 30,
+    viewportWidth?: number,
+  ) {
     const textarea = makeTextarea('abc', lineHeight)
     vi.spyOn(textarea, 'getBoundingClientRect').mockReturnValue({
       top: rectTop,
-      left: 30,
+      left: rectLeft,
       bottom: rectTop + 24,
-      right: 200,
+      right: rectLeft + 170,
       width: 170,
       height: 24,
-      x: 30,
+      x: rectLeft,
       y: rectTop,
       toJSON: () => ({}),
     } as DOMRect)
     const view = textarea.ownerDocument.defaultView as Window
     vi.spyOn(view, 'innerHeight', 'get').mockReturnValue(viewportHeight)
+    if (viewportWidth !== undefined) {
+      vi.spyOn(view, 'innerWidth', 'get').mockReturnValue(viewportWidth)
+    }
     return textarea
   }
 
@@ -189,6 +198,44 @@ describe('computePopupAnchor', () => {
     const textarea = anchored(220, 230)
     const anchor = computePopupAnchor(textarea, 1, 220)
     expect(anchor.flip).toBe(true)
+  })
+
+  it('clamps the popup left so it stays on-screen when the caret is near the right edge', () => {
+    // 375px viewport, caret anchored at x=320 (rect.left; offsetLeft is 0 in
+    // jsdom), popup 192px wide. Unclamped left 320 would run 320+192=512 > 375,
+    // clipping ~137px off-screen. Clamp pulls it to 375 - 192 - 8 = 175 so the
+    // right edge (175+192=367) stays within [0, 375].
+    const textarea = anchored(40, 1000, '20px', 320, 375)
+    const anchor = computePopupAnchor(textarea, 1, 220, 192)
+    expect(anchor.left).toBe(175)
+    expect(anchor.left).toBeGreaterThanOrEqual(0)
+    expect(anchor.left + 192).toBeLessThanOrEqual(375)
+  })
+
+  it('keeps the caret-anchored left when the popup fits within the viewport', () => {
+    // Plenty of room: caret at x=30, popup 192px wide, 375px viewport → fits
+    // (30+192=222 < 375), so the raw caret-anchored left is preserved.
+    const textarea = anchored(40, 1000, '20px', 30, 375)
+    const anchor = computePopupAnchor(textarea, 1, 220, 192)
+    expect(anchor.left).toBe(30)
+  })
+
+  it('floors the clamped left at the margin on a viewport narrower than the popup', () => {
+    // Viewport (150px) narrower than the popup (192px): the max bound
+    // (150-192-8 = -50) is below the margin, so `clamp` floors left at the
+    // margin (8) — never a negative left that pushes content off the left edge.
+    const textarea = anchored(40, 1000, '20px', 100, 150)
+    const anchor = computePopupAnchor(textarea, 1, 220, 192)
+    expect(anchor.left).toBe(8)
+  })
+
+  it('does not clamp horizontally before the popup width is measured', () => {
+    // Width 0 (pre-measure) → no clamp; raw caret-anchored left is returned even
+    // when it would overflow, so the first paint anchors at the caret and the
+    // post-render measurement re-clamps.
+    const textarea = anchored(40, 1000, '20px', 320, 375)
+    const anchor = computePopupAnchor(textarea, 1, 220)
+    expect(anchor.left).toBe(320)
   })
 
   it('treats a detached element (no view) as zero viewport height', () => {

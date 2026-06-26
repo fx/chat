@@ -24,7 +24,12 @@
  */
 :root {
   --chat-fg: #111827;
-  --chat-muted: #6b7280;
+  /* Darkened from #6b7280 so muted/description text (e.g. completion-option
+     descriptions, footer metrics) clears WCAG AA (≥4.5:1) BOTH on the white
+     surface (6.47:1) AND on the active-option highlight (accent@16% over white,
+     5.17:1) — #6b7280 fell to 3.86:1 on that highlight. Dark-theme muted is
+     unchanged (#9ca3af already clears AA in dark). */
+  --chat-muted: #565f6b;
   --chat-bg: #ffffff;
   --chat-accent: #2563eb;
   --chat-accent-fg: #ffffff;
@@ -428,6 +433,11 @@
   .chat-row-affordance[data-affordance="active"] .chat-row-affordance-icon {
     animation: none;
   }
+
+  /* …and for the completion popup's loading spinner. */
+  .chat-completion-spinner {
+    animation: none;
+  }
 }
 
 /* ── Input composer (change 0005) ───────────────────────────────────────────
@@ -515,6 +525,24 @@
   color: var(--chat-fg);
 }
 
+/* Style the placeholder with a themed token instead of leaving the UA default,
+   which dips below WCAG AA on the dark surface (≈4.16:1). `--chat-muted` clears
+   AA in BOTH themes — 6.47:1 on the light surface, 7.54:1 on the dark — so the
+   placeholder is always legible. */
+.chat-input-textarea::placeholder {
+  color: var(--chat-muted);
+  opacity: 1;
+}
+
+/* Disabled cue consistent with disabled buttons: dim the field and surface a
+   muted background + not-allowed cursor so the non-interactive state is visible
+   rather than relying on focus/typing failing silently. */
+.chat-input-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--chat-fg) 4%, var(--chat-bg));
+}
+
 .chat-input-actions {
   display: flex;
   align-items: center;
@@ -569,4 +597,11 @@
   justify-content: center;
   padding: var(--chat-gap);
   color: var(--chat-muted);
+}
+
+/* Animate the loading spinner (reuses the render layer's `chat-spin` keyframe).
+   Without this the spinner icon is a STATIC arc — the keyframe was only applied
+   to `.chat-row-affordance`, never the completion spinner. */
+.chat-completion-spinner {
+  animation: chat-spin 0.8s linear infinite;
 }
