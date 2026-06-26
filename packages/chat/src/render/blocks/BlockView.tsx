@@ -13,8 +13,8 @@
  * The renderer NEVER parses content strings to discover structure; it switches on
  * the discriminant only.
  */
-import type { ChatMessage, ContentBlock } from '../../model'
-import type { ChatExtensions, CustomBlock, RenderableBlock } from '../extensions'
+import type { ContentBlock } from '../../model'
+import type { ChatExtensions, CustomBlock, RenderableBlock, RenderableMessage } from '../extensions'
 import { isCoreBlockType, lookupExtension } from '../extensions'
 import { InertBlockView } from './InertBlock'
 import { ReasoningBlockView } from './ReasoningBlock'
@@ -48,7 +48,7 @@ export interface BlockRenderContext {
    * `extensions`. Only needed when `extensions` is in play; core renderers
    * ignore it.
    */
-  message?: ChatMessage
+  message?: RenderableMessage
   /** Raw/debug mode — the inert fallback surfaces unknown blocks as JSON. */
   raw?: boolean
 }

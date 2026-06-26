@@ -38,6 +38,7 @@ export type {
   CustomRenderProps,
   CustomTimelineBehavior,
   RenderableBlock,
+  RenderableMessage,
   TimelineItem,
   ToolRenderer,
 } from './extensions'

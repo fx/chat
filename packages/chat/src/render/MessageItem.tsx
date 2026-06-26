@@ -7,19 +7,18 @@
  * mode renders the whole message via the registry `JsonView` instead. The footer
  * affordances render beneath the blocks.
  */
-import type { ChatMessage } from '../model'
 import { BlockGroup } from './BlockGroup'
 import { MessageFooter } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
-import type { ChatExtensions, RenderableBlock } from './extensions'
+import type { ChatExtensions, RenderableMessage } from './extensions'
 import { deriveTokensPerSecond } from './format'
 import { groupBlocks } from './grouping'
 
 /** Props for {@link MessageItem}. */
 export interface MessageItemProps {
-  message: ChatMessage
+  message: RenderableMessage
   /** Whether THIS message is the actively-streaming one. */
   isActive?: boolean
   /** Render blocks flat (no grouping). */
@@ -40,7 +39,7 @@ export interface MessageItemProps {
 }
 
 /** Concatenate a message's text-block prose for the copy affordance. */
-export function messageCopyText(message: ChatMessage): string {
+export function messageCopyText(message: RenderableMessage): string {
   return message.blocks
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
@@ -84,10 +83,10 @@ export function MessageItem({
     ...(defaultOpen !== undefined ? { defaultOpen } : {}),
   }
 
-  // The core message type is `ContentBlock[]`, but a host codec MAY carry custom
-  // (non-core) block kinds rendered through `extensions.blockRenderers`. Treat the
-  // stream as renderable blocks for dispatch + grouping; core behavior is unchanged.
-  const blocks = message.blocks as RenderableBlock[]
+  // `RenderableMessage.blocks` already admits host-defined custom kinds (rendered
+  // through `extensions.blockRenderers`); a plain `ChatMessage` is assignable, so
+  // core behavior is unchanged.
+  const blocks = message.blocks
   const behaviorOverrides = extensions?.timelineBehavior
 
   return (

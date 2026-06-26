@@ -8,7 +8,12 @@ import { MessageLog } from './MessageLog'
 import { TimelineItemView } from './TimelineItemView'
 import { BlockView } from './blocks'
 import { InertBlockView } from './blocks'
-import type { ChatExtensions, CustomRenderProps, RenderableBlock } from './extensions'
+import type {
+  ChatExtensions,
+  CustomRenderProps,
+  RenderableBlock,
+  RenderableMessage,
+} from './extensions'
 import { stubMatchMedia } from './test-helpers'
 
 beforeEach(() => {
@@ -392,6 +397,29 @@ describe('grouping interaction for custom blocks (via MessageItem)', () => {
     render(<MessageItem message={trailingMarker} extensions={extensions} />)
     // The collapsed header label is the custom kind's `type` string.
     expect(screen.getByText('host_marker')).toBeInTheDocument()
+  })
+})
+
+describe('typed custom-block message (no unsafe cast)', () => {
+  it('accepts a RenderableMessage with a custom block through the public props', () => {
+    // This message is typed `RenderableMessage` — a custom `host_marker` block
+    // type-checks WITHOUT an `as unknown` cast, proving the public API supports
+    // the advertised custom-block path for typed consumers.
+    const message: RenderableMessage = {
+      id: 'a1',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        { type: 'text', id: 't', text: 'hi' },
+        { type: 'host_marker', id: 'hm', label: 'M' },
+      ],
+    }
+    const HostMarker = ({ block }: CustomRenderProps) => (
+      <div data-host-marker>{(block as { label?: string }).label}</div>
+    )
+    const extensions: ChatExtensions = { blockRenderers: { host_marker: HostMarker } }
+    render(<MessageLog messages={[message]} flat extensions={extensions} />)
+    expect(screen.getByText('M')).toBeInTheDocument()
   })
 })
 

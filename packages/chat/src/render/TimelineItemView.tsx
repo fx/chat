@@ -7,8 +7,7 @@
  * `extensions.blockRenderers`. When neither resolves to a renderer, the item
  * wrapper renders inertly (never throws) so an unknown kind can't crash the log.
  */
-import type { ChatMessage } from '../model'
-import type { ChatExtensions, CustomBlock, TimelineItem } from './extensions'
+import type { ChatExtensions, CustomBlock, RenderableMessage, TimelineItem } from './extensions'
 import { lookupExtension } from './extensions'
 
 /** Props for {@link TimelineItemView}. */
@@ -37,7 +36,7 @@ function TimelineItemBody({ item, extensions }: TimelineItemViewProps) {
       const block: CustomBlock = item.block ?? { id: item.id, type: item.kind }
       // A standalone timeline item has no owning message; supply a minimal,
       // synthetic one so the renderer's prop contract is satisfied.
-      const message: ChatMessage = { id: item.id, role: 'assistant', blocks: [] }
+      const message: RenderableMessage = { id: item.id, role: 'assistant', blocks: [] }
       return <Renderer block={block} message={message} isStreaming={false} />
     }
   }

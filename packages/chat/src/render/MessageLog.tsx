@@ -10,10 +10,9 @@
  * No data fetching, router, or store — it renders exactly what it is given.
  */
 import type { ReactNode } from 'react'
-import type { ChatMessage } from '../model'
 import { MessageItem } from './MessageItem'
 import { TimelineItemView } from './TimelineItemView'
-import type { ChatExtensions } from './extensions'
+import type { ChatExtensions, RenderableMessage } from './extensions'
 import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
@@ -25,7 +24,7 @@ export interface MessageCallbacks {
 
 /** Props for {@link MessageLog}. */
 export interface MessageLogProps extends MessageCallbacks {
-  messages: ChatMessage[]
+  messages: RenderableMessage[]
   /** Whether the conversation is actively streaming. */
   isStreaming?: boolean
   /** The id of the actively-streaming message, if any. */

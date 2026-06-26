@@ -6,13 +6,12 @@
  * renders each entry (a message wrapper, or a `data-timeline-item-id` wrapper for
  * a custom item).
  */
-import type { ChatMessage } from '../model'
-import type { TimelineItem } from './extensions'
+import type { RenderableMessage, TimelineItem } from './extensions'
 
 /** A message entry in the merged timeline. */
 export interface MergedMessageEntry {
   kind: 'message'
-  message: ChatMessage
+  message: RenderableMessage
   /** The position used for ordering (the message `createdAt`, or 0 when absent). */
   at: number
 }
@@ -42,7 +41,10 @@ export type MergedEntry = MergedMessageEntry | MergedItemEntry
  * themselves by `at` (stable for equal `at`). With no `items`, the output is the
  * messages in their given order — the additive, default-unchanged path.
  */
-export function mergeTimeline(messages: ChatMessage[], items?: TimelineItem[]): MergedEntry[] {
+export function mergeTimeline(
+  messages: RenderableMessage[],
+  items?: TimelineItem[],
+): MergedEntry[] {
   const messageEntries: MergedMessageEntry[] = messages.map((message) => ({
     kind: 'message',
     message,

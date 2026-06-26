@@ -40,12 +40,21 @@ export interface CustomBlock {
  */
 export type RenderableBlock = ContentBlock | CustomBlock
 
+/**
+ * A {@link ChatMessage} whose `blocks` MAY include host-defined custom kinds
+ * (rendered through `extensions.blockRenderers`). This is the message shape the
+ * render layer accepts so a TYPED host can pass custom blocks without an unsafe
+ * cast. A plain `ChatMessage` is assignable to this (a `ContentBlock[]` is a
+ * `RenderableBlock[]`), so the default, non-extended path is unaffected.
+ */
+export type RenderableMessage = Omit<ChatMessage, 'blocks'> & { blocks: RenderableBlock[] }
+
 /** Props passed to every host-supplied block / tool renderer. */
 export interface CustomRenderProps<TBlock = RenderableBlock> {
   /** The block being rendered (core shape for tool overrides, custom shape otherwise). */
   block: TBlock
   /** The owning message, for context the host may need. */
-  message: ChatMessage
+  message: RenderableMessage
   /** Whether THIS block is the actively-streaming one. */
   isStreaming: boolean
 }
