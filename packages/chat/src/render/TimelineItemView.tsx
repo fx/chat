@@ -9,6 +9,7 @@
  */
 import type { ChatMessage } from '../model'
 import type { ChatExtensions, CustomBlock, TimelineItem } from './extensions'
+import { lookupExtension } from './extensions'
 
 /** Props for {@link TimelineItemView}. */
 export interface TimelineItemViewProps {
@@ -31,7 +32,7 @@ function TimelineItemBody({ item, extensions }: TimelineItemViewProps) {
   if (item.render) return <>{item.render()}</>
 
   if (item.kind) {
-    const Renderer = extensions?.blockRenderers?.[item.kind]
+    const Renderer = lookupExtension(extensions?.blockRenderers, item.kind)
     if (Renderer) {
       const block: CustomBlock = item.block ?? { id: item.id, type: item.kind }
       // A standalone timeline item has no owning message; supply a minimal,

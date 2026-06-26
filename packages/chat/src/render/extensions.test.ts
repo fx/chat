@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NON_AUX_BEHAVIOR, isCoreBlockType } from './extensions'
+import { NON_AUX_BEHAVIOR, isCoreBlockType, lookupExtension } from './extensions'
 
 describe('isCoreBlockType', () => {
   it('returns true for every core ContentBlock type', () => {
@@ -18,5 +18,26 @@ describe('isCoreBlockType', () => {
 describe('NON_AUX_BEHAVIOR', () => {
   it('is the safe default: non-aux, not header-eligible', () => {
     expect(NON_AUX_BEHAVIOR).toEqual({ auxEligible: false, eligibleForHeaderSummary: false })
+  })
+})
+
+describe('lookupExtension', () => {
+  it('returns undefined for an undefined map', () => {
+    expect(lookupExtension(undefined, 'anything')).toBeUndefined()
+  })
+
+  it('returns an own-property value', () => {
+    const fn = () => null
+    expect(lookupExtension({ search: fn }, 'search')).toBe(fn)
+  })
+
+  it('returns undefined for an absent key', () => {
+    expect(lookupExtension({ search: () => null }, 'other')).toBeUndefined()
+  })
+
+  it('does NOT resolve inherited Object.prototype members (prototype-pollution guard)', () => {
+    expect(lookupExtension<unknown>({}, 'constructor')).toBeUndefined()
+    expect(lookupExtension<unknown>({}, 'toString')).toBeUndefined()
+    expect(lookupExtension<unknown>({}, 'hasOwnProperty')).toBeUndefined()
   })
 })

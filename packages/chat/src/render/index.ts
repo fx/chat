@@ -41,7 +41,7 @@ export type {
   TimelineItem,
   ToolRenderer,
 } from './extensions'
-export { isCoreBlockType, NON_AUX_BEHAVIOR } from './extensions'
+export { isCoreBlockType, lookupExtension, NON_AUX_BEHAVIOR } from './extensions'
 export { formatDuration, formatTokensPerSecond } from './format'
 export type {
   BareItem,

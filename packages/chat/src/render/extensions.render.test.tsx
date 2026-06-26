@@ -81,6 +81,20 @@ describe('BlockView dispatch & inert fallback', () => {
     expect(container.querySelector('[data-inert="true"]')).not.toBeNull()
   })
 
+  it('renders inert for a block type that names an Object.prototype member (no inherited match)', () => {
+    // `toString` is on Object.prototype; an empty blockRenderers map must NOT
+    // resolve it to a renderer — dispatch falls through to the inert fallback.
+    const block = { type: 'toString', id: 'p' } as unknown as RenderableBlock
+    const { container } = render(
+      <BlockView
+        block={block}
+        context={{ ...baseContext, message: withCustomBlock() }}
+        extensions={{ blockRenderers: {} }}
+      />,
+    )
+    expect(container.querySelector('[data-inert="true"]')).not.toBeNull()
+  })
+
   it('renders a custom blockRenderer for a host type, passing block/message/isStreaming', () => {
     const message = withCustomBlock()
     const HostMarker = vi.fn(({ block, isStreaming }: CustomRenderProps) => (
@@ -138,6 +152,25 @@ describe('toolRenderers override by name', () => {
     expect(screen.getByText('search')).toBeInTheDocument()
     expect(container.querySelectorAll('[data-host-tool]')).toHaveLength(1)
     expect(HostToolUI).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the DEFAULT tool block for a tool named like an Object.prototype member', () => {
+    // A tool literally named `constructor` must NOT match Object.prototype via an
+    // empty toolRenderers map; the default tool block renders instead.
+    const ctorMessage: ChatMessage = {
+      id: 'a9',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        { type: 'tool_call', id: 'tcc', name: 'constructor', arguments: {}, status: 'success' },
+      ],
+    }
+    const { container } = render(
+      <MessageLog messages={[ctorMessage]} flat extensions={{ toolRenderers: {} }} />,
+    )
+    expect(container.querySelector('[data-host-tool]')).toBeNull()
+    // The default tool block surfaces the tool name label.
+    expect(screen.getByText('constructor')).toBeInTheDocument()
   })
 
   it('renders the DEFAULT tool block when no toolRenderers entry matches', () => {

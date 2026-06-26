@@ -152,6 +152,15 @@ describe('getBlockTimelineBehavior', () => {
       eligibleForHeaderSummary: true,
     })
   })
+
+  it('does not match an Object.prototype member for a tool named like one', () => {
+    // A tool named `constructor` with an empty overrides map must inherit the
+    // tool_call base, NOT an inherited prototype member.
+    expect(getBlockTimelineBehavior(tool('t', 'constructor'), {})).toEqual({
+      auxEligible: true,
+      eligibleForHeaderSummary: true,
+    })
+  })
 })
 
 describe('groupBlocks', () => {

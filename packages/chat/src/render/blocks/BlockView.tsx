@@ -15,7 +15,7 @@
  */
 import type { ChatMessage, ContentBlock } from '../../model'
 import type { ChatExtensions, CustomBlock, RenderableBlock } from '../extensions'
-import { isCoreBlockType } from '../extensions'
+import { isCoreBlockType, lookupExtension } from '../extensions'
 import { InertBlockView } from './InertBlock'
 import { ReasoningBlockView } from './ReasoningBlock'
 import { StatusBlockView } from './StatusBlock'
@@ -117,7 +117,7 @@ export function BlockView({ block, context, extensions }: BlockViewProps) {
   // (1) Tool-name override wins over the default tool block.
   if (block.type === 'tool_call') {
     const toolBlock = block as Extract<ContentBlock, { type: 'tool_call' }>
-    const ToolRenderer = extensions?.toolRenderers?.[toolBlock.name]
+    const ToolRenderer = lookupExtension(extensions?.toolRenderers, toolBlock.name)
     if (ToolRenderer && context.message) {
       return <ToolRenderer block={toolBlock} message={context.message} isStreaming={blockActive} />
     }
@@ -131,7 +131,7 @@ export function BlockView({ block, context, extensions }: BlockViewProps) {
   }
 
   // (3) Custom type → host block renderer.
-  const CustomRenderer = extensions?.blockRenderers?.[block.type]
+  const CustomRenderer = lookupExtension(extensions?.blockRenderers, block.type)
   if (CustomRenderer && context.message) {
     return (
       <CustomRenderer

@@ -118,6 +118,20 @@ export function isCoreBlockType(type: string): type is ContentBlock['type'] {
 }
 
 /**
+ * Look a key up in a host-supplied extension map by OWN property only.
+ *
+ * Host maps are plain objects, so a bracket lookup would otherwise resolve
+ * inherited `Object.prototype` members (e.g. a tool literally named `constructor`
+ * or `toString`) to a function the host never registered — rendering garbage or
+ * crashing. Guarding with `Object.hasOwn` makes an unregistered key resolve to
+ * `undefined`, so dispatch correctly falls through to the default/inert path.
+ */
+export function lookupExtension<T>(map: Record<string, T> | undefined, key: string): T | undefined {
+  if (map && Object.hasOwn(map, key)) return map[key]
+  return undefined
+}
+
+/**
  * The grouping default for a non-core (custom) block: non-aux and not
  * header-eligible. Exported so the merged behavior and tests share one source.
  */

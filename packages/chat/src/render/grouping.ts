@@ -11,6 +11,7 @@
  */
 import type { ContentBlock } from '../model'
 import type { RenderableBlock } from './extensions'
+import { lookupExtension } from './extensions'
 
 /** Per-kind timeline behavior flags. */
 export interface TimelineBehavior {
@@ -51,7 +52,7 @@ export function getTimelineBehavior(
     kind in BEHAVIOR
       ? (BEHAVIOR[kind as ContentBlock['type']] as TimelineBehavior)
       : { auxEligible: false, eligibleForHeaderSummary: false }
-  const override = overrides?.[kind]
+  const override = lookupExtension(overrides, kind)
   if (!override) return base
   return {
     auxEligible: override.auxEligible ?? base.auxEligible,
@@ -73,10 +74,12 @@ export function getBlockTimelineBehavior(
   if (block.type === 'tool_call') {
     const name = (block as Extract<ContentBlock, { type: 'tool_call' }>).name
     // A name-keyed override is resolved over the `tool_call` base policy so a
-    // partial `{ auxEligible }` keeps the inherited header-eligibility.
-    if (overrides && name in overrides) {
+    // partial `{ auxEligible }` keeps the inherited header-eligibility. Own-prop
+    // lookup avoids matching inherited members for a tool literally named e.g.
+    // `constructor`.
+    const override = lookupExtension(overrides, name)
+    if (override) {
       const base = getTimelineBehavior('tool_call')
-      const override = overrides[name] as Partial<TimelineBehavior>
       return {
         auxEligible: override.auxEligible ?? base.auxEligible,
         eligibleForHeaderSummary:
