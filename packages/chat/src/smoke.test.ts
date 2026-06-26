@@ -88,10 +88,38 @@ describe('@fx/chat public surface', () => {
     // (a) An explicit light hook exists to reclaim light under OS-dark.
     expect(css).toContain('[data-theme="light"] {')
 
-    // (b) The OS-dark media block targets only roots WITHOUT a data-theme.
-    expect(css).toMatch(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme\]\) \{/)
-    // ...and never the bare `:root` (which would override an explicit theme).
-    expect(css).not.toMatch(/@media \(prefers-color-scheme: dark\) \{\s*:root \{/)
+    // (b) The OS-dark media block must target only roots WITHOUT a data-theme.
+    // Strip CSS comments FIRST so they can neither (i) false-trip the bare-`:root`
+    // ban, (ii) satisfy the `:root:not(...)` requirement, nor (iii) wedge a stray
+    // brace that would throw off balanced-brace scanning. Then extract the body of
+    // the `@media (prefers-color-scheme: dark) { … }` block via balanced-brace
+    // scanning so the guard is independent of whitespace and formatting — a
+    // regression like `:root{` (no space) or a commented `:root {` must NOT slip
+    // through.
+    const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const extractDarkMediaBody = (source: string): string => {
+      const head = source.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{/)
+      if (head?.index === undefined) return ''
+      let depth = 1
+      const start = head.index + head[0].length
+      for (let i = start; i < source.length; i++) {
+        const ch = source[i]
+        if (ch === '{') depth++
+        else if (ch === '}') {
+          depth--
+          if (depth === 0) return source.slice(start, i)
+        }
+      }
+      return ''
+    }
+    const darkMediaBody = extractDarkMediaBody(cssNoComments)
+    expect(darkMediaBody).not.toBe('')
+    // It MUST scope to `:root:not([data-theme])`.
+    expect(darkMediaBody).toMatch(/:root:not\(\s*\[data-theme\]\s*\)/)
+    // It must NEVER use a bare `:root` (any `:root` not immediately followed by
+    // `:` — so `:root:not(...)` is allowed, but `:root {`, `:root{`, `:root,`,
+    // `:root>` etc. are banned, regardless of whitespace/formatting).
+    expect(darkMediaBody).not.toMatch(/:root(?!:)/)
 
     // (c) The `:root` light defaults and the `[data-theme="light"]` values must
     // stay in sync — duplicated literals are allowed only if they match exactly.
