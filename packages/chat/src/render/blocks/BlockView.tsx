@@ -119,7 +119,13 @@ export function BlockView({ block, context, extensions }: BlockViewProps) {
     const toolBlock = block as Extract<ContentBlock, { type: 'tool_call' }>
     const ToolRenderer = lookupExtension(extensions?.toolRenderers, toolBlock.name)
     if (ToolRenderer && context.message) {
-      return <ToolRenderer block={toolBlock} message={context.message} isStreaming={blockActive} />
+      // A tool carries its OWN lifecycle: a pending/running call is in-flight
+      // regardless of trailing position — matching the default ToolCallBlockView
+      // and the group spinner — so derive `isStreaming` from its status.
+      const toolStreaming = toolBlock.status === 'running' || toolBlock.status === 'pending'
+      return (
+        <ToolRenderer block={toolBlock} message={context.message} isStreaming={toolStreaming} />
+      )
     }
   }
 

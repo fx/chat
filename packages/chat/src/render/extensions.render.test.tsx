@@ -185,6 +185,49 @@ describe('toolRenderers override by name', () => {
     expect(screen.getByText('search')).toBeInTheDocument()
   })
 
+  it('derives isStreaming for a tool override from tool status, not trailing position', () => {
+    // A running tool that is NOT the trailing block must still report streaming;
+    // a completed tool reports not-streaming.
+    const streamingMessage: ChatMessage = {
+      id: 'a5',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        { type: 'tool_call', id: 'tcr', name: 'render_ui', arguments: {}, status: 'running' },
+        { type: 'status', id: 's' },
+      ],
+    }
+    const Seen: Record<string, boolean> = {}
+    const HostToolUI = ({ block, isStreaming }: CustomRenderProps) => {
+      Seen[(block as { name: string }).name] = isStreaming
+      return <div data-host-tool />
+    }
+    const extensions: ChatExtensions = { toolRenderers: { render_ui: HostToolUI } }
+    // Stream the message with the trailing status active (NOT the tool).
+    render(
+      <MessageLog
+        messages={[streamingMessage]}
+        flat
+        isStreaming
+        streamingMessageId="a5"
+        extensions={extensions}
+      />,
+    )
+    expect(Seen.render_ui).toBe(true)
+
+    // A completed tool reports not streaming.
+    const doneMessage: ChatMessage = {
+      id: 'a6',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        { type: 'tool_call', id: 'tcd', name: 'render_ui', arguments: {}, status: 'success' },
+      ],
+    }
+    render(<MessageLog messages={[doneMessage]} flat extensions={extensions} />)
+    expect(Seen.render_ui).toBe(false)
+  })
+
   it('passes message context only to the tool override path when context.message is set', () => {
     // Direct BlockView call WITHOUT a message in context → override is skipped,
     // default tool block renders.
