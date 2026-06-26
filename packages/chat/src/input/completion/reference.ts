@@ -43,8 +43,12 @@ export const REFERENCE_ITEMS: readonly CompletionItem[] = [
  * Find the active `~`-token ending at `caret`. Walks left from the caret over
  * {@link TOKEN_CHAR} runs; the token is active only when the char immediately
  * before that run is the trigger AND that trigger is at the start of the string
- * or preceded by whitespace (so `a~b` mid-word is not a token). Returns the
- * {@link CompletionMatch} (query + `[triggerIndex, caret]` range) or `null`.
+ * or preceded by whitespace (so `a~b` mid-word is not a token).
+ *
+ * Per the contract, `range` covers the WHOLE token (trigger through the last
+ * token char), even when the caret sits mid-token — so applying a completion
+ * with the caret at `~ap|ple` replaces the entire `~apple`, not just `~ap`. The
+ * `query` is still the prefix up to the caret, the conventional filter text.
  */
 function matchReference(text: string, caret: number): CompletionMatch | null {
   let start = caret
@@ -55,7 +59,10 @@ function matchReference(text: string, caret: number): CompletionMatch | null {
   // The trigger must begin a word (start-of-string or after whitespace).
   const before = text[triggerIndex - 1]
   if (before !== undefined && !/\s/.test(before)) return null
-  return { query: text.slice(start, caret), range: [triggerIndex, caret] }
+  // Extend past the caret to the end of the token so the range spans it fully.
+  let end = caret
+  while (end < text.length && TOKEN_CHAR.test(text[end] as string)) end++
+  return { query: text.slice(start, caret), range: [triggerIndex, end] }
 }
 
 /**

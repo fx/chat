@@ -233,6 +233,16 @@ describe('CompletionPopup keyboard navigation', () => {
     await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
     expect(h.current?.press({ key: 'a' })).toBe(false)
   })
+
+  it('replaces the whole token when applying mid-token (no text corruption)', async () => {
+    const h = setup([referenceProvider])
+    // `~apple` with the caret after `ap` (index 3) — the match covers `[0, 6]`.
+    h.current?.type('~apple', 3)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    h.current?.press({ key: 'Enter' })
+    // The whole token is replaced — not `~apple ple`.
+    expect(h.current?.applied?.value).toBe('~apple ')
+  })
 })
 
 describe('CompletionPopup IME guard', () => {

@@ -31,6 +31,12 @@ describe('referenceProvider.match', () => {
     expect(referenceProvider.match(text, 6)).toEqual({ query: 'ba', range: [3, 6] })
   })
 
+  it('covers the whole token even when the caret is mid-token', () => {
+    // `~apple` with the caret after `ap` (index 3): range must span the full
+    // token `[0, 6]`, while the query stays the prefix `ap`.
+    expect(referenceProvider.match('~apple', 3)).toEqual({ query: 'ap', range: [0, 6] })
+  })
+
   it('returns null when the caret is not inside a token', () => {
     expect(referenceProvider.match('hello', 5)).toBeNull()
   })
