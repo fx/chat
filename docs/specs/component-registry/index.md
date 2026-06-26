@@ -174,8 +174,10 @@ interface ChatComponents {
   ScrollArea: ComponentType<{ className?: string; children?: ReactNode }>
   Avatar?: ComponentType<{ role: Role; className?: string }>
   CopyButton: ComponentType<{ value: string; className?: string }>
-  Lightbox?: ComponentType<{ src: string; alt?: string; open: boolean;
+  Lightbox?: ComponentType<{ src: string; alt: string; open: boolean;
     onClose: () => void; className?: string }>   // attachment image overlay (0008)
+  // `alt` is REQUIRED: callers MUST always pass an alt string, falling back to the
+  // attachment `name` (or a generic label when unnamed) so the overlay is accessible.
   Markdown: ComponentType<{ content: string; streaming?: boolean }>
   icons: Record<IconName, ComponentType<{ className?: string; size?: number }>>
 }

@@ -330,10 +330,11 @@ attachments through the registry, accessibly, responsively, and theme-aware.
         grouped renderer applies timeline-behavior registry (+ host custom-kind flags):
            run of auxEligible blocks → <BlockGroup> (collapsed disclosure)
            non-aux block             → bare renderer
-        block dispatch:
-           core type                 → default renderer
+        block dispatch (in precedence order):
            tool_call w/ override name → extensions.toolRenderers[name]
-           custom/unknown type        → extensions.blockRenderers[type] | inert fallback
+           core type                 → default renderer
+           custom/unknown type        → extensions.blockRenderers[type]
+           else                       → inert fallback
         user attachments region      → image grid (+ lightbox slot) | media/file chips
      custom item → <div data-timeline-item-id=id> item.render()
   block renderers ← registry primitives/icons/Markdown
