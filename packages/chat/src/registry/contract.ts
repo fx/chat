@@ -96,7 +96,7 @@ export interface MarkdownProps {
 }
 
 /**
- * Props for the attachment image overlay (a.k.a. `ImageOverlay`).
+ * Props for the {@link ChatComponents.Lightbox} attachment image overlay.
  *
  * `alt` is REQUIRED: callers MUST always pass an alternative-text string
  * (falling back to the attachment `name`, or a generic label when unnamed) so

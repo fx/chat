@@ -83,8 +83,7 @@ describe('headless Lightbox', () => {
     const close = screen.getByLabelText('Close')
     close.focus()
     const dialog = screen.getByRole('dialog')
-    const preventDefault = vi.fn()
-    fireEvent.keyDown(dialog, { key: 'Tab', preventDefault })
+    fireEvent.keyDown(dialog, { key: 'Tab' })
     // Single focusable: wrap keeps focus on the close control.
     expect(close).toHaveFocus()
   })
