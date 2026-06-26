@@ -326,9 +326,12 @@ export function ChatInput({
 
       <div className="chat-input-field">
         <div ref={overlayRef} className="chat-input-overlay" aria-hidden="true">
-          {segments.map((segment) =>
+          {segments.map((segment, index) =>
             typeof segment === 'string' ? (
-              <span key={`text-${segment}`}>{segment}</span>
+              // Literal runs can repeat (e.g. `@a x @b x`), so the index keeps
+              // keys unique; segments are positional and never reordered.
+              // biome-ignore lint/suspicious/noArrayIndexKey: positional, non-reordering list
+              <span key={`text-${index}`}>{segment}</span>
             ) : (
               <span key={segment.key} className="chat-input-mention">
                 {segment.mention.text}

@@ -297,6 +297,19 @@ describe('ChatInput attachments', () => {
 })
 
 describe('ChatInput mention overlay', () => {
+  it('renders repeated literal runs without duplicate React keys', () => {
+    // `@a x @b x` yields two identical ` x ` literal runs; indexed keys keep
+    // them unique. A duplicate-key warning would fail this test.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { container } = render(
+      <ChatInput value="@a x @b x" onChange={vi.fn()} onSend={vi.fn()} />,
+    )
+    const overlay = container.querySelector('.chat-input-overlay') as HTMLElement
+    expect(overlay.querySelectorAll('.chat-input-mention').length).toBe(2)
+    expect(errorSpy.mock.calls.some((args) => String(args[0]).includes('same key'))).toBe(false)
+    errorSpy.mockRestore()
+  })
+
   it('renders mention segments in the aria-hidden overlay', () => {
     render(<ChatInput value="hi @alice there" onChange={vi.fn()} onSend={vi.fn()} />)
     const mention = screen.getByText('@alice')

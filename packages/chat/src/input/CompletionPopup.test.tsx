@@ -323,6 +323,37 @@ describe('CompletionPopup async items', () => {
     await waitFor(() => expect(screen.getByText('q-ab')).toBeInTheDocument())
   })
 
+  it('does not keep showing or applying a prior token’s items after the query changes', async () => {
+    let resolveFirst: ((items: CompletionItem[]) => void) | null = null
+    const provider: CompletionProvider = {
+      ...referenceProvider,
+      id: 'slow-first',
+      items: (query) => {
+        if (query === 'a') {
+          return new Promise<CompletionItem[]>((resolve) => {
+            resolveFirst = resolve
+          })
+        }
+        // The second query never resolves, so only the (stale) first set could
+        // possibly remain visible — and it must not.
+        return new Promise<CompletionItem[]>(() => {})
+      },
+    }
+    const h = setup([provider])
+    h.current?.type('~a', 2)
+    await act(async () => {
+      resolveFirst?.([{ id: 'stale', label: 'stale-item' }])
+    })
+    await waitFor(() => expect(screen.getByText('stale-item')).toBeInTheDocument())
+    // Extend the token → active query is '~az', whose request is pending.
+    h.current?.type('~az', 3)
+    // The stale '~a' items must no longer be shown (dead token).
+    await waitFor(() => expect(screen.queryByText('stale-item')).toBeNull())
+    // Enter must not apply the stale item to the new token.
+    expect(h.current?.press({ key: 'Enter' })).toBe(false)
+    expect(h.current?.applied).toBeNull()
+  })
+
   it('shows a loading state only after LOADING_DELAY', async () => {
     vi.useFakeTimers()
     let resolve: ((items: CompletionItem[]) => void) | null = null
