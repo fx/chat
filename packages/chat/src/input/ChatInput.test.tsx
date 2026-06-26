@@ -401,6 +401,30 @@ describe('ChatInput file hooks', () => {
   })
 })
 
+describe('ChatInput accessible name', () => {
+  it('defaults the textarea to an aria-label of "Message"', () => {
+    render(<ChatInput onSend={vi.fn()} />)
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-label', 'Message')
+  })
+
+  it('uses a custom aria-label', () => {
+    render(<ChatInput onSend={vi.fn()} ariaLabel="Compose reply" />)
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-label', 'Compose reply')
+  })
+
+  it('prefers aria-labelledby over aria-label when provided', () => {
+    render(
+      <div>
+        <span id="composer-label">Reply</span>
+        <ChatInput onSend={vi.fn()} ariaLabelledBy="composer-label" />
+      </div>,
+    )
+    const textarea = screen.getByRole('textbox')
+    expect(textarea).toHaveAttribute('aria-labelledby', 'composer-label')
+    expect(textarea).not.toHaveAttribute('aria-label')
+  })
+})
+
 describe('ChatInput mention overlay', () => {
   it('renders repeated literal runs without duplicate React keys', () => {
     // `@a x @b x` yields two identical ` x ` literal runs; indexed keys keep

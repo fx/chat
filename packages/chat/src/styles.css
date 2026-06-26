@@ -527,6 +527,7 @@
   min-width: 12rem;
   max-width: 24rem;
   background: var(--chat-bg);
+  color: var(--chat-fg);
   border: 1px solid var(--chat-border);
   border-radius: var(--chat-radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);

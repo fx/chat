@@ -38,6 +38,9 @@ export interface CaretCoords {
 const MIRRORED_PROPERTIES = [
   'boxSizing',
   'width',
+  // Direction + bidi so the mirror lays text out identically in RTL textareas.
+  'direction',
+  'unicodeBidi',
   'borderLeftWidth',
   'borderRightWidth',
   'borderTopWidth',
@@ -152,7 +155,9 @@ export function computePopupAnchor(
   const viewportHeight = textarea.ownerDocument.defaultView?.innerHeight ?? 0
   const caretViewportTop = rect.top + c.top
   const spaceBelow = viewportHeight - (caretViewportTop + c.height)
-  const flip = spaceBelow < popupHeight && caretViewportTop > popupHeight
+  // Flip when there isn't room below AND the caret sits at least `popupHeight`
+  // from the viewport top (an exact fit above counts).
+  const flip = spaceBelow < popupHeight && caretViewportTop >= popupHeight
   return {
     left: rect.left + c.left,
     top: flip ? caretViewportTop : caretViewportTop + c.height,

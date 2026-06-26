@@ -269,17 +269,36 @@ function CompletionPopupImpl(
   // with nothing yet to show.
   const hasVisibleContent = loading || (itemsMatchActive && items.length > 0)
 
-  // Measure caret position whenever the popup is open and the caret/value moves.
-  // The `void value` read makes the re-measure-on-reflow dependency explicit.
-  useEffect(() => {
-    void value
+  // Re-measure the caret anchor. A fixed-position popup must follow viewport
+  // changes, so this also runs on window scroll/resize and textarea scroll.
+  const updateCoords = useCallback(() => {
     const textarea = textareaRef.current
     if (!open || !textarea) {
       setCoords(null)
       return
     }
     setCoords(computePopupAnchor(textarea, caret, ESTIMATED_POPUP_HEIGHT))
-  }, [open, caret, value, textareaRef])
+  }, [open, caret, textareaRef])
+
+  // Measure on open and whenever the caret/value moves (the `void value` read
+  // makes the re-measure-on-reflow dependency explicit), and keep the anchor in
+  // sync with scroll/resize while open.
+  useEffect(() => {
+    void value
+    updateCoords()
+    if (!open) return
+    const textarea = textareaRef.current
+    const win = textarea?.ownerDocument.defaultView ?? null
+    win?.addEventListener('resize', updateCoords)
+    // Capture-phase scroll catches scrolling on any ancestor, not just window.
+    win?.addEventListener('scroll', updateCoords, true)
+    textarea?.addEventListener('scroll', updateCoords)
+    return () => {
+      win?.removeEventListener('resize', updateCoords)
+      win?.removeEventListener('scroll', updateCoords, true)
+      textarea?.removeEventListener('scroll', updateCoords)
+    }
+  }, [open, value, updateCoords, textareaRef])
 
   // Apply an item against a known-open match: rewrite value + caret. Only ever
   // called with the current `openMatch` (from a rendered option or a consumed
@@ -338,14 +357,23 @@ function CompletionPopupImpl(
           event.preventDefault()
           setHighlight((h) => (items.length === 0 ? 0 : (h - 1 + items.length) % items.length))
           return true
-        case 'Enter':
-        case 'Tab': {
-          // While the popup is open, Enter/Tab belong to it — consume them even
-          // when there is no item yet (e.g. an async provider is still loading),
-          // so the composer never accidentally submits the unfinished token.
+        case 'Enter': {
+          // Enter always belongs to an open popup — consume it even with no item
+          // yet (async provider still loading) so the composer never submits the
+          // unfinished token. Apply only when an item is highlighted.
           event.preventDefault()
           const item = items[highlight]
           if (item) applyItem(openMatch, item)
+          return true
+        }
+        case 'Tab': {
+          // Tab applies the highlighted item; with no item yet (still loading) it
+          // falls through so keyboard users can move focus normally rather than
+          // being trapped in the composer.
+          const item = items[highlight]
+          if (!item) return false
+          event.preventDefault()
+          applyItem(openMatch, item)
           return true
         }
         case 'Escape':

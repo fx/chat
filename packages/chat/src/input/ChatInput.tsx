@@ -67,6 +67,14 @@ export interface ChatInputProps {
   maxLines?: number
   /** Placeholder text. */
   placeholder?: string
+  /**
+   * Accessible name for the textarea. Provide this (or `ariaLabelledBy`) so the
+   * input has a stable name even when `placeholder` is omitted. Defaults to
+   * `'Message'`.
+   */
+  ariaLabel?: string
+  /** `aria-labelledby` for the textarea, when the name lives in another element. */
+  ariaLabelledBy?: string
   /** Portal target for the completion popup. */
   portalContainer?: HTMLElement
 }
@@ -165,6 +173,8 @@ export function ChatInput({
   isStreaming = false,
   maxLines = DEFAULT_MAX_LINES,
   placeholder,
+  ariaLabel = 'Message',
+  ariaLabelledBy,
   portalContainer,
 }: ChatInputProps) {
   const { Button, icons } = useChatComponents()
@@ -407,6 +417,11 @@ export function ChatInput({
           value={value}
           rows={1}
           placeholder={placeholder}
+          // Stable accessible name even without a placeholder. `aria-labelledby`
+          // (when given) takes precedence over the `aria-label` fallback.
+          {...(ariaLabelledBy
+            ? { 'aria-labelledby': ariaLabelledBy }
+            : { 'aria-label': ariaLabel })}
           disabled={disabled}
           onChange={handleChange}
           onKeyDown={handleKeyDown}

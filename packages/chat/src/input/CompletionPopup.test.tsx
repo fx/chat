@@ -417,6 +417,9 @@ describe('CompletionPopup async items', () => {
     // submits the unfinished token), but nothing is applied yet.
     expect(h.current?.press({ key: 'Enter' })).toBe(true)
     expect(h.current?.applied).toBeNull()
+    // Tab falls through while loading (no item) so focus can move normally.
+    expect(h.current?.press({ key: 'Tab' })).toBe(false)
+    expect(h.current?.applied).toBeNull()
     // Escape dismisses even while loading.
     expect(h.current?.press({ key: 'Escape' })).toBe(true)
     await act(async () => {

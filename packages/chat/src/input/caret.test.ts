@@ -165,6 +165,13 @@ describe('computePopupAnchor', () => {
     expect(anchor.flip).toBe(false)
   })
 
+  it('flips when the caret sits exactly popupHeight from the top (boundary)', () => {
+    // caretViewportTop = 220 === popupHeight, no room below → flips (>= boundary).
+    const textarea = anchored(220, 230)
+    const anchor = computePopupAnchor(textarea, 1, 220)
+    expect(anchor.flip).toBe(true)
+  })
+
   it('treats a detached element (no view) as zero viewport height', () => {
     const detached = document.implementation.createHTMLDocument('t')
     const textarea = detached.createElement('textarea')

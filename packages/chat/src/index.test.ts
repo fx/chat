@@ -11,6 +11,19 @@ import {
   referenceProvider,
   version,
 } from './index'
+// Compile-time assertion that the barrel re-exports the input type surface; if
+// any of these type exports is removed, this import (and the build) fails.
+import type {
+  CaretCoords,
+  ChatInputProps,
+  CompletionApplyResult,
+  CompletionItem,
+  CompletionMatch,
+  CompletionPopupHandle,
+  CompletionPopupProps,
+  CompletionProvider,
+  PopupAnchor,
+} from './index'
 
 describe('version', () => {
   it('exposes a non-empty string version', () => {
@@ -56,5 +69,23 @@ describe('input surface re-exports', () => {
     expect(typeof getCaretCoords).toBe('function')
     expect(typeof computePopupAnchor).toBe('function')
     expect(referenceProvider.trigger).toBe(REFERENCE_TRIGGER)
+  })
+
+  it('re-exports the input type surface (compile-time check)', () => {
+    // Reference each imported type so the type-only imports are "used" and the
+    // test fails to compile if any export is dropped from the barrel.
+    type _Assert = [
+      ChatInputProps,
+      CaretCoords,
+      PopupAnchor,
+      CompletionItem,
+      CompletionMatch,
+      CompletionApplyResult,
+      CompletionProvider,
+      CompletionPopupHandle,
+      CompletionPopupProps,
+    ]
+    const _used: _Assert | undefined = undefined
+    expect(_used).toBeUndefined()
   })
 })

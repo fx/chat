@@ -25,4 +25,6 @@ export type {
   CompletionProvider,
 } from './completion/types'
 export type { CompletionPopupHandle, CompletionPopupProps } from './CompletionPopup'
-export { CompletionPopup, LOADING_DELAY } from './CompletionPopup'
+// `LOADING_DELAY` is an internal popup timing detail — intentionally NOT part of
+// the public barrel; it stays a module export only for the popup's own tests.
+export { CompletionPopup } from './CompletionPopup'
