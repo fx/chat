@@ -35,6 +35,7 @@ import {
 import type { ComponentType, ReactNode } from 'react'
 import { useState } from 'react'
 import { lucideIcons } from './lucide-icons'
+import { cn } from './shared/cn'
 import { CodeBlock, JsonView } from './shared/code'
 import { MarkdownView } from './shared/markdown'
 
@@ -69,6 +70,14 @@ const CaretDown = lucideIcons.caretDown
 const CheckIcon = lucideIcons.check
 const CopyIcon = lucideIcons.copy
 
+/**
+ * `@fx/ui`'s `icon-sm` Button is 32×32 — below the 44×44 minimum touch target
+ * at the 375px viewport. Bump the icon-only adapter buttons to a >=44×44
+ * tappable area (the icon glyph itself stays small). `min-*` overrides the
+ * fixed `size-8` height/width without fighting it.
+ */
+const ICON_TOUCH = 'min-h-11 min-w-11'
+
 /** The fx-ui adapter registry. */
 export const fxUiRegistry: ChatComponents = {
   Button: ({ onClick, disabled, className, children, 'aria-label': ariaLabel }: ButtonProps) => (
@@ -78,7 +87,7 @@ export const fxUiRegistry: ChatComponents = {
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      {...(className ? { className } : {})}
+      className={cn(ICON_TOUCH, className)}
     >
       {children}
     </Button>
@@ -172,7 +181,7 @@ export const fxUiRegistry: ChatComponents = {
         aria-label={ariaLabel ?? 'Copy'}
         {...(copied ? { 'data-copied': 'true' } : {})}
         onClick={onClick}
-        {...(className ? { className } : {})}
+        className={cn(ICON_TOUCH, className)}
       >
         {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
       </Button>

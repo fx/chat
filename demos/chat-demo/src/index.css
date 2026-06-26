@@ -49,7 +49,8 @@
   --radius: 0.5rem;
 }
 
-.dark {
+.dark,
+.demo-pane[data-theme="dark"] {
   --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
   --card: 240 10% 5.9%;
@@ -142,6 +143,9 @@ body {
   background: hsl(var(--background));
   border: 1px solid hsl(var(--border));
   border-radius: calc(var(--radius) - 2px);
+  /* >=44px tappable target for touch (selects ~27px / toggles ~30px before). */
+  min-height: 44px;
+  min-width: 44px;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
 }
@@ -175,10 +179,37 @@ body {
   color: hsl(var(--foreground));
 }
 
+/*
+ * The registry-bound content surface. It carries the `.dark` class for the
+ * Tailwind panes (fx-ui, shadcn), so it MUST paint the design-token background
+ * itself — otherwise nothing in the content chain is opaque and the first
+ * opaque ancestor (`.demo-pane`) would win, leaving dark text on a light fill.
+ * Painting `hsl(var(--background))` here means `.dark` resolves a dark surface
+ * and body/tool text clears AA.
+ */
+.demo-pane-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
 /* The headless pane paints itself from --chat-* vars; keep its frame neutral. */
 .demo-pane[data-registry="headless"] {
   background: var(--chat-bg, hsl(var(--background)));
   color: var(--chat-fg, hsl(var(--foreground)));
+}
+
+/*
+ * The headless pane brings its own `--chat-*` paint on `.demo-pane`; its surface
+ * must stay transparent so that paint (and `data-theme` flips) shows through
+ * rather than being covered by the design-token background.
+ */
+.demo-pane[data-registry="headless"] .demo-pane-surface {
+  background: transparent;
+  color: inherit;
 }
 
 .demo-pane-header {

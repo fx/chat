@@ -19,6 +19,7 @@ import type {
 } from '@fx/chat'
 import { useState } from 'react'
 import { lucideIcons } from './lucide-icons'
+import { cn } from './shadcn/lib/cn'
 import { Avatar, AvatarFallback } from './shadcn/ui/avatar'
 import { Badge } from './shadcn/ui/badge'
 import { Button } from './shadcn/ui/button'
@@ -40,6 +41,13 @@ const CaretDown = lucideIcons.caretDown
 const CheckIcon = lucideIcons.check
 const CopyIcon = lucideIcons.copy
 
+/**
+ * `icon-sm` is 28×28 in the vendored shadcn Button — below the 44×44 minimum
+ * touch target at the 375px viewport. Bump the icon-only adapter buttons to a
+ * >=44×44 tappable area (icon glyph itself stays small).
+ */
+const ICON_TOUCH = 'min-h-11 min-w-11'
+
 /** The shadcn adapter registry. */
 export const shadcnRegistry: ChatComponents = {
   Button: ({ onClick, disabled, className, children, 'aria-label': ariaLabel }: ButtonProps) => (
@@ -49,7 +57,7 @@ export const shadcnRegistry: ChatComponents = {
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={className}
+      className={cn(ICON_TOUCH, className)}
     >
       {children}
     </Button>
@@ -123,7 +131,7 @@ export const shadcnRegistry: ChatComponents = {
         size="icon-sm"
         aria-label={ariaLabel ?? 'Copy'}
         data-copied={copied ? 'true' : undefined}
-        className={className}
+        className={cn(ICON_TOUCH, className)}
         onClick={() => {
           const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
           const done = () => setCopied(true)
