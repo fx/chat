@@ -468,6 +468,24 @@ describe('CompletionPopup async items', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
     expect(screen.queryByTestId('chat-completion-loading')).toBeNull()
   })
+
+  it('survives a synchronous throw from items() (no crash, no popup)', async () => {
+    const throwing: CompletionProvider = {
+      ...referenceProvider,
+      id: 'sync-throw',
+      items: () => {
+        throw new Error('sync boom')
+      },
+    }
+    const h = setup([throwing])
+    await act(async () => {
+      h.current?.type('~a', 2)
+    })
+    // The composer is intact and the popup simply does not open.
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(screen.queryByTestId('chat-completion-loading')).toBeNull()
+    expect(h.current).not.toBeNull()
+  })
 })
 
 describe('CompletionPopup accessibility', () => {

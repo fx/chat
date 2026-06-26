@@ -214,7 +214,16 @@ function CompletionPopupImpl(
       if (!settled) setLoading(true)
     }, LOADING_DELAY)
 
-    const result = active.provider.items(active.match.query, controller.signal)
+    // Call `items()` synchronously so a provider that subscribes to `signal`
+    // does so before any abort, then resolve via a promise. A SYNCHRONOUS throw
+    // is funneled to the same error path (`Promise.reject`) as a rejected async
+    // one — the contract allows sync providers, which must not crash the composer.
+    let result: Promise<CompletionItem[]> | CompletionItem[]
+    try {
+      result = active.provider.items(active.match.query, controller.signal)
+    } catch (error) {
+      result = Promise.reject(error)
+    }
     Promise.resolve(result)
       .then((resolved) => {
         if (controller.signal.aborted) return
