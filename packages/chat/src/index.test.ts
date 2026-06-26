@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ChatInput,
   CompletionPopup,
+  REFERENCE_ITEMS,
   REFERENCE_TRIGGER,
   autosize,
   computeAtomicMentionDeletion,
@@ -69,6 +70,8 @@ describe('input surface re-exports', () => {
     expect(typeof getCaretCoords).toBe('function')
     expect(typeof computePopupAnchor).toBe('function')
     expect(referenceProvider.trigger).toBe(REFERENCE_TRIGGER)
+    expect(Array.isArray(REFERENCE_ITEMS)).toBe(true)
+    expect(REFERENCE_ITEMS.length).toBeGreaterThan(0)
   })
 
   it('re-exports the input type surface (compile-time check)', () => {

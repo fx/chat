@@ -395,6 +395,8 @@ function CompletionPopupImpl(
   // combobox is wired to its listbox and focus stays in the input while the
   // active option is announced.
   useEffect(() => {
+    // Capture the element so set + cleanup target the SAME textarea even if the
+    // ref later points elsewhere (avoids leaving stale aria-* on the old node).
     const textarea = textareaRef.current
     if (open && items.length > 0) {
       textarea?.setAttribute('aria-activedescendant', optionId(highlight))
@@ -404,8 +406,8 @@ function CompletionPopupImpl(
       textarea?.removeAttribute('aria-controls')
     }
     return () => {
-      textareaRef.current?.removeAttribute('aria-activedescendant')
-      textareaRef.current?.removeAttribute('aria-controls')
+      textarea?.removeAttribute('aria-activedescendant')
+      textarea?.removeAttribute('aria-controls')
     }
   }, [open, items.length, highlight, optionId, listboxId, textareaRef])
 

@@ -150,6 +150,8 @@ const FALLBACK_LINE_HEIGHT = 20
  * every branch).
  */
 export function autosize(textarea: HTMLTextAreaElement, maxLines: number): void {
+  // Clamp to at least one line so 0/negative values can't collapse the box.
+  const lines = Math.max(1, Math.floor(maxLines))
   textarea.style.height = 'auto'
   const view = textarea.ownerDocument.defaultView
   const style = view ? view.getComputedStyle(textarea) : null
@@ -165,7 +167,7 @@ export function autosize(textarea: HTMLTextAreaElement, maxLines: number): void 
   const borderTop = borderBox && style ? Number.parseFloat(style.borderTopWidth) || 0 : 0
   const borderBottom = borderBox && style ? Number.parseFloat(style.borderBottomWidth) || 0 : 0
   const borders = borderTop + borderBottom
-  const maxHeight = lineHeight * maxLines + paddingTop + paddingBottom + borders
+  const maxHeight = lineHeight * lines + paddingTop + paddingBottom + borders
   const fullHeight = textarea.scrollHeight + borders
   const next = Math.min(fullHeight, maxHeight)
   textarea.style.height = `${next}px`

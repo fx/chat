@@ -232,6 +232,15 @@ describe('autosize (unit)', () => {
     expect(textarea.style.height).toBe('20px')
   })
 
+  it('clamps non-positive maxLines to a single line', () => {
+    // maxLines 0 (and negatives) clamp to 1: cap = 1*20 + 8 = 28.
+    const textarea = withTextarea(1000, '20px')
+    autosize(textarea, 0)
+    expect(textarea.style.height).toBe('28px')
+    autosize(textarea, -5)
+    expect(textarea.style.height).toBe('28px')
+  })
+
   it('adds vertical borders to the height under border-box', () => {
     // border-box: cap = 1*20 line + 8 padding + 2*1 border = 30; content fits
     // (scrollHeight 20 + 2 border = 22 < 30) so it grows to 22 and hides overflow.
