@@ -77,6 +77,68 @@ describe('@fx/chat public surface', () => {
     expect(block('.chat-collapsible-header')).toContain('min-height: 44px')
   })
 
+  it('makes an explicit data-theme win over prefers-color-scheme', () => {
+    // Precedence contract: `[data-theme="light"]` is light always,
+    // `[data-theme="dark"]` is dark always, and a root with NO `data-theme`
+    // follows the OS. This is encoded by (a) a `[data-theme="light"]` block
+    // and (b) scoping the OS-dark media block to `:root:not([data-theme])` so
+    // it cannot override an element that explicitly opts into light.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+
+    // (a) An explicit light hook exists to reclaim light under OS-dark.
+    expect(css).toContain('[data-theme="light"] {')
+
+    // (b) The OS-dark media block must target only roots WITHOUT a data-theme.
+    // Strip CSS comments FIRST so they can neither (i) false-trip the bare-`:root`
+    // ban, (ii) satisfy the `:root:not(...)` requirement, nor (iii) wedge a stray
+    // brace that would throw off balanced-brace scanning. Then extract the body of
+    // the `@media (prefers-color-scheme: dark) { … }` block via balanced-brace
+    // scanning so the guard is independent of whitespace and formatting — a
+    // regression like `:root{` (no space) or a commented `:root {` must NOT slip
+    // through.
+    const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const extractDarkMediaBody = (source: string): string => {
+      const head = source.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{/)
+      if (head?.index === undefined) return ''
+      let depth = 1
+      const start = head.index + head[0].length
+      for (let i = start; i < source.length; i++) {
+        const ch = source[i]
+        if (ch === '{') depth++
+        else if (ch === '}') {
+          depth--
+          if (depth === 0) return source.slice(start, i)
+        }
+      }
+      return ''
+    }
+    const darkMediaBody = extractDarkMediaBody(cssNoComments)
+    expect(darkMediaBody).not.toBe('')
+    // It MUST scope to `:root:not([data-theme])`.
+    expect(darkMediaBody).toMatch(/:root:not\(\s*\[data-theme\]\s*\)/)
+    // It must NEVER use a bare `:root` (any `:root` not immediately followed by
+    // `:` — so `:root:not(...)` is allowed, but `:root {`, `:root{`, `:root,`,
+    // `:root>` etc. are banned, regardless of whitespace/formatting).
+    expect(darkMediaBody).not.toMatch(/:root(?!:)/)
+
+    // (c) The `:root` light defaults and the `[data-theme="light"]` values must
+    // stay in sync — duplicated literals are allowed only if they match exactly.
+    const tokensOf = (selector: string): Record<string, string> => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      const body = m?.[1] ?? ''
+      const tokens: Record<string, string> = {}
+      for (const decl of body.split(';')) {
+        const dm = decl.match(/(--chat-[\w-]+)\s*:\s*(.+)/)
+        if (dm?.[1] && dm[2]) tokens[dm[1]] = dm[2].trim()
+      }
+      return tokens
+    }
+    const root = tokensOf(':root')
+    const explicitLight = tokensOf('\\[data-theme="light"\\]')
+    expect(Object.keys(explicitLight).length).toBeGreaterThan(0)
+    expect(explicitLight).toEqual(root)
+  })
+
   it('depends on no UI kit, icon set, or markdown engine', () => {
     const graph = Object.keys({
       ...(pkg.dependencies ?? {}),
