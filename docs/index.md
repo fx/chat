@@ -20,4 +20,4 @@
 | 0003 | [Component Registry](changes/0003-component-registry.md) | [Component Registry](specs/component-registry/) | complete | 0001 |
 | 0004 | [Message Rendering](changes/0004-message-rendering.md) | [Message Rendering](specs/message-rendering/) | complete | 0002, 0003 |
 | 0005 | [Input Composer](changes/0005-input-composer.md) | [Input Composer](specs/input-composer/) | complete | 0002, 0003 |
-| 0006 | [Demos](changes/0006-demos.md) | [Demos](specs/demos/) | draft | 0004, 0005 |
+| 0006 | [Demos](changes/0006-demos.md) | [Demos](specs/demos/) | complete | 0004, 0005 |
