@@ -433,11 +433,6 @@
   .chat-row-affordance[data-affordance="active"] .chat-row-affordance-icon {
     animation: none;
   }
-
-  /* …and for the completion popup's loading spinner. */
-  .chat-completion-spinner {
-    animation: none;
-  }
 }
 
 /* ── Input composer (change 0005) ───────────────────────────────────────────
@@ -604,4 +599,15 @@
    to `.chat-row-affordance`, never the completion spinner. */
 .chat-completion-spinner {
   animation: chat-spin 0.8s linear infinite;
+}
+
+/* Honor reduced-motion for the completion popup's loading spinner. This MUST
+   follow the base `animation` rule above: `@media` adds no specificity, so at
+   equal specificity source order decides — placing the override earlier let the
+   base rule win and the spinner kept rotating under reduce. Mirrors how the
+   render-layer affordance spinner (base rule precedes its reduce override). */
+@media (prefers-reduced-motion: reduce) {
+  .chat-completion-spinner {
+    animation: none;
+  }
 }
