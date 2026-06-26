@@ -314,10 +314,12 @@ function CompletionPopupImpl(
           return true
         case 'Enter':
         case 'Tab': {
-          const item = items[highlight]
-          if (!item) return false
+          // While the popup is open, Enter/Tab belong to it — consume them even
+          // when there is no item yet (e.g. an async provider is still loading),
+          // so the composer never accidentally submits the unfinished token.
           event.preventDefault()
-          applyItem(openMatch, item)
+          const item = items[highlight]
+          if (item) applyItem(openMatch, item)
           return true
         }
         case 'Escape':

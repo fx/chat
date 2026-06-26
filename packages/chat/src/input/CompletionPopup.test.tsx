@@ -412,8 +412,9 @@ describe('CompletionPopup async items', () => {
     // ArrowDown/ArrowUp are consumed but keep the highlight at 0 (empty list).
     expect(h.current?.press({ key: 'ArrowDown' })).toBe(true)
     expect(h.current?.press({ key: 'ArrowUp' })).toBe(true)
-    // Enter finds no item to apply → not consumed, nothing applied.
-    expect(h.current?.press({ key: 'Enter' })).toBe(false)
+    // Enter is consumed while the loading popup is open (so the composer never
+    // submits the unfinished token), but nothing is applied yet.
+    expect(h.current?.press({ key: 'Enter' })).toBe(true)
     expect(h.current?.applied).toBeNull()
     // Escape dismisses even while loading.
     expect(h.current?.press({ key: 'Escape' })).toBe(true)

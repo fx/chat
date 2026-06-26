@@ -10,13 +10,14 @@
  *
  * Uses `@testing-library/user-event` for realistic typing/keyboard sequences.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Attachment } from '../model'
 import { ChatInput, autosize, computeAtomicMentionDeletion } from './ChatInput'
 import { referenceProvider } from './completion/reference'
+import type { CompletionProvider } from './completion/types'
 
 const attachment = (name: string): Attachment => ({
   url: `blob:${name}`,
@@ -473,6 +474,35 @@ describe('ChatInput completion wiring', () => {
     expect(onSend).not.toHaveBeenCalled()
     // The popup applied the item via onChange.
     expect(onChange).toHaveBeenLastCalledWith('~apple ')
+  })
+
+  it('does not submit while the completion popup is loading (Enter is consumed)', async () => {
+    vi.useFakeTimers()
+    try {
+      const onSend = vi.fn()
+      const slow: CompletionProvider = {
+        id: 'slow',
+        trigger: '~',
+        match: referenceProvider.match,
+        items: () => new Promise<never[]>(() => {}), // never resolves
+        apply: referenceProvider.apply,
+      }
+      render(<ChatInput onSend={onSend} providers={[slow]} />)
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+      // Type a trigger token; the provider's items() hangs (loading).
+      fireEvent.change(textarea, { target: { value: '~a' } })
+      textarea.setSelectionRange(2, 2)
+      fireEvent.select(textarea)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(160) // past LOADING_DELAY
+      })
+      expect(screen.getByTestId('chat-completion-loading')).toBeInTheDocument()
+      // Enter is consumed by the loading popup — the composer must NOT submit.
+      fireEvent.keyDown(textarea, { key: 'Enter' })
+      expect(onSend).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('closes the popup when a selection-only caret move leaves the token', async () => {
