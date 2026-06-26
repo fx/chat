@@ -23,6 +23,8 @@ const ALL_NAMES: IconName[] = [
   'stop',
   'paperclip',
   'close',
+  'download',
+  'expand',
 ]
 
 describe('headlessIcons', () => {

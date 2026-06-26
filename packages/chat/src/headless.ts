@@ -21,6 +21,7 @@ export {
   headlessComponents,
   headlessIcons,
   JsonView,
+  Lightbox,
   parseBlocks,
   ScrollArea,
   Tooltip,
