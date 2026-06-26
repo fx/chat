@@ -8,7 +8,7 @@ contract, the portal completion popup (caret-anchored, keyboard nav, IME guards,
 a11y), the reference completion provider, and the mention parser/segmenter.
 
 **Spec:** [input-composer](../specs/input-composer/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0002, 0003
 
 ## Motivation
@@ -100,19 +100,25 @@ in the rule.
 
 ## Tasks
 
-- [ ] Implement `completion/types.ts` (contract) + `completion/reference.ts` (static provider)
+- [x] Implement `completion/types.ts` (contract) + `completion/reference.ts` (static provider)
       + `caret.ts`, with non-DOM import tests
-- [ ] Implement `mentions.ts` (`parseMentions`, `mentionsToSegments`) with tests
-- [ ] Implement `CompletionPopup` (anchor, keyboard nav/apply, IME guard, flip, portal, a11y,
+- [x] Implement `mentions.ts` (`parseMentions`, `mentionsToSegments`) with tests
+      (`mentions.ts` was already merged; reused here, non-DOM importability re-verified)
+- [x] Implement `CompletionPopup` (anchor, keyboard nav/apply, IME guard, flip, portal, a11y,
       Escape suppression, loading-delay, stale-abort) with tests
-- [ ] Implement `ChatInput` (controlled+uncontrolled, autosize, Enter-send + gating, attachment
+- [x] Implement `ChatInput` (controlled+uncontrolled, autosize, Enter-send + gating, attachment
       chips, mention overlay, atomic deletion, popup wiring) with tests
 
 ## Open Questions
 
-- [ ] Controlled vs uncontrolled documented default
-- [ ] Ship the small fuzzy scorer helper or not
-- [ ] Scope of the `fileToAttachment` demo helper
+- [x] Controlled vs uncontrolled documented default — **uncontrolled** is the default
+      (the composer owns its value); controlled is fully supported and typed as a
+      discriminated union so `value` requires `onChange`.
+- [x] Ship the small fuzzy scorer helper or not — **not shipped**; out of scope for this
+      change. Providers rank their own `items()`; a scorer can be added later if needed.
+- [x] Scope of the `fileToAttachment` demo helper — **not shipped here**; the composer
+      exposes headless file hooks (`onAddFiles` via picker/paste/drop) and leaves
+      `File → Attachment` conversion (object-URL helper included) to the host/demos (0006).
 
 ## References
 
