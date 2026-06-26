@@ -65,12 +65,15 @@ export {
   useLiveTokensPerSecond,
   usePrefersReducedMotion,
 } from './hooks'
+export type { MessageAttachmentsProps } from './MessageAttachments'
+export { deriveAttachmentLabel, MessageAttachments } from './MessageAttachments'
 export type { MessageFooterProps } from './MessageFooter'
 export { MessageFooter } from './MessageFooter'
 export type { MergedEntry, MergedItemEntry, MergedMessageEntry } from './mergeTimeline'
 export { mergeTimeline } from './mergeTimeline'
 export type { MessageItemProps } from './MessageItem'
 export { MessageItem, messageCopyText } from './MessageItem'
+export { isSafeAttachmentUrl } from './url'
 export type { MessageCallbacks, MessageLogProps } from './MessageLog'
 export { MessageLog } from './MessageLog'
 export { prefersReducedMotion, scrollToMessage } from './scroll'

@@ -82,5 +82,5 @@ changes:
     path: changes/0008-attachment-rendering.md
     description: User-attachment rendering — image grid + lightbox, media/file chips, scheme-safe download, Lightbox registry slot
     spec: message-rendering
-    status: draft
+    status: complete
     depends_on: ["0002", "0004"]

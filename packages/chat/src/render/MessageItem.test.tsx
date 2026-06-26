@@ -172,4 +172,45 @@ describe('MessageItem', () => {
     const blocks = container.querySelector('.chat-message-blocks') as HTMLElement
     expect(within(blocks).getByText('2.0s')).toBeInTheDocument()
   })
+
+  it('renders the attachment region for a user message with attachments', () => {
+    const msg = message({
+      role: 'user',
+      blocks: [{ type: 'text', id: 't', text: 'see this' }],
+      attachments: [{ url: 'https://x/a.png', mediaType: 'image/png', kind: 'image', name: 'a' }],
+    })
+    render(<MessageItem message={msg} />)
+    expect(screen.getByTestId('message-attachments')).toBeInTheDocument()
+    expect(screen.getByAltText('a')).toBeInTheDocument()
+  })
+
+  it('does not render attachments for a non-user message even if present', () => {
+    const msg = message({
+      role: 'assistant',
+      attachments: [{ url: 'https://x/a.png', mediaType: 'image/png', kind: 'image' }],
+    })
+    render(<MessageItem message={msg} />)
+    expect(screen.queryByTestId('message-attachments')).toBeNull()
+  })
+
+  it('does not render attachments in raw mode', () => {
+    const msg = message({
+      role: 'user',
+      attachments: [{ url: 'https://x/a.png', mediaType: 'image/png', kind: 'image' }],
+    })
+    render(<MessageItem message={msg} raw />)
+    expect(screen.queryByTestId('message-attachments')).toBeNull()
+  })
+
+  it('renders identically to today for a user message with no attachments', () => {
+    const msg = message({ role: 'user', blocks: [{ type: 'text', id: 't', text: 'hi' }] })
+    render(<MessageItem message={msg} />)
+    expect(screen.queryByTestId('message-attachments')).toBeNull()
+  })
+
+  it('treats an empty attachments array as no attachments', () => {
+    const msg = message({ role: 'user', attachments: [] })
+    render(<MessageItem message={msg} />)
+    expect(screen.queryByTestId('message-attachments')).toBeNull()
+  })
 })

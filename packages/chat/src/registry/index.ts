@@ -17,6 +17,7 @@ export type {
   IconProps,
   IconRegistry,
   JsonViewProps,
+  LightboxProps,
   MarkdownProps,
   PartialChatComponents,
   ScrollAreaProps,

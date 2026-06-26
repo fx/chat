@@ -15,10 +15,12 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Download,
   FileText,
   GitFork,
   Loader2,
   type LucideIcon,
+  Maximize2,
   Paperclip,
   RefreshCw,
   RotateCcw,
@@ -56,6 +58,8 @@ const MAP: Record<IconName, LucideIcon> = {
   stop: Square,
   paperclip: Paperclip,
   close: X,
+  download: Download,
+  expand: Maximize2,
 }
 
 /** The full lucide icon registry, one component per {@link IconName}. */

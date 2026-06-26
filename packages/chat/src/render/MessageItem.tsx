@@ -8,6 +8,7 @@
  * affordances render beneath the blocks.
  */
 import { BlockGroup } from './BlockGroup'
+import { MessageAttachments } from './MessageAttachments'
 import { MessageFooter } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
@@ -124,6 +125,9 @@ export function MessageItem({
               )}
         </div>
       )}
+      {!raw && message.role === 'user' && message.attachments && message.attachments.length > 0 ? (
+        <MessageAttachments attachments={message.attachments} />
+      ) : null}
       {showFooter && !raw ? (
         <MessageFooter
           copyText={messageCopyText(message)}

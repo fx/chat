@@ -13,6 +13,7 @@ describe('headlessComponents registry', () => {
     expect(typeof headlessComponents.Avatar).toBe('function')
     expect(typeof headlessComponents.CopyButton).toBe('function')
     expect(typeof headlessComponents.Markdown).toBe('function')
+    expect(typeof headlessComponents.Lightbox).toBe('function')
     expect(typeof headlessComponents.icons).toBe('object')
   })
 
