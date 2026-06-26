@@ -282,18 +282,89 @@ describe('ChatInput attachments', () => {
     expect(screen.queryByLabelText('Attachments')).toBeNull()
   })
 
-  it('the attach button is inert (host wires the picker)', async () => {
-    const user = userEvent.setup()
+  it('shows no attach affordance when onAddFiles is omitted', () => {
     render(<ChatInput onSend={vi.fn()} />)
-    // Clicking the paperclip must not throw; it is a host hook point.
-    await user.click(screen.getByLabelText('Attach file'))
-    expect(screen.getByLabelText('Attach file')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Attach file')).toBeNull()
   })
 
   it('removeAttachment is a no-op when attachments is undefined', () => {
     // No attachments prop → no chips and nothing to remove; covered for safety.
     render(<ChatInput onSend={vi.fn()} onAttachmentsChange={vi.fn()} />)
     expect(screen.queryByLabelText('Attachments')).toBeNull()
+  })
+})
+
+describe('ChatInput file hooks', () => {
+  const file = (name: string) => new File(['x'], name, { type: 'image/png' })
+
+  it('opens the file picker and forwards selected files to onAddFiles', async () => {
+    const user = userEvent.setup()
+    const onAddFiles = vi.fn()
+    const { container } = render(
+      <ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} accept="image/*" />,
+    )
+    const input = container.querySelector('.chat-input-file') as HTMLInputElement
+    expect(input.accept).toBe('image/*')
+    // Clicking the button triggers the hidden input's click().
+    const clickSpy = vi.spyOn(input, 'click')
+    await user.click(screen.getByLabelText('Attach file'))
+    expect(clickSpy).toHaveBeenCalled()
+    // Selecting files forwards them and resets the input value.
+    await user.upload(input, [file('a.png'), file('b.png')])
+    expect(onAddFiles).toHaveBeenCalledWith([expect.any(File), expect.any(File)])
+    expect(input.value).toBe('')
+  })
+
+  it('ignores a file-input change with a null/empty file list', () => {
+    const onAddFiles = vi.fn()
+    const { container } = render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
+    const input = container.querySelector('.chat-input-file') as HTMLInputElement
+    // Null files exercises the `?? []` fallback; empty list yields no emit.
+    fireEvent.change(input, { target: { files: null } })
+    fireEvent.change(input, { target: { files: [] } })
+    expect(onAddFiles).not.toHaveBeenCalled()
+  })
+
+  it('forwards pasted files to onAddFiles', () => {
+    const onAddFiles = vi.fn()
+    render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
+    const textarea = screen.getByRole('textbox')
+    fireEvent.paste(textarea, { clipboardData: { files: [file('p.png')] } })
+    expect(onAddFiles).toHaveBeenCalledWith([expect.any(File)])
+  })
+
+  it('does not intercept a text-only paste', () => {
+    const onAddFiles = vi.fn()
+    render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
+    const textarea = screen.getByRole('textbox')
+    fireEvent.paste(textarea, { clipboardData: { files: [] } })
+    expect(onAddFiles).not.toHaveBeenCalled()
+  })
+
+  it('forwards dropped files to onAddFiles', () => {
+    const onAddFiles = vi.fn()
+    const { container } = render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
+    const field = container.querySelector('.chat-input-field') as HTMLElement
+    fireEvent.dragOver(field, { dataTransfer: { files: [] } })
+    fireEvent.drop(field, { dataTransfer: { files: [file('d.png')] } })
+    expect(onAddFiles).toHaveBeenCalledWith([expect.any(File)])
+  })
+
+  it('ignores a drop with no files', () => {
+    const onAddFiles = vi.fn()
+    const { container } = render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} />)
+    const field = container.querySelector('.chat-input-field') as HTMLElement
+    fireEvent.drop(field, { dataTransfer: { files: [] } })
+    expect(onAddFiles).not.toHaveBeenCalled()
+  })
+
+  it('does not wire paste/drop when disabled', () => {
+    const onAddFiles = vi.fn()
+    const { container } = render(<ChatInput onSend={vi.fn()} onAddFiles={onAddFiles} disabled />)
+    const field = container.querySelector('.chat-input-field') as HTMLElement
+    fireEvent.drop(field, { dataTransfer: { files: [file('d.png')] } })
+    fireEvent.paste(screen.getByRole('textbox'), { clipboardData: { files: [file('p.png')] } })
+    expect(onAddFiles).not.toHaveBeenCalled()
   })
 })
 

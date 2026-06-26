@@ -49,6 +49,16 @@ export interface ChatInputProps {
   attachments?: Attachment[]
   /** Called when the user removes an attachment chip. */
   onAttachmentsChange?: (next: Attachment[]) => void
+  /**
+   * Headless attachment hook. Invoked with the `File`s the user supplies via the
+   * built-in file-picker button, paste, or drag-and-drop. The host converts each
+   * `File` to an {@link Attachment} (the package ships no upload/processing
+   * pipeline) and reflects the result back through `attachments`. When omitted,
+   * the attach button, paste, and drop are inert.
+   */
+  onAddFiles?: (files: File[]) => void
+  /** `accept` attribute for the built-in file-picker input (e.g. `image/*`). */
+  accept?: string
   /** Disables input + submit. */
   disabled?: boolean
   /** Indicates a response is in progress; gates submit and reveals stop. */
@@ -138,6 +148,8 @@ export function ChatInput({
   providers = [],
   attachments,
   onAttachmentsChange,
+  onAddFiles,
+  accept,
   disabled = false,
   isStreaming = false,
   maxLines = DEFAULT_MAX_LINES,
@@ -157,6 +169,7 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const popupRef = useRef<CompletionPopupHandle>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // A caret offset to restore after the next value commit (completion-apply or
   // atomic mention deletion). A controlled re-render would otherwise reset the
   // caret to the end of the textarea, so we re-apply it in a layout effect.
@@ -292,6 +305,27 @@ export function ChatInput({
     [onAttachmentsChange],
   )
 
+  // Hand any user-supplied files to the host (file-picker, paste, or drop). The
+  // package never processes/uploads them — the host converts File → Attachment.
+  const emitFiles = useCallback(
+    (files: File[]) => {
+      if (files.length > 0) onAddFiles?.(files)
+    },
+    [onAddFiles],
+  )
+
+  // Whether the attach affordance + file hooks are active (host opted in).
+  const attachEnabled = Boolean(onAddFiles) && !disabled
+
+  const handleFileInput = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      emitFiles(Array.from(event.target.files ?? []))
+      // Reset so selecting the same file again still fires `change`.
+      event.target.value = ''
+    },
+    [emitFiles],
+  )
+
   // Keep the overlay scroll synced after value/size changes. The `void value`
   // read makes the re-sync-on-text-change dependency explicit.
   useEffect(() => {
@@ -324,7 +358,22 @@ export function ChatInput({
         </ul>
       ) : null}
 
-      <div className="chat-input-field">
+      <div
+        className="chat-input-field"
+        // Drag-and-drop hook: hand dropped files to the host (no processing).
+        onDrop={
+          attachEnabled
+            ? (event) => {
+                const files = Array.from(event.dataTransfer.files)
+                if (files.length > 0) {
+                  event.preventDefault()
+                  emitFiles(files)
+                }
+              }
+            : undefined
+        }
+        onDragOver={attachEnabled ? (event) => event.preventDefault() : undefined}
+      >
         <div ref={overlayRef} className="chat-input-overlay" aria-hidden="true">
           {segments.map((segment, index) =>
             typeof segment === 'string' ? (
@@ -354,18 +403,46 @@ export function ChatInput({
           // Selection-only caret moves (clicks, arrow keys that don't edit) must
           // re-sync the popup so it closes when the caret leaves an active token.
           onSelect={() => popupRef.current?.syncCaret()}
+          // Paste hook: surface any pasted files to the host (text paste is left
+          // to the browser's default insertion).
+          onPaste={
+            attachEnabled
+              ? (event) => {
+                  const files = Array.from(event.clipboardData.files)
+                  if (files.length > 0) {
+                    event.preventDefault()
+                    emitFiles(files)
+                  }
+                }
+              : undefined
+          }
         />
       </div>
 
+      {onAddFiles ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="chat-input-file"
+          // Visually hidden but kept in the a11y tree for the picker affordance.
+          style={{ display: 'none' }}
+          {...(accept ? { accept } : {})}
+          onChange={handleFileInput}
+        />
+      ) : null}
+
       <div className="chat-input-actions">
-        <Button
-          className="chat-input-attach"
-          aria-label="Attach file"
-          disabled={disabled}
-          onClick={() => {}}
-        >
-          <PaperclipIcon className="chat-input-action-icon" />
-        </Button>
+        {onAddFiles ? (
+          <Button
+            className="chat-input-attach"
+            aria-label="Attach file"
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <PaperclipIcon className="chat-input-action-icon" />
+          </Button>
+        ) : null}
         {stopHandler ? (
           <Button className="chat-input-stop" aria-label="Stop" onClick={stopHandler}>
             <StopIcon className="chat-input-action-icon" />
