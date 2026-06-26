@@ -40,6 +40,7 @@ export type {
   RenderableBlock,
   RenderableMessage,
   TimelineItem,
+  TimelineItemBase,
   ToolRenderer,
 } from './extensions'
 export { isCoreBlockType, lookupExtension, NON_AUX_BEHAVIOR } from './extensions'

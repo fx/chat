@@ -13,6 +13,7 @@ import type {
   CustomRenderProps,
   RenderableBlock,
   RenderableMessage,
+  TimelineItem,
 } from './extensions'
 import { stubMatchMedia } from './test-helpers'
 
@@ -289,8 +290,11 @@ describe('TimelineItemView', () => {
     expect(wrap.textContent).toBe('')
   })
 
-  it('renders inertly when an item has neither render nor kind', () => {
-    const { container } = render(<TimelineItemView item={{ id: 'w1', at: 1 }} />)
+  it('renders inertly when an item has neither render nor kind (defensive, JS host)', () => {
+    // The `TimelineItem` type rejects this (render XOR kind), but a JS host could
+    // still pass it — the runtime guard renders the anchor inertly, never throws.
+    const item = { id: 'w1', at: 1 } as unknown as TimelineItem
+    const { container } = render(<TimelineItemView item={item} />)
     const wrap = container.querySelector('[data-timeline-item-id="w1"]') as HTMLElement
     expect(wrap).not.toBeNull()
     expect(wrap.textContent).toBe('')

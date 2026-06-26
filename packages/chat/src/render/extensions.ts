@@ -74,23 +74,34 @@ export type ToolRenderer = ComponentType<
  */
 export type CustomTimelineBehavior = Partial<TimelineBehavior>
 
-/**
- * A host-defined top-level timeline item, interleaved among messages by `at`
- * (epoch ms, the same axis as message `createdAt`). Either supplies its own
- * `render` function, or a `kind` resolved through `blockRenderers`.
- */
-export interface TimelineItem {
+/** Fields common to every {@link TimelineItem} variant. */
+export interface TimelineItemBase {
   /** Stable id; surfaced as the `data-timeline-item-id` anchor. */
   id: string
   /** Ordering key (epoch ms) on the same axis as message `createdAt`. */
   at: number
-  /** Inline renderer for this item. */
-  render?: () => import('react').ReactNode
-  /** Or a custom block resolved through `extensions.blockRenderers`. */
-  kind?: string
-  /** Optional block payload passed to the resolved `blockRenderers[kind]`. */
-  block?: CustomBlock
 }
+
+/**
+ * A host-defined top-level timeline item, interleaved among messages by `at`
+ * (epoch ms, the same axis as message `createdAt`). It supplies EXACTLY ONE of:
+ * an inline `render` function, OR a `kind` resolved through `blockRenderers`. The
+ * discriminated union rejects an item that combines or omits both at compile time.
+ */
+export type TimelineItem =
+  | (TimelineItemBase & {
+      /** Inline renderer for this item. */
+      render: () => import('react').ReactNode
+      kind?: never
+      block?: never
+    })
+  | (TimelineItemBase & {
+      /** A custom block resolved through `extensions.blockRenderers`. */
+      kind: string
+      /** Optional block payload passed to the resolved `blockRenderers[kind]`. */
+      block?: CustomBlock
+      render?: never
+    })
 
 /**
  * The single OPTIONAL render-layer extension object. All three capabilities are
