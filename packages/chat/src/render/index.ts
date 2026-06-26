@@ -11,6 +11,7 @@ export { BlockGroup } from './BlockGroup'
 export type {
   BlockRenderContext,
   BlockViewProps,
+  InertBlockViewProps,
   RawJsonBlockViewProps,
   ReasoningBlockViewProps,
   StatusBlockViewProps,
@@ -20,6 +21,7 @@ export type {
 } from './blocks'
 export {
   BlockView,
+  InertBlockView,
   RawJsonBlockView,
   ReasoningBlockView,
   StatusBlockView,
@@ -29,6 +31,17 @@ export {
 } from './blocks'
 export type { CollapsibleRowProps } from './CollapsibleRow'
 export { CollapsibleRow } from './CollapsibleRow'
+export type {
+  ChatExtensions,
+  CustomBlock,
+  CustomBlockRenderer,
+  CustomRenderProps,
+  CustomTimelineBehavior,
+  RenderableBlock,
+  TimelineItem,
+  ToolRenderer,
+} from './extensions'
+export { isCoreBlockType, NON_AUX_BEHAVIOR } from './extensions'
 export { formatDuration, formatTokensPerSecond } from './format'
 export type {
   BareItem,
@@ -47,8 +60,12 @@ export {
 } from './hooks'
 export type { MessageFooterProps } from './MessageFooter'
 export { MessageFooter } from './MessageFooter'
+export type { MergedEntry, MergedItemEntry, MergedMessageEntry } from './mergeTimeline'
+export { mergeTimeline } from './mergeTimeline'
 export type { MessageItemProps } from './MessageItem'
 export { MessageItem, messageCopyText } from './MessageItem'
 export type { MessageCallbacks, MessageLogProps } from './MessageLog'
 export { MessageLog } from './MessageLog'
 export { prefersReducedMotion, scrollToMessage } from './scroll'
+export type { TimelineItemViewProps } from './TimelineItemView'
+export { TimelineItemView } from './TimelineItemView'

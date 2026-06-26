@@ -13,6 +13,7 @@ import { MessageFooter } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
+import type { ChatExtensions, RenderableBlock } from './extensions'
 import { deriveTokensPerSecond } from './format'
 import { groupBlocks } from './grouping'
 
@@ -31,6 +32,8 @@ export interface MessageItemProps {
   showFooter?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
+  /** Optional render-layer extensions (custom block/tool renderers + grouping). */
+  extensions?: ChatExtensions
   onRegenerate?: () => void
   onFork?: () => void
   onReset?: () => void
@@ -53,6 +56,7 @@ export function MessageItem({
   defaultOpen,
   showFooter = true,
   compactFooter = false,
+  extensions,
   onRegenerate,
   onFork,
   onReset,
@@ -69,6 +73,8 @@ export function MessageItem({
   const context: BlockRenderContext = {
     role: message.role,
     isActive,
+    message,
+    ...(raw ? { raw: true } : {}),
     ...(isActive && trailingBlock ? { activeBlockId: trailingBlock.id } : {}),
     ...(message.createdAt !== undefined ? { startedAt: message.createdAt } : {}),
     ...(message.metrics?.durationMs !== undefined
@@ -78,6 +84,12 @@ export function MessageItem({
     ...(defaultOpen !== undefined ? { defaultOpen } : {}),
   }
 
+  // The core message type is `ContentBlock[]`, but a host codec MAY carry custom
+  // (non-core) block kinds rendered through `extensions.blockRenderers`. Treat the
+  // stream as renderable blocks for dispatch + grouping; core behavior is unchanged.
+  const blocks = message.blocks as RenderableBlock[]
+  const behaviorOverrides = extensions?.timelineBehavior
+
   return (
     <div className="chat-message" data-message-id={message.id} data-role={message.role}>
       {raw ? (
@@ -85,18 +97,29 @@ export function MessageItem({
       ) : (
         <div className="chat-message-blocks">
           {flat
-            ? message.blocks.map((block) => (
-                <BlockView key={block.id} block={block} context={context} />
+            ? blocks.map((block) => (
+                <BlockView
+                  key={block.id}
+                  block={block}
+                  context={context}
+                  {...(extensions ? { extensions } : {})}
+                />
               ))
-            : groupBlocks(message.blocks).map((item) =>
+            : groupBlocks(blocks, behaviorOverrides).map((item) =>
                 item.kind === 'bare' ? (
-                  <BlockView key={item.block.id} block={item.block} context={context} />
+                  <BlockView
+                    key={item.block.id}
+                    block={item.block}
+                    context={context}
+                    {...(extensions ? { extensions } : {})}
+                  />
                 ) : (
                   <BlockGroup
                     key={`group-${(item.blocks[0] as { id: string }).id}`}
                     blocks={item.blocks}
                     context={context}
                     {...(defaultOpen !== undefined ? { defaultOpen } : {})}
+                    {...(extensions ? { extensions } : {})}
                   />
                 ),
               )}

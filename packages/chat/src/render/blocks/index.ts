@@ -3,6 +3,8 @@
  */
 export type { BlockRenderContext, BlockViewProps } from './BlockView'
 export { BlockView } from './BlockView'
+export type { InertBlockViewProps } from './InertBlock'
+export { InertBlockView } from './InertBlock'
 export type { RawJsonBlockViewProps } from './RawJsonBlock'
 export { RawJsonBlockView } from './RawJsonBlock'
 export type { ReasoningBlockViewProps } from './ReasoningBlock'

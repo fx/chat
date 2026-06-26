@@ -12,6 +12,9 @@
 import type { ReactNode } from 'react'
 import type { ChatMessage } from '../model'
 import { MessageItem } from './MessageItem'
+import { TimelineItemView } from './TimelineItemView'
+import type { ChatExtensions } from './extensions'
+import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
 export interface MessageCallbacks {
@@ -38,6 +41,12 @@ export interface MessageLogProps extends MessageCallbacks {
   /** Compact footer mode. */
   compactFooter?: boolean
   /**
+   * Optional render-layer extensions: custom block renderers, tool-name
+   * overrides, and custom timeline items. Additive — when absent, output is the
+   * default behavior unchanged.
+   */
+  extensions?: ChatExtensions
+  /**
    * Optional host-provided list renderer (e.g. a virtualizer). Receives the
    * already-built per-message nodes; defaults to rendering them directly. The
    * package bundles no windowing implementation.
@@ -55,12 +64,28 @@ export function MessageLog({
   defaultOpen,
   showFooter,
   compactFooter,
+  extensions,
   onRegenerate,
   onFork,
   onReset,
   renderList,
 }: MessageLogProps) {
-  const items = messages.map((message) => {
+  // Interleave messages and host-supplied custom timeline items by createdAt/at.
+  // With no timeline items, this is the messages in order (default path).
+  const timeline = mergeTimeline(messages, extensions?.timelineItems)
+  const items = timeline.map((entry) => {
+    if (entry.kind === 'item') {
+      // An item entry only exists when `extensions.timelineItems` was non-empty,
+      // so `extensions` is guaranteed defined here.
+      return (
+        <TimelineItemView
+          key={`item-${entry.item.id}`}
+          item={entry.item}
+          extensions={extensions as ChatExtensions}
+        />
+      )
+    }
+    const message = entry.message
     const isActive = isStreaming && message.id === streamingMessageId
     return (
       <MessageItem
@@ -72,6 +97,7 @@ export function MessageLog({
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}
+        {...(extensions ? { extensions } : {})}
         {...(onRegenerate ? { onRegenerate: () => onRegenerate(message.id) } : {})}
         {...(onFork ? { onFork: () => onFork(message.id) } : {})}
         {...(onReset ? { onReset: () => onReset(message.id) } : {})}
