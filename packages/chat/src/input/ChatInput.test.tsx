@@ -163,7 +163,12 @@ describe('ChatInput autosize (integration)', () => {
 })
 
 describe('autosize (unit)', () => {
-  function withTextarea(scrollHeight: number, lineHeight: string | null, padding = '4px') {
+  function withTextarea(
+    scrollHeight: number,
+    lineHeight: string | null,
+    padding = '4px',
+    box?: { boxSizing: string; border: string },
+  ) {
     const textarea = document.createElement('textarea')
     document.body.appendChild(textarea)
     Object.defineProperty(textarea, 'scrollHeight', {
@@ -179,6 +184,10 @@ describe('autosize (unit)', () => {
               if (prop === 'lineHeight') return lineHeight
               if (prop === 'paddingTop') return padding
               if (prop === 'paddingBottom') return padding
+              if (box && prop === 'boxSizing') return box.boxSizing
+              if (box && (prop === 'borderTopWidth' || prop === 'borderBottomWidth')) {
+                return box.border
+              }
               return Reflect.get(target, prop)
             },
           }) as CSSStyleDeclaration
@@ -220,6 +229,30 @@ describe('autosize (unit)', () => {
     const textarea = withTextarea(1000, '20px', 'auto')
     autosize(textarea, 1)
     // 1 * 20 line height + 0 padding (auto → NaN → 0) = 20px cap.
+    expect(textarea.style.height).toBe('20px')
+  })
+
+  it('adds vertical borders to the height under border-box', () => {
+    // border-box: cap = 1*20 line + 8 padding + 2*1 border = 30; content fits
+    // (scrollHeight 20 + 2 border = 22 < 30) so it grows to 22 and hides overflow.
+    const textarea = withTextarea(20, '20px', '4px', { boxSizing: 'border-box', border: '1px' })
+    autosize(textarea, 1)
+    expect(textarea.style.height).toBe('22px')
+    expect(textarea.style.overflowY).toBe('hidden')
+  })
+
+  it('caps and scrolls under border-box when content exceeds the cap', () => {
+    // cap = 1*20 + 8 + 2 = 30; scrollHeight 200 + 2 border = 202 > 30 → cap+scroll.
+    const textarea = withTextarea(200, '20px', '4px', { boxSizing: 'border-box', border: '1px' })
+    autosize(textarea, 1)
+    expect(textarea.style.height).toBe('30px')
+    expect(textarea.style.overflowY).toBe('auto')
+  })
+
+  it('treats unparseable border widths as zero under border-box', () => {
+    // border 'thin' → NaN → 0; cap = 20 + 8 + 0 = 28; scrollHeight 20 fits → 20.
+    const textarea = withTextarea(20, '20px', '4px', { boxSizing: 'border-box', border: 'thin' })
+    autosize(textarea, 1)
     expect(textarea.style.height).toBe('20px')
   })
 

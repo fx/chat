@@ -121,8 +121,11 @@ const FALLBACK_LINE_HEIGHT = 20
 /**
  * Resize `textarea` to fit its content between one line and `maxLines`, then
  * switch to scrolling. Reads the textarea's own computed line-height/padding so
- * the cap matches the rendered font. Exported for direct unit testing (jsdom
- * does not run layout, so the integration path can't exercise every branch).
+ * the cap matches the rendered font, and adds vertical borders when the box is
+ * `border-box` (where the assigned `height` includes borders but `scrollHeight`
+ * does not — omitting them would clip the last line). Exported for direct unit
+ * testing (jsdom does not run layout, so the integration path can't exercise
+ * every branch).
  */
 export function autosize(textarea: HTMLTextAreaElement, maxLines: number): void {
   textarea.style.height = 'auto'
@@ -133,10 +136,18 @@ export function autosize(textarea: HTMLTextAreaElement, maxLines: number): void 
     : FALLBACK_LINE_HEIGHT
   const paddingTop = style ? Number.parseFloat(style.paddingTop) || 0 : 0
   const paddingBottom = style ? Number.parseFloat(style.paddingBottom) || 0 : 0
-  const maxHeight = lineHeight * maxLines + paddingTop + paddingBottom
-  const next = Math.min(textarea.scrollHeight, maxHeight)
+  // Under `border-box`, the CSS `height` must include borders, but `scrollHeight`
+  // (content + padding) does not — so add them to both the cap and the assigned
+  // height. Under `content-box` borders are outside `height`, so add nothing.
+  const borderBox = style?.boxSizing === 'border-box'
+  const borderTop = borderBox && style ? Number.parseFloat(style.borderTopWidth) || 0 : 0
+  const borderBottom = borderBox && style ? Number.parseFloat(style.borderBottomWidth) || 0 : 0
+  const borders = borderTop + borderBottom
+  const maxHeight = lineHeight * maxLines + paddingTop + paddingBottom + borders
+  const fullHeight = textarea.scrollHeight + borders
+  const next = Math.min(fullHeight, maxHeight)
   textarea.style.height = `${next}px`
-  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  textarea.style.overflowY = fullHeight > maxHeight ? 'auto' : 'hidden'
 }
 
 /** Headless, design-system-agnostic chat composer. See module doc. */
