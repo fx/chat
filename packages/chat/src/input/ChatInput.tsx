@@ -97,6 +97,65 @@ export type ChatInputProps = ChatInputBaseProps & ChatInputValueProps
 const DEFAULT_MAX_LINES = 8
 
 /**
+ * True in non-production builds (where dev warnings are allowed to fire).
+ * `process` is read via `globalThis` (the package has no `@types/node`) with a
+ * nullish fallback, so a browser bundle lacking a `process` shim simply reads an
+ * empty env (dev) and never throws.
+ */
+function isDevBuild(): boolean {
+  const env = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env ?? {}
+  return env.NODE_ENV !== 'production'
+}
+
+/**
+ * One-time DEV warnings for the controlled-without-handler footgun. The TS
+ * discriminated union already forbids `value` without `onChange`, but a JS
+ * consumer can still pass `value` (making the textarea read-only and silently
+ * no-op'ing completion/mention edits) or `attachments` without
+ * `onAttachmentsChange` (making chip removal inert). We warn once per footgun in
+ * dev only; production builds skip this entirely and runtime behavior is
+ * otherwise unchanged.
+ */
+let warnedValueWithoutOnChange = false
+let warnedAttachmentsWithoutHandler = false
+
+/**
+ * Reset the one-time dev-warning flags. Exported for tests, which need to
+ * exercise the "warn once" behavior across independent renders; not part of the
+ * public component API.
+ * @internal
+ */
+export function __resetControlledWarnings(): void {
+  warnedValueWithoutOnChange = false
+  warnedAttachmentsWithoutHandler = false
+}
+
+function warnControlledWithoutHandler(
+  hasValue: boolean,
+  hasOnChange: boolean,
+  hasAttachments: boolean,
+  hasOnAttachmentsChange: boolean,
+): void {
+  if (!isDevBuild()) return
+  if (hasValue && !hasOnChange && !warnedValueWithoutOnChange) {
+    warnedValueWithoutOnChange = true
+    console.warn(
+      'ChatInput: `value` was provided without `onChange`. The textarea will be ' +
+        'read-only and completion/mention edits will silently no-op. Provide ' +
+        '`onChange`, or omit `value` to use the composer uncontrolled.',
+    )
+  }
+  if (hasAttachments && !hasOnAttachmentsChange && !warnedAttachmentsWithoutHandler) {
+    warnedAttachmentsWithoutHandler = true
+    console.warn(
+      'ChatInput: `attachments` was provided without `onAttachmentsChange`. ' +
+        'Removing an attachment chip will silently no-op. Provide ' +
+        '`onAttachmentsChange` to handle chip removal.',
+    )
+  }
+}
+
+/**
  * Compute an atomic mention deletion. When the caret is collapsed at a mention
  * boundary and `Backspace`/`Delete` is pressed, the WHOLE `@<id>` token plus a
  * single adjacent space is removed in one keystroke. Returns the new value +
@@ -193,6 +252,15 @@ export function ChatInput({
   ariaLabelledBy,
   portalContainer,
 }: ChatInputProps) {
+  // DEV-only: warn once when a controlled prop is passed without its handler
+  // (footguns the type system can't catch for JS consumers). No-op in prod.
+  warnControlledWithoutHandler(
+    controlledValue !== undefined,
+    onChange !== undefined,
+    attachments !== undefined,
+    onAttachmentsChange !== undefined,
+  )
+
   const { Button, icons } = useChatComponents()
   const SendIcon = icons.send
   const StopIcon = icons.stop

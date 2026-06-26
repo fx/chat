@@ -169,6 +169,38 @@ describe('CompletionPopup provider precedence', () => {
     h.current?.type('~ap', 3)
     await waitFor(() => expect(screen.getByText('apple')).toBeInTheDocument())
   })
+
+  it('skips match() for a provider whose trigger is absent before the caret', () => {
+    // A provider triggered on `#` should never have match() called for `~ap`,
+    // because `#` does not appear in the text up to the caret.
+    const match = vi.fn(() => null)
+    const hashProvider: CompletionProvider = {
+      ...referenceProvider,
+      id: 'hash',
+      trigger: '#',
+      match,
+    }
+    const h = setup([hashProvider])
+    h.current?.type('~ap', 3)
+    expect(match).not.toHaveBeenCalled()
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('still calls match() when the provider trigger is present before the caret', async () => {
+    // The same provider's trigger IS present in `~ap`, so match() runs and the
+    // popup opens — proving the pre-filter only skips no-hope providers.
+    const match = vi.fn(referenceProvider.match)
+    const tildeProvider: CompletionProvider = {
+      ...referenceProvider,
+      id: 'tilde',
+      trigger: '~',
+      match,
+    }
+    const h = setup([tildeProvider])
+    h.current?.type('~ap', 3)
+    await waitFor(() => expect(screen.getByText('apple')).toBeInTheDocument())
+    expect(match).toHaveBeenCalled()
+  })
 })
 
 describe('CompletionPopup keyboard navigation', () => {
@@ -392,6 +424,31 @@ describe('CompletionPopup async items', () => {
     expect(screen.queryByTestId('chat-completion-loading')).toBeNull()
   })
 
+  it('re-waits LOADING_DELAY for a new query instead of flashing the prior spinner', async () => {
+    vi.useFakeTimers()
+    // The provider never resolves, so each query stays in the loading window.
+    const slow: CompletionProvider = {
+      ...referenceProvider,
+      id: 'never',
+      items: () => new Promise<CompletionItem[]>(() => {}),
+    }
+    const h = setup([slow])
+    h.current?.type('~a', 2)
+    // First query: spinner appears only after the delay.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LOADING_DELAY)
+    })
+    expect(screen.getByTestId('chat-completion-loading')).toBeInTheDocument()
+    // Change the token → a fresh request starts; the spinner must be cleared
+    // immediately (no flash) and only reappear after the new delay elapses.
+    h.current?.type('~ab', 3)
+    expect(screen.queryByTestId('chat-completion-loading')).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LOADING_DELAY)
+    })
+    expect(screen.getByTestId('chat-completion-loading')).toBeInTheDocument()
+  })
+
   it('handles nav/apply/escape gracefully while loading with no items', async () => {
     vi.useFakeTimers()
     let resolve: ((items: CompletionItem[]) => void) | null = null
@@ -582,6 +639,40 @@ describe('CompletionPopup with a detached textarea ref', () => {
     await press('ArrowDown')
     await press('Enter')
     expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('opens against a textarea whose document has no defaultView', async () => {
+    // A textarea in a detached document has `defaultView === null`. Driving the
+    // popup open against it exercises the `defaultView ?? null` branch in the
+    // coords/listener effect (the resize/scroll listeners simply attach to no
+    // window). The trigger pre-filter still passes because the caret (synced
+    // from the real `selectionStart`) sits past the `!` trigger.
+    const detached = document.implementation.createHTMLDocument('t')
+    const textarea = detached.createElement('textarea')
+    textarea.value = '!x'
+    textarea.setSelectionRange(2, 2)
+    detached.body.appendChild(textarea)
+    expect(textarea.ownerDocument.defaultView).toBeNull()
+    const textareaRef = { current: textarea }
+    const handleRef = { current: null as CompletionPopupHandle | null }
+    render(
+      <CompletionPopup
+        ref={handleRef}
+        textareaRef={textareaRef}
+        value="!x"
+        onChange={() => {}}
+        providers={[alwaysMatch]}
+      />,
+    )
+    // Sync the caret from the (real) selection so the pre-filter sees `!` in the
+    // text up to the caret, then flush the sync async items resolution.
+    await act(async () => {
+      handleRef.current?.syncCaret()
+      await Promise.resolve()
+    })
+    // The listbox renders into the DETACHED document's body (not the test
+    // document `screen` queries), so it is found there rather than via `screen`.
+    expect(detached.querySelector('[role="listbox"]')).not.toBeNull()
   })
 })
 

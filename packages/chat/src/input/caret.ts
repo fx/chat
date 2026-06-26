@@ -76,7 +76,14 @@ const MIRRORED_PROPERTIES = [
  */
 export function getCaretCoords(textarea: HTMLTextAreaElement, caret: number): CaretCoords {
   const doc = textarea.ownerDocument
-  const win = doc.defaultView ?? window
+  // Prefer the textarea's own document view; fall back to the global `window`
+  // only when it actually exists. In a no-DOM context (SSR) both are absent, so
+  // fail DETERMINISTICALLY with a clear message instead of a raw ReferenceError
+  // from touching an undefined `window`.
+  const win = doc.defaultView ?? (typeof window !== 'undefined' ? window : null)
+  if (!win) {
+    throw new Error('getCaretCoords requires a browser environment')
+  }
   const style = win.getComputedStyle(textarea)
 
   const mirror = doc.createElement('div')

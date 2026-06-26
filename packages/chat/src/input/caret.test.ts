@@ -110,6 +110,25 @@ describe('getCaretCoords', () => {
     const coords = getCaretCoords(textarea, 1)
     expect(coords.height).toBe(20)
   })
+
+  it('throws a clear Error (not a ReferenceError) when no browser view exists', () => {
+    // A detached document has `defaultView === null`; with the global `window`
+    // also absent (SSR), the util must fail DETERMINISTICALLY with a clear
+    // message rather than throwing a raw ReferenceError on an undefined global.
+    const detached = document.implementation.createHTMLDocument('t')
+    const textarea = detached.createElement('textarea')
+    textarea.value = 'abc'
+    detached.body.appendChild(textarea)
+    expect(textarea.ownerDocument.defaultView).toBeNull()
+    vi.stubGlobal('window', undefined)
+    try {
+      expect(() => getCaretCoords(textarea, 1)).toThrow(
+        'getCaretCoords requires a browser environment',
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
 
 describe('computePopupAnchor', () => {

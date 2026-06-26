@@ -119,7 +119,13 @@ function findActiveMatch(
   text: string,
   caret: number,
 ): ActiveMatch | null {
+  // Only the text up to the caret can contain the active token's trigger, so a
+  // provider whose single-char `trigger` is absent there can never match — skip
+  // its `match()` entirely. Providers whose trigger IS present still go through
+  // `match()`, so behavior for real matches is unchanged.
+  const head = text.slice(0, caret)
   for (const provider of providers) {
+    if (!head.includes(provider.trigger)) continue
     const match = provider.match(text, caret)
     if (match) return { provider, match }
   }
@@ -206,7 +212,10 @@ function CompletionPopupImpl(
     setItems([])
     setItemsKey(null)
     // Mark a request in flight so keys are intercepted even before the delayed
-    // loading indicator appears.
+    // loading indicator appears. Clear any spinner left over from a PRIOR
+    // request so the new one re-waits LOADING_DELAY instead of flashing the
+    // spinner immediately at the old anchor.
+    setLoading(false)
     setPending(true)
     const controller = new AbortController()
     let settled = false

@@ -12,10 +12,15 @@
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { type ReactElement, useState } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Attachment } from '../model'
-import { ChatInput, autosize, computeAtomicMentionDeletion } from './ChatInput'
+import {
+  ChatInput,
+  __resetControlledWarnings,
+  autosize,
+  computeAtomicMentionDeletion,
+} from './ChatInput'
 import { referenceProvider } from './completion/reference'
 import type { CompletionProvider } from './completion/types'
 
@@ -736,5 +741,78 @@ describe('ChatInput completion wiring', () => {
     await user.keyboard('{Enter}')
     await waitFor(() => expect(textarea.value).toBe('~apple '))
     await waitFor(() => expect(textarea.selectionStart).toBe('~apple '.length))
+  })
+})
+
+describe('ChatInput controlled-without-handler dev warnings', () => {
+  // The discriminated union forbids these prop combos in TS; a JS consumer can
+  // still hit them, so we render through a loosely-typed alias to simulate that.
+  const LooseChatInput = ChatInput as unknown as (props: Record<string, unknown>) => ReactElement
+  const renderLoose = (props: Record<string, unknown>) =>
+    render(<LooseChatInput onSend={vi.fn()} {...props} />)
+
+  let warn: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    __resetControlledWarnings()
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+  })
+
+  it('warns once when `value` is provided without `onChange`', () => {
+    const { rerender } = renderLoose({ value: 'hi' })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toContain('`value` was provided without `onChange`')
+    // A re-render must NOT warn again (one-time guard).
+    rerender(<LooseChatInput onSend={vi.fn()} value="hello" />)
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
+
+  it('warns once when `attachments` is provided without `onAttachmentsChange`', () => {
+    renderLoose({ attachments: [attachment('a.png')] })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toContain(
+      '`attachments` was provided without `onAttachmentsChange`',
+    )
+  })
+
+  it('does NOT warn when the matching handlers are provided', () => {
+    render(
+      <ChatInput
+        onSend={vi.fn()}
+        value="hi"
+        onChange={vi.fn()}
+        attachments={[attachment('a.png')]}
+        onAttachmentsChange={vi.fn()}
+      />,
+    )
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('does NOT warn in production builds', () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try {
+      renderLoose({ value: 'hi' })
+      renderLoose({ attachments: [attachment('a.png')] })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      process.env.NODE_ENV = prev
+    }
+  })
+
+  it('treats a missing `process` (browser bundle) as a dev build and warns', () => {
+    // With no `process` global (a browser bundle without a shim), the env reads
+    // as empty → NODE_ENV is undefined → dev → the warning still fires.
+    vi.stubGlobal('process', undefined)
+    try {
+      renderLoose({ value: 'hi' })
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
