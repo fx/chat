@@ -475,6 +475,10 @@
 
 .chat-input-overlay,
 .chat-input-textarea {
+  /* Border-box so the 100%-width textarea (with padding + border) never exceeds
+     its container and cause horizontal overflow; also keeps the overlay box
+     identical to the textarea box so highlighted runs line up exactly. */
+  box-sizing: border-box;
   margin: 0;
   padding: calc(var(--chat-gap) / 2);
   border: 1px solid var(--chat-border);

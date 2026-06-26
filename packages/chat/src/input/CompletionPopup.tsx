@@ -35,6 +35,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useMemo,
   useState,
@@ -282,7 +283,14 @@ function CompletionPopupImpl(
     if (textarea) setCaret(textarea.selectionStart)
   }, [textareaRef])
 
-  const optionId = useCallback((index: number) => `chat-completion-option-${index}`, [])
+  // Per-instance prefix so multiple mounted popups never collide on option IDs
+  // (which would let one textarea's aria-activedescendant point at another's
+  // option). `useId` yields a stable, unique base per component instance.
+  const baseId = useId()
+  const optionId = useCallback(
+    (index: number) => `chat-completion-option-${baseId}-${index}`,
+    [baseId],
+  )
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>): boolean => {

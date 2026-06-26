@@ -474,9 +474,19 @@ describe('CompletionPopup accessibility', () => {
     h.current?.type('~ap', 3)
     await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
     const ta = screen.getByTestId('ta')
-    expect(ta.getAttribute('aria-activedescendant')).toBe('chat-completion-option-0')
+    // The textarea points at the currently-highlighted option's actual id
+    // (instance-scoped, so we read it off the live option rather than hardcode).
+    const activeId = () => ta.getAttribute('aria-activedescendant')
+    const selectedId = () =>
+      screen
+        .getAllByRole('option')
+        .find((o) => o.getAttribute('aria-selected') === 'true')
+        ?.getAttribute('id')
+    expect(activeId()).toBe(selectedId())
+    const first = activeId()
     h.current?.press({ key: 'ArrowDown' })
-    expect(ta.getAttribute('aria-activedescendant')).toBe('chat-completion-option-1')
+    expect(activeId()).toBe(selectedId())
+    expect(activeId()).not.toBe(first)
   })
 
   it('clears aria-activedescendant when the popup closes', async () => {
