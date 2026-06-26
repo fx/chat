@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: read
+  # Read access to GitHub Packages so `bun install` can resolve `@fx/ui`
+  # (published to GitHub Packages and consumed by the demo's fx-ui registry).
+  packages: read
 
 jobs:
   verify:
@@ -20,6 +23,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+        env:
+          # `.npmrc` authenticates the `@fx` GitHub Packages registry with this.
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: No internal references
         run: bun run check:no-internal-refs
