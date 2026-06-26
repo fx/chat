@@ -10,7 +10,7 @@
  */
 import type { MarkdownProps } from '@fx/chat'
 import ReactMarkdown from 'react-markdown'
-import { cn } from '../shadcn/lib/cn'
+import { cn } from './cn'
 
 export function MarkdownView({ content, streaming }: MarkdownProps) {
   return (

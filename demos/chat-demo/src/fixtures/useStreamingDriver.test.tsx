@@ -10,8 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { STREAM_DURATION_MS } from './conversation'
 import { STREAM_TICK_MS, useStreamingDriver } from './useStreamingDriver'
 
-let reducedMotion = false
-
 function setMatchMedia(matches: boolean) {
   vi.stubGlobal(
     'matchMedia',
@@ -28,8 +26,7 @@ function setMatchMedia(matches: boolean) {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(0)
-  reducedMotion = false
-  setMatchMedia(reducedMotion)
+  setMatchMedia(false)
 })
 
 afterEach(() => {

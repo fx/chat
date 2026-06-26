@@ -1,13 +1,9 @@
 /**
  * `cn` — the shadcn/ui class-name merge helper.
  *
- * Combines `clsx` (conditional class composition) with `tailwind-merge`
- * (last-wins conflict resolution for Tailwind utilities). This is the standard
- * util every vendored shadcn primitive depends on.
+ * shadcn primitives conventionally import `cn` from `lib/cn`, so this path is
+ * kept as the registry-local entry point. The implementation itself lives in
+ * the registry-agnostic `shared/cn` (so shared slots don't depend on shadcn);
+ * this module just re-exports it to keep a single `cn` across the demo.
  */
-import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-
-export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs))
-}
+export { cn } from '../../shared/cn'

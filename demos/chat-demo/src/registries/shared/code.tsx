@@ -6,7 +6,7 @@
  * highlighting is out of scope for the demo.
  */
 import type { CodeBlockProps, JsonViewProps } from '@fx/chat'
-import { cn } from '../shadcn/lib/cn'
+import { cn } from './cn'
 
 export function CodeBlock({ code, language, className }: CodeBlockProps) {
   return (
