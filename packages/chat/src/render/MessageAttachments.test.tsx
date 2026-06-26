@@ -33,10 +33,20 @@ describe('deriveAttachmentLabel', () => {
     expect(deriveAttachmentLabel(img({ name: 'cat.png' }))).toBe('cat.png')
   })
 
+  it('trims the name when present', () => {
+    expect(deriveAttachmentLabel(img({ name: '  cat.png  ' }))).toBe('cat.png')
+  })
+
   it('derives the last path segment from the URL when unnamed', () => {
     expect(deriveAttachmentLabel(img({ url: 'https://x/dir/report.pdf', kind: 'file' }))).toBe(
       'report.pdf',
     )
+  })
+
+  it('treats a whitespace-only name as absent and derives from the URL', () => {
+    expect(
+      deriveAttachmentLabel(img({ url: 'https://x/dir/report.pdf', kind: 'file', name: '   ' })),
+    ).toBe('report.pdf')
   })
 
   it('strips query and hash before taking the segment', () => {
@@ -141,6 +151,21 @@ describe('MessageAttachments chips', () => {
     const link = within(chip).getByRole('link', { name: 'Download report.pdf' })
     expect(link).toHaveAttribute('href', 'https://x/report.pdf')
     expect(link).toHaveAttribute('download')
+  })
+
+  it('falls back to the URL-derived label and a non-blank download label for a whitespace-only name', () => {
+    const { container } = renderAttachments([
+      {
+        url: 'https://x/report.pdf',
+        mediaType: 'application/pdf',
+        kind: 'file',
+        name: '   ',
+      },
+    ])
+    const chip = container.querySelector('.chat-attachment-chip') as HTMLElement
+    expect(within(chip).getByText('report.pdf')).toBeInTheDocument()
+    const link = within(chip).getByRole('link', { name: 'Download report.pdf' })
+    expect(link).toHaveAttribute('href', 'https://x/report.pdf')
   })
 
   it('renders video and audio chips with their kinds', () => {

@@ -51,12 +51,16 @@ const CHIP_ICON: Record<'video' | 'audio' | 'file', IconName> = {
 }
 
 /**
- * Derive a display label for a chip whose attachment has no `name`: use the last
- * non-empty path segment of the URL, else fall back to the `kind`. Pure string
- * work — never throws on malformed URLs.
+ * Derive a display label for a chip: use the attachment `name` when it is a
+ * non-empty (non-whitespace) string; otherwise derive from the last non-empty
+ * path segment of the URL, else fall back to the `kind`. A blank/whitespace-only
+ * `name` (allowed by the model) is treated as absent so the chip never renders a
+ * blank label or an unhelpful `aria-label="Download "`. Pure string work — never
+ * throws on malformed URLs.
  */
 export function deriveAttachmentLabel(attachment: Attachment): string {
-  if (attachment.name) return attachment.name
+  const name = attachment.name?.trim()
+  if (name) return name
   // Strip any query/hash, then take the last path segment.
   const path = attachment.url.replace(/[?#].*$/, '')
   const segments = path.split('/').filter(Boolean)
