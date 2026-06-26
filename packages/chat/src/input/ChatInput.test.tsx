@@ -505,6 +505,34 @@ describe('ChatInput completion wiring', () => {
     }
   })
 
+  it('does not submit while a completion request is pending before the loading delay', async () => {
+    vi.useFakeTimers()
+    try {
+      const onSend = vi.fn()
+      const slow: CompletionProvider = {
+        id: 'slow-pending',
+        trigger: '~',
+        match: referenceProvider.match,
+        items: () => new Promise<never[]>(() => {}), // hangs — request stays pending
+        apply: referenceProvider.apply,
+      }
+      render(<ChatInput onSend={onSend} providers={[slow]} />)
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+      fireEvent.change(textarea, { target: { value: '~a' } })
+      textarea.setSelectionRange(2, 2)
+      await act(async () => {
+        fireEvent.select(textarea)
+      })
+      // BEFORE the loading delay: no spinner yet, but the request is pending so
+      // the popup is key-active and Enter must not fall through to submit.
+      expect(screen.queryByTestId('chat-completion-loading')).toBeNull()
+      fireEvent.keyDown(textarea, { key: 'Enter' })
+      expect(onSend).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('closes the popup when a selection-only caret move leaves the token', async () => {
     const user = userEvent.setup()
     render(<ChatInput onSend={vi.fn()} providers={[referenceProvider]} />)

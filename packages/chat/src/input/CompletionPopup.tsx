@@ -142,6 +142,11 @@ function CompletionPopupImpl(
   // the new token) until a slower async request resolves.
   const [itemsKey, setItemsKey] = useState<string | null>(null)
   const [highlight, setHighlight] = useState(0)
+  // `pending` is true from the moment a request starts until it settles; it
+  // gates key interception so Enter is captured even during the brief window
+  // before the (delayed) loading indicator appears. `loading` only controls the
+  // visible spinner (shown after LOADING_DELAY).
+  const [pending, setPending] = useState(false)
   const [loading, setLoading] = useState(false)
   const [coords, setCoords] = useState<{ left: number; top: number; flip: boolean } | null>(null)
   // The token range the user dismissed via Escape; suppresses re-open until the
@@ -191,6 +196,7 @@ function CompletionPopupImpl(
     if (!active || suppressed) {
       setItems([])
       setItemsKey(null)
+      setPending(false)
       setLoading(false)
       return
     }
@@ -199,6 +205,9 @@ function CompletionPopupImpl(
     const key = matchKey(active)
     setItems([])
     setItemsKey(null)
+    // Mark a request in flight so keys are intercepted even before the delayed
+    // loading indicator appears.
+    setPending(true)
     const controller = new AbortController()
     let settled = false
     const loadingTimer = setTimeout(() => {
@@ -214,6 +223,7 @@ function CompletionPopupImpl(
         setItems(resolved)
         setItemsKey(key)
         setHighlight(0)
+        setPending(false)
         setLoading(false)
       })
       .catch(() => {
@@ -222,6 +232,7 @@ function CompletionPopupImpl(
         clearTimeout(loadingTimer)
         setItems([])
         setItemsKey(null)
+        setPending(false)
         setLoading(false)
       })
 
@@ -232,16 +243,22 @@ function CompletionPopupImpl(
     }
   }, [active, suppressed])
 
-  // The active match when the popup is actually shown: matched, not suppressed,
-  // and either loading OR holding items resolved FOR THIS EXACT match (so a
-  // result set from a previous token can never be shown or applied to a new
-  // one). `open` derives from it; `openMatch` also gives non-null narrowing.
+  // The active match when the popup is "active" for key handling: matched, not
+  // suppressed, and either a request is in flight (`pending`/`loading`) OR there
+  // are items resolved FOR THIS EXACT match (so a previous token's result set is
+  // never shown or applied to a new one). Intercepting keys while `pending` —
+  // even before the delayed loading indicator — stops a fast Enter from sending
+  // an unfinished token. `open` derives from it and gives non-null narrowing.
   const itemsMatchActive = active !== null && itemsKey === matchKey(active)
   const openMatch =
-    active !== null && !suppressed && (loading || (itemsMatchActive && items.length > 0))
+    active !== null && !suppressed && (pending || loading || (itemsMatchActive && items.length > 0))
       ? active
       : null
   const open = openMatch !== null
+  // Whether the popup has anything VISIBLE to render (a list or the spinner).
+  // It can be key-active (`open`) while a request is pending pre-LOADING_DELAY
+  // with nothing yet to show.
+  const hasVisibleContent = loading || (itemsMatchActive && items.length > 0)
 
   // Measure caret position whenever the popup is open and the caret/value moves.
   // The `void value` read makes the re-measure-on-reflow dependency explicit.
@@ -349,7 +366,9 @@ function CompletionPopupImpl(
     }
   }, [open, items.length, highlight, optionId, textareaRef])
 
-  if (!openMatch || !coords) return null
+  // Render nothing while key-active but with no visible content yet (a request
+  // is pending before the loading indicator), or before coords are measured.
+  if (!openMatch || !hasVisibleContent || !coords) return null
 
   const container = portalContainer ?? document.body
 

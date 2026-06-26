@@ -359,8 +359,9 @@ describe('CompletionPopup async items', () => {
     h.current?.type('~az', 3)
     // The stale '~a' items must no longer be shown (dead token).
     await waitFor(() => expect(screen.queryByText('stale-item')).toBeNull())
-    // Enter must not apply the stale item to the new token.
-    expect(h.current?.press({ key: 'Enter' })).toBe(false)
+    // The new token's request is in flight, so the popup is key-active: Enter is
+    // consumed (preventing an accidental send) but applies nothing stale.
+    expect(h.current?.press({ key: 'Enter' })).toBe(true)
     expect(h.current?.applied).toBeNull()
   })
 
