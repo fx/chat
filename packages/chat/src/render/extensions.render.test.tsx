@@ -245,6 +245,29 @@ describe('MessageLog timeline interleaving', () => {
     expect(order).toEqual(['a', 'item:m1', 'b'])
     expect(container.querySelector('[data-timeline-item-id="m1"]')?.textContent).toBe('marker')
   })
+
+  it('does not collide React keys when a message id matches an item id (namespaced keys)', () => {
+    // A message id `item-m1` would collide with a timeline item id `m1` if message
+    // keys were raw — the disjoint `msg-`/`item-` namespaces prevent that.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const messages: ChatMessage[] = [
+      {
+        id: 'item-m1',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't', text: 'hi' }],
+        createdAt: 100,
+      },
+    ]
+    const extensions: ChatExtensions = {
+      timelineItems: [{ id: 'm1', at: 200, render: () => <span>marker</span> }],
+    }
+    render(<MessageLog messages={messages} extensions={extensions} />)
+    const dupKeyWarning = errorSpy.mock.calls.some((args) =>
+      String(args[0]).includes('Encountered two children with the same key'),
+    )
+    expect(dupKeyWarning).toBe(false)
+    errorSpy.mockRestore()
+  })
 })
 
 describe('grouping interaction for custom blocks (via MessageItem)', () => {
@@ -287,6 +310,34 @@ describe('grouping interaction for custom blocks (via MessageItem)', () => {
     const marker = container.querySelector('[data-host-marker]') as HTMLElement
     expect(marker.closest('[data-testid="chat-group-body"]')).not.toBeNull()
     expect(screen.getByText('+2')).toBeInTheDocument()
+  })
+
+  it('marks the group active when the trailing custom block is the active one', () => {
+    const trailingMarker: ChatMessage = {
+      id: 'a3',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think', durationMs: 10 },
+        { type: 'host_marker', id: 'hm', label: 'M' },
+      ] as unknown as ChatMessage['blocks'],
+    }
+    const extensions: ChatExtensions = {
+      blockRenderers: { host_marker: HostMarker },
+      timelineBehavior: { host_marker: { auxEligible: true } },
+    }
+    // Stream this message with the custom marker (the trailing block) active.
+    const { container } = render(
+      <MessageLog
+        messages={[trailingMarker]}
+        isStreaming
+        streamingMessageId="a3"
+        extensions={extensions}
+      />,
+    )
+    // The collapsed group header surfaces the active affordance (spinner), proving
+    // a grouped active custom block is not silently treated as inactive.
+    expect(container.querySelector('.chat-group [data-affordance="active"]')).not.toBeNull()
   })
 
   it('labels the group header with the custom type when an opted-in custom kind heads it', () => {

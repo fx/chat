@@ -63,7 +63,10 @@ function blockIsActive(block: RenderableBlock, context: BlockRenderContext): boo
       (block as Extract<ContentBlock, { type: 'reasoning' }>).durationMs === undefined
     )
   }
-  return false
+  // Custom (host-defined) kinds opted into grouping: active when they are the
+  // message's trailing active block — mirroring what `BlockView` passes as
+  // `isStreaming` to the host renderer, so the group spinner stays consistent.
+  return isTrailingActive
 }
 
 /**

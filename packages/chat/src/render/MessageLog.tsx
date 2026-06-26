@@ -88,8 +88,10 @@ export function MessageLog({
     const message = entry.message
     const isActive = isStreaming && message.id === streamingMessageId
     return (
+      // Namespace message keys (`msg-`) disjointly from item keys (`item-`) so a
+      // host message id can never collide with a timeline item id among siblings.
       <MessageItem
-        key={message.id}
+        key={`msg-${message.id}`}
         message={message}
         isActive={isActive}
         {...(flat !== undefined ? { flat } : {})}
