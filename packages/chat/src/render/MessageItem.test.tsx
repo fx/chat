@@ -256,14 +256,23 @@ describe('MessageItem', () => {
     const msg = message({
       id: 'mu',
       role: 'user',
-      blocks: [{ type: 'text', id: 't', text: 'hello' }],
+      blocks: [
+        // An aux-eligible block (reasoning) on a USER turn: minimal aux-collapse
+        // is gated on `message.role === 'assistant'`, so this must NOT fold into a
+        // group — proving the role gate (a text-only turn would pass either way).
+        { type: 'reasoning', id: 'r', text: 'think' },
+        { type: 'text', id: 't', text: 'hello' },
+      ],
     })
-    const { container } = render(<MessageItem message={msg} minimal />)
+    const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
     expect(container.querySelector('[data-message-id="mu"]')).toHaveAttribute(
       'data-minimal',
       'true',
     )
     expect(screen.getByText('hello')).toBeInTheDocument()
+    // Role gate: the aux block stays bare, never collapsed into a group.
+    expect(container.querySelector('.chat-group')).toBeNull()
+    // Compact chrome still applies regardless of role.
     expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
   })
 
@@ -336,10 +345,28 @@ describe('MessageItem', () => {
         { type: 'text', id: 'a', text: 'answer' },
       ],
     })
-    const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
+    // Register a stub renderer for the custom kind so its output is observable in
+    // the DOM (otherwise it falls through to the inert placeholder).
+    const HostCard = () => <div className="host-card-stub">host card</div>
+    const { container } = render(
+      <MessageItem
+        message={msg}
+        minimal
+        defaultOpen
+        extensions={{ blockRenderers: { host_card: HostCard } }}
+      />,
+    )
     // The reasoning folds to one group; the custom + answer render bare after it.
     expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
     expect(screen.getByText('answer')).toBeInTheDocument()
+    // The custom block renders BARE (not inside the collapsed group) and AFTER it.
+    const group = container.querySelector('.chat-group') as HTMLElement
+    const card = container.querySelector('.host-card-stub') as HTMLElement
+    expect(card).not.toBeNull()
+    // Bare: the custom block is not nested within the group.
+    expect(group.contains(card)).toBe(false)
+    // DOM order: the group precedes the bare custom block.
+    expect(group.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('exposes data-role on the message wrapper for role-bubble styling', () => {

@@ -731,6 +731,24 @@ describe('CompletionPopup rendering', () => {
     expect(popup.style.getPropertyValue('--chat-bg')).toBe('')
   })
 
+  // Stub the textarea's computed `font-family` so the font-copy branches are
+  // explicit and independent of jsdom/<body> defaults. Returns a Proxy over the
+  // real computed style that overrides only `fontFamily` for the textarea.
+  const stubTextareaFontFamily = (ta: HTMLTextAreaElement, fontFamily: string) => {
+    const realStyle = window.getComputedStyle.bind(window)
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element) => {
+      if (el === ta) {
+        return new Proxy(realStyle(ta), {
+          get(target, prop) {
+            if (prop === 'fontFamily') return fontFamily
+            return Reflect.get(target, prop)
+          },
+        }) as CSSStyleDeclaration
+      }
+      return realStyle(el as Element)
+    })
+  }
+
   it('copies the textarea resolved computed font-family onto the portaled popup', async () => {
     // Change 0009: `--chat-font-family` defaults to `inherit`, which would
     // resolve against `<body>` once the popup portals there. So the popup must
@@ -739,9 +757,9 @@ describe('CompletionPopup rendering', () => {
     // when a host scopes a font to a wrapper around it.
     const h = setup([referenceProvider])
     const ta = screen.getByTestId('ta') as HTMLTextAreaElement
-    // A distinct font on the textarea, different from the (empty) <body> font.
-    ta.style.fontFamily = '"Comic Sans MS", cursive'
-    expect(window.getComputedStyle(document.body).fontFamily).not.toBe(ta.style.fontFamily)
+    // Stub the RESOLVED computed font so the non-empty branch is explicit and not
+    // reliant on jsdom resolving an inline style (which it does not reliably do).
+    stubTextareaFontFamily(ta, '"Comic Sans MS", cursive')
     h.current?.type('~ap', 3)
     await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
     const popup = document.querySelector('.chat-completion-popup') as HTMLElement
@@ -751,10 +769,12 @@ describe('CompletionPopup rendering', () => {
   })
 
   it('omits font-family when the textarea resolves no computed font (empty branch)', async () => {
-    // With no font set on the textarea, jsdom's getComputedStyle returns an
-    // empty `fontFamily`; the popup must leave its `style.fontFamily` unset so
-    // its own stylesheet (which inherits) applies, exercising the empty branch.
+    // Stub the RESOLVED computed font to empty so the empty branch is explicit
+    // and environment-independent: the popup must leave its `style.fontFamily`
+    // unset so its own stylesheet (which inherits) applies.
     const h = setup([referenceProvider])
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    stubTextareaFontFamily(ta, '')
     h.current?.type('~ap', 3)
     await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
     const popup = document.querySelector('.chat-completion-popup') as HTMLElement

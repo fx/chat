@@ -8,6 +8,36 @@ const pkgDir = resolve(here, '..')
 const pkg = JSON.parse(readFileSync(resolve(pkgDir, 'package.json'), 'utf8'))
 
 /**
+ * Escape EVERY regex metacharacter in a string so it can be embedded literally
+ * in a `RegExp`. A selector-fragment escape that only handled `[`, `]`, `"` left
+ * `.` (and `(`/`)`/`*` etc.) as wildcards — e.g. `.chat-message` would match
+ * `Xchat-message` — so exact-selector assertions could pass on the wrong rule.
+ */
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Extract the body of the `@media (prefers-color-scheme: dark) { … }` block via
+ * balanced-brace scanning so dark-scoped assertions are confined to that block
+ * (a `[\s\S]*` regex can run past the closing brace and match unrelated rules).
+ * Returns '' when there is no such block.
+ */
+const extractDarkMediaBody = (source: string): string => {
+  const head = source.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{/)
+  if (head?.index === undefined) return ''
+  let depth = 1
+  const start = head.index + head[0].length
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i]
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return source.slice(start, i)
+    }
+  }
+  return ''
+}
+
+/**
  * Smoke test for the public package surface. Asserts that all three public
  * entry points resolve, and — critically for the architecture spec — that the
  * surface pulls in no UI-kit / icon-set / markdown-engine dependency. We assert
@@ -97,21 +127,6 @@ describe('@fx/chat public surface', () => {
     // regression like `:root{` (no space) or a commented `:root {` must NOT slip
     // through.
     const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
-    const extractDarkMediaBody = (source: string): string => {
-      const head = source.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{/)
-      if (head?.index === undefined) return ''
-      let depth = 1
-      const start = head.index + head[0].length
-      for (let i = start; i < source.length; i++) {
-        const ch = source[i]
-        if (ch === '{') depth++
-        else if (ch === '}') {
-          depth--
-          if (depth === 0) return source.slice(start, i)
-        }
-      }
-      return ''
-    }
     const darkMediaBody = extractDarkMediaBody(cssNoComments)
     expect(darkMediaBody).not.toBe('')
     // It MUST scope to `:root:not([data-theme])`.
@@ -175,10 +190,13 @@ describe('@fx/chat public surface', () => {
     // The assistant bubble has a dedicated dark surface in the explicit dark hook.
     expect(block('\\[data-theme="dark"\\]')).toContain('--chat-assistant-bubble-bg:')
     // …and under the OS-dark media block (a darker neutral than the light value).
+    // Scope the check to the media block's BODY (balanced-brace extraction) so a
+    // `[\s\S]*` regex can't satisfy it by matching a declaration past the closing
+    // brace.
     const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
-    expect(cssNoComments).toMatch(
-      /@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{[\s\S]*--chat-assistant-bubble-bg:/,
-    )
+    const darkMediaBody = extractDarkMediaBody(cssNoComments)
+    expect(darkMediaBody).not.toBe('')
+    expect(darkMediaBody).toContain('--chat-assistant-bubble-bg:')
   })
 
   it('styles user/assistant role bubbles from the bubble tokens', () => {
@@ -186,7 +204,7 @@ describe('@fx/chat public surface', () => {
     // a turn reads as a conversation and hosts can restyle via the variables.
     const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
     const block = (selector: string) => {
-      const m = css.match(new RegExp(`${selector.replace(/[[\]"]/g, '\\$&')}\\s*\\{([^}]*)\\}`))
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
       return m?.[1] ?? ''
     }
     const user = block('.chat-message[data-role="user"]')
@@ -215,7 +233,7 @@ describe('@fx/chat public surface', () => {
     // headless-only.
     const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
     const block = (selector: string) => {
-      const m = css.match(new RegExp(`${selector.replace(/[[\]"]/g, '\\$&')}\\s*\\{([^}]*)\\}`))
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
       return m?.[1] ?? ''
     }
     const tokenBlock = (selector: string) => {
