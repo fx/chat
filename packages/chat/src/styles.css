@@ -433,6 +433,27 @@
   color: color-mix(in srgb, var(--chat-user-bubble-fg) 70%, transparent);
 }
 
+/* The assistant bubble sits on its own surface (`--chat-assistant-bubble-bg`)
+   with its own foreground token (`--chat-assistant-bubble-fg`). Primary text
+   that renders INSIDE that bubble defaults to `--chat-fg` (assistant markdown
+   prose `.chat-md`, tool/reasoning row label text `.chat-row`) and the footer
+   metrics default to `--chat-muted`. By default those equal the bubble fg, but
+   a host that customizes ONLY `--chat-assistant-bubble-fg` would get stale
+   `--chat-fg`/`--chat-muted` text at the wrong color/contrast against the
+   customized bubble. Re-tone the bubble's primary text and metrics to the
+   assistant bubble foreground so the token actually controls all primary text
+   in the bubble. Links/mentions stay accent (a deliberate affordance, legible
+   on the neutral surface); code/JSON sit on their OWN `--chat-code-bg` surface
+   and are intentionally left alone. */
+.chat-message[data-role="assistant"] .chat-md,
+.chat-message[data-role="assistant"] .chat-row {
+  color: var(--chat-assistant-bubble-fg);
+}
+
+.chat-message[data-role="assistant"] .chat-footer-metrics {
+  color: var(--chat-assistant-bubble-fg);
+}
+
 /* ── Minimal / density mode (change 0011) ────────────────────────────────────
    A denser layout: tighter inter-message gap, tighter in-message gap and bubble
    padding, and compact footer spacing. Token-driven (`--chat-gap-compact`) and
