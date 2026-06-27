@@ -287,7 +287,9 @@ describe('MessageItem', () => {
     ).toBe(groupedHtml)
   })
 
-  it('flat wins over minimal (blocks render flat, not folded)', () => {
+  it('flat FULLY overrides minimal (flat blocks, no data-minimal, no forced compact)', () => {
+    // Change 0011 (parity fix): flat must win over minimal COMPLETELY — no minimal
+    // grouping, no `data-minimal` attribute, and no minimal-forced compact footer.
     const msg = message({
       blocks: [
         { type: 'reasoning', id: 'r', text: 'think' },
@@ -298,17 +300,31 @@ describe('MessageItem', () => {
     // Flat: no grouping, so no collapsed group and the tool name shows directly.
     expect(container.querySelector('.chat-group')).toBeNull()
     expect(screen.getByText('search')).toBeInTheDocument()
-    // data-minimal still reflects the prop, but grouping is flat.
-    expect(container.querySelector('[data-minimal="true"]')).not.toBeNull()
+    // minimal is fully overridden: NO data-minimal anywhere.
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+    // …and the footer is NOT forced compact (no compactFooter prop was passed).
+    expect(container.querySelector('.chat-footer')).not.toHaveAttribute('data-compact', 'true')
   })
 
-  it('raw wins over minimal (renders JSON, not folded blocks)', () => {
+  it('flat over minimal still honors an explicit compactFooter prop', () => {
+    // The `compactFooter` prop is independent of minimal, so it must still apply
+    // even when flat overrides minimal (covers the compactFooter branch of the
+    // effectiveCompactFooter ternary while minimalActive is false).
+    const msg = message({ blocks: [{ type: 'text', id: 'a', text: 'answer' }] })
+    const { container } = render(<MessageItem message={msg} minimal flat compactFooter />)
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+    expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
+  })
+
+  it('raw FULLY overrides minimal (renders JSON, no data-minimal)', () => {
     const msg = message({
       blocks: [{ type: 'reasoning', id: 'r', text: 'think' }],
     })
     const { container } = render(<MessageItem message={msg} minimal raw />)
     expect(container.querySelector('.chat-jsonview')).not.toBeNull()
     expect(container.querySelector('.chat-group')).toBeNull()
+    // minimal is fully overridden in raw mode: NO data-minimal anywhere.
+    expect(container.querySelector('[data-minimal]')).toBeNull()
   })
 
   it('minimal mode renders a trailing custom non-aux block bare after the group', () => {

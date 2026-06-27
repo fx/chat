@@ -10,7 +10,9 @@
  * In `minimal` (density) mode, an assistant turn folds ALL of its auxiliary
  * blocks into ONE group (via `collapseTurnAux`) rather than only maximal runs,
  * and the footer is forced compact — a denser, single-metadata-line view. `flat`
- * and `raw` take precedence over `minimal`.
+ * and `raw` FULLY override `minimal`: when either is set, no minimal grouping,
+ * no forced compact footer, and no `data-minimal` attribute (an explicitly
+ * passed `compactFooter` prop is still honored).
  */
 import { BlockGroup } from './BlockGroup'
 import { MessageAttachments } from './MessageAttachments'
@@ -35,7 +37,8 @@ export interface MessageItemProps {
   /**
    * Minimal / density mode: fold ALL of an assistant turn's auxiliary blocks
    * into one group (not just maximal runs) and force a compact footer. `flat`
-   * and `raw` take precedence over `minimal`.
+   * and `raw` FULLY override `minimal` (no folding, no forced compact footer,
+   * no `data-minimal` attribute); an explicit `compactFooter` still applies.
    */
   minimal?: boolean
   /** Default-open state for collapsibles (verbose/expand-all). */
@@ -105,10 +108,13 @@ export function MessageItem({
 
   // Minimal (density) mode folds ALL of an assistant turn's auxiliary blocks into
   // one group (via collapseTurnAux) and forces a compact footer. `flat` and `raw`
-  // take precedence over `minimal`; user messages get the compact chrome but no
-  // aux-collapse (the default non-aux behavior keeps their content bare/visible).
-  const useMinimalGrouping = minimal && !flat && !raw && message.role === 'assistant'
-  const effectiveCompactFooter = minimal || compactFooter
+  // FULLY override `minimal` — `minimalActive` gates every minimal-driven
+  // behavior (grouping, forced compact footer, and the `data-minimal` attribute)
+  // so neither is applied in flat/raw mode. User messages get the compact chrome
+  // but no aux-collapse (the default non-aux behavior keeps content bare/visible).
+  const minimalActive = minimal && !flat && !raw
+  const useMinimalGrouping = minimalActive && message.role === 'assistant'
+  const effectiveCompactFooter = minimalActive || compactFooter
   const groupedItems = useMinimalGrouping
     ? collapseTurnAux(blocks, behaviorOverrides)
     : groupBlocks(blocks, behaviorOverrides)
@@ -118,7 +124,7 @@ export function MessageItem({
       className="chat-message"
       data-message-id={message.id}
       data-role={message.role}
-      {...(minimal ? { 'data-minimal': 'true' } : {})}
+      {...(minimalActive ? { 'data-minimal': 'true' } : {})}
     >
       {raw ? (
         <RawJsonBlockView value={message} />
