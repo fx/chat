@@ -409,6 +409,30 @@
   color: var(--chat-user-bubble-fg);
 }
 
+/* Attachment chips inside a user bubble sit on the accent surface
+   (`--chat-user-bubble-bg`). The default chip tones (`--chat-fg`, `--chat-muted`,
+   `--chat-accent`) are tuned for the page/assistant surface and go low-contrast —
+   or, for the download affordance, accent-on-accent (invisible) — on the accent
+   bubble. Re-tone chip text, icon, and the download/open affordance to the bubble
+   foreground so they clear WCAG AA, and derive the chip border + inert affordance
+   from that foreground (translucent mix) so they remain visible on accent. */
+.chat-message[data-role="user"] .chat-attachment-chip {
+  color: var(--chat-user-bubble-fg);
+  border-color: color-mix(in srgb, var(--chat-user-bubble-fg) 40%, transparent);
+}
+
+.chat-message[data-role="user"] .chat-attachment-chip-icon {
+  color: var(--chat-user-bubble-fg);
+}
+
+.chat-message[data-role="user"] .chat-attachment-chip-download {
+  color: var(--chat-user-bubble-fg);
+}
+
+.chat-message[data-role="user"] .chat-attachment-chip-download[data-inert="true"] {
+  color: color-mix(in srgb, var(--chat-user-bubble-fg) 70%, transparent);
+}
+
 /* ── Minimal / density mode (change 0011) ────────────────────────────────────
    A denser layout: tighter inter-message gap, tighter in-message gap and bubble
    padding, and compact footer spacing. Token-driven (`--chat-gap-compact`) and
