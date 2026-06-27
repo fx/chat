@@ -105,11 +105,13 @@ scope** and MUST NOT appear in this package.
   (`defaultOpen`) use.
 - The affordance icon precedence MUST be: active → spinner; just-completed → success check
   (flash); otherwise → NO affordance icon (an empty filler span is preserved for layout). The
-  disclosure caret MUST NOT be rendered by the substrate — it is owned SOLELY by the registry
-  `Collapsible` slot (see [component-registry › Primitive Contract](../component-registry/)), so
-  exactly one caret shows. An idle bodied row therefore renders no affordance icon while the
-  Collapsible shows the open/closed caret; a running expandable row MAY show both the spinner
-  (affordance) and the Collapsible caret, which is acceptable.
+  disclosure caret MUST NOT be rendered by the substrate — caret rendering is OWNED by the
+  registry `Collapsible` slot (see [component-registry › Primitive Contract](../component-registry/)).
+  The headless default `Collapsible` renders a caret; a host override renders its own caret or
+  none (it MAY legally omit one). Because the substrate never adds a caret of its own, it can
+  never produce a second one. An idle bodied row therefore renders no affordance icon while the
+  headless Collapsible shows the open/closed caret; a running expandable row MAY show both the
+  spinner (affordance) and the Collapsible caret, which is acceptable.
 - The substrate MUST auto-hide when it has no active state, no flash, no timer, and no body
   (so empty lifecycle rows do not clutter the log), unless explicitly told to always show.
 
@@ -119,13 +121,14 @@ scope** and MUST NOT appear in this package.
 - **WHEN** the host flips a global "verbose/expand-all" default
 - **THEN** the block adopts the new default-open state (manual override is reset).
 
-#### Scenario: Exactly one disclosure caret
+#### Scenario: Caret ownership belongs to the Collapsible slot
 
 - **GIVEN** an idle bodied collapsible row rendered through any registry (headless or a host
   override)
 - **WHEN** it renders
-- **THEN** exactly one disclosure caret is shown — from the `Collapsible` slot — and the
-  substrate adds no affordance caret icon of its own.
+- **THEN** any disclosure caret comes from the `Collapsible` slot — the substrate adds no
+  caret of its own. With the headless default `Collapsible` exactly one caret shows; a host
+  override that omits its caret legally shows none.
 
 ### Streaming & Timing State Machine
 

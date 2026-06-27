@@ -60,10 +60,12 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
   - `Tooltip` — wraps a trigger and shows content on hover/focus (MAY be a no-op passthrough
     in the headless default).
   - `Collapsible` — a disclosure with a header trigger and a body; controlled and
-    uncontrolled use MUST both be supported. The `Collapsible` slot is the SOLE owner of the
-    disclosure caret/chevron: the headless default renders its own caret in the summary, and a
-    host override MAY render its own. The render-layer substrate (`CollapsibleRow`) MUST NOT
-    render a disclosure caret, so exactly one caret shows regardless of the injected registry.
+    uncontrolled use MUST both be supported. The `Collapsible` slot OWNS the disclosure
+    caret/chevron: the headless default renders its own caret in the summary; a host override
+    renders its own caret or none (a host override MAY legally omit a caret). The render-layer
+    substrate (`CollapsibleRow`) MUST NOT render a disclosure caret — caret rendering is owned
+    solely by the `Collapsible` slot, so the substrate never adds a second one regardless of the
+    injected registry.
   - `CodeBlock` — renders preformatted code/text with OPTIONAL language.
   - `JsonView` — renders a (possibly large) JSON value in a collapsible/scrollable view;
     MAY be implemented on top of `CodeBlock`.

@@ -4,10 +4,11 @@
 
 Make the registry `Collapsible` slot the SOLE owner of the disclosure caret. The shared
 `CollapsibleRow` substrate stops emitting a caret affordance, and the CSS hack that hid the
-headless Collapsible's built-in caret inside a `.chat-row` is removed. The result is exactly one
-expand/collapse chevron in every registry — including host overrides whose `Collapsible` renders
-its own chevron — instead of a doubled caret (substrate + slot) papered over by a `display:none`
-hack that only worked for the headless default.
+headless Collapsible's built-in caret inside a `.chat-row` is removed. Because the substrate no
+longer renders a caret of its own, caret rendering is entirely owned by the `Collapsible` slot:
+the headless default renders one (exactly one chevron, not the previous doubled caret), and a
+host override renders its own chevron or none. This replaces the doubled caret (substrate + slot)
+that the old `display:none` hack papered over only for the headless default.
 
 **Spec:** [message-rendering](../specs/message-rendering/),
 [component-registry](../specs/component-registry/)
@@ -34,10 +35,11 @@ gates:
 - The substrate affordance precedence MUST be unit-tested: an idle bodied row keeps the `body`
   tone but renders NO `.chat-row-affordance-icon`; the filler case renders no icon
   (`data-affordance="filler"`); active → spinner icon and flash → success check icon still render.
-- The single-caret guarantee MUST have an injection-safe test rendering a bodied collapsible row
+- The caret-ownership guarantee MUST have an injection-safe test rendering a bodied collapsible row
   through (a) the headless registry → exactly one `.chat-collapsible-caret`, zero package affordance
   caret icon; and (b) a stub registry whose `Collapsible` renders its own chevron → exactly one host
-  chevron, zero headless package caret.
+  chevron, zero headless package caret. The invariant under test is that the substrate adds NO caret
+  of its own (caret count comes entirely from the slot), not an unconditional count of one.
 - The headless `Collapsible` MUST still be tested to render its caret in open and closed states.
 - The cross-registry agnosticism test MUST still pass unchanged (no renderer structure change).
 - No `.only`/`.skip`; coverage at or above the configured threshold.
@@ -61,12 +63,13 @@ the rule.
 - `icons.caretDown`/`icons.caretRight` MUST remain in the icon set (used by the headless
   `Collapsible`).
 
-#### Scenario: Exactly one caret in every registry
+#### Scenario: Caret ownership belongs to the slot
 
 - **GIVEN** an idle bodied collapsible row
 - **WHEN** it renders through the headless registry, and through a host registry whose `Collapsible`
   renders its own chevron
-- **THEN** exactly one caret shows in each case and the substrate adds none.
+- **THEN** the substrate adds no caret of its own; any caret shown comes from the `Collapsible` slot
+  (headless default → exactly one; a host override that omits its caret → none).
 
 ## Design
 
