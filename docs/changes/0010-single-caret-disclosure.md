@@ -11,7 +11,7 @@ hack that only worked for the headless default.
 
 **Spec:** [message-rendering](../specs/message-rendering/),
 [component-registry](../specs/component-registry/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0003, 0004
 
 ## Motivation
@@ -93,13 +93,13 @@ the rule.
 
 ## Tasks
 
-- [ ] CollapsibleRow: affordance precedence drops the caret (idle bodied → no icon); remove unused
+- [x] CollapsibleRow: affordance precedence drops the caret (idle bodied → no icon); remove unused
       `isOpen`; update JSDoc/comments
-- [ ] styles.css: delete `.chat-row .chat-collapsible-caret{display:none}` + comment; update
+- [x] styles.css: delete `.chat-row .chat-collapsible-caret{display:none}` + comment; update
       affordance comment
-- [ ] Specs: component-registry (Collapsible owns caret), message-rendering (affordance precedence +
+- [x] Specs: component-registry (Collapsible owns caret), message-rendering (affordance precedence +
       scenario) + changelog rows
-- [ ] Tests: CollapsibleRow affordance (no body/filler icon; active/flash icons), injection-safe
+- [x] Tests: CollapsibleRow affordance (no body/filler icon; active/flash icons), injection-safe
       single-caret test, headless Collapsible caret open/closed
 
 ## Open Questions

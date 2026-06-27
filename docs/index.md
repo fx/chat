@@ -23,3 +23,6 @@
 | 0006 | [Demos](changes/0006-demos.md) | [Demos](specs/demos/) | complete | 0004, 0005 |
 | 0007 | [Render Extensibility](changes/0007-render-extensibility.md) | [Message Rendering](specs/message-rendering/) | complete | 0003, 0004 |
 | 0008 | [Attachment Rendering](changes/0008-attachment-rendering.md) | [Message Rendering](specs/message-rendering/) | complete | 0002, 0004 |
+| 0009 | [Theming & Layout Parity](changes/0009-visual-density-parity.md) | [Component Registry](specs/component-registry/) | complete | 0003, 0004 |
+| 0010 | [Single-Caret Disclosure Ownership](changes/0010-single-caret-disclosure.md) | [Message Rendering](specs/message-rendering/) | complete | 0003, 0004 |
+| 0011 | [Minimal / Density Mode](changes/0011-minimal-density-mode.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0007 |

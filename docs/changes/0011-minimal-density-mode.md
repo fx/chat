@@ -9,7 +9,7 @@ forces a compact footer, and applies a tighter token-driven layout via a `data-m
 default grouped behavior is unchanged when the flag is off.
 
 **Spec:** [message-rendering](../specs/message-rendering/), [demos](../specs/demos/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0004, 0007
 
 ## Motivation
@@ -120,15 +120,15 @@ the rule.
 
 ## Tasks
 
-- [ ] `minimalGrouping.ts`: `collapseTurnAux` pure pass (+ export)
-- [ ] `MessageItem`: `minimal` prop (assistant fold, compact footer, `data-minimal`; flat/raw
+- [x] `minimalGrouping.ts`: `collapseTurnAux` pure pass (+ export)
+- [x] `MessageItem`: `minimal` prop (assistant fold, compact footer, `data-minimal`; flat/raw
       precedence; user compact chrome only)
-- [ ] `MessageLog`: `minimal` prop threaded + `.chat-log` `data-minimal`
-- [ ] `styles.css`: `--chat-gap-compact` (light+dark) + minimal layout rules
-- [ ] Demo: Minimal toggle in App/Pane threaded to `MessageLog`
-- [ ] Specs: message-rendering (Minimal subsection + scenarios, architecture/Business Logic),
+- [x] `MessageLog`: `minimal` prop threaded + `.chat-log` `data-minimal`
+- [x] `styles.css`: `--chat-gap-compact` (light+dark) + minimal layout rules
+- [x] Demo: Minimal toggle in App/Pane threaded to `MessageLog`
+- [x] Specs: message-rendering (Minimal subsection + scenarios, architecture/Business Logic),
       demos + changelog rows
-- [ ] Tests: `collapseTurnAux` exhaustive; MessageItem/MessageLog minimal; styles parse; demo
+- [x] Tests: `collapseTurnAux` exhaustive; MessageItem/MessageLog minimal; styles parse; demo
       parity (minimal across registries) + no-network
 
 ## Open Questions

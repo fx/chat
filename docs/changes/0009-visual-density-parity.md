@@ -10,7 +10,7 @@ resolved font now that the font token inherits.
 
 **Spec:** [component-registry](../specs/component-registry/),
 [message-rendering](../specs/message-rendering/), [input-composer](../specs/input-composer/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0003, 0004
 
 ## Motivation
@@ -117,14 +117,14 @@ the rule.
 
 ## Tasks
 
-- [ ] styles.css: `--chat-font-family: inherit` in `:root` + `[data-theme="light"]`
-- [ ] styles.css: add role-bubble tokens (light + dark) and the user/assistant bubble rules +
+- [x] styles.css: `--chat-font-family: inherit` in `:root` + `[data-theme="light"]`
+- [x] styles.css: add role-bubble tokens (light + dark) and the user/assistant bubble rules +
       AA-safe user-bubble metrics
-- [ ] CompletionPopup: drop the font token from THEMED_TOKENS; copy the resolved computed
+- [x] CompletionPopup: drop the font token from THEMED_TOKENS; copy the resolved computed
       `font-family` as a real property
-- [ ] Specs: component-registry (tokens + font-inherit), message-rendering (role styling),
+- [x] Specs: component-registry (tokens + font-inherit), message-rendering (role styling),
       input-composer (popup computed-font read) + changelog rows
-- [ ] Tests: styles parse, CompletionPopup font copy (+ empty/no-view branches), MessageItem
+- [x] Tests: styles parse, CompletionPopup font copy (+ empty/no-view branches), MessageItem
       data-role
 
 ## Open Questions
