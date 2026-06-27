@@ -113,8 +113,13 @@ export function MessageLog({
     )
   })
 
+  // Mirror MessageItem's gate: minimal density only engages when neither flat
+  // nor raw is active, so `<MessageLog minimal flat>` / `<MessageLog minimal raw>`
+  // add NO `data-minimal` hook on `.chat-log`.
+  const minimalActive = minimal && !flat && !raw
+
   return (
-    <div className="chat-log" {...(minimal ? { 'data-minimal': 'true' } : {})}>
+    <div className="chat-log" {...(minimalActive ? { 'data-minimal': 'true' } : {})}>
       {renderList ? renderList(items) : items}
     </div>
   )
