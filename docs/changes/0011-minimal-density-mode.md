@@ -43,7 +43,7 @@ gates:
   `.chat-message[data-minimal]` rules reference `--chat-gap-compact`, and the token exists with
   light and dark values.
 - The demo MUST include a Minimal toggle, and the demo tests MUST render minimal across all three
-  registries and assert one collapsed group per assistant turn, with zero runtime network calls
+  registries and assert one collapsed group for each assistant turn that contains aux blocks, with zero runtime network calls
   preserved.
 - No `.only`/`.skip`; coverage at or above the configured threshold.
 
@@ -77,7 +77,7 @@ the rule.
 - The stylesheet MUST add `--chat-gap-compact` (~`0.375rem`, light + dark) and minimal rules:
   `.chat-log[data-minimal="true"]` (tighter inter-message gap), `.chat-message[data-minimal="true"]`
   (tighter in-message gap + bubble padding), and compact footer spacing. Token-driven and
-  headless-only.
+  registry-agnostic.
 
 ### Demo
 

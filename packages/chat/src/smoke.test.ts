@@ -16,6 +16,24 @@ const pkg = JSON.parse(readFileSync(resolve(pkgDir, 'package.json'), 'utf8'))
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
+ * Parse the `--chat-*` custom-property declarations out of the first rule body
+ * matching `selector` in `css`. Returns a map of token name → trimmed value.
+ * Lifted to module scope (NOT exported — Biome `noExportsInTest` forbids
+ * exports in test files) so multiple tests can compare token values across
+ * `:root`, the explicit light/dark hooks, and the OS-dark media block.
+ */
+const tokensOf = (css: string, selector: string): Record<string, string> => {
+  const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+  const body = m?.[1] ?? ''
+  const tokens: Record<string, string> = {}
+  for (const decl of body.split(';')) {
+    const dm = decl.match(/(--chat-[\w-]+)\s*:\s*(.+)/)
+    if (dm?.[1] && dm[2]) tokens[dm[1]] = dm[2].trim()
+  }
+  return tokens
+}
+
+/**
  * Extract the body of the `@media (prefers-color-scheme: dark) { … }` block via
  * balanced-brace scanning so dark-scoped assertions are confined to that block
  * (a `[\s\S]*` regex can run past the closing brace and match unrelated rules).
@@ -154,18 +172,8 @@ describe('@fx/chat public surface', () => {
 
     // (c) The `:root` light defaults and the `[data-theme="light"]` values must
     // stay in sync — duplicated literals are allowed only if they match exactly.
-    const tokensOf = (selector: string): Record<string, string> => {
-      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
-      const body = m?.[1] ?? ''
-      const tokens: Record<string, string> = {}
-      for (const decl of body.split(';')) {
-        const dm = decl.match(/(--chat-[\w-]+)\s*:\s*(.+)/)
-        if (dm?.[1] && dm[2]) tokens[dm[1]] = dm[2].trim()
-      }
-      return tokens
-    }
-    const root = tokensOf(':root')
-    const explicitLight = tokensOf('\\[data-theme="light"\\]')
+    const root = tokensOf(css, ':root')
+    const explicitLight = tokensOf(css, '\\[data-theme="light"\\]')
     expect(Object.keys(explicitLight).length).toBeGreaterThan(0)
     expect(explicitLight).toEqual(root)
   })
@@ -203,8 +211,19 @@ describe('@fx/chat public surface', () => {
     for (const token of bubbleTokens) {
       expect(block(':root')).toContain(`${token}:`)
     }
-    // The assistant bubble has a dedicated dark surface in the explicit dark hook.
-    expect(block('\\[data-theme="dark"\\]')).toContain('--chat-assistant-bubble-bg:')
+    // The light value is the baseline the dark surfaces must differ from.
+    const lightAssistantBg = tokensOf(css, ':root')['--chat-assistant-bubble-bg']
+    expect(lightAssistantBg).toBeDefined()
+
+    // The assistant bubble has a dedicated dark surface in the explicit dark hook
+    // — and it must be a genuinely DIFFERENT value, not a re-statement of the
+    // light one (a presence-only check passes even if dark reuses light).
+    const explicitDarkAssistantBg = tokensOf(css, '\\[data-theme="dark"\\]')[
+      '--chat-assistant-bubble-bg'
+    ]
+    expect(explicitDarkAssistantBg).toBeDefined()
+    expect(explicitDarkAssistantBg).not.toBe(lightAssistantBg)
+
     // …and under the OS-dark media block (a darker neutral than the light value).
     // Scope the check to the media block's BODY (balanced-brace extraction) so a
     // `[\s\S]*` regex can't satisfy it by matching a declaration past the closing
@@ -212,7 +231,13 @@ describe('@fx/chat public surface', () => {
     const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
     const darkMediaBody = extractDarkMediaBody(cssNoComments)
     expect(darkMediaBody).not.toBe('')
-    expect(darkMediaBody).toContain('--chat-assistant-bubble-bg:')
+    // Extract the OS-dark assistant bubble value from the media-block body and
+    // assert it, too, differs from the light baseline.
+    const mediaDarkAssistantBg = darkMediaBody
+      .match(/--chat-assistant-bubble-bg\s*:\s*([^;]+)/)?.[1]
+      ?.trim()
+    expect(mediaDarkAssistantBg).toBeDefined()
+    expect(mediaDarkAssistantBg).not.toBe(lightAssistantBg)
   })
 
   it('styles user/assistant role bubbles from the bubble tokens', () => {
