@@ -52,8 +52,21 @@
   --chat-success: #15803d;
   --chat-radius: 0.5rem;
   --chat-gap: 0.75rem;
-  --chat-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Inherit the host page's font by default so the chat surface visually
+     matches the surrounding application instead of forcing a system stack.
+     `font-family: var(--chat-font-family)` declarations stay in place across
+     the stylesheet so a host can still override the whole surface by redefining
+     this single token. */
+  --chat-font-family: inherit;
   --chat-code-bg: #f3f4f6;
+  /* Role bubble tokens (change 0009): a user message reads as a sent bubble on
+     the accent surface; an assistant message reads as a received bubble on a
+     subtle neutral surface. System messages get no bubble. */
+  --chat-user-bubble-bg: var(--chat-accent);
+  --chat-user-bubble-fg: var(--chat-accent-fg);
+  --chat-assistant-bubble-bg: #f3f4f6;
+  --chat-assistant-bubble-fg: var(--chat-fg);
+  --chat-bubble-max-width: 85%;
 }
 
 /* Scope OS-dark to a root with NO explicit data-theme so an element/root that
@@ -72,6 +85,10 @@
     --chat-error: #f87171;
     --chat-success: #4ade80;
     --chat-code-bg: #111827;
+    /* User-bubble tokens follow the dark accent automatically (they reference
+       `--chat-accent`/`--chat-accent-fg`); the assistant bubble gets a darker
+       neutral surface that reads against the dark page background. */
+    --chat-assistant-bubble-bg: #111827;
   }
 }
 
@@ -90,8 +107,15 @@
   --chat-success: #15803d;
   --chat-radius: 0.5rem;
   --chat-gap: 0.75rem;
-  --chat-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --chat-font-family: inherit;
   --chat-code-bg: #f3f4f6;
+  /* Keep these IDENTICAL to the `:root` light defaults (a smoke test enforces
+     parity across the full token set, including these bubble tokens). */
+  --chat-user-bubble-bg: var(--chat-accent);
+  --chat-user-bubble-fg: var(--chat-accent-fg);
+  --chat-assistant-bubble-bg: #f3f4f6;
+  --chat-assistant-bubble-fg: var(--chat-fg);
+  --chat-bubble-max-width: 85%;
 }
 
 [data-theme="dark"] {
@@ -105,6 +129,9 @@
   --chat-error: #f87171;
   --chat-success: #4ade80;
   --chat-code-bg: #111827;
+  /* See the prefers-color-scheme: dark block: user-bubble tokens follow the
+     dark accent automatically; the assistant bubble gets a darker neutral. */
+  --chat-assistant-bubble-bg: #111827;
 }
 
 .chat-button {
@@ -334,6 +361,40 @@
   display: flex;
   flex-direction: column;
   gap: calc(var(--chat-gap) / 2);
+}
+
+/* ── Role bubbles (change 0009) ──────────────────────────────────────────────
+   Give user and assistant messages a chat-bubble shape so a turn reads as a
+   conversation: the user's message is right-aligned on the accent surface, the
+   assistant's is left-aligned on a subtle neutral surface. Only `user` and
+   `assistant` are styled (no `agent` role exists); a `system` message keeps no
+   bubble so notices stay visually distinct from the dialogue. All colors,
+   radius, padding, and max-width come from `--chat-*` tokens. */
+.chat-message[data-role="user"] {
+  align-self: flex-end;
+  margin-left: auto;
+  max-width: var(--chat-bubble-max-width);
+  background: var(--chat-user-bubble-bg);
+  color: var(--chat-user-bubble-fg);
+  border-radius: var(--chat-radius);
+  padding: calc(var(--chat-gap) / 2) var(--chat-gap);
+}
+
+.chat-message[data-role="assistant"] {
+  align-self: flex-start;
+  margin-right: auto;
+  max-width: var(--chat-bubble-max-width);
+  background: var(--chat-assistant-bubble-bg);
+  color: var(--chat-assistant-bubble-fg);
+  border-radius: var(--chat-radius);
+  padding: calc(var(--chat-gap) / 2) var(--chat-gap);
+}
+
+/* The user bubble sits on the accent color, where the muted footer-metrics tone
+   (`--chat-muted`) can fail WCAG AA. Re-tone the metrics against the accent
+   surface so model/duration/tok-s stay legible inside a user bubble. */
+.chat-message[data-role="user"] .chat-footer-metrics {
+  color: color-mix(in srgb, var(--chat-user-bubble-fg) 78%, var(--chat-user-bubble-bg));
 }
 
 .chat-row-header {

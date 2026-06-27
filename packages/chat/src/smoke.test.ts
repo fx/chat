@@ -139,6 +139,69 @@ describe('@fx/chat public surface', () => {
     expect(explicitLight).toEqual(root)
   })
 
+  it('defaults --chat-font-family to inherit in :root and [data-theme="light"]', () => {
+    // Change 0009: the base font is inherited from the host page (not a forced
+    // system stack) so the chat surface matches the surrounding app. The
+    // override seam (`font-family: var(--chat-font-family)` declarations) stays.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    expect(block(':root')).toMatch(/--chat-font-family:\s*inherit\s*;/)
+    expect(block('\\[data-theme="light"\\]')).toMatch(/--chat-font-family:\s*inherit\s*;/)
+    // The override seam is still present so hosts can restyle via the token.
+    expect(css).toContain('font-family: var(--chat-font-family)')
+  })
+
+  it('defines the role-bubble tokens with light and dark values', () => {
+    // Change 0009: user/assistant bubble tokens exist in the light set and the
+    // assistant surface gets a distinct dark value under both dark hooks.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    const bubbleTokens = [
+      '--chat-user-bubble-bg',
+      '--chat-user-bubble-fg',
+      '--chat-assistant-bubble-bg',
+      '--chat-assistant-bubble-fg',
+      '--chat-bubble-max-width',
+    ]
+    for (const token of bubbleTokens) {
+      expect(block(':root')).toContain(`${token}:`)
+    }
+    // The assistant bubble has a dedicated dark surface in the explicit dark hook.
+    expect(block('\\[data-theme="dark"\\]')).toContain('--chat-assistant-bubble-bg:')
+    // …and under the OS-dark media block (a darker neutral than the light value).
+    const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(cssNoComments).toMatch(
+      /@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{[\s\S]*--chat-assistant-bubble-bg:/,
+    )
+  })
+
+  it('styles user/assistant role bubbles from the bubble tokens', () => {
+    // Change 0009: the data-role bubble rules exist and reference the tokens, so
+    // a turn reads as a conversation and hosts can restyle via the variables.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector.replace(/[[\]"]/g, '\\$&')}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    const user = block('.chat-message[data-role="user"]')
+    expect(user).toContain('var(--chat-user-bubble-bg)')
+    expect(user).toContain('var(--chat-user-bubble-fg)')
+    expect(user).toContain('var(--chat-bubble-max-width)')
+    expect(user).toMatch(/margin-left:\s*auto/)
+    const assistant = block('.chat-message[data-role="assistant"]')
+    expect(assistant).toContain('var(--chat-assistant-bubble-bg)')
+    expect(assistant).toContain('var(--chat-assistant-bubble-fg)')
+    expect(assistant).toContain('var(--chat-bubble-max-width)')
+    // The user-bubble footer metrics are re-toned for AA on the accent surface.
+    expect(css).toContain('.chat-message[data-role="user"] .chat-footer-metrics')
+  })
+
   it('depends on no UI kit, icon set, or markdown engine', () => {
     const graph = Object.keys({
       ...(pkg.dependencies ?? {}),

@@ -213,4 +213,17 @@ describe('MessageItem', () => {
     render(<MessageItem message={msg} />)
     expect(screen.queryByTestId('message-attachments')).toBeNull()
   })
+
+  it('exposes data-role on the message wrapper for role-bubble styling', () => {
+    // Change 0009: role-bubble CSS keys off `[data-role="user"|"assistant"]`, so
+    // the wrapper must always carry the role attribute for both roles.
+    const { container: userC } = render(
+      <MessageItem message={message({ id: 'mu', role: 'user' })} />,
+    )
+    expect(userC.querySelector('[data-message-id="mu"]')).toHaveAttribute('data-role', 'user')
+    const { container: asstC } = render(
+      <MessageItem message={message({ id: 'ma', role: 'assistant' })} />,
+    )
+    expect(asstC.querySelector('[data-message-id="ma"]')).toHaveAttribute('data-role', 'assistant')
+  })
 })

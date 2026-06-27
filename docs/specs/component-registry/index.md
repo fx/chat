@@ -120,6 +120,16 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - The package's headless visuals MUST be driven by CSS custom properties (e.g.
   `--chat-fg`, `--chat-muted`, `--chat-accent`, `--chat-border`, `--chat-error`,
   `--chat-success`, `--chat-radius`), with sensible light/dark defaults.
+- `--chat-font-family` MUST default to `inherit` so the chat surface adopts the host page's
+  font rather than forcing a system stack. The `font-family: var(--chat-font-family)` override
+  seam MUST remain on the headless primitives so a host can still restyle the whole surface by
+  redefining the single token.
+- The token set MUST include role-bubble tokens so a turn reads as a conversation:
+  `--chat-user-bubble-bg` / `--chat-user-bubble-fg` (the user's sent bubble, defaulting to the
+  accent surface), `--chat-assistant-bubble-bg` / `--chat-assistant-bubble-fg` (the assistant's
+  received bubble on a subtle neutral surface), and `--chat-bubble-max-width`. They MUST have
+  light AND dark defaults, and the `:root` and `[data-theme="light"]` token sets MUST stay
+  identical (a smoke/parity test enforces this across the full token set).
 - Hosts MUST be able to restyle the headless defaults entirely by redefining these variables,
   without overriding components.
 - The package MUST ship `@fx/chat/styles.css` defining default variable values; importing it is
@@ -228,3 +238,4 @@ type IconName =
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0003-component-registry](../../changes/0003-component-registry.md) |
 | 2026-06-26 | Added OPTIONAL `Lightbox`/`ImageOverlay` slot and `download`/`expand` icons for attachment rendering — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
+| 2026-06-27 | Defaulted `--chat-font-family` to `inherit` and added role-bubble theme tokens (`--chat-user-bubble-*`, `--chat-assistant-bubble-*`, `--chat-bubble-max-width`) with light/dark defaults | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |

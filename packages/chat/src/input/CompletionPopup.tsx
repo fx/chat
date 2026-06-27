@@ -62,6 +62,15 @@ const ESTIMATED_POPUP_HEIGHT = 220
  * values from the textarea's themed DOM context onto its own root as inline
  * custom properties, so its CSS rules (which read `var(--chat-*)`) inherit the
  * active theme. Keep this list in sync with the tokens the popup CSS consumes.
+ *
+ * NOTE: `--chat-font-family` is intentionally NOT in this list. Its default is
+ * now `inherit` (change 0009), which resolves against whatever element the value
+ * is read on. Copying the token literally would carry the string `"inherit"`
+ * onto the body-portaled popup, where it then resolves against `<body>` — not
+ * the composer's themed context — so a host font scoped to a wrapper would be
+ * lost. Instead the popup copies the textarea's RESOLVED computed `font-family`
+ * as a real `fontFamily` CSS property (see {@link resolveThemedTokens}), exactly
+ * mirroring how `caret.ts` copies the textarea's computed font metrics.
  */
 const THEMED_TOKENS = [
   '--chat-fg',
@@ -72,7 +81,6 @@ const THEMED_TOKENS = [
   '--chat-border',
   '--chat-radius',
   '--chat-gap',
-  '--chat-font-family',
 ] as const
 
 /**
@@ -81,6 +89,11 @@ const THEMED_TOKENS = [
  * non-empty values are included so a token left to its CSS default (the popup's
  * own stylesheet) is not overwritten with an empty string. Returns an empty
  * object when no view is available (detached element).
+ *
+ * The resolved computed `font-family` is also emitted, as a real `fontFamily`
+ * property rather than the `--chat-font-family` token, so the portaled popup
+ * paints text in the SAME font as the textarea even when the token is left at
+ * its `inherit` default (which would otherwise resolve against `<body>`).
  */
 function resolveThemedTokens(el: HTMLElement): CSSProperties {
   const view = el.ownerDocument.defaultView
@@ -91,7 +104,10 @@ function resolveThemedTokens(el: HTMLElement): CSSProperties {
     const value = computed.getPropertyValue(token).trim()
     if (value) vars[token] = value
   }
-  return vars as CSSProperties
+  const result = vars as CSSProperties
+  const fontFamily = computed.fontFamily.trim()
+  if (fontFamily) result.fontFamily = fontFamily
+  return result
 }
 
 /** The imperative surface the composer drives. */

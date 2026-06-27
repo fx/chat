@@ -731,6 +731,36 @@ describe('CompletionPopup rendering', () => {
     expect(popup.style.getPropertyValue('--chat-bg')).toBe('')
   })
 
+  it('copies the textarea resolved computed font-family onto the portaled popup', async () => {
+    // Change 0009: `--chat-font-family` defaults to `inherit`, which would
+    // resolve against `<body>` once the popup portals there. So the popup must
+    // copy the textarea's RESOLVED computed `font-family` as a real CSS property
+    // (NOT the token) so the popup paints in the SAME font as the composer even
+    // when a host scopes a font to a wrapper around it.
+    const h = setup([referenceProvider])
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    // A distinct font on the textarea, different from the (empty) <body> font.
+    ta.style.fontFamily = '"Comic Sans MS", cursive'
+    expect(window.getComputedStyle(document.body).fontFamily).not.toBe(ta.style.fontFamily)
+    h.current?.type('~ap', 3)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    const popup = document.querySelector('.chat-completion-popup') as HTMLElement
+    await waitFor(() => expect(popup.style.fontFamily).toBe('"Comic Sans MS", cursive'))
+    // The font is a REAL CSS property, not the --chat-font-family token.
+    expect(popup.style.getPropertyValue('--chat-font-family')).toBe('')
+  })
+
+  it('omits font-family when the textarea resolves no computed font (empty branch)', async () => {
+    // With no font set on the textarea, jsdom's getComputedStyle returns an
+    // empty `fontFamily`; the popup must leave its `style.fontFamily` unset so
+    // its own stylesheet (which inherits) applies, exercising the empty branch.
+    const h = setup([referenceProvider])
+    h.current?.type('~ap', 3)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument())
+    const popup = document.querySelector('.chat-completion-popup') as HTMLElement
+    expect(popup.style.fontFamily).toBe('')
+  })
+
   it('clamps the popup left to stay on-screen when measured near the right edge', async () => {
     // Drive a 375px viewport with the caret anchored near the right edge and a
     // measured popup width of 192px. The post-render measurement re-clamps the

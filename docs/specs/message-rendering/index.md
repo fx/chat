@@ -72,6 +72,29 @@ scope** and MUST NOT appear in this package.
 - **WHEN** it renders
 - **THEN** the image is shown in the output area (audio likewise via an audio affordance).
 
+### Role Styling
+
+- The message wrapper MUST always expose the message `role` as a `data-role` attribute so a
+  conversation reads as exchanged bubbles. The package stylesheet MUST style `user` and
+  `assistant` roles as chat bubbles driven entirely by the role-bubble theme tokens (see
+  [component-registry › Theme Tokens](../component-registry/)): the user bubble right-aligned on
+  the accent surface, the assistant bubble left-aligned on a subtle neutral surface, both using
+  `--chat-radius`, token-derived padding, and `--chat-bubble-max-width`.
+- Only `user` and `assistant` MUST be bubble-styled (no `agent` role exists); a `system` message
+  MUST NOT get a bubble so notices stay visually distinct from the dialogue.
+- Role styling MUST be token-driven and headless-only: it MUST add no component override and a
+  host MUST be able to restyle or disable it by redefining the role-bubble tokens.
+- Footer metrics inside the user bubble MUST remain legible (WCAG AA) against the accent
+  surface; the stylesheet MUST re-tone them within the user bubble accordingly.
+
+#### Scenario: A turn renders as user and assistant bubbles
+
+- **GIVEN** a user message followed by an assistant message
+- **WHEN** the log renders with the package stylesheet applied
+- **THEN** the user wrapper carries `data-role="user"` and is right-aligned on the user-bubble
+  surface, the assistant wrapper carries `data-role="assistant"` and is left-aligned on the
+  assistant-bubble surface, and a `system` message (if any) carries no bubble.
+
 ### Collapsible Substrate
 
 - All collapsible blocks (reasoning, tool_call, system, grouped runs) MUST share one
@@ -411,3 +434,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-25 | Initial spec created | [0004-message-rendering](../../changes/0004-message-rendering.md) |
 | 2026-06-26 | Added render-layer extensibility (custom block/tool renderers, custom timeline items, inert unknown-type fallback) — not yet implemented | [0007-render-extensibility](../../changes/0007-render-extensibility.md) |
 | 2026-06-26 | Added user-attachment rendering (image grid + lightbox, media/file chips, scheme-safe download) — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
+| 2026-06-27 | Added token-driven role styling (user/assistant bubbles via `data-role`, system unbubbled) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
