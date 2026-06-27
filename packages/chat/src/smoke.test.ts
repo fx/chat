@@ -198,8 +198,15 @@ describe('@fx/chat public surface', () => {
     expect(assistant).toContain('var(--chat-assistant-bubble-bg)')
     expect(assistant).toContain('var(--chat-assistant-bubble-fg)')
     expect(assistant).toContain('var(--chat-bubble-max-width)')
-    // The user-bubble footer metrics are re-toned for AA on the accent surface.
-    expect(css).toContain('.chat-message[data-role="user"] .chat-footer-metrics')
+    // The user-bubble footer metrics use the full bubble foreground so they meet
+    // WCAG AA contrast on the accent surface (no longer a sub-4.5:1 color-mix).
+    const userMetrics = block('.chat-message[data-role="user"] .chat-footer-metrics')
+    expect(userMetrics).toContain('var(--chat-user-bubble-fg)')
+    expect(userMetrics).not.toContain('color-mix')
+    // A mention inside a user bubble is re-toned to the bubble foreground so it is
+    // not accent-on-accent (invisible) — the user bubble bg defaults to the accent.
+    const userMention = block('.chat-message[data-role="user"] .chat-mention')
+    expect(userMention).toContain('var(--chat-user-bubble-fg)')
   })
 
   it('defines minimal/density-mode rules driven by --chat-gap-compact', () => {

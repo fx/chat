@@ -396,10 +396,17 @@
 }
 
 /* The user bubble sits on the accent color, where the muted footer-metrics tone
-   (`--chat-muted`) can fail WCAG AA. Re-tone the metrics against the accent
-   surface so model/duration/tok-s stay legible inside a user bubble. */
+   (`--chat-muted`) can fail WCAG AA. Use the full bubble foreground so
+   model/duration/tok-s stay legible (>= 4.5:1) inside a user bubble. */
 .chat-message[data-role="user"] .chat-footer-metrics {
-  color: color-mix(in srgb, var(--chat-user-bubble-fg) 78%, var(--chat-user-bubble-bg));
+  color: var(--chat-user-bubble-fg);
+}
+
+/* A mention rendered inside a user bubble would otherwise be accent-on-accent
+   (the user bubble background defaults to `--chat-accent`), making it
+   invisible. Re-tone it to the bubble foreground so it stays readable. */
+.chat-message[data-role="user"] .chat-mention {
+  color: var(--chat-user-bubble-fg);
 }
 
 /* ── Minimal / density mode (change 0011) ────────────────────────────────────
