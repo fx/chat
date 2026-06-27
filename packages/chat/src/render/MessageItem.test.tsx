@@ -336,6 +336,43 @@ describe('MessageItem', () => {
     expect(container.querySelector('[data-minimal]')).toBeNull()
   })
 
+  it('flat and raw skip grouping entirely (timeline-behavior lookup never runs)', () => {
+    // Fix 1: grouping (collapseTurnAux/groupBlocks) — and therefore the
+    // timelineBehavior override lookup it performs — must not run on the flat or
+    // raw render paths, which render their own way. A `timelineBehavior` override
+    // is consulted via `overrides[name]`, so a throwing getter keyed by the tool
+    // name fires iff grouping runs. A spy lets us also assert how often.
+    const behaviorSpy = vi.fn(() => {
+      throw new Error('grouping ran: timeline-behavior must not be consulted in flat/raw')
+    })
+    // Define the override via a getter so any grouping read throws.
+    const timelineBehavior = {} as Record<string, never>
+    Object.defineProperty(timelineBehavior, 'search', { enumerable: true, get: behaviorSpy })
+    const msg = message({
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+      ],
+    })
+
+    // flat: renders without throwing → grouping (and the override lookup) skipped.
+    const flatRender = render(<MessageItem message={msg} flat extensions={{ timelineBehavior }} />)
+    expect(behaviorSpy).not.toHaveBeenCalled()
+    flatRender.unmount()
+
+    // raw: same — JSON view, no grouping.
+    const rawRender = render(<MessageItem message={msg} raw extensions={{ timelineBehavior }} />)
+    expect(behaviorSpy).not.toHaveBeenCalled()
+    rawRender.unmount()
+
+    // Sanity: the grouped path DOES consult the override (so the assertion above
+    // is meaningful — the lookup is reachable, it is just skipped in flat/raw).
+    expect(() => render(<MessageItem message={msg} extensions={{ timelineBehavior }} />)).toThrow(
+      'grouping ran',
+    )
+    expect(behaviorSpy).toHaveBeenCalled()
+  })
+
   it('minimal mode renders a trailing custom non-aux block bare after the group', () => {
     const msg = message({
       blocks: [

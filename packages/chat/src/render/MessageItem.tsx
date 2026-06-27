@@ -115,9 +115,16 @@ export function MessageItem({
   const minimalActive = minimal && !flat && !raw
   const useMinimalGrouping = minimalActive && message.role === 'assistant'
   const effectiveCompactFooter = minimalActive || compactFooter
-  const groupedItems = useMinimalGrouping
-    ? collapseTurnAux(blocks, behaviorOverrides)
-    : groupBlocks(blocks, behaviorOverrides)
+  // Only compute grouping when the grouped render path actually consumes it. The
+  // flat path renders every block bare and the raw path renders JSON, so running
+  // collapseTurnAux/groupBlocks (and their timelineBehavior hooks) there is
+  // wasted work — gate it on `!flat && !raw`.
+  const groupedItems =
+    !flat && !raw
+      ? useMinimalGrouping
+        ? collapseTurnAux(blocks, behaviorOverrides)
+        : groupBlocks(blocks, behaviorOverrides)
+      : []
 
   return (
     <div
