@@ -83,4 +83,21 @@ describe('MessageLog', () => {
     const { container } = render(<MessageLog messages={messages} />)
     expect(container.querySelector('.chat-log')).not.toBeNull()
   })
+
+  it('threads minimal to each message and marks the log data-minimal', () => {
+    const { container } = render(<MessageLog messages={messages} minimal defaultOpen />)
+    expect(container.querySelector('.chat-log')).toHaveAttribute('data-minimal', 'true')
+    // Every message wrapper carries data-minimal too (threaded to MessageItem).
+    const wrappers = container.querySelectorAll('[data-message-id]')
+    expect(wrappers).toHaveLength(2)
+    for (const w of wrappers) {
+      expect(w).toHaveAttribute('data-minimal', 'true')
+    }
+  })
+
+  it('omits data-minimal when minimal is absent', () => {
+    const { container } = render(<MessageLog messages={messages} />)
+    expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+  })
 })

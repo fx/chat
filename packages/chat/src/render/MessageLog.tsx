@@ -33,6 +33,11 @@ export interface MessageLogProps extends MessageCallbacks {
   flat?: boolean
   /** Render each message as raw JSON (debug). */
   raw?: boolean
+  /**
+   * Minimal / density mode: fold each assistant turn's auxiliary blocks into one
+   * group and force compact footers (threaded to every `MessageItem`).
+   */
+  minimal?: boolean
   /** Default-open state for collapsibles (verbose/expand-all). */
   defaultOpen?: boolean
   /** Show per-message footers. */
@@ -60,6 +65,7 @@ export function MessageLog({
   streamingMessageId,
   flat,
   raw,
+  minimal,
   defaultOpen,
   showFooter,
   compactFooter,
@@ -95,6 +101,7 @@ export function MessageLog({
         isActive={isActive}
         {...(flat !== undefined ? { flat } : {})}
         {...(raw !== undefined ? { raw } : {})}
+        {...(minimal !== undefined ? { minimal } : {})}
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}
@@ -106,5 +113,9 @@ export function MessageLog({
     )
   })
 
-  return <div className="chat-log">{renderList ? renderList(items) : items}</div>
+  return (
+    <div className="chat-log" {...(minimal ? { 'data-minimal': 'true' } : {})}>
+      {renderList ? renderList(items) : items}
+    </div>
+  )
 }

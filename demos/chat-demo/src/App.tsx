@@ -71,6 +71,7 @@ export function App() {
   const [fixtureId, setFixtureId] = useState<FixtureId>('resolved')
   const [flat, setFlat] = useState(false)
   const [verbose, setVerbose] = useState(false)
+  const [minimal, setMinimal] = useState(false)
 
   const isStreamingFixture = fixtureId === 'streaming'
   const stream = useStreamingDriver(isStreamingFixture)
@@ -130,6 +131,7 @@ export function App() {
         />
         <ToggleControl label="Flat" pressed={flat} onToggle={() => setFlat((v) => !v)} />
         <ToggleControl label="Verbose" pressed={verbose} onToggle={() => setVerbose((v) => !v)} />
+        <ToggleControl label="Minimal" pressed={minimal} onToggle={() => setMinimal((v) => !v)} />
         {isStreamingFixture ? (
           <ToggleControl label="Replay" pressed={false} onToggle={stream.replay} />
         ) : null}
@@ -145,6 +147,7 @@ export function App() {
             {...(view.streamingMessageId ? { streamingMessageId: view.streamingMessageId } : {})}
             flat={flat}
             verbose={verbose}
+            minimal={minimal}
             theme={theme}
             showHeader={layout === 'compare'}
           />

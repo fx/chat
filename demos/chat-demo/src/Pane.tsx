@@ -23,6 +23,8 @@ export interface PaneProps {
   streamingMessageId?: string
   flat: boolean
   verbose: boolean
+  /** Minimal / density mode (fold turn aux to one line, compact footer). */
+  minimal: boolean
   /** Theme to apply to this pane (`light` | `dark`). */
   theme: 'light' | 'dark'
   /** Show the pane header label (hidden in single-pane mode). */
@@ -46,6 +48,7 @@ export function Pane({
   streamingMessageId,
   flat,
   verbose,
+  minimal,
   theme,
   showHeader = true,
 }: PaneProps) {
@@ -77,6 +80,7 @@ export function Pane({
               isStreaming={isStreaming}
               {...(streamingMessageId ? { streamingMessageId } : {})}
               flat={flat}
+              minimal={minimal}
               defaultOpen={verbose}
               showFooter
             />

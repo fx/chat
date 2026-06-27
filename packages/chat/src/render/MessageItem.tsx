@@ -6,6 +6,11 @@
  * blocks into a single `BlockGroup`; non-aux blocks render bare. A `raw` debug
  * mode renders the whole message via the registry `JsonView` instead. The footer
  * affordances render beneath the blocks.
+ *
+ * In `minimal` (density) mode, an assistant turn folds ALL of its auxiliary
+ * blocks into ONE group (via `collapseTurnAux`) rather than only maximal runs,
+ * and the footer is forced compact — a denser, single-metadata-line view. `flat`
+ * and `raw` take precedence over `minimal`.
  */
 import { BlockGroup } from './BlockGroup'
 import { MessageAttachments } from './MessageAttachments'
@@ -16,6 +21,7 @@ import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableMessage } from './extensions'
 import { deriveTokensPerSecond } from './format'
 import { groupBlocks } from './grouping'
+import { collapseTurnAux } from './minimalGrouping'
 
 /** Props for {@link MessageItem}. */
 export interface MessageItemProps {
@@ -26,6 +32,12 @@ export interface MessageItemProps {
   flat?: boolean
   /** Render the whole message as JSON (debug). */
   raw?: boolean
+  /**
+   * Minimal / density mode: fold ALL of an assistant turn's auxiliary blocks
+   * into one group (not just maximal runs) and force a compact footer. `flat`
+   * and `raw` take precedence over `minimal`.
+   */
+  minimal?: boolean
   /** Default-open state for collapsibles (verbose/expand-all). */
   defaultOpen?: boolean
   /** Show the footer affordances. */
@@ -53,6 +65,7 @@ export function MessageItem({
   isActive = false,
   flat = false,
   raw = false,
+  minimal = false,
   defaultOpen,
   showFooter = true,
   compactFooter = false,
@@ -90,8 +103,23 @@ export function MessageItem({
   const blocks = message.blocks
   const behaviorOverrides = extensions?.timelineBehavior
 
+  // Minimal (density) mode folds ALL of an assistant turn's auxiliary blocks into
+  // one group (via collapseTurnAux) and forces a compact footer. `flat` and `raw`
+  // take precedence over `minimal`; user messages get the compact chrome but no
+  // aux-collapse (the default non-aux behavior keeps their content bare/visible).
+  const useMinimalGrouping = minimal && !flat && !raw && message.role === 'assistant'
+  const effectiveCompactFooter = minimal || compactFooter
+  const groupedItems = useMinimalGrouping
+    ? collapseTurnAux(blocks, behaviorOverrides)
+    : groupBlocks(blocks, behaviorOverrides)
+
   return (
-    <div className="chat-message" data-message-id={message.id} data-role={message.role}>
+    <div
+      className="chat-message"
+      data-message-id={message.id}
+      data-role={message.role}
+      {...(minimal ? { 'data-minimal': 'true' } : {})}
+    >
       {raw ? (
         <RawJsonBlockView value={message} />
       ) : (
@@ -105,7 +133,7 @@ export function MessageItem({
                   {...(extensions ? { extensions } : {})}
                 />
               ))
-            : groupBlocks(blocks, behaviorOverrides).map((item) =>
+            : groupedItems.map((item) =>
                 item.kind === 'bare' ? (
                   <BlockView
                     key={item.block.id}
@@ -131,7 +159,7 @@ export function MessageItem({
       {showFooter && !raw ? (
         <MessageFooter
           copyText={messageCopyText(message)}
-          compact={compactFooter}
+          compact={effectiveCompactFooter}
           {...(message.metrics ? { metrics: message.metrics } : {})}
           {...(onRegenerate ? { onRegenerate } : {})}
           {...(onFork ? { onFork } : {})}

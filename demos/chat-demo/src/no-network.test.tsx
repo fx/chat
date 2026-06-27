@@ -64,10 +64,12 @@ describe('no runtime network', () => {
 
     // Drive the demo across every surface that could plausibly fetch:
     // - the compare layout renders all three registries at once,
-    // - the streaming fixture runs the timing driver.
+    // - the streaming fixture runs the timing driver,
+    // - the minimal/density toggle exercises the alternate grouping path.
     act(() => {
       fireEvent.change(screen.getByLabelText('Layout'), { target: { value: 'compare' } })
       fireEvent.change(screen.getByLabelText('Fixture'), { target: { value: 'streaming' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Minimal' }))
     })
 
     // Advance the virtual clock through the whole stream window.

@@ -182,6 +182,54 @@ scope** and MUST NOT appear in this package.
 - **THEN** the four metadata blocks collapse under one disclosure with a header summary chip
   and a `+N` badge, and the answer text renders bare beneath it.
 
+### Minimal / Density Mode
+
+- `MessageLog` and `MessageItem` MUST accept an OPTIONAL `minimal` flag (default `false`). When
+  absent, output MUST be identical to the default grouped behavior.
+- In minimal mode, an assistant turn MUST fold ALL of its `auxEligible` blocks into a SINGLE
+  collapsed disclosure — even non-adjacent aux blocks separated by non-aux content — rather than
+  only maximal runs. This is a denser "one metadata line per turn" view. A single aux block MUST
+  still collapse into a one-item group (unlike the default pass, which renders a lone aux block
+  bare).
+- The single aux group MUST be emitted at the position of the FIRST auxiliary block
+  (chronology-preserving); every non-aux block (the answer, any generative/custom content) MUST
+  render bare in its original order.
+- Minimal mode MUST force a compact footer and MUST mark the log (`.chat-log`) and each message
+  wrapper (`.chat-message`) with `data-minimal="true"` so the stylesheet can apply a tighter,
+  token-driven layout (`--chat-gap-compact`). Spacing is the only visual change; grouping/footer
+  behavior is decided in the renderer.
+- `flat` MUST take precedence over `minimal` (flat renders every block bare); `raw` MUST take
+  precedence over `minimal` (raw renders the JSON view). User messages MUST get the compact
+  chrome but MUST NOT aux-collapse (their default non-aux content stays bare/visible).
+- Minimal mode MUST respect host timeline-behavior flags via the same overrides as the default
+  pass (a host-opted `auxEligible` custom kind folds in; a per-tool-name non-aux override stays
+  bare). Top-level `timelineItems` MUST remain interleaved by order and MUST NOT be folded — only a
+  turn's own blocks fold.
+- The folding pass MUST be a pure, DOM-free function (`collapseTurnAux`) that reuses the shared
+  timeline-behavior policy; it MUST NOT reimplement summary/hidden-count selection.
+
+#### Scenario: Minimal folds a turn's aux to one line with the answer bare
+
+- **GIVEN** an assistant turn `[reasoning, tool_call, status, text]` and `minimal` set
+- **WHEN** the log renders
+- **THEN** the three metadata blocks collapse under ONE disclosure (with a header summary and `+N`
+  badge), the answer `text` renders bare beneath it, the footer is compact, and the log/message
+  wrappers carry `data-minimal="true"`.
+
+#### Scenario: Minimal folds non-adjacent aux into the same group
+
+- **GIVEN** an assistant turn `[reasoning, text, tool_call]` and `minimal` set
+- **WHEN** the log renders
+- **THEN** the reasoning and tool_call fold into ONE group (placed at the reasoning's position) and
+  the interim `text` renders bare — whereas the default grouped pass would yield two separate runs.
+
+#### Scenario: Minimal default is unchanged when off
+
+- **GIVEN** an assistant turn and `minimal` set to `false` (or absent)
+- **WHEN** the log renders
+- **THEN** the output is byte-for-byte the default grouped behavior and no `data-minimal` attribute
+  is present.
+
 ### Affordances
 
 - The package MUST expose, as OPTIONAL callbacks on the message/log, at least: `onRegenerate`,
@@ -362,9 +410,11 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 <MessageLog messages isStreaming streamingMessageId onRegenerate? onFork? onReset? extensions?>
   merge messages + extensions.timelineItems → ordered timeline (by createdAt / at)
   for each timeline entry:
-     message     → <MessageItem data-message-id=id>
-        grouped renderer applies timeline-behavior registry (+ host custom-kind flags):
-           run of auxEligible blocks → <BlockGroup> (collapsed disclosure)
+     message     → <MessageItem data-message-id=id [data-minimal]>
+        grouping pass applies timeline-behavior registry (+ host custom-kind flags):
+           default  → groupBlocks: each MAXIMAL run of auxEligible blocks → <BlockGroup>
+           minimal  → collapseTurnAux: ALL aux blocks → ONE <BlockGroup> at first-aux index
+                      (+ forced compact footer)
            non-aux block             → bare renderer
         block dispatch (in precedence order):
            tool_call w/ override name → extensions.toolRenderers[name]
@@ -383,6 +433,8 @@ attachments through the registry, accessibly, responsively, and theme-aware.
   `ReasoningBlock`, `ToolCallBlock`, `StatusBlock`, `SystemBlock`, `RawJsonBlock`,
   `MessageFooter`).
 - A shared `CollapsibleRow` substrate over the registry `Collapsible`.
+- An OPTIONAL `minimal` (density) flag on `MessageLog`/`MessageItem` selecting the `collapseTurnAux`
+  folding pass + compact footer + `data-minimal` layout hook.
 - An `extensions` prop carrying `blockRenderers`, `toolRenderers`, optional per-custom-kind
   grouping flags, and `timelineItems`; an inert fallback renderer for unknown block types.
 - An attachment region (`MessageAttachments`) composing an image grid, a registry-backed
@@ -394,6 +446,10 @@ attachments through the registry, accessibly, responsively, and theme-aware.
   eligibleForHeaderSummary }`; pure and exported.
 - **grouping pass** — single linear walk producing bare items and grouped runs; deterministic
   and unit-testable without the DOM.
+- **minimal grouping pass** (`collapseTurnAux`) — a separate pure linear walk for density mode:
+  folds ALL of a turn's `auxEligible` blocks into ONE group emitted at the first aux block's index,
+  with non-aux blocks bare in order. Reuses the shared timeline-behavior policy; deterministic and
+  DOM-free.
 - **timing hooks** — pure-input hooks driven by epoch timestamps; tested with fake timers.
 - **block dispatch with extensions** — a single dispatch resolves, in order: tool-name override
   (for `tool_call`), core renderer (for core `type`s), host `blockRenderers[type]` (for custom
@@ -449,3 +505,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-26 | Added user-attachment rendering (image grid + lightbox, media/file chips, scheme-safe download) — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
 | 2026-06-27 | Added token-driven role styling (user/assistant bubbles via `data-role`, system unbubbled) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-27 | Disclosure caret owned solely by the `Collapsible` slot; substrate affordance precedence drops the caret (idle bodied row renders no affordance icon) | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
+| 2026-06-27 | Added minimal / density mode: `minimal` flag folds a turn's aux to one group (`collapseTurnAux`), forces compact footer, `data-minimal` layout hook | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |

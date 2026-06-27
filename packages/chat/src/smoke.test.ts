@@ -202,6 +202,29 @@ describe('@fx/chat public surface', () => {
     expect(css).toContain('.chat-message[data-role="user"] .chat-footer-metrics')
   })
 
+  it('defines minimal/density-mode rules driven by --chat-gap-compact', () => {
+    // Change 0011: minimal mode tightens spacing via a compact gap token, applied
+    // to the log and message wrappers keyed off data-minimal. Token-driven and
+    // headless-only.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector.replace(/[[\]"]/g, '\\$&')}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    const tokenBlock = (selector: string) => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    // The compact token exists in the light set (and stays in :root/[data-theme=light] sync).
+    expect(tokenBlock(':root')).toContain('--chat-gap-compact:')
+    expect(tokenBlock('\\[data-theme="light"\\]')).toContain('--chat-gap-compact:')
+    // …and is present under the explicit dark hook (light+dark coverage).
+    expect(tokenBlock('\\[data-theme="dark"\\]')).toContain('--chat-gap-compact:')
+    // The minimal rules reference the compact token.
+    expect(block('.chat-log[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
+    expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
+  })
+
   it('depends on no UI kit, icon set, or markdown engine', () => {
     const graph = Object.keys({
       ...(pkg.dependencies ?? {}),

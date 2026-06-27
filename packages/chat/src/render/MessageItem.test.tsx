@@ -214,6 +214,118 @@ describe('MessageItem', () => {
     expect(screen.queryByTestId('message-attachments')).toBeNull()
   })
 
+  it('minimal mode: assistant turn folds all aux into one group + bare answer, compact footer', () => {
+    // Change 0011: collapseTurnAux folds ALL aux blocks into ONE group (even
+    // non-adjacent), forces data-minimal + a compact footer.
+    const msg = message({
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+        { type: 'status', id: 's' },
+        { type: 'text', id: 'a', text: 'final answer' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
+    const wrapper = container.querySelector('[data-message-id="m1"]') as HTMLElement
+    expect(wrapper).toHaveAttribute('data-minimal', 'true')
+    // Exactly one collapsed group for the turn's metadata.
+    expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
+    // The answer renders bare.
+    expect(screen.getByText('final answer')).toBeInTheDocument()
+    // The footer is forced compact (reveal toggle present).
+    expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
+    expect(screen.getByLabelText('Show actions')).toBeInTheDocument()
+  })
+
+  it('minimal mode folds NON-ADJACENT aux into one group (unlike grouped mode)', () => {
+    const msg = message({
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        { type: 'text', id: 'mid', text: 'interim' },
+        { type: 'tool_call', id: 't', name: 'search', arguments: {}, status: 'success' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
+    // One group holds BOTH aux blocks despite the text between them.
+    expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
+    expect(screen.getByText('+1')).toBeInTheDocument()
+    expect(screen.getByText('interim')).toBeInTheDocument()
+  })
+
+  it('minimal mode: user message gets compact chrome but no aux-collapse', () => {
+    const msg = message({
+      id: 'mu',
+      role: 'user',
+      blocks: [{ type: 'text', id: 't', text: 'hello' }],
+    })
+    const { container } = render(<MessageItem message={msg} minimal />)
+    expect(container.querySelector('[data-message-id="mu"]')).toHaveAttribute(
+      'data-minimal',
+      'true',
+    )
+    expect(screen.getByText('hello')).toBeInTheDocument()
+    expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
+  })
+
+  it('minimal false renders identically to grouped mode (no data-minimal)', () => {
+    const blocks: ChatMessage['blocks'] = [
+      { type: 'reasoning', id: 'r', text: 'think' },
+      { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+      { type: 'status', id: 's' },
+      { type: 'text', id: 'a', text: 'final answer' },
+    ]
+    const grouped = render(<MessageItem message={message({ blocks })} defaultOpen />)
+    const groupedHtml = (grouped.container.querySelector('.chat-message-blocks') as HTMLElement)
+      .innerHTML
+    grouped.unmount()
+    const explicit = render(
+      <MessageItem message={message({ blocks })} minimal={false} defaultOpen />,
+    )
+    expect(explicit.container.querySelector('[data-minimal]')).toBeNull()
+    expect(
+      (explicit.container.querySelector('.chat-message-blocks') as HTMLElement).innerHTML,
+    ).toBe(groupedHtml)
+  })
+
+  it('flat wins over minimal (blocks render flat, not folded)', () => {
+    const msg = message({
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} minimal flat />)
+    // Flat: no grouping, so no collapsed group and the tool name shows directly.
+    expect(container.querySelector('.chat-group')).toBeNull()
+    expect(screen.getByText('search')).toBeInTheDocument()
+    // data-minimal still reflects the prop, but grouping is flat.
+    expect(container.querySelector('[data-minimal="true"]')).not.toBeNull()
+  })
+
+  it('raw wins over minimal (renders JSON, not folded blocks)', () => {
+    const msg = message({
+      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }],
+    })
+    const { container } = render(<MessageItem message={msg} minimal raw />)
+    expect(container.querySelector('.chat-jsonview')).not.toBeNull()
+    expect(container.querySelector('.chat-group')).toBeNull()
+  })
+
+  it('minimal mode renders a trailing custom non-aux block bare after the group', () => {
+    const msg = message({
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        // A host custom block (non-aux by default) trailing the turn.
+        { type: 'host_card', id: 'hc' } as unknown as ChatMessage['blocks'][number],
+        { type: 'text', id: 'a', text: 'answer' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
+    // The reasoning folds to one group; the custom + answer render bare after it.
+    expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
+    expect(screen.getByText('answer')).toBeInTheDocument()
+  })
+
   it('exposes data-role on the message wrapper for role-bubble styling', () => {
     // Change 0009: role-bubble CSS keys off `[data-role="user"|"assistant"]`, so
     // the wrapper must always carry the role attribute for both roles.

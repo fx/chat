@@ -57,7 +57,7 @@ registries (fx/ui, shadcn/ui, defaults), toggleable in place to compare or rende
   `+N` collapsed disclosure), an error tool call, a streaming/active state, and the composer
   with the reference completion provider.
 - The site SHOULD include a compact controls strip to toggle: registry, single vs side-by-side,
-  light/dark, grouped vs flat, and verbose/expanded.
+  light/dark, grouped vs flat, verbose/expanded, and minimal/density.
 
 #### Scenario: No marketing copy
 
@@ -122,7 +122,8 @@ demo (static Vite app)
 
 ### UI Components
 
-- A compact top controls strip (registry select, layout toggle, theme, grouped/flat, verbose).
+- A compact top controls strip (registry select, layout toggle, theme, grouped/flat, verbose,
+  minimal/density).
 - A pane component wrapping `<ChatProvider components={registry}>` around `MessageLog` +
   `ChatInput`, instantiated once (single) or two/three times (side-by-side).
 - A fixture switcher.
@@ -161,3 +162,4 @@ demo (static Vite app)
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0006-demos](../../changes/0006-demos.md) |
+| 2026-06-27 | Added a Minimal/density toggle to the controls strip, threaded to `MessageLog` across all three registries | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |

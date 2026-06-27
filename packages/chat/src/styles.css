@@ -67,6 +67,8 @@
   --chat-assistant-bubble-bg: #f3f4f6;
   --chat-assistant-bubble-fg: var(--chat-fg);
   --chat-bubble-max-width: 85%;
+  /* Tighter spacing unit for minimal / density mode (change 0011). */
+  --chat-gap-compact: 0.375rem;
 }
 
 /* Scope OS-dark to a root with NO explicit data-theme so an element/root that
@@ -89,6 +91,7 @@
        `--chat-accent`/`--chat-accent-fg`); the assistant bubble gets a darker
        neutral surface that reads against the dark page background. */
     --chat-assistant-bubble-bg: #111827;
+    --chat-gap-compact: 0.375rem;
   }
 }
 
@@ -116,6 +119,7 @@
   --chat-assistant-bubble-bg: #f3f4f6;
   --chat-assistant-bubble-fg: var(--chat-fg);
   --chat-bubble-max-width: 85%;
+  --chat-gap-compact: 0.375rem;
 }
 
 [data-theme="dark"] {
@@ -132,6 +136,7 @@
   /* See the prefers-color-scheme: dark block: user-bubble tokens follow the
      dark accent automatically; the assistant bubble gets a darker neutral. */
   --chat-assistant-bubble-bg: #111827;
+  --chat-gap-compact: 0.375rem;
 }
 
 .chat-button {
@@ -395,6 +400,28 @@
    surface so model/duration/tok-s stay legible inside a user bubble. */
 .chat-message[data-role="user"] .chat-footer-metrics {
   color: color-mix(in srgb, var(--chat-user-bubble-fg) 78%, var(--chat-user-bubble-bg));
+}
+
+/* ── Minimal / density mode (change 0011) ────────────────────────────────────
+   A denser layout: tighter inter-message gap, tighter in-message gap and bubble
+   padding, and compact footer spacing. Token-driven (`--chat-gap-compact`) and
+   headless-only — the grouping/footer behavior is decided in the renderer; this
+   only tightens spacing. */
+.chat-log[data-minimal="true"] {
+  gap: var(--chat-gap-compact);
+}
+
+.chat-message[data-minimal="true"] {
+  gap: calc(var(--chat-gap-compact) / 2);
+}
+
+.chat-message[data-minimal="true"][data-role="user"],
+.chat-message[data-minimal="true"][data-role="assistant"] {
+  padding: calc(var(--chat-gap-compact) / 2) var(--chat-gap-compact);
+}
+
+.chat-message[data-minimal="true"] .chat-footer {
+  gap: calc(var(--chat-gap-compact) / 2);
 }
 
 .chat-row-header {
