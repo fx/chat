@@ -26,10 +26,26 @@ const extractDarkMediaBody = (source: string): string => {
   if (head?.index === undefined) return ''
   let depth = 1
   const start = head.index + head[0].length
+  // Track whether we're inside a CSS string literal so a brace that appears in a
+  // value like `content: "}"` is NOT treated as structural (which would slice
+  // the block short). Only `{`/`}` outside quotes affect the brace depth. A
+  // backslash escapes the next character inside a string (e.g. `"\""`).
+  let quote: '"' | "'" | null = null
   for (let i = start; i < source.length; i++) {
     const ch = source[i]
-    if (ch === '{') depth++
-    else if (ch === '}') {
+    if (quote) {
+      if (ch === '\\') {
+        i++ // skip the escaped character
+      } else if (ch === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+    } else if (ch === '{') {
+      depth++
+    } else if (ch === '}') {
       depth--
       if (depth === 0) return source.slice(start, i)
     }
@@ -280,5 +296,40 @@ describe('@fx/chat public surface', () => {
         expect(dep.startsWith(prefix)).toBe(false)
       }
     }
+  })
+})
+
+describe('extractDarkMediaBody brace scanner', () => {
+  const wrap = (body: string) => `@media (prefers-color-scheme: dark) {${body}}`
+
+  it('returns the balanced body for a plain block', () => {
+    expect(extractDarkMediaBody(wrap(':root{--x:1}'))).toBe(':root{--x:1}')
+  })
+
+  it('ignores braces inside double-quoted string values', () => {
+    // A `}` inside `content: "}"` must NOT close the media block early.
+    const body = '.a::after{content:"}"}.b{--x:1}'
+    expect(extractDarkMediaBody(wrap(body))).toBe(body)
+  })
+
+  it('ignores braces inside single-quoted string values', () => {
+    const body = ".a::after{content:'{'}.b{--x:1}"
+    expect(extractDarkMediaBody(wrap(body))).toBe(body)
+  })
+
+  it('honors backslash escapes inside string literals', () => {
+    // `"\"}"` — the escaped quote does NOT end the string, so the brace stays
+    // quoted and the trailing real quote closes it.
+    const body = '.a::after{content:"\\"}"}.b{--x:1}'
+    expect(extractDarkMediaBody(wrap(body))).toBe(body)
+  })
+
+  it('returns "" when there is no dark media block', () => {
+    expect(extractDarkMediaBody(':root{--x:1}')).toBe('')
+  })
+
+  it('returns "" when the media block is never closed', () => {
+    // No matching closing brace at depth 0 → scan falls through to ''.
+    expect(extractDarkMediaBody('@media (prefers-color-scheme: dark) {:root{--x:1}')).toBe('')
   })
 })

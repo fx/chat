@@ -100,4 +100,16 @@ describe('MessageLog', () => {
     expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
     expect(container.querySelector('[data-minimal]')).toBeNull()
   })
+
+  it('drops the log data-minimal hook when flat overrides minimal', () => {
+    const { container } = render(<MessageLog messages={messages} minimal flat />)
+    expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+  })
+
+  it('drops the log data-minimal hook when raw overrides minimal', () => {
+    const { container } = render(<MessageLog messages={messages} minimal raw />)
+    expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+  })
 })
