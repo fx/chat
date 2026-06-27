@@ -182,6 +182,25 @@ describe('Collapsible', () => {
     expect(details.open).toBe(true)
   })
 
+  it('renders its own disclosure caret in both open and closed states', () => {
+    // Change 0010: the Collapsible slot is the SOLE caret owner. Assert the
+    // headless default still renders exactly one `.chat-collapsible-caret` in
+    // the summary, whether open or closed.
+    const closed = render(
+      <Collapsible header={<span>Closed</span>}>
+        <p>B</p>
+      </Collapsible>,
+    )
+    expect(closed.container.querySelectorAll('.chat-collapsible-caret')).toHaveLength(1)
+    closed.unmount()
+    const open = render(
+      <Collapsible defaultOpen header={<span>Open</span>}>
+        <p>B</p>
+      </Collapsible>,
+    )
+    expect(open.container.querySelectorAll('.chat-collapsible-caret')).toHaveLength(1)
+  })
+
   it('controlled read-only (rejecting parent): reports the user change once, no echo', () => {
     const onOpenChange = vi.fn()
     // `open` is pinned to false (parent rejects every change).

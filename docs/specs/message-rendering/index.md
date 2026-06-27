@@ -104,7 +104,12 @@ scope** and MUST NOT appear in this package.
 - The substrate MUST support controlled (`open`/`onOpenChange`) and uncontrolled
   (`defaultOpen`) use.
 - The affordance icon precedence MUST be: active → spinner; just-completed → success check
-  (flash); has-body → caret (open/closed); otherwise → muted filler.
+  (flash); otherwise → NO affordance icon (an empty filler span is preserved for layout). The
+  disclosure caret MUST NOT be rendered by the substrate — it is owned SOLELY by the registry
+  `Collapsible` slot (see [component-registry › Primitive Contract](../component-registry/)), so
+  exactly one caret shows. An idle bodied row therefore renders no affordance icon while the
+  Collapsible shows the open/closed caret; a running expandable row MAY show both the spinner
+  (affordance) and the Collapsible caret, which is acceptable.
 - The substrate MUST auto-hide when it has no active state, no flash, no timer, and no body
   (so empty lifecycle rows do not clutter the log), unless explicitly told to always show.
 
@@ -113,6 +118,14 @@ scope** and MUST NOT appear in this package.
 - **GIVEN** a user has manually collapsed a block
 - **WHEN** the host flips a global "verbose/expand-all" default
 - **THEN** the block adopts the new default-open state (manual override is reset).
+
+#### Scenario: Exactly one disclosure caret
+
+- **GIVEN** an idle bodied collapsible row rendered through any registry (headless or a host
+  override)
+- **WHEN** it renders
+- **THEN** exactly one disclosure caret is shown — from the `Collapsible` slot — and the
+  substrate adds no affordance caret icon of its own.
 
 ### Streaming & Timing State Machine
 
@@ -435,3 +448,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-26 | Added render-layer extensibility (custom block/tool renderers, custom timeline items, inert unknown-type fallback) — not yet implemented | [0007-render-extensibility](../../changes/0007-render-extensibility.md) |
 | 2026-06-26 | Added user-attachment rendering (image grid + lightbox, media/file chips, scheme-safe download) — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
 | 2026-06-27 | Added token-driven role styling (user/assistant bubbles via `data-role`, system unbubbled) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
+| 2026-06-27 | Disclosure caret owned solely by the `Collapsible` slot; substrate affordance precedence drops the caret (idle bodied row renders no affordance icon) | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |

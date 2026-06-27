@@ -5,7 +5,11 @@
  * Responsibilities:
  * - A clickable header carrying an affordance icon, a label, optional pills.
  * - Affordance-icon precedence: active → spinner; just-completed → success check
- *   (flash); has-body → caret (open/closed); otherwise → muted filler.
+ *   (flash); otherwise → NO affordance icon (an empty filler span is preserved
+ *   for layout). The disclosure caret is owned SOLELY by the registry
+ *   `Collapsible` slot — this substrate MUST NOT render its own caret. A running,
+ *   expandable row may therefore show BOTH the spinner (this affordance) and the
+ *   Collapsible's caret, which is acceptable.
  * - Optional live-timer pill and tokens/sec pill.
  * - Controlled (`open`/`onOpenChange`) and uncontrolled (`defaultOpen`) use,
  *   where a change to the host's `defaultOpen` (e.g. a verbose/expand-all flip)
@@ -93,20 +97,23 @@ export function CollapsibleRow({
   // by a ref holding the previous prop value so the set runs at most once per
   // `defaultOpen` change (no infinite loop, no StrictMode warning). React
   // re-renders the component immediately without committing the intermediate
-  // DOM, so `isOpen` below already reflects the new value this same render.
+  // DOM, so `internalOpen` already reflects the new value this same render and
+  // is forwarded to the Collapsible slot below.
   // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   if (!controlled && prevDefault.current !== defaultOpen) {
     prevDefault.current = defaultOpen
     if (internalOpen !== defaultOpen) setInternalOpen(defaultOpen)
   }
-  const isOpen = controlled ? (open as boolean) : internalOpen
 
   const hasBody = children != null && children !== false
   const timerPill = showTimer && (isActive || durationMs !== undefined)
   // Auto-hide: nothing to show and not forced.
   if (!alwaysShow && !isActive && !flash && !timerPill && !hasBody) return null
 
-  // Affordance-icon precedence.
+  // Affordance-icon precedence. The disclosure caret is NOT emitted here — the
+  // registry `Collapsible` slot is the sole caret owner — so a bodied idle row
+  // carries the `body` tone (for layout/styling) but renders no affordance icon,
+  // exactly like the `filler` tone.
   let Affordance: typeof icons.spinner | undefined
   let affordanceTone: 'active' | 'success' | 'body' | 'filler'
   if (isActive) {
@@ -116,7 +123,8 @@ export function CollapsibleRow({
     Affordance = icons.check
     affordanceTone = 'success'
   } else if (hasBody) {
-    Affordance = isOpen ? icons.caretDown : icons.caretRight
+    // Bodied + idle: the Collapsible slot renders the caret; emit no icon here.
+    Affordance = undefined
     affordanceTone = 'body'
   } else {
     Affordance = undefined

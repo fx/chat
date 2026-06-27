@@ -432,15 +432,11 @@ summary .chat-row-header,
   color: var(--chat-fg);
 }
 
-/* CollapsibleRow owns the affordance icon (spinner / check / caret / filler)
-   via .chat-row-affordance, applying the documented precedence. The headless
-   Collapsible also renders its own caret in the summary; hide that built-in
-   caret inside a chat-row so only one expand/collapse chevron shows. Hosts that
-   inject their own Collapsible without a built-in caret are unaffected. */
-.chat-row .chat-collapsible-caret {
-  display: none;
-}
-
+/* CollapsibleRow owns ONLY the spinner (active) / success check (flash)
+   affordance via .chat-row-affordance; for an idle bodied row it emits no icon.
+   The disclosure caret is owned SOLELY by the registry `Collapsible` slot, so
+   there is exactly one expand/collapse chevron and no caret-hiding hack is
+   needed here. */
 .chat-row-error,
 .chat-row[data-tone="error"] {
   border-color: var(--chat-error);

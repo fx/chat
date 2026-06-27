@@ -66,19 +66,41 @@ describe('CollapsibleRow affordance precedence', () => {
     )
   })
 
-  it('shows a caret when it has a body and is idle', () => {
-    row({ label: 'B', children: <span>b</span> })
-    expect(screen.getByText('B').closest('.chat-row-header')).toHaveAttribute(
-      'data-affordance',
-      'body',
-    )
+  it('carries the body tone but renders NO affordance icon when idle with a body', () => {
+    // The disclosure caret is owned by the Collapsible slot, not this substrate:
+    // a bodied idle row keeps the `body` tone (for layout/styling) but emits no
+    // affordance icon of its own.
+    const { container } = row({ label: 'B', children: <span>b</span> })
+    const header = screen.getByText('B').closest('.chat-row-header') as HTMLElement
+    expect(header).toHaveAttribute('data-affordance', 'body')
+    const affordance = container.querySelector('.chat-row-affordance') as HTMLElement
+    expect(affordance).not.toBeNull()
+    expect(affordance).toHaveAttribute('data-affordance', 'body')
+    expect(affordance.querySelector('.chat-row-affordance-icon')).toBeNull()
   })
 
-  it('shows a muted filler when idle with no body but alwaysShow', () => {
-    row({ label: 'F', alwaysShow: true })
-    expect(screen.getByText('F').closest('.chat-row-header')).toHaveAttribute(
+  it('shows a muted filler (no icon) when idle with no body but alwaysShow', () => {
+    const { container } = row({ label: 'F', alwaysShow: true })
+    const header = screen.getByText('F').closest('.chat-row-header') as HTMLElement
+    expect(header).toHaveAttribute('data-affordance', 'filler')
+    const affordance = container.querySelector('.chat-row-affordance') as HTMLElement
+    expect(affordance).toHaveAttribute('data-affordance', 'filler')
+    expect(affordance.querySelector('.chat-row-affordance-icon')).toBeNull()
+  })
+
+  it('still renders the spinner icon while active and the check icon on flash', () => {
+    const { container, rerender } = row({ label: 'A', isActive: true, alwaysShow: true })
+    expect(container.querySelector('.chat-row-affordance-icon')).not.toBeNull()
+    expect(screen.getByText('A').closest('.chat-row-header')).toHaveAttribute(
       'data-affordance',
-      'filler',
+      'active',
+    )
+    rerender(<CollapsibleRow label="A" isActive={false} alwaysShow />)
+    // Flash → success check icon present.
+    expect(container.querySelector('.chat-row-affordance-icon')).not.toBeNull()
+    expect(screen.getByText('A').closest('.chat-row-header')).toHaveAttribute(
+      'data-affordance',
+      'success',
     )
   })
 })

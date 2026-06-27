@@ -60,7 +60,10 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
   - `Tooltip` — wraps a trigger and shows content on hover/focus (MAY be a no-op passthrough
     in the headless default).
   - `Collapsible` — a disclosure with a header trigger and a body; controlled and
-    uncontrolled use MUST both be supported.
+    uncontrolled use MUST both be supported. The `Collapsible` slot is the SOLE owner of the
+    disclosure caret/chevron: the headless default renders its own caret in the summary, and a
+    host override MAY render its own. The render-layer substrate (`CollapsibleRow`) MUST NOT
+    render a disclosure caret, so exactly one caret shows regardless of the injected registry.
   - `CodeBlock` — renders preformatted code/text with OPTIONAL language.
   - `JsonView` — renders a (possibly large) JSON value in a collapsible/scrollable view;
     MAY be implemented on top of `CodeBlock`.
@@ -239,3 +242,4 @@ type IconName =
 | 2026-06-25 | Initial spec created | [0003-component-registry](../../changes/0003-component-registry.md) |
 | 2026-06-26 | Added OPTIONAL `Lightbox`/`ImageOverlay` slot and `download`/`expand` icons for attachment rendering — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
 | 2026-06-27 | Defaulted `--chat-font-family` to `inherit` and added role-bubble theme tokens (`--chat-user-bubble-*`, `--chat-assistant-bubble-*`, `--chat-bubble-max-width`) with light/dark defaults | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
+| 2026-06-27 | Clarified the `Collapsible` slot is the SOLE owner of the disclosure caret; the render substrate MUST NOT render one | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
