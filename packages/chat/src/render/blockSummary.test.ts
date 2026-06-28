@@ -4,31 +4,35 @@ import { summarizeBlock } from './blockSummary'
 import type { RenderableBlock } from './extensions'
 
 describe('summarizeBlock', () => {
-  it('reasoning: brain icon + "Thinking…" while active, with showTimer', () => {
+  it('reasoning: brain icon + "Thinking…" while active, no timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
     expect(summarizeBlock(block, { isActive: true })).toEqual({
       iconName: 'brain',
       label: 'Thinking…',
-      showTimer: true,
+      // No timer pill — the bare ReasoningBlockView shows none, and the label
+      // (once completed) embeds the duration, so a pill would duplicate it.
+      showTimer: false,
     })
   })
 
-  it('reasoning: "Thought for <dur>" with its own durationMs when completed', () => {
+  it('reasoning: "Thought for <dur>" carries durationMs but NO timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't', durationMs: 1300 }
     expect(summarizeBlock(block)).toEqual({
       iconName: 'brain',
       label: 'Thought for 1.3s',
       durationMs: 1300,
-      showTimer: true,
+      // durationMs is carried (callers may use it for the label/tooltip), but
+      // showTimer is false: the "1.3s" already lives in the label.
+      showTimer: false,
     })
   })
 
-  it('reasoning: neutral "Reasoning" when idle with no duration', () => {
+  it('reasoning: neutral "Reasoning" when idle with no duration, no timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
     expect(summarizeBlock(block)).toEqual({
       iconName: 'brain',
       label: 'Reasoning',
-      showTimer: true,
+      showTimer: false,
     })
   })
 
@@ -45,7 +49,8 @@ describe('summarizeBlock', () => {
       iconName: 'wrench',
       label: 'search',
       durationMs: 2000,
-      showTimer: true,
+      // No timer pill — mirrors the bare ToolCallBlockView, which shows none.
+      showTimer: false,
     })
   })
 
@@ -57,7 +62,7 @@ describe('summarizeBlock', () => {
       arguments: {},
       status: 'success',
     }
-    expect(summarizeBlock(block)).toEqual({ iconName: 'wrench', label: 'fetch', showTimer: true })
+    expect(summarizeBlock(block)).toEqual({ iconName: 'wrench', label: 'fetch', showTimer: false })
   })
 
   it('system: gear icon + "System prompt", no timer', () => {

@@ -71,6 +71,9 @@ describe('BlockGroup', () => {
       />,
     )
     const header = container.querySelector('.chat-row-header') as HTMLElement
+    // A status summary KEEPS its timer pill — the "Generating…"/"Generated"
+    // label does not embed the duration, so the pill carries it.
+    expect(header.querySelector('.chat-row-timer')).not.toBeNull()
     expect(within(header).getByText('<1s')).toBeInTheDocument()
     expect(within(header).getByText('8.0 tok/s')).toBeInTheDocument()
   })
@@ -112,10 +115,11 @@ describe('BlockGroup', () => {
     expect(within(header).getByText('9.0 tok/s')).toBeInTheDocument()
   })
 
-  it('surfaces a reasoning summary block-own duration pill + brain icon', () => {
+  it('surfaces a reasoning summary "Thought for <dur>" label + tok/s, with NO standalone timer pill', () => {
     // A completed reasoning summary mirrors the bare ReasoningBlock header: the
-    // `brain` kind icon and a "Thought for <dur>" label from its OWN durationMs,
-    // plus the corresponding duration pill.
+    // `brain` kind icon and a "Thought for <dur>" label from its OWN durationMs.
+    // The label already embeds the duration, so NO standalone timer pill renders
+    // (it would duplicate the "1.3s" already in the label). The tok/s pill stays.
     const blocks: ContentBlock[] = [
       { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
       { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1300 },
@@ -126,12 +130,13 @@ describe('BlockGroup', () => {
     const header = container.querySelector('.chat-row-header') as HTMLElement
     // brain kind icon present.
     expect(header.querySelector('.chat-row-icon')).not.toBeNull()
-    // Label mirrors the bare reasoning header.
+    // Label mirrors the bare reasoning header (carries the duration).
     expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe(
       'Thought for 1.3s',
     )
-    // Duration pill (block-own) + tok/s pill both on the collapsed header.
-    expect(within(header).getByText('1.3s')).toBeInTheDocument()
+    // NO standalone timer pill — the duration lives only in the label.
+    expect(header.querySelector('.chat-row-timer')).toBeNull()
+    // tok/s pill still surfaces on the collapsed header.
     expect(within(header).getByText('167.0 tok/s')).toBeInTheDocument()
   })
 

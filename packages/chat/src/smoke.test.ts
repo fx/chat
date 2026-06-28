@@ -451,6 +451,16 @@ describe('@fx/chat public surface', () => {
     expect(footerIcon).toMatch(/width:\s*0\.625rem/)
     expect(footerIcon).toMatch(/height:\s*0\.625rem/)
 
+    // EVERY <svg> inside the footer is sized to 10px (0.625rem), not just the
+    // ones carrying `.chat-footer-icon`. Some registry slots (e.g. the
+    // `CopyButton`) render their own icon markup without that class, so the
+    // class-only rule left the Copy icon at its intrinsic 16px. The
+    // `.chat-footer svg` rule overrides the SVG's own width/height attributes so
+    // all footer icons match regardless of the host's CopyButton markup.
+    const footerSvg = css.match(/\.chat-footer svg[^{]*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerSvg).toMatch(/width:\s*0\.625rem/)
+    expect(footerSvg).toMatch(/height:\s*0\.625rem/)
+
     // Aux header (renderer-owned `.chat-row` baseline): 12px + medium weight +
     // muted + compact padding.
     const row = css.match(/\n\.chat-row\s*\{([^}]*)\}/)?.[1] ?? ''

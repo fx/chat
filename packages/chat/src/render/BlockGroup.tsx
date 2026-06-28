@@ -87,11 +87,14 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   // prefers a trailing active status as the summary (to keep the timer visible).
   const summaryIsStatus = summaryBlock.type === 'status'
 
-  // Timer: a status summary uses the message-level duration (as before); a
-  // reasoning/tool summary uses its OWN block duration so "Thought for <dur>"
-  // gets its matching pill. tok/s: the status summary shows the live rate; a
-  // reasoning/tool summary shows the message-level finalized rate so the
-  // collapsed header carries the same `N tok/s` pill the reference renders.
+  // Timer: ONLY a status summary surfaces a timer pill (status labels don't
+  // embed the duration, so the pill carries it), using the message-level
+  // duration. Reasoning/tool summaries set `summary.showTimer === false` — their
+  // bare renderers show no timer pill, and the reasoning "Thought for <dur>"
+  // label already embeds the duration, so a separate pill would duplicate it.
+  // tok/s: the status summary shows the live rate; a reasoning/tool summary
+  // shows the message-level finalized rate so the collapsed header still carries
+  // the same `N tok/s` pill the reference renders (independent of the timer).
   const showTimer = summaryIsStatus || summary.showTimer
   const durationMs = summaryIsStatus ? context.durationMs : summary.durationMs
   // Status summary: live tok/s only while active (unchanged). Reasoning/tool

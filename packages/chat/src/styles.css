@@ -662,7 +662,17 @@ summary .chat-row-header,
 /* Footer action icons: size to the reference's 10px regardless of the host icon
    set. CSS width/height overrides the SVG's own width/height attributes, so a
    host whose icon ships a 16px intrinsic size still renders at the footer scale
-   (the icons currently default to 16px without this). */
+   (the icons currently default to 16px without this).
+
+   We target EVERY <svg> inside the footer (not just `.chat-footer-icon`)
+   because some registry slots — notably the `CopyButton` — render their own
+   icon markup that does NOT carry the `.chat-footer-icon` class, so the
+   class-only rule left the Copy icon at its intrinsic 16px while Copy/Regen/
+   Reset siblings were 10px. Scoping to `.chat-footer svg` sizes all of them
+   uniformly without touching non-footer icons. The explicit `.chat-footer-icon`
+   selector is kept (harmless/redundant) for any host icon rendered outside an
+   <svg> root. */
+.chat-footer svg,
 .chat-footer-icon {
   width: 0.625rem;
   height: 0.625rem;
