@@ -415,7 +415,7 @@
   flex-shrink: 0;
   width: 3.5rem;
   text-align: right;
-  padding-top: 0.25rem;
+  padding-top: 0;
   font-size: 0.625rem;
   line-height: 1.4;
   color: var(--chat-muted);
