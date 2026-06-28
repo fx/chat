@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../model'
 import { MessageItem, messageCopyText } from './MessageItem'
+import { createClockGutterDeduper } from './format'
 import { stubMatchMedia } from './test-helpers'
 
 beforeEach(() => {
@@ -445,21 +446,163 @@ describe('MessageItem', () => {
     expect(container.querySelector('.chat-row')).not.toBeNull()
   })
 
-  it('renders a left-aligned timestamp when createdAt is present', () => {
-    // System time is faked to epoch 0 in beforeEach; createdAt 0 is a valid date.
-    render(<MessageItem message={message({ createdAt: 0 })} />)
-    const time = screen.getByTestId('chat-message-time')
-    expect(time).toHaveClass('chat-message-time')
-    expect(time.textContent).toMatch(/^\d{2}:\d{2}$/)
-  })
-
-  it('omits the timestamp when createdAt is absent', () => {
-    render(<MessageItem message={message()} />)
+  it('renders no timestamp gutter by default (plain column, no gutter rows)', () => {
+    const { container } = render(<MessageItem message={message({ createdAt: 0 })} />)
+    expect(container.querySelector('.chat-gutter-row')).toBeNull()
+    expect(container.querySelector('.chat-gutter-time')).toBeNull()
+    // The prior per-message timestamp chrome is gone.
     expect(screen.queryByTestId('chat-message-time')).toBeNull()
   })
 
-  it('omits the timestamp when showTimestamps is false even with createdAt', () => {
-    render(<MessageItem message={message({ createdAt: 0 })} showTimestamps={false} />)
-    expect(screen.queryByTestId('chat-message-time')).toBeNull()
+  it('wraps each row in a gutter row with a clock cell when timestampGutter is set', () => {
+    // A non-finite createdAt would blank the cell; use a valid local time.
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const { container } = render(<MessageItem message={message({ createdAt })} timestampGutter />)
+    const row = container.querySelector('.chat-gutter-row')
+    expect(row).not.toBeNull()
+    const time = row?.querySelector('.chat-gutter-time') as HTMLElement
+    expect(time).not.toBeNull()
+    expect(time.textContent).toBe('09:05:07')
+    // The content cell carries the rendered block.
+    const content = row?.querySelector('.chat-gutter-content') as HTMLElement
+    expect(content).not.toBeNull()
+    expect(within(content).getByText('answer')).toBeInTheDocument()
+    // The wrapper advertises the gutter via a data hook.
+    expect(container.querySelector('[data-message-id="m1"]')).toHaveAttribute(
+      'data-timestamp-gutter',
+      'true',
+    )
+  })
+
+  it('blanks consecutive same-second rows and reserves the gutter width', () => {
+    // Two bare rows on the same message both fall back to the SAME createdAt, so
+    // the first prints the clock and the second blanks (de-dupe within a message
+    // via the per-message fallback deduper).
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const msg = message({
+      createdAt,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think', durationMs: 1000 },
+        { type: 'text', id: 'a', text: 'answer' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} timestampGutter />)
+    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    expect(cells).toHaveLength(2)
+    // First row of the same-second run shows the clock.
+    expect(cells[0]?.textContent).toBe('09:05:07')
+    // The next identical-second row blanks (width still reserved via CSS).
+    expect(cells[1]?.textContent).toBe('')
+    // The blank cell is aria-hidden so screen readers skip it.
+    expect(cells[1]).toHaveAttribute('aria-hidden', 'true')
+    expect(cells[0]).not.toHaveAttribute('aria-hidden')
+  })
+
+  it('blanks the clock cell for a missing/invalid message timestamp', () => {
+    // No createdAt and no block timestamp → the cell is blank but width-reserved.
+    const { container } = render(<MessageItem message={message()} timestampGutter />)
+    const time = container.querySelector('.chat-gutter-time') as HTMLElement
+    expect(time).not.toBeNull()
+    expect(time.textContent).toBe('')
+    expect(time).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('prefers a block-level startedAt over the message createdAt for a row clock', () => {
+    // The aux row's tool_call carries its own startedAt; the bare text row falls
+    // back to createdAt. The two distinct seconds both print (no de-dupe).
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const toolStartedAt = new Date(2024, 0, 2, 9, 5, 9).getTime()
+    const msg = message({
+      createdAt,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: 'search',
+          arguments: {},
+          status: 'success',
+          startedAt: toolStartedAt,
+        },
+        { type: 'text', id: 'a', text: 'answer' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} timestampGutter />)
+    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    expect(cells).toHaveLength(2)
+    // The tool row uses its own startedAt (09:05:09), not createdAt (09:05:07).
+    expect(cells[0]?.textContent).toBe('09:05:09')
+    // The text row falls back to createdAt.
+    expect(cells[1]?.textContent).toBe('09:05:07')
+  })
+
+  it('wraps flat-mode blocks in gutter rows when timestampGutter is set', () => {
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const msg = message({
+      createdAt,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        { type: 'tool_call', id: 't', name: 'search', arguments: {}, status: 'success' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} flat timestampGutter />)
+    // Flat: one gutter row per block (no grouping).
+    const rows = container.querySelectorAll('.chat-gutter-row')
+    expect(rows).toHaveLength(2)
+    // The tool name renders inside a gutter content cell (flat → no group).
+    expect(container.querySelector('.chat-group')).toBeNull()
+    expect(screen.getByText('search')).toBeInTheDocument()
+  })
+
+  it('uses the group first block startedAt for a grouped row clock', () => {
+    // A collapsed group of two tool calls: the row clock comes from the FIRST
+    // block's startedAt, not the message createdAt.
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const firstStartedAt = new Date(2024, 0, 2, 9, 5, 12).getTime()
+    const msg = message({
+      createdAt,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't1',
+          name: 'search',
+          arguments: {},
+          status: 'success',
+          startedAt: firstStartedAt,
+        },
+        { type: 'tool_call', id: 't2', name: 'fetch', arguments: {}, status: 'success' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} timestampGutter defaultOpen />)
+    // The two tool calls collapse into one group → one gutter row.
+    expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
+    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    expect(cells).toHaveLength(1)
+    // Row clock = first block startedAt (09:05:12), not createdAt (09:05:07).
+    expect(cells[0]?.textContent).toBe('09:05:12')
+  })
+
+  it('threads a log-wide renderGutter so same-second rows de-dupe across messages', () => {
+    // Simulate MessageLog threading one shared deduper. Two messages at the same
+    // second: the first message's row prints, the second's blanks.
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const shared = createClockGutterDeduper()
+    const { container } = render(
+      <>
+        <MessageItem
+          message={message({ id: 'm1', createdAt })}
+          timestampGutter
+          renderGutter={shared}
+        />
+        <MessageItem
+          message={message({ id: 'm2', createdAt })}
+          timestampGutter
+          renderGutter={shared}
+        />
+      </>,
+    )
+    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    expect(cells[0]?.textContent).toBe('09:05:07')
+    // Cross-message de-dupe: the second message's identical-second row blanks.
+    expect(cells[cells.length - 1]?.textContent).toBe('')
   })
 })

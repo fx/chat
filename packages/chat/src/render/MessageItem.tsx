@@ -14,15 +14,16 @@
  * no forced compact footer, and no `data-minimal` attribute (an explicitly
  * passed `compactFooter` prop is still honored).
  */
+import type { ReactNode } from 'react'
 import { BlockGroup } from './BlockGroup'
 import { MessageAttachments } from './MessageAttachments'
 import { MessageFooter } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
-import type { ChatExtensions, RenderableMessage } from './extensions'
-import { deriveTokensPerSecond, formatMessageTime } from './format'
-import { groupBlocks } from './grouping'
+import type { ChatExtensions, RenderableBlock, RenderableMessage } from './extensions'
+import { createClockGutterDeduper, deriveTokensPerSecond } from './format'
+import { type GroupedItem, groupBlocks } from './grouping'
 import { collapseTurnAux } from './minimalGrouping'
 
 /** Props for {@link MessageItem}. */
@@ -46,10 +47,20 @@ export interface MessageItemProps {
   /** Show the footer affordances. */
   showFooter?: boolean
   /**
-   * Show the left-aligned message timestamp (from `message.createdAt`). Renders
-   * only when a valid timestamp is present; defaults to `true`.
+   * Render each top-level row in a two-column TIMESTAMP GUTTER layout: a fixed
+   * 56px left clock cell (`HH:MM:SS`, local, de-duped across the log) + the row
+   * content on the right. OPTIONAL; the host enables it. When OFF (default), rows
+   * render in a plain column with no gutter and no timestamps.
    */
-  showTimestamps?: boolean
+  timestampGutter?: boolean
+  /**
+   * Log-wide clock de-duper from {@link createClockGutterDeduper}. The owning
+   * `MessageLog` creates ONE per render and threads it to every `MessageItem` so
+   * consecutive same-second rows across the whole log blank out (the time shows
+   * once per run). Only consulted when `timestampGutter` is set. When absent, the
+   * gutter falls back to a per-message formatter (no cross-message de-dupe).
+   */
+  renderGutter?: (value: number | string | null | undefined) => string
   /** Compact footer mode. */
   compactFooter?: boolean
   /** Optional render-layer extensions (custom block/tool renderers + grouping). */
@@ -67,6 +78,33 @@ export function messageCopyText(message: RenderableMessage): string {
     .join('\n\n')
 }
 
+/** A finite, positive number, else `undefined`. */
+function positiveTimestamp(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+/**
+ * Resolve the timestamp for a single rendered block, preferring a block-level
+ * timestamp (`startedAt`, currently carried by `tool_call` blocks) when finite
+ * and positive. Returns `undefined` when the block carries none, so the caller
+ * falls back to the message `createdAt`.
+ */
+function blockTimestamp(block: RenderableBlock): number | undefined {
+  const startedAt = (block as { startedAt?: number }).startedAt
+  return positiveTimestamp(startedAt)
+}
+
+/**
+ * Resolve the timestamp for one grouped row. A bare row uses its block's
+ * timestamp; a group uses its FIRST block's timestamp (the metadata line appears
+ * where the run began). `undefined` when no row block carries one.
+ */
+function groupedItemTimestamp(item: GroupedItem): number | undefined {
+  if (item.kind === 'bare') return blockTimestamp(item.block)
+  // Groups are non-empty by construction (only runs of length >= 2 form a group).
+  return blockTimestamp(item.blocks[0] as RenderableBlock)
+}
+
 /** Renders a single message and its footer. */
 export function MessageItem({
   message,
@@ -76,7 +114,8 @@ export function MessageItem({
   minimal = false,
   defaultOpen,
   showFooter = true,
-  showTimestamps = true,
+  timestampGutter = false,
+  renderGutter,
   compactFooter = false,
   extensions,
   onRegenerate,
@@ -132,9 +171,49 @@ export function MessageItem({
         : groupBlocks(blocks, behaviorOverrides)
       : []
 
-  // Left-aligned message chrome: a small muted timestamp rendered above the
-  // bubble when present. Gated on `showTimestamps` and a valid `createdAt`.
-  const timeLabel = showTimestamps ? formatMessageTime(message.createdAt) : undefined
+  // The timestamp-gutter de-duper. Prefer the log-wide one threaded from
+  // `MessageLog` (so consecutive same-second rows blank out across messages);
+  // fall back to a per-message instance when a `MessageItem` is rendered
+  // standalone. Only consulted when `timestampGutter` is set.
+  const gutter = renderGutter ?? createClockGutterDeduper()
+
+  // Wrap a single top-level row in the two-column gutter layout: a fixed-width
+  // left clock cell + the row content. The clock comes from the row's own
+  // timestamp (block-level `startedAt` if present, else the message `createdAt`)
+  // run through the shared de-duper, so a turn's first row of a given second
+  // shows the time and later same-second rows render a blank (width-reserved)
+  // cell. The cell is `aria-hidden` when blank so screen readers skip it.
+  const wrapRow = (key: string, rowTimestamp: number | undefined, row: ReactNode): ReactNode => {
+    const source = rowTimestamp ?? message.createdAt
+    const clock = gutter(source)
+    return (
+      <div className="chat-gutter-row" key={key}>
+        <span
+          className="chat-gutter-time"
+          data-testid="chat-gutter-time"
+          {...(clock === '' ? { 'aria-hidden': true } : {})}
+        >
+          {clock}
+        </span>
+        <div className="chat-gutter-content">{row}</div>
+      </div>
+    )
+  }
+
+  const flatRows = (renderRow: (block: RenderableBlock) => ReactNode): ReactNode =>
+    blocks.map((block) =>
+      timestampGutter
+        ? wrapRow(block.id, blockTimestamp(block), renderRow(block))
+        : renderRow(block),
+    )
+
+  const groupedRows = (
+    renderRow: (item: GroupedItem) => { node: ReactNode; key: string },
+  ): ReactNode =>
+    groupedItems.map((item) => {
+      const { node, key } = renderRow(item)
+      return timestampGutter ? wrapRow(key, groupedItemTimestamp(item), node) : node
+    })
 
   return (
     <div
@@ -142,18 +221,14 @@ export function MessageItem({
       data-message-id={message.id}
       data-role={message.role}
       {...(minimalActive ? { 'data-minimal': 'true' } : {})}
+      {...(timestampGutter ? { 'data-timestamp-gutter': 'true' } : {})}
     >
-      {timeLabel ? (
-        <span className="chat-message-time" data-testid="chat-message-time">
-          {timeLabel}
-        </span>
-      ) : null}
       {raw ? (
         <RawJsonBlockView value={message} />
       ) : (
         <div className="chat-message-blocks">
           {flat
-            ? blocks.map((block) => (
+            ? flatRows((block) => (
                 <BlockView
                   key={block.id}
                   block={block}
@@ -161,23 +236,31 @@ export function MessageItem({
                   {...(extensions ? { extensions } : {})}
                 />
               ))
-            : groupedItems.map((item) =>
-                item.kind === 'bare' ? (
-                  <BlockView
-                    key={item.block.id}
-                    block={item.block}
-                    context={context}
-                    {...(extensions ? { extensions } : {})}
-                  />
-                ) : (
-                  <BlockGroup
-                    key={`group-${(item.blocks[0] as { id: string }).id}`}
-                    blocks={item.blocks}
-                    context={context}
-                    {...(defaultOpen !== undefined ? { defaultOpen } : {})}
-                    {...(extensions ? { extensions } : {})}
-                  />
-                ),
+            : groupedRows((item) =>
+                item.kind === 'bare'
+                  ? {
+                      key: item.block.id,
+                      node: (
+                        <BlockView
+                          key={item.block.id}
+                          block={item.block}
+                          context={context}
+                          {...(extensions ? { extensions } : {})}
+                        />
+                      ),
+                    }
+                  : {
+                      key: `group-${(item.blocks[0] as { id: string }).id}`,
+                      node: (
+                        <BlockGroup
+                          key={`group-${(item.blocks[0] as { id: string }).id}`}
+                          blocks={item.blocks}
+                          context={context}
+                          {...(defaultOpen !== undefined ? { defaultOpen } : {})}
+                          {...(extensions ? { extensions } : {})}
+                        />
+                      ),
+                    },
               )}
         </div>
       )}

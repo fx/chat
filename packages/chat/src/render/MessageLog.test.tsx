@@ -112,4 +112,49 @@ describe('MessageLog', () => {
     expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
     expect(container.querySelector('[data-minimal]')).toBeNull()
   })
+
+  it('renders no timestamp gutter by default', () => {
+    const { container } = render(<MessageLog messages={messages} />)
+    expect(container.querySelector('.chat-gutter-row')).toBeNull()
+    expect(container.querySelector('[data-timestamp-gutter]')).toBeNull()
+  })
+
+  it('threads timestampGutter to each message and wraps rows in gutter rows', () => {
+    const { container } = render(<MessageLog messages={messages} timestampGutter />)
+    // Every message wrapper advertises the gutter hook.
+    const wrappers = container.querySelectorAll('[data-message-id]')
+    for (const w of wrappers) {
+      expect(w).toHaveAttribute('data-timestamp-gutter', 'true')
+    }
+    // Rows are wrapped in the two-column gutter layout.
+    expect(container.querySelector('.chat-gutter-row')).not.toBeNull()
+    expect(container.querySelector('.chat-gutter-time')).not.toBeNull()
+    expect(container.querySelector('.chat-gutter-content')).not.toBeNull()
+  })
+
+  it('de-dupes same-second clocks LOG-WIDE across messages (one shared deduper)', () => {
+    // Both messages share createdAt 0 (faked system time). The first row of the
+    // run prints the clock; every later same-second row across BOTH messages
+    // blanks — proving the deduper is shared log-wide, not per-message.
+    const sameSecond: ChatMessage[] = [
+      {
+        id: 'm1',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't1', text: 'a' }],
+        createdAt: 0,
+      },
+      {
+        id: 'm2',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't2', text: 'b' }],
+        createdAt: 0,
+      },
+    ]
+    const { container } = render(<MessageLog messages={sameSecond} timestampGutter />)
+    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    expect(cells).toHaveLength(2)
+    // First row prints; the second (same second, next message) blanks.
+    expect(cells[0]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
+    expect(cells[1]?.textContent).toBe('')
+  })
 })

@@ -13,6 +13,7 @@ import type { ReactNode } from 'react'
 import { MessageItem } from './MessageItem'
 import { TimelineItemView } from './TimelineItemView'
 import type { ChatExtensions, RenderableMessage } from './extensions'
+import { createClockGutterDeduper } from './format'
 import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
@@ -42,6 +43,14 @@ export interface MessageLogProps extends MessageCallbacks {
   defaultOpen?: boolean
   /** Show per-message footers. */
   showFooter?: boolean
+  /**
+   * Render each top-level row in a two-column TIMESTAMP GUTTER layout (a fixed
+   * left clock cell + the row content). The log builds ONE log-wide clock
+   * de-duper and threads it to every `MessageItem`, so consecutive same-second
+   * rows across the WHOLE log show the time once and blank the rest. OPTIONAL;
+   * off by default (plain column, no timestamps).
+   */
+  timestampGutter?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
   /**
@@ -69,6 +78,7 @@ export function MessageLog({
   defaultOpen,
   showFooter,
   compactFooter,
+  timestampGutter,
   extensions,
   onRegenerate,
   onFork,
@@ -78,6 +88,11 @@ export function MessageLog({
   // Interleave messages and host-supplied custom timeline items by createdAt/at.
   // With no timeline items, this is the messages in order (default path).
   const timeline = mergeTimeline(messages, extensions?.timelineItems)
+  // ONE log-wide clock de-duper per render, threaded to every MessageItem so
+  // consecutive same-second rows blank out across message boundaries. Render
+  // order is top-to-bottom (matching DOM order), so the de-dupe is correct.
+  // Only built when the gutter is enabled.
+  const gutterDeduper = timestampGutter ? createClockGutterDeduper() : undefined
   const items = timeline.map((entry) => {
     if (entry.kind === 'item') {
       // An item entry only exists when `extensions.timelineItems` was non-empty,
@@ -105,6 +120,8 @@ export function MessageLog({
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}
+        {...(timestampGutter !== undefined ? { timestampGutter } : {})}
+        {...(gutterDeduper ? { renderGutter: gutterDeduper } : {})}
         {...(extensions ? { extensions } : {})}
         {...(onRegenerate ? { onRegenerate: () => onRegenerate(message.id) } : {})}
         {...(onFork ? { onFork: () => onFork(message.id) } : {})}
