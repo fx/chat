@@ -212,8 +212,17 @@
 .chat-collapsible-header {
   display: flex;
   align-items: center;
-  gap: calc(var(--chat-gap) / 2);
-  padding: calc(var(--chat-gap) / 2) var(--chat-gap);
+  /* Reference aux header gap (≈8px with --chat-gap=0.75rem) between the leading
+     icon, label, and pills. */
+  gap: calc(var(--chat-gap) / 1.5);
+  /* Reference toggle padding (`px-2 py-1` ≈ 4px 8px). The ≥44px min-height below
+     still guarantees a comfortable touch target; this padding sets the compact
+     internal feel the reference uses. */
+  padding: calc(var(--chat-gap) / 3) calc(var(--chat-gap) / 1.5);
+  /* Small (12px) + medium-weight + muted to match the reference aux header. */
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--chat-muted);
   /* Disclosure summary rows are the primary expand/collapse affordance for
      grouped/tool rows; give them a ≥44px tappable height for touch. */
   min-height: 44px;
@@ -423,6 +432,10 @@
   border-radius: var(--chat-radius);
   /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
   padding: 0.625rem 1rem;
+  /* Cap the bubble at the reference max-width (85%) — the message wrapper already
+     carries this cap, but the text block must carry it too so the bubble caps
+     even when a host renders `.chat-text` outside the role wrapper. */
+  max-width: var(--chat-bubble-max-width);
 }
 
 .chat-message[data-role="assistant"] .chat-text {
@@ -431,6 +444,8 @@
   border-radius: var(--chat-radius);
   /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
   padding: 0.625rem 1rem;
+  /* Cap the bubble at the reference max-width (85%) — see the user rule above. */
+  max-width: var(--chat-bubble-max-width);
 }
 
 /* The user bubble sits on the accent color, where the muted footer-metrics tone
@@ -535,7 +550,15 @@ summary .chat-row-header,
 
 .chat-row {
   font-family: var(--chat-font-family);
-  color: var(--chat-fg);
+  /* Reference aux header (the collapsed tool/reasoning/status toggle): small
+     (12px), medium weight, muted, with a `px-2 py-1` toggle feel. The baseline
+     padding lives here so the row carries the reference's compact toggle look
+     regardless of the host registry's trigger; a host trigger may add its own.
+     With --chat-gap=0.75rem this is ≈4px 8px. */
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--chat-muted);
+  padding: calc(var(--chat-gap) / 3) calc(var(--chat-gap) / 1.5);
 }
 
 /* CollapsibleRow owns ONLY the spinner (active) / success check (flash)
@@ -547,6 +570,14 @@ summary .chat-row-header,
 .chat-row[data-tone="error"] {
   border-color: var(--chat-error);
   color: var(--chat-error);
+}
+
+/* Aux-header icons: the leading kind icon and the disclosure caret are sized to
+   the reference's 12px (Phosphor/lucide SVGs honor explicit width/height). */
+.chat-row-icon,
+.chat-collapsible-caret {
+  width: 0.75rem;
+  height: 0.75rem;
 }
 
 .chat-row-affordance {
@@ -614,6 +645,12 @@ summary .chat-row-header,
   display: flex;
   align-items: center;
   gap: calc(var(--chat-gap) / 2);
+  /* Reference footer row: small (10px) + muted, sitting just below the bubble.
+     The whole row inherits this size/color so action-button labels and metrics
+     read small + secondary rather than full-foreground body text. */
+  margin-top: calc(var(--chat-gap) / 3);
+  font-size: 0.625rem;
+  color: var(--chat-muted);
   /* flex-wrap lets the footer reflow only when its controls + metrics exceed the
      available width (a no-op at desktop widths, where they fit on one line);
      min-width:0 lets the row shrink inside its bubble so the metrics child can
@@ -623,7 +660,9 @@ summary .chat-row-header,
 }
 
 .chat-footer-metrics {
-  font-size: 0.75rem;
+  /* Inherit the footer row's small size (0.625rem) so metrics match the muted
+     footer scale instead of re-asserting a larger 0.75rem. */
+  font-size: inherit;
   color: var(--chat-muted);
   /* min-width:0 lets the metrics span shrink inside the flex footer; overflow-wrap
      breaks the long unbroken "model · 1234ms · 56.7 tok/s" string so it reflows
@@ -638,6 +677,13 @@ summary .chat-row-header,
   align-items: center;
   gap: calc(var(--chat-gap) / 2);
   min-width: 0;
+}
+
+/* The hidden-count badge renders `(+N)` small + muted, matching the reference's
+   parenthesized, secondary overflow indicator. */
+.chat-group-more {
+  font-size: 0.625rem;
+  color: var(--chat-muted);
 }
 
 /* The `+N` overflow badge and the timer/tps pills in a collapsed group header

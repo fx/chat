@@ -103,7 +103,7 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       <span className="chat-group-summary-label">{summaryLabel(summaryBlock)}</span>
       {hiddenCount > 0 ? (
         <Badge className="chat-group-more" tone="default">
-          +{hiddenCount}
+          (+{hiddenCount})
         </Badge>
       ) : null}
     </span>
