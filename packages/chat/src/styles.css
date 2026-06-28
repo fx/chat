@@ -368,27 +368,42 @@
   gap: calc(var(--chat-gap) / 2);
 }
 
-/* ── Role bubbles (change 0009) ──────────────────────────────────────────────
-   Give user and assistant messages a chat-bubble shape so a turn reads as a
-   conversation: the user's message is right-aligned on the accent surface, the
-   assistant's is left-aligned on a subtle neutral surface. Only `user` and
-   `assistant` are styled (no `agent` role exists); a `system` message keeps no
-   bubble so notices stay visually distinct from the dialogue. All colors,
-   radius, padding, and max-width come from `--chat-*` tokens. */
-.chat-message[data-role="user"] {
-  align-self: flex-end;
-  margin-left: auto;
+/* Left-aligned message chrome: a small, muted timestamp above the bubble. It is
+   message metadata, not answer content, so it sits OUTSIDE the `.chat-text`
+   bubble. Tabular figures keep `HH:MM` columns aligned across messages. */
+.chat-message-time {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  color: var(--chat-muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: calc(var(--chat-gap) / 4);
+}
+
+/* ── Role bubbles (change 0009, realigned to reference layout) ────────────────
+   The bubble shape lives ONLY on the answer TEXT block (`.chat-text`), not on
+   the whole message and not on the auxiliary collapsible rows
+   (`.chat-row`/`.chat-collapsible`), which render bare. Both roles are
+   LEFT-aligned; the role distinction is the bubble color (user = accent surface,
+   assistant = subtle neutral surface). The message wrapper keeps alignment but
+   carries no background. Only `user` and `assistant` are styled (no `agent` role
+   exists); a `system` message keeps no bubble so notices stay visually distinct
+   from the dialogue. All colors, radius, padding, and max-width come from
+   `--chat-*` tokens. */
+.chat-message[data-role="user"],
+.chat-message[data-role="assistant"] {
+  align-self: flex-start;
+  margin-right: auto;
   max-width: var(--chat-bubble-max-width);
+}
+
+.chat-message[data-role="user"] .chat-text {
   background: var(--chat-user-bubble-bg);
   color: var(--chat-user-bubble-fg);
   border-radius: var(--chat-radius);
   padding: calc(var(--chat-gap) / 2) var(--chat-gap);
 }
 
-.chat-message[data-role="assistant"] {
-  align-self: flex-start;
-  margin-right: auto;
-  max-width: var(--chat-bubble-max-width);
+.chat-message[data-role="assistant"] .chat-text {
   background: var(--chat-assistant-bubble-bg);
   color: var(--chat-assistant-bubble-fg);
   border-radius: var(--chat-radius);
@@ -397,60 +412,37 @@
 
 /* The user bubble sits on the accent color, where the muted footer-metrics tone
    (`--chat-muted`) can fail WCAG AA. Use the full bubble foreground so
-   model/duration/tok-s stay legible (>= 4.5:1) inside a user bubble. */
+   model/duration/tok-s stay legible (>= 4.5:1) inside a user bubble. The footer
+   sits outside the text bubble, but the user metrics still read against the
+   accent-toned message, so keep the override scoped to the user message. */
 .chat-message[data-role="user"] .chat-footer-metrics {
   color: var(--chat-user-bubble-fg);
 }
 
-/* A mention rendered inside a user bubble would otherwise be accent-on-accent
-   (the user bubble background defaults to `--chat-accent`), making it
-   invisible. Re-tone it to the bubble foreground so it stays readable. */
-.chat-message[data-role="user"] .chat-mention {
+/* A mention rendered inside the user text bubble would otherwise be
+   accent-on-accent (the user bubble background defaults to `--chat-accent`),
+   making it invisible. Re-tone it to the bubble foreground so it stays
+   readable. Scoped to the text bubble where the accent surface lives. */
+.chat-message[data-role="user"] .chat-text .chat-mention {
   color: var(--chat-user-bubble-fg);
 }
 
-/* Attachment chips inside a user bubble sit on the accent surface
-   (`--chat-user-bubble-bg`). The default chip tones (`--chat-fg`, `--chat-muted`,
-   `--chat-accent`) are tuned for the page/assistant surface and go low-contrast —
-   or, for the download affordance, accent-on-accent (invisible) — on the accent
-   bubble. Re-tone chip text, icon, and the download/open affordance to the bubble
-   foreground so they clear WCAG AA, and derive the chip border + inert affordance
-   from that foreground (translucent mix) so they remain visible on accent. */
-.chat-message[data-role="user"] .chat-attachment-chip {
-  color: var(--chat-user-bubble-fg);
-  border-color: color-mix(in srgb, var(--chat-user-bubble-fg) 40%, transparent);
-}
+/* Attachments and the footer now render OUTSIDE the answer bubble (the bubble
+   is scoped to `.chat-text`), so chips and footer metrics sit on the page
+   surface and use their default page tones (`--chat-fg`/`--chat-muted`/border).
+   No accent re-toning is needed here anymore. */
 
-.chat-message[data-role="user"] .chat-attachment-chip-icon {
-  color: var(--chat-user-bubble-fg);
-}
-
-.chat-message[data-role="user"] .chat-attachment-chip-download {
-  color: var(--chat-user-bubble-fg);
-}
-
-.chat-message[data-role="user"] .chat-attachment-chip-download[data-inert="true"] {
-  color: color-mix(in srgb, var(--chat-user-bubble-fg) 70%, transparent);
-}
-
-/* The assistant bubble sits on its own surface (`--chat-assistant-bubble-bg`)
-   with its own foreground token (`--chat-assistant-bubble-fg`). Primary text
-   that renders INSIDE that bubble defaults to `--chat-fg` (assistant markdown
-   prose `.chat-md`, tool/reasoning row label text `.chat-row`) and the footer
-   metrics default to `--chat-muted`. By default those equal the bubble fg, but
-   a host that customizes ONLY `--chat-assistant-bubble-fg` would get stale
-   `--chat-fg`/`--chat-muted` text at the wrong color/contrast against the
-   customized bubble. Re-tone the bubble's primary text and metrics to the
-   assistant bubble foreground so the token actually controls all primary text
-   in the bubble. Links/mentions stay accent (a deliberate affordance, legible
-   on the neutral surface); code/JSON sit on their OWN `--chat-code-bg` surface
-   and are intentionally left alone. */
-.chat-message[data-role="assistant"] .chat-md,
-.chat-message[data-role="assistant"] .chat-row {
-  color: var(--chat-assistant-bubble-fg);
-}
-
-.chat-message[data-role="assistant"] .chat-footer-metrics {
+/* The assistant answer renders INSIDE the `.chat-text` bubble on its own surface
+   (`--chat-assistant-bubble-bg`) with its own foreground token
+   (`--chat-assistant-bubble-fg`); `.chat-text` already applies that color, and
+   the markdown prose (`.chat-md`) inherits it. Re-tone the markdown prose
+   explicitly so a host that customizes ONLY `--chat-assistant-bubble-fg` gets
+   the right color even though `.chat-md` would otherwise default to `--chat-fg`.
+   Links/mentions stay accent (a deliberate affordance, legible on the neutral
+   surface); code/JSON sit on their OWN `--chat-code-bg` surface and are
+   intentionally left alone. The auxiliary `.chat-row` blocks render bare on the
+   page surface and keep their default tones. */
+.chat-message[data-role="assistant"] .chat-text .chat-md {
   color: var(--chat-assistant-bubble-fg);
 }
 
@@ -467,8 +459,8 @@
   gap: calc(var(--chat-gap-compact) / 2);
 }
 
-.chat-message[data-minimal="true"][data-role="user"],
-.chat-message[data-minimal="true"][data-role="assistant"] {
+.chat-message[data-minimal="true"][data-role="user"] .chat-text,
+.chat-message[data-minimal="true"][data-role="assistant"] .chat-text {
   padding: calc(var(--chat-gap-compact) / 2) var(--chat-gap-compact);
 }
 

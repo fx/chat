@@ -418,4 +418,48 @@ describe('MessageItem', () => {
     )
     expect(asstC.querySelector('[data-message-id="ma"]')).toHaveAttribute('data-role', 'assistant')
   })
+
+  it('renders the answer text inside a .chat-text bubble block', () => {
+    // Realigned layout: the bubble is scoped to the answer TEXT block, so the
+    // answer prose renders inside a `.chat-text` element on the message.
+    const { container } = render(
+      <MessageItem message={message({ blocks: [{ type: 'text', id: 't', text: 'answer' }] })} />,
+    )
+    const text = container.querySelector('.chat-text')
+    expect(text).not.toBeNull()
+    expect(text?.textContent).toContain('answer')
+  })
+
+  it('renders auxiliary blocks bare (NOT inside a .chat-text bubble)', () => {
+    // The bubble must wrap ONLY the answer text — reasoning/tool/status rows stay
+    // outside `.chat-text` so they render bare.
+    const { container } = render(
+      <MessageItem
+        message={message({
+          blocks: [{ type: 'reasoning', id: 'r', text: 'thinking' }],
+        })}
+        flat
+      />,
+    )
+    expect(container.querySelector('.chat-text')).toBeNull()
+    expect(container.querySelector('.chat-row')).not.toBeNull()
+  })
+
+  it('renders a left-aligned timestamp when createdAt is present', () => {
+    // System time is faked to epoch 0 in beforeEach; createdAt 0 is a valid date.
+    render(<MessageItem message={message({ createdAt: 0 })} />)
+    const time = screen.getByTestId('chat-message-time')
+    expect(time).toHaveClass('chat-message-time')
+    expect(time.textContent).toMatch(/^\d{2}:\d{2}$/)
+  })
+
+  it('omits the timestamp when createdAt is absent', () => {
+    render(<MessageItem message={message()} />)
+    expect(screen.queryByTestId('chat-message-time')).toBeNull()
+  })
+
+  it('omits the timestamp when showTimestamps is false even with createdAt', () => {
+    render(<MessageItem message={message({ createdAt: 0 })} showTimestamps={false} />)
+    expect(screen.queryByTestId('chat-message-time')).toBeNull()
+  })
 })

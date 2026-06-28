@@ -21,7 +21,7 @@ import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableMessage } from './extensions'
-import { deriveTokensPerSecond } from './format'
+import { deriveTokensPerSecond, formatMessageTime } from './format'
 import { groupBlocks } from './grouping'
 import { collapseTurnAux } from './minimalGrouping'
 
@@ -45,6 +45,11 @@ export interface MessageItemProps {
   defaultOpen?: boolean
   /** Show the footer affordances. */
   showFooter?: boolean
+  /**
+   * Show the left-aligned message timestamp (from `message.createdAt`). Renders
+   * only when a valid timestamp is present; defaults to `true`.
+   */
+  showTimestamps?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
   /** Optional render-layer extensions (custom block/tool renderers + grouping). */
@@ -71,6 +76,7 @@ export function MessageItem({
   minimal = false,
   defaultOpen,
   showFooter = true,
+  showTimestamps = true,
   compactFooter = false,
   extensions,
   onRegenerate,
@@ -126,6 +132,10 @@ export function MessageItem({
         : groupBlocks(blocks, behaviorOverrides)
       : []
 
+  // Left-aligned message chrome: a small muted timestamp rendered above the
+  // bubble when present. Gated on `showTimestamps` and a valid `createdAt`.
+  const timeLabel = showTimestamps ? formatMessageTime(message.createdAt) : undefined
+
   return (
     <div
       className="chat-message"
@@ -133,6 +143,11 @@ export function MessageItem({
       data-role={message.role}
       {...(minimalActive ? { 'data-minimal': 'true' } : {})}
     >
+      {timeLabel ? (
+        <span className="chat-message-time" data-testid="chat-message-time">
+          {timeLabel}
+        </span>
+      ) : null}
       {raw ? (
         <RawJsonBlockView value={message} />
       ) : (

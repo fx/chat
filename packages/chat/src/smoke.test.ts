@@ -270,32 +270,56 @@ describe('@fx/chat public surface', () => {
     expect(mediaDarkAssistantBg).not.toBe(lightAssistantBg)
   })
 
-  it('styles user/assistant role bubbles from the bubble tokens', () => {
-    // Change 0009: the data-role bubble rules exist and reference the tokens, so
-    // a turn reads as a conversation and hosts can restyle via the variables.
+  it('styles the answer-text bubble (not the whole message) from the bubble tokens', () => {
+    // Realigned layout: the bubble shape lives ONLY on the answer text block
+    // (`.chat-text`), scoped by role — NOT on the message wrapper and NOT on the
+    // auxiliary `.chat-row`/`.chat-collapsible` rows. Both roles are LEFT-aligned;
+    // the role distinction is the bubble color. Hosts can restyle via the tokens.
     const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
     const block = (selector: string) => {
       const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
       return m?.[1] ?? ''
     }
-    const user = block('.chat-message[data-role="user"]')
-    expect(user).toContain('var(--chat-user-bubble-bg)')
-    expect(user).toContain('var(--chat-user-bubble-fg)')
-    expect(user).toContain('var(--chat-bubble-max-width)')
-    expect(user).toMatch(/margin-left:\s*auto/)
-    const assistant = block('.chat-message[data-role="assistant"]')
-    expect(assistant).toContain('var(--chat-assistant-bubble-bg)')
-    expect(assistant).toContain('var(--chat-assistant-bubble-fg)')
-    expect(assistant).toContain('var(--chat-bubble-max-width)')
-    // The user-bubble footer metrics use the full bubble foreground so they meet
-    // WCAG AA contrast on the accent surface (no longer a sub-4.5:1 color-mix).
+    // The user/assistant answer text carries the bubble bg/fg/radius/padding.
+    const userText = block('.chat-message[data-role="user"] .chat-text')
+    expect(userText).toContain('var(--chat-user-bubble-bg)')
+    expect(userText).toContain('var(--chat-user-bubble-fg)')
+    expect(userText).toContain('var(--chat-radius)')
+    const assistantText = block('.chat-message[data-role="assistant"] .chat-text')
+    expect(assistantText).toContain('var(--chat-assistant-bubble-bg)')
+    expect(assistantText).toContain('var(--chat-assistant-bubble-fg)')
+    expect(assistantText).toContain('var(--chat-radius)')
+    // The message wrapper keeps alignment + max-width but NO background. Both
+    // roles are left-aligned (align-self: flex-start), and the user wrapper no
+    // longer right-aligns via margin-left:auto.
+    const wrapper =
+      css.match(
+        /\.chat-message\[data-role="user"\],\s*\n\.chat-message\[data-role="assistant"\]\s*\{([^}]*)\}/,
+      )?.[1] ?? ''
+    expect(wrapper).toContain('var(--chat-bubble-max-width)')
+    expect(wrapper).toMatch(/align-self:\s*flex-start/)
+    expect(wrapper).not.toMatch(/margin-left:\s*auto/)
+    expect(wrapper).not.toContain('background')
+    // The user footer metrics use the full bubble foreground so they meet WCAG
+    // AA contrast (no sub-4.5:1 color-mix).
     const userMetrics = block('.chat-message[data-role="user"] .chat-footer-metrics')
     expect(userMetrics).toContain('var(--chat-user-bubble-fg)')
     expect(userMetrics).not.toContain('color-mix')
-    // A mention inside a user bubble is re-toned to the bubble foreground so it is
-    // not accent-on-accent (invisible) — the user bubble bg defaults to the accent.
-    const userMention = block('.chat-message[data-role="user"] .chat-mention')
+    // A mention inside the user TEXT bubble is re-toned to the bubble foreground
+    // so it is not accent-on-accent (invisible) — the bubble bg is the accent.
+    const userMention = block('.chat-message[data-role="user"] .chat-text .chat-mention')
     expect(userMention).toContain('var(--chat-user-bubble-fg)')
+  })
+
+  it('renders the left-aligned message timestamp from the muted token', () => {
+    // Realigned layout: a small, muted, left-aligned timestamp renders above the
+    // bubble as message chrome (outside `.chat-text`).
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const time = css.match(/\.chat-message-time\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(time).toContain('var(--chat-muted)')
+    expect(time).toMatch(/font-size:\s*0\.75rem/)
+    expect(time).toContain('tabular-nums')
+    expect(time).toMatch(/align-self:\s*flex-start/)
   })
 
   it('defines minimal/density-mode rules driven by --chat-gap-compact', () => {
