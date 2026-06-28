@@ -791,6 +791,35 @@ summary .chat-row-header,
   background: color-mix(in srgb, var(--chat-fg) 8%, var(--chat-bg));
 }
 
+/* ── Focus-visible rings (a11y) ──────────────────────────────────────────────
+   Keyboard users get NO visible focus by default on these controls — buttons,
+   the copy control, the disclosure `<summary>` trigger, attachment
+   thumb/download affordances, and the lightbox close — because the UA outline
+   is either absent or suppressed. Add a token-driven `:focus-visible` ring so
+   focus is always visible and theme-aware: the ring uses `--chat-accent`, so a
+   host that overrides that token restyles the focus indicator too. These rules
+   are ADDITIVE — they sit alongside the existing `:hover`/`:active` affordances
+   and only paint when the platform deems focus should be visible (keyboard /
+   programmatic), never on mouse press. The completion popup is intentionally
+   excluded: focus stays in the textarea and the active option is tracked via
+   `aria-activedescendant`, so its options take no focus ring. */
+.chat-button:focus-visible,
+.chat-copybutton:focus-visible,
+.chat-attachment-thumb:focus-visible,
+.chat-attachment-chip-download:focus-visible,
+.chat-lightbox-close:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+/* The disclosure `<summary>` trigger has rounded-ish hit area; give the ring a
+   matching radius so it hugs the row instead of painting a hard rectangle. */
+.chat-collapsible-header:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+  border-radius: var(--chat-radius);
+}
+
 /* Reduced-motion: drop all transitions on interactive primitives so state
    changes apply instantly (hover/active affordances remain). */
 @media (prefers-reduced-motion: reduce) {

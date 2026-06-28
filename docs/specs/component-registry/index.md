@@ -147,6 +147,27 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - **WHEN** the host redefines the CSS custom properties in its own stylesheet
 - **THEN** the chat surface adopts the new colors/spacing with no registry changes.
 
+### Focus Visibility (a11y)
+
+- Every focusable interactive control the package styles — buttons (`.chat-button`), the copy
+  control (`.chat-copybutton`), the disclosure `<summary>` trigger (`.chat-collapsible-header`),
+  the attachment thumb/download affordances, and the lightbox close — MUST expose a visible
+  `:focus-visible` indicator (a ring) so keyboard users always see which control is focused.
+- The focus ring MUST be token-driven — colored via `--chat-accent` — so it is theme-aware and a
+  host can restyle it by redefining the token without overriding any component. The rules are
+  ADDITIVE to the existing `:hover`/`:active` affordances.
+- Controls with a non-focus keyboard model are excluded: the completion popup options take no
+  focus ring because focus remains in the textarea and the active option is tracked via
+  `aria-activedescendant`.
+
+#### Scenario: Keyboard focus is visible
+
+- **GIVEN** a host using the package stylesheet
+- **WHEN** a keyboard user tabs to a button, the copy control, the disclosure summary, or an
+  attachment download affordance
+- **THEN** the control paints a `--chat-accent`-colored `:focus-visible` ring, and the ring color
+  follows any host override of `--chat-accent`.
+
 ### Headless Default Registry
 
 - The package MUST export a complete default registry (`@fx/chat/headless`) implementing every
@@ -245,3 +266,4 @@ type IconName =
 | 2026-06-26 | Added OPTIONAL `Lightbox`/`ImageOverlay` slot and `download`/`expand` icons for attachment rendering — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
 | 2026-06-27 | Defaulted `--chat-font-family` to `inherit` and added role-bubble theme tokens (`--chat-user-bubble-*`, `--chat-assistant-bubble-*`, `--chat-bubble-max-width`) with light/dark defaults | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-27 | Clarified the `Collapsible` slot is the SOLE owner of the disclosure caret; the render substrate MUST NOT render one | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
+| 2026-06-28 | Required a visible, token-driven `:focus-visible` ring (via `--chat-accent`) on every focusable package control (button, copy, collapsible summary, attachment thumb/download, lightbox close); completion popup excluded (aria-activedescendant model) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |

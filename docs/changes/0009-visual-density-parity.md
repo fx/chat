@@ -66,6 +66,11 @@ the rule.
   bubble.
 - The user-bubble footer metrics MUST be re-toned so they keep WCAG AA contrast on the accent
   surface.
+- Every focusable package control (`.chat-button`, `.chat-copybutton`, the collapsible
+  `<summary>` trigger `.chat-collapsible-header`, and the attachment thumb/download affordances)
+  MUST expose a visible, token-driven `:focus-visible` ring (`outline` colored via `--chat-accent`)
+  so keyboard users get a theme-aware focus indicator. The completion popup options are excluded
+  (focus stays in the textarea via `aria-activedescendant`).
 
 #### Scenario: A turn renders as bubbles
 
@@ -126,6 +131,9 @@ the rule.
       input-composer (popup computed-font read) + changelog rows
 - [x] Tests: styles parse, CompletionPopup font copy (+ empty/no-view branches), MessageItem
       data-role
+- [x] styles.css: add token-driven `:focus-visible` rings (via `--chat-accent`) to the focusable
+      controls (button, copy, collapsible summary, attachment thumb/download, lightbox close) +
+      styles-parse test asserting the rings exist and reference `--chat-accent`
 
 ## Open Questions
 

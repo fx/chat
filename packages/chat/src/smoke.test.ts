@@ -141,6 +141,36 @@ describe('@fx/chat public surface', () => {
     expect(block('.chat-collapsible-header')).toContain('min-height: 44px')
   })
 
+  it('gives interactive controls a token-driven :focus-visible ring', () => {
+    // Keyboard users must get a visible focus indicator on every focusable
+    // package control, and it must be theme-aware (token-driven via
+    // `--chat-accent`) so hosts can restyle it without overriding components.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    // Match the rule whose selector list contains `<selector>:focus-visible`,
+    // returning the declaration body. Handles both grouped (comma-separated)
+    // and standalone focus-visible selectors.
+    const focusBlock = (selector: string) => {
+      const re = new RegExp(`${escapeRegExp(selector)}:focus-visible[^{]*\\{([^}]*)\\}`)
+      return css.match(re)?.[1] ?? ''
+    }
+    for (const selector of [
+      '.chat-button',
+      '.chat-copybutton',
+      // The collapsible trigger is the `<summary class="chat-collapsible-header">`.
+      '.chat-collapsible-header',
+      // The attachment download/expand affordances are focusable button/link.
+      '.chat-attachment-thumb',
+      '.chat-attachment-chip-download',
+    ]) {
+      const body = focusBlock(selector)
+      expect(body).toContain('outline: 2px solid var(--chat-accent)')
+      expect(body).toContain('outline-offset: 2px')
+    }
+    // The popup options are deliberately NOT given a focus ring: focus stays in
+    // the textarea (aria-activedescendant model), so they never receive focus.
+    expect(css).not.toContain('.chat-completion-option:focus-visible')
+  })
+
   it('makes an explicit data-theme win over prefers-color-scheme', () => {
     // Precedence contract: `[data-theme="light"]` is light always,
     // `[data-theme="dark"]` is dark always, and a root with NO `data-theme`
