@@ -50,6 +50,51 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
+  it('renders the footer for an assistant message', () => {
+    const { container } = render(<MessageItem message={message({ role: 'assistant' })} />)
+    expect(container.querySelector('.chat-footer')).not.toBeNull()
+    expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+  })
+
+  it('renders NO footer for a user message (footer is assistant-only)', () => {
+    // The footer affordances (regenerate/fork/reset) are inherently assistant
+    // actions; the reference chat shows no footer on user messages. The whole
+    // footer block — including its gutter-row wrapper — must be gated off so no
+    // empty footer gutter-row is left behind.
+    const { container } = render(
+      <MessageItem
+        message={message({
+          id: 'mu',
+          role: 'user',
+          blocks: [{ type: 'text', id: 't', text: 'hi' }],
+        })}
+        timestampGutter
+      />,
+    )
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    // No empty footer gutter-row left behind: the only gutter rows are the block
+    // row(s), not an extra trailing footer row.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const allRows = container.querySelectorAll('.chat-gutter-row')
+    const blockRows = blocksRegion.querySelectorAll('.chat-gutter-row')
+    expect(allRows.length).toBe(blockRows.length)
+  })
+
+  it('renders NO footer for a system message (footer is assistant-only)', () => {
+    const { container } = render(
+      <MessageItem
+        message={message({
+          id: 'ms',
+          role: 'system',
+          blocks: [{ type: 'text', id: 't', text: 'sys' }],
+        })}
+      />,
+    )
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
   it('groups consecutive aux blocks and renders the answer bare', () => {
     const msg = message({
       blocks: [
@@ -252,7 +297,7 @@ describe('MessageItem', () => {
     expect(screen.getByText('interim')).toBeInTheDocument()
   })
 
-  it('minimal mode: user message gets compact chrome but no aux-collapse', () => {
+  it('minimal mode: user message gets minimal chrome but no aux-collapse and no footer', () => {
     const msg = message({
       id: 'mu',
       role: 'user',
@@ -272,8 +317,9 @@ describe('MessageItem', () => {
     expect(screen.getByText('hello')).toBeInTheDocument()
     // Role gate: the aux block stays bare, never collapsed into a group.
     expect(container.querySelector('.chat-group')).toBeNull()
-    // Compact chrome still applies regardless of role.
-    expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
+    // The footer is assistant-only — a user message renders NO footer, even in
+    // minimal mode (the footer affordances are inherently assistant actions).
+    expect(container.querySelector('.chat-footer')).toBeNull()
   })
 
   it('minimal false renders identically to grouped mode (no data-minimal)', () => {
