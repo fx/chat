@@ -454,8 +454,9 @@
   background: var(--chat-user-bubble-bg);
   color: var(--chat-user-bubble-fg);
   border-radius: var(--chat-radius);
-  /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
-  padding: 0.625rem 1rem;
+  /* Reference bubble padding: 0.625rem vertical (py-2.5), 0.9375rem horizontal
+     (15px) — trimmed 1px off the 16px (px-4) horizontal for a tighter bubble. */
+  padding: 0.625rem 0.9375rem;
   /* Cap the bubble at the reference max-width (85%) of the full-width content
      column; the bubble shrinks to its content up to this cap. */
   max-width: var(--chat-bubble-max-width);
@@ -467,8 +468,9 @@
   background: var(--chat-assistant-bubble-bg);
   color: var(--chat-assistant-bubble-fg);
   border-radius: var(--chat-radius);
-  /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
-  padding: 0.625rem 1rem;
+  /* Reference bubble padding: 0.625rem vertical (py-2.5), 0.9375rem horizontal
+     (15px) — trimmed 1px off the 16px (px-4) horizontal for a tighter bubble. */
+  padding: 0.625rem 0.9375rem;
   /* Cap the bubble at the reference max-width (85%) — see the user rule above. */
   max-width: var(--chat-bubble-max-width);
 }
@@ -514,11 +516,11 @@
    padding, and compact footer spacing. Token-driven (`--chat-gap-compact`) and
    headless-only — the grouping/footer behavior is decided in the renderer; this
    only tightens spacing. */
-/* Inter-message gap: the reference separates turns with very little space —
-   most spacing comes from small per-block inner margins. Keep a tight ~2-3px
-   turn separation, token-driven via `--chat-gap-compact` (= 6px) / 2.5 ≈ 2.4px. */
+/* Inter-message gap: separate turns with a clear ~10px of breathing room so
+   distinct messages read as distinct turns. This is the BETWEEN-message gap
+   only; the intra-message block-row gap below stays tight (~1px). */
 .chat-log[data-minimal="true"] {
-  gap: calc(var(--chat-gap-compact) / 2.5);
+  gap: 0.625rem;
 }
 
 .chat-message[data-minimal="true"] {

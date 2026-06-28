@@ -285,9 +285,10 @@ describe('@fx/chat public surface', () => {
     expect(userText).toContain('var(--chat-user-bubble-bg)')
     expect(userText).toContain('var(--chat-user-bubble-fg)')
     expect(userText).toContain('var(--chat-radius)')
-    // Reference bubble padding (px-4 py-2.5) is a constant — it must NOT compress
-    // with density (the gutter/gap rows tighten in minimal mode, not the bubble).
-    expect(userText).toMatch(/padding:\s*0\.625rem\s+1rem/)
+    // Bubble padding (0.625rem vertical / 0.9375rem = 15px horizontal) is a
+    // constant — it must NOT compress with density (the gutter/gap rows tighten
+    // in minimal mode, not the bubble).
+    expect(userText).toMatch(/padding:\s*0\.625rem\s+0\.9375rem/)
     // The bubble caps at the reference max-width (token-driven) — it must not be
     // uncapped (`max-width: none`) on the text block.
     expect(userText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
@@ -298,7 +299,7 @@ describe('@fx/chat public surface', () => {
     expect(assistantText).toContain('var(--chat-assistant-bubble-bg)')
     expect(assistantText).toContain('var(--chat-assistant-bubble-fg)')
     expect(assistantText).toContain('var(--chat-radius)')
-    expect(assistantText).toMatch(/padding:\s*0\.625rem\s+1rem/)
+    expect(assistantText).toMatch(/padding:\s*0\.625rem\s+0\.9375rem/)
     expect(assistantText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
     expect(assistantText).toMatch(/width:\s*fit-content/)
     // The message wrapper must NOT shrink to its content: it has no role-scoped
@@ -368,8 +369,9 @@ describe('@fx/chat public surface', () => {
     expect(tokenBlock('\\[data-theme="light"\\]')).toContain('--chat-gap-compact:')
     // …and is present under the explicit dark hook (light+dark coverage).
     expect(tokenBlock('\\[data-theme="dark"\\]')).toContain('--chat-gap-compact:')
-    // The minimal rules reference the compact token.
-    expect(block('.chat-log[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
+    // The message-wrapper minimal rule references the compact token. (The
+    // inter-message LOG gap is a fixed ~10px separation — asserted below — not
+    // the compact token, so distinct turns read as distinct.)
     expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
 
     // Inter-block-row spacing within a message is tightened to ~1px so aux rows
@@ -381,10 +383,10 @@ describe('@fx/chat public surface', () => {
     expect(blockRowGap).toContain('var(--chat-gap-compact)')
     expect(blockRowGap).toMatch(/gap:\s*calc\(var\(--chat-gap-compact\)\s*\/\s*6\)/)
 
-    // Inter-message (turn) gap stays a small but non-zero separation, tightened
-    // from the prior ~4px to ~2.4px (compact token / 2.5), still token-driven.
+    // Inter-message (turn) gap gives a clear ~10px separation between turns so
+    // distinct messages read as distinct (raised from the prior ~2.4px).
     const logGap = css.match(/\.chat-log\[data-minimal="true"\]\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(logGap).toMatch(/gap:\s*calc\(var\(--chat-gap-compact\)\s*\/\s*2\.5\)/)
+    expect(logGap).toMatch(/gap:\s*0\.625rem/)
 
     // The grouped-run disclosure root is a CONTAINER with no padding/margin — the
     // 4px 8px toggle padding lives on the header, not the wrapper.
