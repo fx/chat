@@ -285,10 +285,14 @@ describe('@fx/chat public surface', () => {
     expect(userText).toContain('var(--chat-user-bubble-bg)')
     expect(userText).toContain('var(--chat-user-bubble-fg)')
     expect(userText).toContain('var(--chat-radius)')
+    // Reference bubble padding (px-4 py-2.5) is a constant — it must NOT compress
+    // with density (the gutter/gap rows tighten in minimal mode, not the bubble).
+    expect(userText).toMatch(/padding:\s*0\.625rem\s+1rem/)
     const assistantText = block('.chat-message[data-role="assistant"] .chat-text')
     expect(assistantText).toContain('var(--chat-assistant-bubble-bg)')
     expect(assistantText).toContain('var(--chat-assistant-bubble-fg)')
     expect(assistantText).toContain('var(--chat-radius)')
+    expect(assistantText).toMatch(/padding:\s*0\.625rem\s+1rem/)
     // The message wrapper keeps alignment + max-width but NO background. Both
     // roles are left-aligned (align-self: flex-start), and the user wrapper no
     // longer right-aligns via margin-left:auto.
@@ -359,6 +363,12 @@ describe('@fx/chat public surface', () => {
     // The minimal rules reference the compact token.
     expect(block('.chat-log[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
     expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
+    // Minimal mode tightens the GAPS between rows, NOT the bubble's internal
+    // padding: the reference keeps bubble padding constant across densities. No
+    // minimal-mode rule may override `.chat-text` padding.
+    expect(css).not.toMatch(
+      /\.chat-message\[data-minimal="true"\][^{]*\.chat-text\s*\{[^}]*padding/,
+    )
   })
 
   it('keeps narrow-width rows from overflowing horizontally (responsive reflow)', () => {

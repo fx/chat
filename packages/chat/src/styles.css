@@ -482,11 +482,11 @@
   gap: calc(var(--chat-gap-compact) / 2);
 }
 
-.chat-message[data-minimal="true"][data-role="user"] .chat-text,
-.chat-message[data-minimal="true"][data-role="assistant"] .chat-text {
-  padding: calc(var(--chat-gap-compact) / 2) var(--chat-gap-compact);
-}
-
+/* Minimal mode tightens the spacing BETWEEN rows (the log/message gaps and the
+   footer gap), NOT the bubble's internal padding. The reference chat keeps the
+   answer/user bubble padding constant at `0.625rem 1rem` (px-4 py-2.5)
+   regardless of density, so `.chat-text` intentionally has NO minimal-mode
+   padding override — its base role-scoped padding stands in both modes. */
 .chat-message[data-minimal="true"] .chat-footer {
   gap: calc(var(--chat-gap-compact) / 2);
 }
