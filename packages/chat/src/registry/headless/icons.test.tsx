@@ -13,6 +13,7 @@ const ALL_NAMES: IconName[] = [
   'wrench',
   'brain',
   'gear',
+  'dotsThree',
   'regenerate',
   'fork',
   'reset',

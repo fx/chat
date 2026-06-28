@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { MessageMetrics } from '../model'
+import { ChatProvider } from '../registry'
+import type { PartialChatComponents } from '../registry'
 import { MessageFooter } from './MessageFooter'
 
 describe('MessageFooter affordances', () => {
@@ -41,6 +43,29 @@ describe('MessageFooter compact mode', () => {
     // Toggling again hides them.
     fireEvent.click(screen.getByLabelText('Hide actions'))
     expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('uses the dotsThree (kebab) icon for the reveal toggle', () => {
+    // The reveal toggle must reference the `dotsThree` semantic icon so a host
+    // registry can map it to its own kebab/"more" icon.
+    const stub: PartialChatComponents = {
+      icons: {
+        dotsThree: () => <span data-testid="kebab-icon">⋯</span>,
+      },
+    }
+    render(
+      <ChatProvider components={stub}>
+        <MessageFooter copyText="x" compact onRegenerate={vi.fn()} />
+      </ChatProvider>,
+    )
+    const toggle = screen.getByLabelText('Show actions')
+    expect(within(toggle).getByTestId('kebab-icon')).toBeInTheDocument()
+  })
+
+  it('does not render the reveal toggle when not compact', () => {
+    render(<MessageFooter copyText="x" onRegenerate={vi.fn()} />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByLabelText('Hide actions')).toBeNull()
   })
 })
 

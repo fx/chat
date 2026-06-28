@@ -71,7 +71,7 @@ export function MessageFooter({
           aria-label={revealed ? 'Hide actions' : 'Show actions'}
           onClick={() => setRevealed((v) => !v)}
         >
-          <icons.gear className="chat-footer-icon" />
+          <icons.dotsThree className="chat-footer-icon" />
         </Button>
       ) : null}
       {showControls ? (
