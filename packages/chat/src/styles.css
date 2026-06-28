@@ -433,31 +433,37 @@
    the whole message and not on the auxiliary collapsible rows
    (`.chat-row`/`.chat-collapsible`), which render bare. Both roles are
    LEFT-aligned; the role distinction is the bubble color (user = accent surface,
-   assistant = subtle neutral surface). The message wrapper keeps alignment but
-   carries no background. Only `user` and `assistant` are styled (no `agent` role
-   exists); a `system` message keeps no bubble so notices stay visually distinct
-   from the dialogue. All colors, radius, padding, and max-width come from
-   `--chat-*` tokens. */
-.chat-message[data-role="user"],
-.chat-message[data-role="assistant"] {
-  align-self: flex-start;
-  margin-right: auto;
-  max-width: var(--chat-bubble-max-width);
-}
+   assistant = subtle neutral surface). The message wrapper carries no background
+   and — critically — must NOT shrink to its content: it spans the FULL width of
+   the `.chat-log` column (the column's default `align-items: stretch`), so the
+   inner gutter content gets the full width to resolve the bubble's 85% cap
+   against. The 85% cap and left-alignment live on the `.chat-text` BUBBLE, not
+   on the wrapper — putting `align-self: flex-start` + `max-width` on the wrapper
+   collapsed it to ~content width, which in turn squeezed `.chat-text`'s 85% down
+   to a few pixels and wrapped short text like "test" into "te"/"st". Only `user`
+   and `assistant` are styled (no `agent` role exists); a `system` message keeps
+   no bubble so notices stay visually distinct from the dialogue. All colors,
+   radius, padding, and max-width come from `--chat-*` tokens. */
 
 .chat-message[data-role="user"] .chat-text {
+  /* width: fit-content lets the bubble hug its content while the max-width caps
+     it at 85% of the now-full-width gutter; since `.chat-text` is a normal block
+     it stays LEFT-aligned (block flow, left). Short text → small bubble on one
+     line; long text → caps at 85%. */
+  width: fit-content;
   background: var(--chat-user-bubble-bg);
   color: var(--chat-user-bubble-fg);
   border-radius: var(--chat-radius);
   /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
   padding: 0.625rem 1rem;
-  /* Cap the bubble at the reference max-width (85%) — the message wrapper already
-     carries this cap, but the text block must carry it too so the bubble caps
-     even when a host renders `.chat-text` outside the role wrapper. */
+  /* Cap the bubble at the reference max-width (85%) of the full-width content
+     column; the bubble shrinks to its content up to this cap. */
   max-width: var(--chat-bubble-max-width);
 }
 
 .chat-message[data-role="assistant"] .chat-text {
+  /* See the user rule: hug content, left-aligned, capped at 85%. */
+  width: fit-content;
   background: var(--chat-assistant-bubble-bg);
   color: var(--chat-assistant-bubble-fg);
   border-radius: var(--chat-radius);

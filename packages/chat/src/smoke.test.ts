@@ -291,23 +291,27 @@ describe('@fx/chat public surface', () => {
     // The bubble caps at the reference max-width (token-driven) — it must not be
     // uncapped (`max-width: none`) on the text block.
     expect(userText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
+    // The bubble hugs its content (width: fit-content) so short text like "test"
+    // stays on one line instead of being squeezed to a few px and wrapping.
+    expect(userText).toMatch(/width:\s*fit-content/)
     const assistantText = block('.chat-message[data-role="assistant"] .chat-text')
     expect(assistantText).toContain('var(--chat-assistant-bubble-bg)')
     expect(assistantText).toContain('var(--chat-assistant-bubble-fg)')
     expect(assistantText).toContain('var(--chat-radius)')
     expect(assistantText).toMatch(/padding:\s*0\.625rem\s+1rem/)
     expect(assistantText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
-    // The message wrapper keeps alignment + max-width but NO background. Both
-    // roles are left-aligned (align-self: flex-start), and the user wrapper no
-    // longer right-aligns via margin-left:auto.
+    expect(assistantText).toMatch(/width:\s*fit-content/)
+    // The message wrapper must NOT shrink to its content: it has no role-scoped
+    // align-self/margin/max-width rule, so it stretches to the full `.chat-log`
+    // column width (the column's default `align-items: stretch`). That gives the
+    // bubble the full width to resolve its 85% cap against — putting the cap +
+    // `align-self: flex-start` on the WRAPPER collapsed it and wrapped short
+    // text. The 85% cap + left-alignment now live on the `.chat-text` bubble.
     const wrapper =
       css.match(
         /\.chat-message\[data-role="user"\],\s*\n\.chat-message\[data-role="assistant"\]\s*\{([^}]*)\}/,
-      )?.[1] ?? ''
-    expect(wrapper).toContain('var(--chat-bubble-max-width)')
-    expect(wrapper).toMatch(/align-self:\s*flex-start/)
-    expect(wrapper).not.toMatch(/margin-left:\s*auto/)
-    expect(wrapper).not.toContain('background')
+      )?.[1] ?? null
+    expect(wrapper).toBeNull()
     // The user footer metrics use the full bubble foreground so they meet WCAG
     // AA contrast (no sub-4.5:1 color-mix).
     const userMetrics = block('.chat-message[data-role="user"] .chat-footer-metrics')
