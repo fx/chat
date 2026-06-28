@@ -406,9 +406,11 @@ describe('@fx/chat public surface', () => {
   })
 
   it('styles the expanded aux-group body as a subtle caret-aligned hairline rule', () => {
-    // Reference expanded group body: `ml-[13px] border-l-2 border-border/60 pl-3`
-    // with margin-top 0 and flush items (gap 0). The 13px left margin centers the
-    // rule under the disclosure caret; the rule is 60% opacity of the border
+    // Reference expanded group body: `border-l-2 border-border/60 pl-3` with
+    // margin-top 0 and flush items (gap 0). The 5px left margin centers the rule
+    // under the disclosure caret now that the trigger's `px-2 py-1` padding is
+    // gone (the 12px caret sits flush at the content-left edge, center ~6px in,
+    // so a 2px border lands at ~5px); the rule is 60% opacity of the border
     // token; the left pad is `--chat-gap` (= pl-3).
     const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
     const body = css.match(/\.chat-group-body\s*\{([^}]*)\}/)?.[1] ?? ''
@@ -416,8 +418,8 @@ describe('@fx/chat public surface', () => {
     expect(body).toMatch(
       /border-left:\s*2px solid color-mix\(in srgb,\s*var\(--chat-border\)\s*60%,\s*transparent\)/,
     )
-    // Caret-alignment is a fixed geometric constant (13px).
-    expect(body).toMatch(/margin-left:\s*0\.8125rem/)
+    // Caret-alignment is a fixed geometric constant (5px).
+    expect(body).toMatch(/margin-left:\s*0\.3125rem/)
     // Flush to the prior row + flush items.
     expect(body).toMatch(/margin-top:\s*0/)
     expect(body).toMatch(/gap:\s*0/)

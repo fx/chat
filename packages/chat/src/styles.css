@@ -249,15 +249,17 @@
 }
 
 /* Expanded grouped-run body: the reference indents the opened aux body with a
-   subtle hairline left rule flush to the content (`ml-[13px] border-l-2
-   border-border/60 pl-3`, mt-0, flush items). The 13px left margin is a
-   geometric constant that centers the rule under the disclosure caret (the
-   header has ~8px left padding + a 12px caret); the border is 60% opacity of
-   the border token; the 12px left pad is `--chat-gap` (= pl-3). Items render
-   flush (gap 0) with no top margin so the thread reads tight, not boxed. */
+   subtle hairline left rule flush to the content (`border-l-2 border-border/60
+   pl-3`, mt-0, flush items). The 5px left margin is a geometric constant that
+   centers the rule under the disclosure caret: with the trigger's `px-2 py-1`
+   padding removed, the 12px caret sits flush at the content-left edge, so its
+   center is ~6px in and a 2px border centered there lands at margin-left ~5px.
+   The border is 60% opacity of the border token; the 12px left pad is
+   `--chat-gap` (= pl-3). Items render flush (gap 0) with no top margin so the
+   thread reads tight, not boxed. */
 .chat-group-body {
   margin-top: 0;
-  margin-left: 0.8125rem;
+  margin-left: 0.3125rem;
   padding-left: var(--chat-gap);
   border-left: 2px solid color-mix(in srgb, var(--chat-border) 60%, transparent);
   display: flex;
