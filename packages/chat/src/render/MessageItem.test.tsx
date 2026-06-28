@@ -486,7 +486,10 @@ describe('MessageItem', () => {
       ],
     })
     const { container } = render(<MessageItem message={msg} timestampGutter />)
-    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    // Scope to the block rows; the footer is gutter-wrapped too but with a
+    // forced-blank clock cell, which is asserted separately below.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const cells = Array.from(blocksRegion.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
     expect(cells).toHaveLength(2)
     // First row of the same-second run shows the clock.
     expect(cells[0]?.textContent).toBe('09:05:07')
@@ -526,7 +529,8 @@ describe('MessageItem', () => {
       ],
     })
     const { container } = render(<MessageItem message={msg} timestampGutter />)
-    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const cells = Array.from(blocksRegion.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
     expect(cells).toHaveLength(2)
     // The tool row uses its own startedAt (09:05:09), not createdAt (09:05:07).
     expect(cells[0]?.textContent).toBe('09:05:09')
@@ -544,8 +548,10 @@ describe('MessageItem', () => {
       ],
     })
     const { container } = render(<MessageItem message={msg} flat timestampGutter />)
-    // Flat: one gutter row per block (no grouping).
-    const rows = container.querySelectorAll('.chat-gutter-row')
+    // Flat: one gutter row per block (no grouping). Scope to the block region so
+    // the gutter-wrapped footer row is not counted.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const rows = blocksRegion.querySelectorAll('.chat-gutter-row')
     expect(rows).toHaveLength(2)
     // The tool name renders inside a gutter content cell (flat → no group).
     expect(container.querySelector('.chat-group')).toBeNull()
@@ -574,10 +580,55 @@ describe('MessageItem', () => {
     const { container } = render(<MessageItem message={msg} timestampGutter defaultOpen />)
     // The two tool calls collapse into one group → one gutter row.
     expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
-    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const cells = Array.from(blocksRegion.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
     expect(cells).toHaveLength(1)
     // Row clock = first block startedAt (09:05:12), not createdAt (09:05:07).
     expect(cells[0]?.textContent).toBe('09:05:12')
+  })
+
+  it('gutter-wraps the footer with a BLANK clock cell so it aligns with content', () => {
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const { container } = render(<MessageItem message={message({ createdAt })} timestampGutter />)
+    const footer = container.querySelector('.chat-footer') as HTMLElement
+    expect(footer).not.toBeNull()
+    // The footer sits inside a gutter row's content cell (aligned with content).
+    const footerRow = footer.closest('.chat-gutter-row') as HTMLElement
+    expect(footerRow).not.toBeNull()
+    expect(footerRow.querySelector('.chat-gutter-content')?.contains(footer)).toBe(true)
+    // Its clock cell is forced blank (and aria-hidden) — the footer is not a
+    // timestamped event, it only needs to align with the content column.
+    const time = footerRow.querySelector('.chat-gutter-time') as HTMLElement
+    expect(time.textContent).toBe('')
+    expect(time).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('gutter-wraps user attachments with a BLANK clock cell', () => {
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const msg = message({
+      id: 'u1',
+      role: 'user',
+      createdAt,
+      blocks: [{ type: 'text', id: 't', text: 'hi' }],
+      attachments: [
+        { kind: 'file', mediaType: 'application/pdf', name: 'doc.pdf', url: 'https://x/doc.pdf' },
+      ],
+    })
+    const { container } = render(<MessageItem message={msg} timestampGutter />)
+    const attachments = container.querySelector('.chat-attachments') as HTMLElement
+    expect(attachments).not.toBeNull()
+    const row = attachments.closest('.chat-gutter-row') as HTMLElement
+    expect(row).not.toBeNull()
+    const time = row.querySelector('.chat-gutter-time') as HTMLElement
+    expect(time.textContent).toBe('')
+    expect(time).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('does NOT gutter-wrap the footer when timestampGutter is off', () => {
+    const { container } = render(<MessageItem message={message()} />)
+    const footer = container.querySelector('.chat-footer') as HTMLElement
+    expect(footer).not.toBeNull()
+    expect(footer.closest('.chat-gutter-row')).toBeNull()
   })
 
   it('de-dupes PER-MESSAGE: two same-second messages each print their own first-row clock', () => {
@@ -591,7 +642,9 @@ describe('MessageItem', () => {
         <MessageItem message={message({ id: 'm2', createdAt })} timestampGutter />
       </>,
     )
-    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    const cells = Array.from(
+      container.querySelectorAll('.chat-message-blocks .chat-gutter-time'),
+    ) as HTMLElement[]
     expect(cells).toHaveLength(2)
     // No cross-message de-dupe: each message's first row prints.
     expect(cells[0]?.textContent).toBe('09:05:07')
@@ -614,9 +667,13 @@ describe('MessageItem', () => {
     })
     const { container, rerender } = render(<MessageItem message={msg} timestampGutter />)
     const read = () =>
-      (Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]).map(
-        (c) => c.textContent,
-      )
+      (
+        Array.from(
+          (container.querySelector('.chat-message-blocks') as HTMLElement).querySelectorAll(
+            '.chat-gutter-time',
+          ),
+        ) as HTMLElement[]
+      ).map((c) => c.textContent)
     expect(read()).toEqual(['09:05:07', ''])
     // Re-render (simulates a subsequent render invocation) — output is identical.
     rerender(<MessageItem message={msg} timestampGutter />)

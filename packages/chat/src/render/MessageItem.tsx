@@ -179,9 +179,17 @@ export function MessageItem({
   // a given second shows the time and later same-second rows render a blank
   // (width-reserved) cell. The cell is `aria-hidden` when blank so screen
   // readers skip it.
-  const wrapRow = (key: string, rowTimestamp: number | undefined, row: ReactNode): ReactNode => {
+  const wrapRow = (
+    key: string,
+    rowTimestamp: number | undefined,
+    row: ReactNode,
+    // Footer/attachment rows are not timestamped events — they trail the content
+    // and only need to ALIGN with the content column, so they force a blank clock
+    // cell (still width-reserving) rather than printing a time.
+    blankClock = false,
+  ): ReactNode => {
     const source = rowTimestamp ?? message.createdAt
-    const clock = gutter(source)
+    const clock = blankClock ? '' : gutter(source)
     return (
       <div className="chat-gutter-row" key={key}>
         <span
@@ -260,19 +268,33 @@ export function MessageItem({
               )}
         </div>
       )}
-      {!raw && message.role === 'user' && message.attachments && message.attachments.length > 0 ? (
-        <MessageAttachments attachments={message.attachments} />
-      ) : null}
-      {showFooter && !raw ? (
-        <MessageFooter
-          copyText={messageCopyText(message)}
-          compact={effectiveCompactFooter}
-          {...(message.metrics ? { metrics: message.metrics } : {})}
-          {...(onRegenerate ? { onRegenerate } : {})}
-          {...(onFork ? { onFork } : {})}
-          {...(onReset ? { onReset } : {})}
-        />
-      ) : null}
+      {!raw && message.role === 'user' && message.attachments && message.attachments.length > 0
+        ? (() => {
+            const attachments = <MessageAttachments attachments={message.attachments} />
+            // With the gutter on, align the attachments with the content column
+            // (block rows are gutter-wrapped) via a blank clock cell.
+            return timestampGutter
+              ? wrapRow('attachments', undefined, attachments, true)
+              : attachments
+          })()
+        : null}
+      {showFooter && !raw
+        ? (() => {
+            const footer = (
+              <MessageFooter
+                copyText={messageCopyText(message)}
+                compact={effectiveCompactFooter}
+                {...(message.metrics ? { metrics: message.metrics } : {})}
+                {...(onRegenerate ? { onRegenerate } : {})}
+                {...(onFork ? { onFork } : {})}
+                {...(onReset ? { onReset } : {})}
+              />
+            )
+            // With the gutter on, align the footer with the content column (block
+            // rows are gutter-wrapped) via a blank clock cell.
+            return timestampGutter ? wrapRow('footer', undefined, footer, true) : footer
+          })()
+        : null}
     </div>
   )
 }

@@ -151,7 +151,11 @@ describe('MessageLog', () => {
       },
     ]
     const { container } = render(<MessageLog messages={sameSecond} timestampGutter />)
-    const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    // Scope to the block rows; each message also gutter-wraps its footer with a
+    // forced-blank clock cell, which is not part of this per-message-clock check.
+    const cells = Array.from(
+      container.querySelectorAll('.chat-message-blocks .chat-gutter-time'),
+    ) as HTMLElement[]
     expect(cells).toHaveLength(2)
     // Each message's first (and only) row prints its own clock — no cross-message
     // blanking.
