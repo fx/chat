@@ -31,18 +31,49 @@ export function formatTokensPerSecond(rate: number | undefined): string | undefi
 }
 
 /**
- * Format an epoch-ms (or ISO-string) timestamp as a local 24-hour `HH:MM`
- * label, zero-padded. SSR-safe (pure `Date` math, no DOM). Invalid, missing,
- * or non-finite inputs yield `undefined` so callers render nothing.
+ * Format an epoch-ms (or ISO-string) timestamp as a local 24-hour `HH:MM:SS`
+ * clock label, zero-padded. Built manually from `Date` math (NOT
+ * `toLocaleTimeString`) so every output is constant-width and locale-stable.
+ * SSR-safe (pure `Date` math, no DOM). Returns `''` for `null`, `undefined`,
+ * the empty string, or any non-finite / invalid input so callers can render an
+ * empty (but width-reserving) gutter cell.
  */
-export function formatMessageTime(value: number | string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  const date = typeof value === 'number' ? new Date(value) : new Date(value)
+export function formatClockTime(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return ''
+  const date = new Date(value)
   const ms = date.getTime()
-  if (!Number.isFinite(ms)) return undefined
+  if (!Number.isFinite(ms)) return ''
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
+}
+
+/**
+ * Create a stateful, log-wide de-duper for clock-gutter cells. The returned
+ * function formats a timestamp via {@link formatClockTime} and returns `''`
+ * when the formatted value equals the immediately-previous NON-EMPTY formatted
+ * value — so a run of consecutive rows sharing the same `HH:MM:SS` shows the
+ * time once (on the first row) and blanks the rest. A blank/invalid input
+ * (formatting to `''`) resets the run, so the next identical time prints again.
+ *
+ * Pure per instance (no shared module state): each call to this factory yields
+ * an independent de-duper. Create ONE per `MessageLog` render and thread it
+ * down so rows de-dupe in DOM (top-to-bottom) order.
+ */
+export function createClockGutterDeduper(): (value: number | string | null | undefined) => string {
+  let previous = ''
+  return (value) => {
+    const clock = formatClockTime(value)
+    if (clock === '') {
+      // A blank/invalid row resets the run so the next identical time prints.
+      previous = ''
+      return ''
+    }
+    if (clock === previous) return ''
+    previous = clock
+    return clock
+  }
 }
 
 /** A finite, positive number, or `undefined`. */

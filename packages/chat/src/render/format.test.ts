@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createClockGutterDeduper,
   deriveTokensPerSecond,
+  formatClockTime,
   formatDuration,
-  formatMessageTime,
   formatTokensPerSecond,
 } from './format'
 
@@ -64,26 +65,61 @@ describe('deriveTokensPerSecond', () => {
   })
 })
 
-describe('formatMessageTime', () => {
-  it('formats an epoch-ms timestamp as zero-padded local HH:MM', () => {
+describe('formatClockTime', () => {
+  it('formats an epoch-ms timestamp as zero-padded local HH:MM:SS', () => {
     // Build a local time deterministically so the assertion is TZ-independent.
-    const date = new Date(2024, 0, 2, 9, 5)
-    expect(formatMessageTime(date.getTime())).toBe('09:05')
+    const date = new Date(2024, 0, 2, 9, 5, 7)
+    expect(formatClockTime(date.getTime())).toBe('09:05:07')
   })
 
-  it('zero-pads single-digit hours and minutes', () => {
-    const date = new Date(2024, 0, 2, 0, 0)
-    expect(formatMessageTime(date.getTime())).toBe('00:00')
+  it('zero-pads single-digit hours, minutes, and seconds', () => {
+    const date = new Date(2024, 0, 2, 0, 0, 0)
+    expect(formatClockTime(date.getTime())).toBe('00:00:00')
   })
 
   it('accepts an ISO/date string', () => {
-    const date = new Date(2024, 0, 2, 14, 30)
-    expect(formatMessageTime(date.toISOString())).toBe('14:30')
+    const date = new Date(2024, 0, 2, 14, 30, 45)
+    expect(formatClockTime(date.toISOString())).toBe('14:30:45')
   })
 
-  it('returns undefined for missing or invalid input', () => {
-    expect(formatMessageTime(undefined)).toBeUndefined()
-    expect(formatMessageTime('not-a-date')).toBeUndefined()
-    expect(formatMessageTime(Number.NaN)).toBeUndefined()
+  it('returns "" for null, undefined, empty string, and invalid input', () => {
+    expect(formatClockTime(null)).toBe('')
+    expect(formatClockTime(undefined)).toBe('')
+    expect(formatClockTime('')).toBe('')
+    expect(formatClockTime('not-a-date')).toBe('')
+    expect(formatClockTime(Number.NaN)).toBe('')
+    expect(formatClockTime(Number.POSITIVE_INFINITY)).toBe('')
+  })
+})
+
+describe('createClockGutterDeduper', () => {
+  const at = (h: number, m: number, s: number) => new Date(2024, 0, 2, h, m, s).getTime()
+
+  it('prints the first occurrence and blanks consecutive same-second rows', () => {
+    const gutter = createClockGutterDeduper()
+    expect(gutter(at(9, 5, 7))).toBe('09:05:07')
+    // Same second → blanked.
+    expect(gutter(at(9, 5, 7))).toBe('')
+    expect(gutter(at(9, 5, 7))).toBe('')
+    // New second → printed again.
+    expect(gutter(at(9, 5, 8))).toBe('09:05:08')
+  })
+
+  it('resets the run on a blank/invalid input so the next identical time re-prints', () => {
+    const gutter = createClockGutterDeduper()
+    expect(gutter(at(9, 5, 7))).toBe('09:05:07')
+    // An invalid row resets the previous-tracking.
+    expect(gutter('not-a-date')).toBe('')
+    expect(gutter(undefined)).toBe('')
+    // The same time as before now prints again because the run was reset.
+    expect(gutter(at(9, 5, 7))).toBe('09:05:07')
+  })
+
+  it('is independent per instance (no shared module state)', () => {
+    const a = createClockGutterDeduper()
+    const b = createClockGutterDeduper()
+    expect(a(at(1, 2, 3))).toBe('01:02:03')
+    // A second, fresh deduper has no memory of the first.
+    expect(b(at(1, 2, 3))).toBe('01:02:03')
   })
 })
