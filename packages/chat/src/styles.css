@@ -368,15 +368,36 @@
   gap: calc(var(--chat-gap) / 2);
 }
 
-/* Left-aligned message chrome: a small, muted timestamp above the bubble. It is
-   message metadata, not answer content, so it sits OUTSIDE the `.chat-text`
-   bubble. Tabular figures keep `HH:MM` columns aligned across messages. */
-.chat-message-time {
-  align-self: flex-start;
-  font-size: 0.75rem;
+/* ── Per-block timestamp gutter (change 0012) ─────────────────────────────────
+   When the host enables `timestampGutter`, each top-level row renders as a
+   two-column layout: a FIXED-width left clock cell (`HH:MM:SS`, local, de-duped
+   across the log) + the row content on the right. The cell always reserves its
+   width (56px) even when blank, so content stays aligned. The 56px gutter width
+   and the 0.25rem top-pad are the only fixed layout constants (matching the
+   reference 56px gutter); everything else is token-driven. Monospace figures
+   come from `font-variant-numeric: tabular-nums` over the inherited chat font —
+   no hardcoded font family. */
+.chat-gutter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--chat-gap) / 1.5);
+}
+
+.chat-gutter-time {
+  flex-shrink: 0;
+  width: 3.5rem;
+  text-align: right;
+  padding-top: 0.25rem;
+  font-size: 0.625rem;
+  line-height: 1.4;
   color: var(--chat-muted);
   font-variant-numeric: tabular-nums;
-  margin-bottom: calc(var(--chat-gap) / 4);
+  user-select: none;
+}
+
+.chat-gutter-content {
+  min-width: 0;
+  flex: 1;
 }
 
 /* ── Role bubbles (change 0009, realigned to reference layout) ────────────────
@@ -400,14 +421,16 @@
   background: var(--chat-user-bubble-bg);
   color: var(--chat-user-bubble-fg);
   border-radius: var(--chat-radius);
-  padding: calc(var(--chat-gap) / 2) var(--chat-gap);
+  /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
+  padding: 0.625rem 1rem;
 }
 
 .chat-message[data-role="assistant"] .chat-text {
   background: var(--chat-assistant-bubble-bg);
   color: var(--chat-assistant-bubble-fg);
   border-radius: var(--chat-radius);
-  padding: calc(var(--chat-gap) / 2) var(--chat-gap);
+  /* Reference bubble padding: px-4 py-2.5 (1rem horizontal, 0.625rem vertical). */
+  padding: 0.625rem 1rem;
 }
 
 /* The user bubble sits on the accent color, where the muted footer-metrics tone

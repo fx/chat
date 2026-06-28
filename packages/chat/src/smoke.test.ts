@@ -311,15 +311,31 @@ describe('@fx/chat public surface', () => {
     expect(userMention).toContain('var(--chat-user-bubble-fg)')
   })
 
-  it('renders the left-aligned message timestamp from the muted token', () => {
-    // Realigned layout: a small, muted, left-aligned timestamp renders above the
-    // bubble as message chrome (outside `.chat-text`).
+  it('defines the per-block timestamp-gutter layout rules (change 0012)', () => {
+    // The gutter is a two-column row: a fixed 56px clock cell + the content. The
+    // prior `.chat-message-time` chrome is removed in favor of this layout.
     const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
-    const time = css.match(/\.chat-message-time\s*\{([^}]*)\}/)?.[1] ?? ''
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    // The prior per-message timestamp rule is gone.
+    expect(css).not.toContain('.chat-message-time')
+    // The row is a flex two-column layout.
+    const row = block('.chat-gutter-row')
+    expect(row).toContain('display: flex')
+    expect(row).toMatch(/align-items:\s*flex-start/)
+    // The clock cell: fixed 56px width, muted token color, tabular figures.
+    const time = block('.chat-gutter-time')
+    expect(time).toMatch(/width:\s*3\.5rem/)
     expect(time).toContain('var(--chat-muted)')
-    expect(time).toMatch(/font-size:\s*0\.75rem/)
     expect(time).toContain('tabular-nums')
-    expect(time).toMatch(/align-self:\s*flex-start/)
+    expect(time).toMatch(/flex-shrink:\s*0/)
+    expect(time).toMatch(/text-align:\s*right/)
+    // The content cell can shrink (min-width:0) and takes the remaining space.
+    const content = block('.chat-gutter-content')
+    expect(content).toContain('min-width: 0')
+    expect(content).toContain('flex: 1')
   })
 
   it('defines minimal/density-mode rules driven by --chat-gap-compact', () => {
