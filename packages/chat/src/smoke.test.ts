@@ -444,6 +444,13 @@ describe('@fx/chat public surface', () => {
     const metrics = css.match(/\n\.chat-footer-metrics\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(metrics).toMatch(/font-size:\s*inherit/)
 
+    // Footer action icons are sized to the reference's 10px (0.625rem) square in
+    // CSS so they render correctly regardless of the host icon set's intrinsic
+    // SVG size (CSS width/height overrides the SVG width/height attributes).
+    const footerIcon = css.match(/\n\.chat-footer-icon\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerIcon).toMatch(/width:\s*0\.625rem/)
+    expect(footerIcon).toMatch(/height:\s*0\.625rem/)
+
     // Aux header (renderer-owned `.chat-row` baseline): 12px + medium weight +
     // muted + compact padding.
     const row = css.match(/\n\.chat-row\s*\{([^}]*)\}/)?.[1] ?? ''

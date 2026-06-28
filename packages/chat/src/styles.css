@@ -659,6 +659,22 @@ summary .chat-row-header,
   min-width: 0;
 }
 
+/* Footer action icons: size to the reference's 10px regardless of the host icon
+   set. CSS width/height overrides the SVG's own width/height attributes, so a
+   host whose icon ships a 16px intrinsic size still renders at the footer scale
+   (the icons currently default to 16px without this). */
+.chat-footer-icon {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+/* The action-button text label (e.g. "Regenerate"), shown inline in the default
+   layout and revealed by the kebab in compact mode. It inherits the footer's
+   small/muted scale; a small gap sits between the icon and the label. */
+.chat-footer-label {
+  margin-left: calc(var(--chat-gap) / 4);
+}
+
 .chat-footer-metrics {
   /* Inherit the footer row's small size (0.625rem) so metrics match the muted
      footer scale instead of re-asserting a larger 0.75rem. */
