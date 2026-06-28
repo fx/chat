@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { deriveTokensPerSecond, formatDuration, formatTokensPerSecond } from './format'
+import {
+  deriveTokensPerSecond,
+  formatDuration,
+  formatMessageTime,
+  formatTokensPerSecond,
+} from './format'
 
 describe('formatDuration', () => {
   it('renders "<1s" for sub-second durations', () => {
@@ -56,5 +61,29 @@ describe('deriveTokensPerSecond', () => {
     expect(deriveTokensPerSecond(undefined, undefined, undefined)).toBeUndefined()
     expect(deriveTokensPerSecond(undefined, 30, undefined)).toBeUndefined()
     expect(deriveTokensPerSecond(undefined, undefined, 3000)).toBeUndefined()
+  })
+})
+
+describe('formatMessageTime', () => {
+  it('formats an epoch-ms timestamp as zero-padded local HH:MM', () => {
+    // Build a local time deterministically so the assertion is TZ-independent.
+    const date = new Date(2024, 0, 2, 9, 5)
+    expect(formatMessageTime(date.getTime())).toBe('09:05')
+  })
+
+  it('zero-pads single-digit hours and minutes', () => {
+    const date = new Date(2024, 0, 2, 0, 0)
+    expect(formatMessageTime(date.getTime())).toBe('00:00')
+  })
+
+  it('accepts an ISO/date string', () => {
+    const date = new Date(2024, 0, 2, 14, 30)
+    expect(formatMessageTime(date.toISOString())).toBe('14:30')
+  })
+
+  it('returns undefined for missing or invalid input', () => {
+    expect(formatMessageTime(undefined)).toBeUndefined()
+    expect(formatMessageTime('not-a-date')).toBeUndefined()
+    expect(formatMessageTime(Number.NaN)).toBeUndefined()
   })
 })

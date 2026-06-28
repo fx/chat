@@ -30,6 +30,21 @@ export function formatTokensPerSecond(rate: number | undefined): string | undefi
   return `${rate.toFixed(1)} tok/s`
 }
 
+/**
+ * Format an epoch-ms (or ISO-string) timestamp as a local 24-hour `HH:MM`
+ * label, zero-padded. SSR-safe (pure `Date` math, no DOM). Invalid, missing,
+ * or non-finite inputs yield `undefined` so callers render nothing.
+ */
+export function formatMessageTime(value: number | string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const date = typeof value === 'number' ? new Date(value) : new Date(value)
+  const ms = date.getTime()
+  if (!Number.isFinite(ms)) return undefined
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
 /** A finite, positive number, or `undefined`. */
 function positive(value: number | undefined): number | undefined {
   return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
