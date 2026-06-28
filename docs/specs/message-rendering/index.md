@@ -245,21 +245,34 @@ scope** and MUST NOT appear in this package.
 - The clock MUST be local 24-hour `HH:MM:SS`, zero-padded, built manually (NOT
   `toLocaleTimeString`) for constant width and SSR-safety. A missing/invalid/non-finite timestamp
   MUST yield an empty (but width-reserving, `aria-hidden`) cell.
-- The clock MUST be DE-DUPED LOG-WIDE: consecutive rows across the WHOLE log that resolve to the
-  same `HH:MM:SS` MUST show the time once (on the first row of the run); later same-second rows MUST
-  render a blank cell. A blank/invalid row MUST reset the run so the next identical time prints
-  again. `MessageLog` MUST build ONE de-duper per render and thread it to every `MessageItem` so the
-  de-dupe spans message boundaries (render order = DOM order, top to bottom).
+- The clock MUST be DE-DUPED PER-MESSAGE: consecutive rows WITHIN a message that resolve to the same
+  `HH:MM:SS` MUST show the time once (on the first row of the run); later same-second rows MUST render
+  a blank cell. A blank/invalid row MUST reset the run so the next identical time prints again. Each
+  message's first row MUST show its own clock (there is NO cross-message de-dupe). Each `MessageItem`
+  MUST build its OWN per-render `createClockGutterDeduper()` and feed it that message's rows; the
+  de-duper MUST NOT be shared across `MessageItem` instances. This is a RENDER-PURITY requirement: a
+  shared mutable de-duper threaded across components desyncs under React's multi-invoke render
+  (StrictMode double-invoke, concurrent re-render) and blanks every committed gutter cell — so the
+  de-duper MUST be created inside each `MessageItem` render and used only for that message's rows.
 - The row timestamp MUST prefer a block-level timestamp (`startedAt`, currently carried by
   `tool_call`; a group uses its FIRST block's) when finite and positive, else fall back to the
   message `createdAt`.
 
-#### Scenario: Gutter de-dupes a same-second run
+#### Scenario: Gutter de-dupes a same-second run within a message
 
-- **GIVEN** a log whose consecutive rows resolve to the same `HH:MM:SS` and `timestampGutter` is set
-- **WHEN** the log renders
+- **GIVEN** a message whose consecutive rows resolve to the same `HH:MM:SS` and `timestampGutter` is
+  set
+- **WHEN** the message renders
 - **THEN** the first row of the run shows the clock and each later same-second row renders a blank,
   width-reserved, `aria-hidden` gutter cell.
+
+#### Scenario: No cross-message de-dupe (each message prints its own first-row clock)
+
+- **GIVEN** two messages that resolve to the same `HH:MM:SS` and `timestampGutter` is set
+- **WHEN** the log renders
+- **THEN** EACH message's first row shows its own clock (de-dupe is per-message, not log-wide), and
+  re-rendering yields identical committed gutter cells (render purity — each `MessageItem` owns a
+  fresh per-render de-duper, so StrictMode/concurrent re-renders cannot desync it).
 
 #### Scenario: Invalid timestamp blanks but reserves width
 
@@ -544,4 +557,5 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-27 | Added token-driven role styling (user/assistant bubbles via `data-role`, system unbubbled) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-27 | Disclosure caret owned solely by the `Collapsible` slot; substrate affordance precedence drops the caret (idle bodied row renders no affordance icon) | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
 | 2026-06-27 | Added minimal / density mode: `minimal` flag folds a turn's aux to one group (`collapseTurnAux`), forces compact footer, `data-minimal` layout hook | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |
-| 2026-06-28 | Added per-block timestamp gutter: `timestampGutter` flag renders each row in a fixed 56px `HH:MM:SS` clock column (`formatClockTime`), de-duped log-wide via `createClockGutterDeduper`, block `startedAt` → message `createdAt` fallback; replaces the prior per-message timestamp | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
+| 2026-06-28 | Added per-block timestamp gutter: `timestampGutter` flag renders each row in a fixed 56px `HH:MM:SS` clock column (`formatClockTime`), de-duped via `createClockGutterDeduper`, block `startedAt` → message `createdAt` fallback; replaces the prior per-message timestamp | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
+| 2026-06-28 | Render-purity fix for the timestamp gutter: de-dupe is now PER-MESSAGE (each `MessageItem` owns a fresh per-render `createClockGutterDeduper`), not a shared log-wide deduper threaded via `renderGutter`. The shared mutable closure desynced under React's multi-invoke render (StrictMode/concurrent) and blanked every committed gutter cell; per-message first rows now always show their clock | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |

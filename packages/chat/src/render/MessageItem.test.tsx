@@ -2,7 +2,6 @@ import { render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../model'
 import { MessageItem, messageCopyText } from './MessageItem'
-import { createClockGutterDeduper } from './format'
 import { stubMatchMedia } from './test-helpers'
 
 beforeEach(() => {
@@ -477,7 +476,7 @@ describe('MessageItem', () => {
   it('blanks consecutive same-second rows and reserves the gutter width', () => {
     // Two bare rows on the same message both fall back to the SAME createdAt, so
     // the first prints the clock and the second blanks (de-dupe within a message
-    // via the per-message fallback deduper).
+    // via the message's own per-render deduper).
     const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
     const msg = message({
       createdAt,
@@ -581,28 +580,46 @@ describe('MessageItem', () => {
     expect(cells[0]?.textContent).toBe('09:05:12')
   })
 
-  it('threads a log-wide renderGutter so same-second rows de-dupe across messages', () => {
-    // Simulate MessageLog threading one shared deduper. Two messages at the same
-    // second: the first message's row prints, the second's blanks.
+  it('de-dupes PER-MESSAGE: two same-second messages each print their own first-row clock', () => {
+    // Each MessageItem owns its OWN per-render deduper (no shared cross-component
+    // mutable state), so two messages at the same second do NOT suppress one
+    // another — BOTH first rows print the clock.
     const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
-    const shared = createClockGutterDeduper()
     const { container } = render(
       <>
-        <MessageItem
-          message={message({ id: 'm1', createdAt })}
-          timestampGutter
-          renderGutter={shared}
-        />
-        <MessageItem
-          message={message({ id: 'm2', createdAt })}
-          timestampGutter
-          renderGutter={shared}
-        />
+        <MessageItem message={message({ id: 'm1', createdAt })} timestampGutter />
+        <MessageItem message={message({ id: 'm2', createdAt })} timestampGutter />
       </>,
     )
     const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
+    expect(cells).toHaveLength(2)
+    // No cross-message de-dupe: each message's first row prints.
     expect(cells[0]?.textContent).toBe('09:05:07')
-    // Cross-message de-dupe: the second message's identical-second row blanks.
-    expect(cells[cells.length - 1]?.textContent).toBe('')
+    expect(cells[1]?.textContent).toBe('09:05:07')
+    expect(cells[1]).not.toHaveAttribute('aria-hidden')
+  })
+
+  it('is render-pure: re-rendering yields the SAME committed clock cells (StrictMode-safe)', () => {
+    // A shared mutable deduper desynced under React's multi-invoke render
+    // (StrictMode/concurrent), blanking every committed cell. With a fresh
+    // per-render deduper, re-rendering the same message must reproduce identical
+    // output: the first same-second row shows the clock, the next blanks.
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const msg = message({
+      createdAt,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think', durationMs: 1000 },
+        { type: 'text', id: 'a', text: 'answer' },
+      ],
+    })
+    const { container, rerender } = render(<MessageItem message={msg} timestampGutter />)
+    const read = () =>
+      (Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]).map(
+        (c) => c.textContent,
+      )
+    expect(read()).toEqual(['09:05:07', ''])
+    // Re-render (simulates a subsequent render invocation) — output is identical.
+    rerender(<MessageItem message={msg} timestampGutter />)
+    expect(read()).toEqual(['09:05:07', ''])
   })
 })

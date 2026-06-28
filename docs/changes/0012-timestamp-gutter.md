@@ -6,10 +6,11 @@ Replace the simplistic per-message `HH:MM` timestamp (change 0009-era chrome) wi
 TIMESTAMP GUTTER layout matching the reference chat. When the host enables `timestampGutter`, every
 top-level rendered row (the aux group row, the answer text-block row, the user message row) renders
 as a TWO-COLUMN layout: a FIXED 56px left clock cell + the row content on the right. The clock is a
-constant-width 24-hour `HH:MM:SS` local time, built manually (not `toLocaleTimeString`). A log-wide
-de-duper blanks consecutive rows that share the same `HH:MM:SS` (the time shows once per run; later
-same-second cells render blank but still reserve their width). The prior per-message
-`.chat-message-time` span and its CSS are removed.
+constant-width 24-hour `HH:MM:SS` local time, built manually (not `toLocaleTimeString`). A
+PER-MESSAGE de-duper (each `MessageItem` owns its own per-render instance, for render purity) blanks
+consecutive same-second rows WITHIN a message (the time shows once per run; later same-second cells
+render blank but still reserve their width); each message's first row shows its own clock. The prior
+per-message `.chat-message-time` span and its CSS are removed.
 
 **Spec:** [message-rendering](../specs/message-rendering/)
 **Status:** complete
@@ -41,9 +42,12 @@ This change MUST satisfy the project's standing testing rules (see
   shows the clock and the next blanks (with the blank cell `aria-hidden`); a missing/invalid
   timestamp blanks the cell while reserving width; a block-level `startedAt` is preferred over the
   message `createdAt`; flat-mode blocks are wrapped too; a grouped row uses its FIRST block's
-  timestamp; without the prop, no gutter is rendered.
-- `MessageLog` MUST be tested: `timestampGutter` threads to every `MessageItem` and wraps rows;
-  same-second clocks de-dupe LOG-WIDE across messages via ONE shared deduper; absent → no gutter.
+  timestamp; without the prop, no gutter is rendered. De-dupe is PER-MESSAGE: re-rendering the same
+  message yields identical committed clock cells (render purity), and two same-second messages each
+  print their own first-row clock (no cross-message suppression).
+- `MessageLog` MUST be tested: `timestampGutter` threads to every `MessageItem` and wraps rows; it
+  does NOT thread a shared deduper, so two same-second messages each print their own first-row clock;
+  absent → no gutter.
 - The stylesheet contract MUST be parse-tested: the `.chat-gutter-row` / `.chat-gutter-time` /
   `.chat-gutter-content` rules exist with the 56px width, `tabular-nums`, and the muted token color;
   the prior `.chat-message-time` rule is gone.
@@ -56,9 +60,9 @@ the rule.
 
 - `MessageLog` and `MessageItem` MUST accept an OPTIONAL `timestampGutter?: boolean` (default
   `false`). When absent, rows render in a plain column with no gutter and no timestamps.
-- `MessageItem` MUST accept an OPTIONAL `renderGutter?: (value) => string` — the log-wide clock
-  de-duper threaded from `MessageLog`. When absent, `MessageItem` falls back to a per-message
-  deduper (no cross-message de-dupe).
+- `MessageItem` MUST NOT accept a `renderGutter` prop. Each `MessageItem` creates its OWN per-render
+  `createClockGutterDeduper()` instance and feeds it that message's rows; de-dupe is per-message (no
+  shared cross-component mutable state) for render purity.
 - The format module MUST export `formatClockTime(value)` and `createClockGutterDeduper()`. The prior
   `formatMessageTime` (HH:MM) is removed.
 
@@ -69,9 +73,12 @@ the rule.
   small top pad) + a `.chat-gutter-content` cell (`min-width: 0; flex: 1`).
 - The clock is local 24-hour `HH:MM:SS`, zero-padded, built manually for constant width; `''` for
   missing/invalid/non-finite timestamps. The blank cell is `aria-hidden` and still reserves 56px.
-- The de-duper is LOG-WIDE: `MessageLog` builds ONE `createClockGutterDeduper()` per render and
-  threads it to every `MessageItem` so consecutive rows sharing the same `HH:MM:SS` across the whole
-  log show the time once (first row of the run); a blank/invalid row resets the run.
+- The de-duper is PER-MESSAGE: each `MessageItem` builds its OWN `createClockGutterDeduper()` per
+  render and feeds it that message's rows, so consecutive rows sharing the same `HH:MM:SS` WITHIN a
+  message show the time once (first row of the run) and later same-second rows blank; each message's
+  first row shows its own clock (no cross-message de-dupe). A blank/invalid row resets the run. The
+  de-duper is created INSIDE render (never shared across components) so render stays pure — every
+  re-invocation (StrictMode/concurrent) yields identical committed output.
 - TIMESTAMP SOURCE per row: prefer a block-level timestamp (`startedAt`, currently on `tool_call`)
   when finite and positive; else fall back to the message `createdAt`.
 
@@ -96,19 +103,25 @@ the rule.
 ### Approach
 
 - `render/format.ts` — add `formatClockTime` + `createClockGutterDeduper`; remove `formatMessageTime`.
-- `render/MessageItem.tsx` — `timestampGutter` + `renderGutter` props; wrap each top-level row in a
-  `.chat-gutter-row`; resolve the row timestamp (block `startedAt` → message `createdAt`); remove the
-  prior `.chat-message-time` span.
-- `render/MessageLog.tsx` — `timestampGutter` prop; build ONE log-wide deduper and thread it as
-  `renderGutter` to every `MessageItem`.
+- `render/MessageItem.tsx` — `timestampGutter` prop; create a fresh per-render
+  `createClockGutterDeduper()` inside the component; wrap each top-level row in a `.chat-gutter-row`;
+  resolve the row timestamp (block `startedAt` → message `createdAt`); remove the prior
+  `.chat-message-time` span.
+- `render/MessageLog.tsx` — `timestampGutter` prop; thread it to every `MessageItem` (no shared
+  deduper).
 - `styles.css` — gutter rules (replacing `.chat-message-time`); reference bubble padding.
 
 ### Decisions
 
 - **Decision**: Build the clock manually instead of `toLocaleTimeString`.
   - **Why**: constant-width, locale-stable output that aligns in the fixed gutter and is SSR-safe.
-- **Decision**: One log-wide deduper threaded as a callback, not module state.
-  - **Why**: pure per render; correct top-to-bottom de-dupe in DOM order without shared global state.
+- **Decision**: A per-message deduper created inside each `MessageItem` render, not a shared log-wide
+  one threaded as a callback.
+  - **Why**: render purity. A shared mutable de-duper threaded across components desyncs under
+    React's multi-invoke render (StrictMode double-invoke, concurrent re-render), which blanked EVERY
+    committed gutter cell in production. A fresh per-render instance yields identical output on every
+    (re-)invocation. The cost — no cross-message de-dupe — is desirable: each message shows its own
+    first-row clock.
 - **Decision**: Prefer block `startedAt` over message `createdAt`.
   - **Why**: mirrors the reference's `block.ts ?? messageStartedAt` fallback so a tool row reflects
     when its work began.
@@ -121,12 +134,25 @@ the rule.
 ## Tasks
 
 - [x] `format.ts`: `formatClockTime` + `createClockGutterDeduper`; remove `formatMessageTime`
-- [x] `MessageItem`: `timestampGutter` + `renderGutter` props; per-row gutter wrapping; timestamp
-      fallback; remove prior timestamp span
-- [x] `MessageLog`: `timestampGutter` prop + log-wide deduper threaded as `renderGutter`
+- [x] `MessageItem`: `timestampGutter` prop; own per-render deduper; per-row gutter wrapping;
+      timestamp fallback; remove prior timestamp span
+- [x] `MessageLog`: `timestampGutter` prop threaded to each `MessageItem` (no shared deduper)
+- [x] Render-purity fix: drop the shared log-wide deduper / `renderGutter` prop; each `MessageItem`
+      owns its own per-render deduper (2026-06-28)
 - [x] `styles.css`: gutter rules (replace `.chat-message-time`); reference bubble padding
 - [x] Specs: message-rendering (Timestamp Gutter subsection + scenario, changelog row)
 - [x] Tests: `formatClockTime` / `createClockGutterDeduper`; MessageItem/MessageLog gutter; styles parse
+
+## Changelog
+
+- **2026-06-28** — Render-purity fix: the timestamp-gutter de-duper was a shared, log-wide mutable
+  closure (`MessageLog` created one and threaded it as `renderGutter` to every `MessageItem`). Shared
+  mutable state across component renders is render-impure — React's multi-invoke render (StrictMode
+  double-invoke, concurrent re-render) desynced the closure so the committed DOM blanked EVERY
+  `.chat-gutter-time` cell. Fix: removed the log-wide deduper and the `renderGutter` prop; each
+  `MessageItem` now creates its OWN per-render `createClockGutterDeduper()`. De-dupe is now
+  PER-MESSAGE (first same-second row shows the clock, later same-second rows within the message
+  blank); each message's first row shows its own clock (cross-message de-dupe intentionally dropped).
 
 ## Open Questions
 

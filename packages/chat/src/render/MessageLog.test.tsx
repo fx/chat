@@ -132,10 +132,10 @@ describe('MessageLog', () => {
     expect(container.querySelector('.chat-gutter-content')).not.toBeNull()
   })
 
-  it('de-dupes same-second clocks LOG-WIDE across messages (one shared deduper)', () => {
-    // Both messages share createdAt 0 (faked system time). The first row of the
-    // run prints the clock; every later same-second row across BOTH messages
-    // blanks — proving the deduper is shared log-wide, not per-message.
+  it('does NOT de-dupe across messages: each message prints its own first-row clock', () => {
+    // Both messages share createdAt 0 (faked system time). De-dupe is PER-MESSAGE
+    // (each MessageItem owns its own per-render deduper for render purity), so
+    // there is no cross-message suppression — BOTH first rows print the clock.
     const sameSecond: ChatMessage[] = [
       {
         id: 'm1',
@@ -153,8 +153,10 @@ describe('MessageLog', () => {
     const { container } = render(<MessageLog messages={sameSecond} timestampGutter />)
     const cells = Array.from(container.querySelectorAll('.chat-gutter-time')) as HTMLElement[]
     expect(cells).toHaveLength(2)
-    // First row prints; the second (same second, next message) blanks.
+    // Each message's first (and only) row prints its own clock — no cross-message
+    // blanking.
     expect(cells[0]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
-    expect(cells[1]?.textContent).toBe('')
+    expect(cells[1]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
+    expect(cells[1]).not.toHaveAttribute('aria-hidden')
   })
 })

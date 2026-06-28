@@ -13,7 +13,6 @@ import type { ReactNode } from 'react'
 import { MessageItem } from './MessageItem'
 import { TimelineItemView } from './TimelineItemView'
 import type { ChatExtensions, RenderableMessage } from './extensions'
-import { createClockGutterDeduper } from './format'
 import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
@@ -45,10 +44,12 @@ export interface MessageLogProps extends MessageCallbacks {
   showFooter?: boolean
   /**
    * Render each top-level row in a two-column TIMESTAMP GUTTER layout (a fixed
-   * left clock cell + the row content). The log builds ONE log-wide clock
-   * de-duper and threads it to every `MessageItem`, so consecutive same-second
-   * rows across the WHOLE log show the time once and blank the rest. OPTIONAL;
-   * off by default (plain column, no timestamps).
+   * left clock cell + the row content). Each `MessageItem` owns its OWN
+   * per-render clock de-duper (render-pure — no shared cross-component mutable
+   * state), so consecutive same-second rows WITHIN a message show the time once
+   * and blank the rest; each message's first row shows its own clock (no
+   * cross-message de-dupe). OPTIONAL; off by default (plain column, no
+   * timestamps).
    */
   timestampGutter?: boolean
   /** Compact footer mode. */
@@ -88,11 +89,10 @@ export function MessageLog({
   // Interleave messages and host-supplied custom timeline items by createdAt/at.
   // With no timeline items, this is the messages in order (default path).
   const timeline = mergeTimeline(messages, extensions?.timelineItems)
-  // ONE log-wide clock de-duper per render, threaded to every MessageItem so
-  // consecutive same-second rows blank out across message boundaries. Render
-  // order is top-to-bottom (matching DOM order), so the de-dupe is correct.
-  // Only built when the gutter is enabled.
-  const gutterDeduper = timestampGutter ? createClockGutterDeduper() : undefined
+  // No log-wide clock de-duper is created here: a shared mutable de-duper
+  // threaded across components is render-impure (StrictMode/concurrent
+  // re-renders desync the closure). Each `MessageItem` instead owns its own
+  // per-render de-duper, so de-dupe is deterministic per message.
   const items = timeline.map((entry) => {
     if (entry.kind === 'item') {
       // An item entry only exists when `extensions.timelineItems` was non-empty,
@@ -121,7 +121,6 @@ export function MessageLog({
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}
         {...(timestampGutter !== undefined ? { timestampGutter } : {})}
-        {...(gutterDeduper ? { renderGutter: gutterDeduper } : {})}
         {...(extensions ? { extensions } : {})}
         {...(onRegenerate ? { onRegenerate: () => onRegenerate(message.id) } : {})}
         {...(onFork ? { onFork: () => onFork(message.id) } : {})}

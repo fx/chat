@@ -50,16 +50,19 @@ export function formatClockTime(value: number | string | null | undefined): stri
 }
 
 /**
- * Create a stateful, log-wide de-duper for clock-gutter cells. The returned
- * function formats a timestamp via {@link formatClockTime} and returns `''`
- * when the formatted value equals the immediately-previous NON-EMPTY formatted
- * value — so a run of consecutive rows sharing the same `HH:MM:SS` shows the
- * time once (on the first row) and blanks the rest. A blank/invalid input
- * (formatting to `''`) resets the run, so the next identical time prints again.
+ * Create a stateful de-duper for clock-gutter cells. The returned function
+ * formats a timestamp via {@link formatClockTime} and returns `''` when the
+ * formatted value equals the immediately-previous NON-EMPTY formatted value —
+ * so a run of consecutive rows sharing the same `HH:MM:SS` shows the time once
+ * (on the first row) and blanks the rest. A blank/invalid input (formatting to
+ * `''`) resets the run, so the next identical time prints again.
  *
  * Pure per instance (no shared module state): each call to this factory yields
- * an independent de-duper. Create ONE per `MessageLog` render and thread it
- * down so rows de-dupe in DOM (top-to-bottom) order.
+ * an independent de-duper. Because the returned closure is mutable, it MUST NOT
+ * be shared across React component renders — a shared instance desyncs under
+ * StrictMode/concurrent re-renders (render impurity). Each `MessageItem` creates
+ * its OWN per-render instance and feeds it that message's rows top-to-bottom, so
+ * de-dupe is deterministic per render.
  */
 export function createClockGutterDeduper(): (value: number | string | null | undefined) => string {
   let previous = ''

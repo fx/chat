@@ -48,19 +48,11 @@ export interface MessageItemProps {
   showFooter?: boolean
   /**
    * Render each top-level row in a two-column TIMESTAMP GUTTER layout: a fixed
-   * 56px left clock cell (`HH:MM:SS`, local, de-duped across the log) + the row
-   * content on the right. OPTIONAL; the host enables it. When OFF (default), rows
-   * render in a plain column with no gutter and no timestamps.
+   * 56px left clock cell (`HH:MM:SS`, local, de-duped within this message) + the
+   * row content on the right. OPTIONAL; the host enables it. When OFF (default),
+   * rows render in a plain column with no gutter and no timestamps.
    */
   timestampGutter?: boolean
-  /**
-   * Log-wide clock de-duper from {@link createClockGutterDeduper}. The owning
-   * `MessageLog` creates ONE per render and threads it to every `MessageItem` so
-   * consecutive same-second rows across the whole log blank out (the time shows
-   * once per run). Only consulted when `timestampGutter` is set. When absent, the
-   * gutter falls back to a per-message formatter (no cross-message de-dupe).
-   */
-  renderGutter?: (value: number | string | null | undefined) => string
   /** Compact footer mode. */
   compactFooter?: boolean
   /** Optional render-layer extensions (custom block/tool renderers + grouping). */
@@ -115,7 +107,6 @@ export function MessageItem({
   defaultOpen,
   showFooter = true,
   timestampGutter = false,
-  renderGutter,
   compactFooter = false,
   extensions,
   onRegenerate,
@@ -171,18 +162,23 @@ export function MessageItem({
         : groupBlocks(blocks, behaviorOverrides)
       : []
 
-  // The timestamp-gutter de-duper. Prefer the log-wide one threaded from
-  // `MessageLog` (so consecutive same-second rows blank out across messages);
-  // fall back to a per-message instance when a `MessageItem` is rendered
-  // standalone. Only consulted when `timestampGutter` is set.
-  const gutter = renderGutter ?? createClockGutterDeduper()
+  // A FRESH per-render clock de-duper, owned by this MessageItem and used only
+  // for its own rows in order. Creating it inside render (not sharing one across
+  // components) keeps render PURE: every (re-)invocation — StrictMode double
+  // invoke, concurrent re-render — starts from the same empty state and yields
+  // identical output, so the committed DOM matches. De-dupe is therefore
+  // per-message: this message's first same-second row shows the clock and later
+  // same-second rows blank; each message's first row shows its own clock (no
+  // cross-message suppression). Only consulted when `timestampGutter` is set.
+  const gutter = createClockGutterDeduper()
 
   // Wrap a single top-level row in the two-column gutter layout: a fixed-width
   // left clock cell + the row content. The clock comes from the row's own
   // timestamp (block-level `startedAt` if present, else the message `createdAt`)
-  // run through the shared de-duper, so a turn's first row of a given second
-  // shows the time and later same-second rows render a blank (width-reserved)
-  // cell. The cell is `aria-hidden` when blank so screen readers skip it.
+  // run through this message's per-render de-duper, so the message's first row of
+  // a given second shows the time and later same-second rows render a blank
+  // (width-reserved) cell. The cell is `aria-hidden` when blank so screen
+  // readers skip it.
   const wrapRow = (key: string, rowTimestamp: number | undefined, row: ReactNode): ReactNode => {
     const source = rowTimestamp ?? message.createdAt
     const clock = gutter(source)
