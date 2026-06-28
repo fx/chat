@@ -61,8 +61,8 @@ describe('MessageItem', () => {
       ],
     })
     render(<MessageItem message={msg} defaultOpen />)
-    // The four metadata blocks collapse: a +3 badge counts the hidden ones.
-    expect(screen.getByText('+3')).toBeInTheDocument()
+    // The four metadata blocks collapse: a (+3) badge counts the hidden ones.
+    expect(screen.getByText('(+3)')).toBeInTheDocument()
     // The answer renders bare.
     expect(screen.getByText('final answer')).toBeInTheDocument()
   })
@@ -87,8 +87,8 @@ describe('MessageItem', () => {
       ],
     })
     render(<MessageItem message={msg} />)
-    // Single reasoning renders bare (no +N badge).
-    expect(screen.queryByText(/^\+/)).toBeNull()
+    // Single reasoning renders bare (no (+N) badge).
+    expect(screen.queryByText(/\(\+\d+\)/)).toBeNull()
     expect(screen.getByText('Thought for 1.0s')).toBeInTheDocument()
   })
 
@@ -100,7 +100,7 @@ describe('MessageItem', () => {
       ],
     })
     render(<MessageItem message={msg} flat />)
-    expect(screen.queryByText(/^\+/)).toBeNull()
+    expect(screen.queryByText(/\(\+\d+\)/)).toBeNull()
     expect(screen.getByText('search')).toBeInTheDocument()
   })
 
@@ -248,7 +248,7 @@ describe('MessageItem', () => {
     const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
     // One group holds BOTH aux blocks despite the text between them.
     expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
-    expect(screen.getByText('+1')).toBeInTheDocument()
+    expect(screen.getByText('(+1)')).toBeInTheDocument()
     expect(screen.getByText('interim')).toBeInTheDocument()
   })
 

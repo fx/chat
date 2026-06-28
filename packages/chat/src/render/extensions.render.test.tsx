@@ -411,7 +411,7 @@ describe('grouping interaction for custom blocks (via MessageItem)', () => {
     // All three fold under one disclosure; the marker now sits in the group body.
     const marker = container.querySelector('[data-host-marker]') as HTMLElement
     expect(marker.closest('[data-testid="chat-group-body"]')).not.toBeNull()
-    expect(screen.getByText('+2')).toBeInTheDocument()
+    expect(screen.getByText('(+2)')).toBeInTheDocument()
   })
 
   it('marks the group active when the trailing custom block is the active one', () => {

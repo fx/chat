@@ -56,8 +56,8 @@ function assertResolvedStructure(root: HTMLElement) {
   expect(within(user).getByText('@analyst')).toHaveAttribute('data-agent-id', 'analyst')
 
   // The assistant's grouped auxiliary run (reasoning + 2 tools + status) collapses
-  // into a disclosure with a `+N` badge counting the hidden members.
-  expect(within(assistant).getByText('+3')).toBeInTheDocument()
+  // into a disclosure with a `(+N)` badge counting the hidden members.
+  expect(within(assistant).getByText('(+3)')).toBeInTheDocument()
 
   // The markdown answer renders bare beneath the grouped metadata.
   expect(within(assistant).getByText(/Revenue rose/i)).toBeInTheDocument()
@@ -91,7 +91,7 @@ describe('cross-registry parity', () => {
       )
       const assistant = container.querySelector('[data-message-id="a1"]') as HTMLElement
       // Exactly one collapsed group for the assistant turn's metadata.
-      expect(within(assistant).getByText('+3')).toBeInTheDocument()
+      expect(within(assistant).getByText('(+3)')).toBeInTheDocument()
       expect(assistant.querySelectorAll('.chat-group')).toHaveLength(1)
       // The markdown answer renders bare beneath the group.
       expect(within(assistant).getByText(/Revenue rose/i)).toBeInTheDocument()

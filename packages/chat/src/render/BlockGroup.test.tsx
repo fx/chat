@@ -31,13 +31,16 @@ const tool = (id: string, name = id): ContentBlock => ({
 const status = (id: string): ContentBlock => ({ type: 'status', id })
 
 describe('BlockGroup', () => {
-  it('renders a header summary chip and a +N badge', () => {
+  it('renders a header summary chip and a (+N) badge', () => {
     const blocks = [reasoning('r'), tool('t1', 'search'), tool('t2', 'fetch')]
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} defaultOpen />)
     // Latest header-eligible block (fetch) heads the summary chip.
     const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
     expect(summary.textContent).toBe('fetch')
-    expect(screen.getByText('+2')).toBeInTheDocument()
+    // The hidden-count badge is parenthesized `(+N)` (reference format).
+    const more = container.querySelector('.chat-group-more') as HTMLElement
+    expect(more.textContent).toBe('(+2)')
+    expect(screen.getByText('(+2)')).toBeInTheDocument()
   })
 
   it('surfaces an ACTIVE trailing status row as the summary (no +N when 1 hidden)', () => {
@@ -49,7 +52,7 @@ describe('BlockGroup', () => {
       />,
     )
     expect(screen.getByText('Status')).toBeInTheDocument()
-    expect(screen.getByText('+1')).toBeInTheDocument()
+    expect(screen.getByText('(+1)')).toBeInTheDocument()
   })
 
   it('surfaces the tool summary (not "Status") for a COMPLETED status-ending run', () => {
@@ -206,7 +209,8 @@ describe('BlockGroup', () => {
   it('omits the +N badge when nothing is hidden (single-item direct call)', () => {
     // The grouping pass never emits a single-item group, but BlockGroup is
     // public: a one-block group has hiddenCount 0, so no +N badge renders.
-    render(<BlockGroup blocks={[tool('only', 'solo')]} context={ctx()} />)
-    expect(screen.queryByText(/^\+/)).toBeNull()
+    const { container } = render(<BlockGroup blocks={[tool('only', 'solo')]} context={ctx()} />)
+    expect(container.querySelector('.chat-group-more')).toBeNull()
+    expect(screen.queryByText(/\(\+\d+\)/)).toBeNull()
   })
 })

@@ -288,11 +288,15 @@ describe('@fx/chat public surface', () => {
     // Reference bubble padding (px-4 py-2.5) is a constant — it must NOT compress
     // with density (the gutter/gap rows tighten in minimal mode, not the bubble).
     expect(userText).toMatch(/padding:\s*0\.625rem\s+1rem/)
+    // The bubble caps at the reference max-width (token-driven) — it must not be
+    // uncapped (`max-width: none`) on the text block.
+    expect(userText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
     const assistantText = block('.chat-message[data-role="assistant"] .chat-text')
     expect(assistantText).toContain('var(--chat-assistant-bubble-bg)')
     expect(assistantText).toContain('var(--chat-assistant-bubble-fg)')
     expect(assistantText).toContain('var(--chat-radius)')
     expect(assistantText).toMatch(/padding:\s*0\.625rem\s+1rem/)
+    expect(assistantText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
     // The message wrapper keeps alignment + max-width but NO background. Both
     // roles are left-aligned (align-self: flex-start), and the user wrapper no
     // longer right-aligns via margin-left:auto.
@@ -408,13 +412,69 @@ describe('@fx/chat public surface', () => {
     // The group summary can shrink so its truncating label takes the slack.
     expect(block('.chat-group-summary')).toContain('min-width: 0')
 
-    // The `+N` overflow badge and header pills hold their intrinsic size (the
+    // The `(+N)` overflow badge and header pills hold their intrinsic size (the
     // label absorbs the shrink), so they neither collapse nor wrap. The rule is
-    // grouped (`.chat-group-more, .chat-row-timer, .chat-row-tps`), so match the
-    // body whose selector list contains `.chat-group-more`.
-    const groupMoreRule =
-      css.match(new RegExp(`${escapeRegExp('.chat-group-more')}[^{]*\\{([^}]*)\\}`))?.[1] ?? ''
-    expect(groupMoreRule).toContain('flex-shrink: 0')
+    // grouped (`.chat-group-more, .chat-row-timer, .chat-row-tps`), so anchor to
+    // the grouped selector list (a standalone `.chat-group-more` typography rule
+    // also exists and must NOT be matched here).
+    const groupMoreShrink =
+      css.match(/\.chat-group-more,\s*\n\.chat-row-timer,\s*\n\.chat-row-tps\s*\{([^}]*)\}/)?.[1] ??
+      ''
+    expect(groupMoreShrink).toContain('flex-shrink: 0')
+  })
+
+  it('renders the footer + aux header at the reference density metrics', () => {
+    // The reference footer row is small (10px) + muted; the aux collapsible
+    // header (the collapsed tool/reasoning/status toggle) is small (12px),
+    // medium-weight, muted, with a compact `px-2 py-1`-feel padding; and the
+    // leading kind icon + disclosure caret are 12px square. All token-driven
+    // where a token exists.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+
+    // Footer row: 10px + muted, sitting just below the bubble (margin-top).
+    const footer = css.match(/\n\.chat-footer\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footer).toMatch(/font-size:\s*0\.625rem/)
+    expect(footer).toContain('var(--chat-muted)')
+    expect(footer).toMatch(/margin-top:/)
+    // Footer metrics inherit the small footer size instead of re-asserting 0.75rem.
+    const metrics = css.match(/\n\.chat-footer-metrics\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(metrics).toMatch(/font-size:\s*inherit/)
+
+    // Aux header (renderer-owned `.chat-row` baseline): 12px + medium weight +
+    // muted + compact padding.
+    const row = css.match(/\n\.chat-row\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(row).toMatch(/font-size:\s*0\.75rem/)
+    expect(row).toMatch(/font-weight:\s*500/)
+    expect(row).toContain('var(--chat-muted)')
+    expect(row).toMatch(
+      /padding:\s*calc\(var\(--chat-gap\)\s*\/\s*3\)\s+calc\(var\(--chat-gap\)\s*\/\s*1\.5\)/,
+    )
+
+    // Headless disclosure summary header: same 12px + medium weight + compact
+    // padding so a registry that uses the `<summary>` matches the reference.
+    const header = block('.chat-collapsible-header')
+    expect(header).toMatch(/font-size:\s*0\.75rem/)
+    expect(header).toMatch(/font-weight:\s*500/)
+    expect(header).toMatch(
+      /padding:\s*calc\(var\(--chat-gap\)\s*\/\s*3\)\s+calc\(var\(--chat-gap\)\s*\/\s*1\.5\)/,
+    )
+
+    // Leading kind icon + disclosure caret are 12px (0.75rem) square. The rule is
+    // grouped (`.chat-row-icon, .chat-collapsible-caret`).
+    const iconRule =
+      css.match(/\.chat-row-icon,\s*\n\.chat-collapsible-caret\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(iconRule).toMatch(/width:\s*0\.75rem/)
+    expect(iconRule).toMatch(/height:\s*0\.75rem/)
+
+    // The hidden-count badge is small + muted (parenthesized `(+N)` content is
+    // produced by BlockGroup, asserted in its own suite).
+    const groupMore = css.match(/\n\.chat-group-more\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(groupMore).toMatch(/font-size:\s*0\.625rem/)
+    expect(groupMore).toContain('var(--chat-muted)')
   })
 
   it('depends on no UI kit, icon set, or markdown engine', () => {
