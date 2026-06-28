@@ -5,8 +5,10 @@
  * Responsibilities:
  * - A clickable header carrying an affordance icon, a label, optional pills.
  * - Affordance-icon precedence: active → spinner; just-completed → success check
- *   (flash); otherwise → NO affordance icon (an empty filler span is preserved
- *   for layout). The disclosure caret is owned SOLELY by the registry
+ *   (flash); otherwise → NO affordance icon AND no affordance span at all (an
+ *   idle body/filler row emits nothing, so there is no empty box or gap between
+ *   the caret and the kind icon/label). The disclosure caret is owned SOLELY by
+ *   the registry
  *   `Collapsible` slot — this substrate MUST NOT render its own caret. A running,
  *   expandable row may therefore show BOTH the spinner (this affordance) and the
  *   Collapsible's caret, which is acceptable.
@@ -54,6 +56,12 @@ export interface CollapsibleRowProps {
   error?: boolean
   /** Optional leading icon name (e.g. `wrench`, `brain`, `gear`). */
   iconName?: 'wrench' | 'brain' | 'gear'
+  /**
+   * Optional content rendered in the header AFTER the affordance (when present)
+   * and BEFORE the leading kind icon — used by `BlockGroup` for the `(+N)`
+   * hidden-count badge, so it sits just after the disclosure caret.
+   */
+  prefix?: ReactNode
   /** Extra className on the disclosure root. */
   className?: string
 }
@@ -77,6 +85,7 @@ export function CollapsibleRow({
   alwaysShow = false,
   error = false,
   iconName,
+  prefix,
   className,
 }: CollapsibleRowProps) {
   const { Collapsible, Badge, icons } = useChatComponents()
@@ -136,9 +145,16 @@ export function CollapsibleRow({
 
   const header = (
     <span className="chat-row-header" data-affordance={affordanceTone}>
-      <span className="chat-row-affordance" data-affordance={affordanceTone}>
-        {Affordance ? <Affordance className="chat-row-affordance-icon" /> : null}
-      </span>
+      {/* Render the affordance span ONLY when there is an affordance icon (active
+          spinner / flash check). An idle body/filler row emits nothing here, so
+          there is no empty width-reserving box between the caret and the kind
+          icon/label. */}
+      {Affordance ? (
+        <span className="chat-row-affordance" data-affordance={affordanceTone}>
+          <Affordance className="chat-row-affordance-icon" />
+        </span>
+      ) : null}
+      {prefix}
       {LeadingIcon ? <LeadingIcon className="chat-row-icon" /> : null}
       <span className="chat-row-label">{label}</span>
       {error ? (

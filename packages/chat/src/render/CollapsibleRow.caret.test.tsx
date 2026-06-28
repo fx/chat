@@ -36,10 +36,10 @@ describe('single-caret disclosure ownership', () => {
     )
     // The headless Collapsible owns the only caret.
     expect(container.querySelectorAll('.chat-collapsible-caret')).toHaveLength(1)
-    // The substrate's affordance span renders no caret icon of its own.
-    const affordance = container.querySelector('.chat-row-affordance') as HTMLElement
-    expect(affordance).toHaveAttribute('data-affordance', 'body')
-    expect(affordance.querySelector('.chat-row-affordance-icon')).toBeNull()
+    // An idle bodied row keeps the `body` tone on its header but emits NO
+    // affordance span (so no empty box / extra caret of its own).
+    expect(container.querySelector('.chat-row-header')).toHaveAttribute('data-affordance', 'body')
+    expect(container.querySelector('.chat-row-affordance')).toBeNull()
   })
 
   it('renders exactly one host chevron via a stub Collapsible (substrate adds none)', () => {

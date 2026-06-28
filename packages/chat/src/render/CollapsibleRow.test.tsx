@@ -66,26 +66,22 @@ describe('CollapsibleRow affordance precedence', () => {
     )
   })
 
-  it('carries the body tone but renders NO affordance icon when idle with a body', () => {
+  it('carries the body tone but renders NO affordance span when idle with a body', () => {
     // The disclosure caret is owned by the Collapsible slot, not this substrate:
-    // a bodied idle row keeps the `body` tone (for layout/styling) but emits no
-    // affordance icon of its own.
+    // a bodied idle row keeps the `body` tone on the header (for layout/styling)
+    // but emits NO affordance span at all — so there is no empty width-reserving
+    // box (and no gap) between the caret and the kind icon/label.
     const { container } = row({ label: 'B', children: <span>b</span> })
     const header = screen.getByText('B').closest('.chat-row-header') as HTMLElement
     expect(header).toHaveAttribute('data-affordance', 'body')
-    const affordance = container.querySelector('.chat-row-affordance') as HTMLElement
-    expect(affordance).not.toBeNull()
-    expect(affordance).toHaveAttribute('data-affordance', 'body')
-    expect(affordance.querySelector('.chat-row-affordance-icon')).toBeNull()
+    expect(container.querySelector('.chat-row-affordance')).toBeNull()
   })
 
-  it('shows a muted filler (no icon) when idle with no body but alwaysShow', () => {
+  it('renders NO affordance span when idle with no body but alwaysShow', () => {
     const { container } = row({ label: 'F', alwaysShow: true })
     const header = screen.getByText('F').closest('.chat-row-header') as HTMLElement
     expect(header).toHaveAttribute('data-affordance', 'filler')
-    const affordance = container.querySelector('.chat-row-affordance') as HTMLElement
-    expect(affordance).toHaveAttribute('data-affordance', 'filler')
-    expect(affordance.querySelector('.chat-row-affordance-icon')).toBeNull()
+    expect(container.querySelector('.chat-row-affordance')).toBeNull()
   })
 
   it('still renders the spinner icon while active and the check icon on flash', () => {
@@ -129,6 +125,42 @@ describe('CollapsibleRow pills + icon', () => {
   it('renders a leading icon when iconName is set', () => {
     const { container } = row({ label: 'I', alwaysShow: true, iconName: 'wrench' })
     expect(container.querySelector('.chat-row-icon')).not.toBeNull()
+  })
+
+  it('renders the prefix slot AFTER any affordance and BEFORE the leading icon', () => {
+    // Active row → spinner affordance present; prefix renders between it and the
+    // kind icon (reference collapsed-header order: [affordance/caret][prefix][icon]).
+    const { container } = row({
+      label: 'P',
+      isActive: true,
+      iconName: 'brain',
+      prefix: <span data-testid="pre">(+2)</span>,
+    })
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    const affordance = header.querySelector('.chat-row-affordance') as HTMLElement
+    const pre = screen.getByTestId('pre')
+    const icon = header.querySelector('.chat-row-icon') as HTMLElement
+    expect(affordance).not.toBeNull()
+    expect(pre).not.toBeNull()
+    expect(icon).not.toBeNull()
+    // affordance precedes prefix precedes icon in document order.
+    expect(affordance.compareDocumentPosition(pre) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(pre.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders the prefix even with no affordance (idle), before the leading icon', () => {
+    const { container } = row({
+      label: 'P',
+      alwaysShow: true,
+      iconName: 'brain',
+      prefix: <span data-testid="pre">(+1)</span>,
+    })
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    // No affordance span on an idle row.
+    expect(header.querySelector('.chat-row-affordance')).toBeNull()
+    const pre = screen.getByTestId('pre')
+    const icon = header.querySelector('.chat-row-icon') as HTMLElement
+    expect(pre.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('applies error styling', () => {
