@@ -7,6 +7,8 @@
  * `extensions.blockRenderers`. When neither resolves to a renderer, the item
  * wrapper renders inertly (never throws) so an unknown kind can't crash the log.
  */
+import { cx } from '../cx'
+import { useChatClassNames } from '../registry'
 import type { ChatExtensions, CustomBlock, RenderableMessage, TimelineItem } from './extensions'
 import { lookupExtension } from './extensions'
 
@@ -19,8 +21,9 @@ export interface TimelineItemViewProps {
 
 /** Renders a single custom timeline item under its anchor wrapper. */
 export function TimelineItemView({ item, extensions }: TimelineItemViewProps) {
+  const cn = useChatClassNames()
   return (
-    <div className="chat-timeline-item" data-timeline-item-id={item.id}>
+    <div className={cx('chat-timeline-item', cn.timelineItem)} data-timeline-item-id={item.id}>
       <TimelineItemBody item={item} {...(extensions ? { extensions } : {})} />
     </div>
   )

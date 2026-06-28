@@ -6,8 +6,9 @@
  * text through the registry `Markdown` slot (reasoning is model-authored prose,
  * so it gets the same Markdown treatment as assistant answers).
  */
+import { cx } from '../../cx'
 import type { ReasoningBlock } from '../../model'
-import { useChatComponents } from '../../registry'
+import { useChatClassNames, useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
 import { summarizeBlock } from '../blockSummary'
 
@@ -30,6 +31,7 @@ export function ReasoningBlockView({
   defaultOpen,
 }: ReasoningBlockViewProps) {
   const { Markdown } = useChatComponents()
+  const cn = useChatClassNames()
   // Label + icon precedence comes from the shared `summarizeBlock` helper so the
   // bare view and the collapsed `BlockGroup` summary cannot drift: actively
   // streaming → "Thinking…"; completed with a known duration → "Thought for
@@ -47,7 +49,7 @@ export function ReasoningBlockView({
       defaultOpen={defaultOpen}
       alwaysShow
     >
-      <div className="chat-reasoning-body">
+      <div className={cx('chat-reasoning-body', cn.reasoningBody)}>
         <Markdown content={block.text} {...(isActive ? { streaming: true } : {})} />
       </div>
     </CollapsibleRow>

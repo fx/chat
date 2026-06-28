@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { ChatProvider } from '../context'
 import { HeadlessMarkdown, parseBlocks } from './markdown'
 
 describe('parseBlocks', () => {
@@ -125,5 +126,43 @@ describe('HeadlessMarkdown', () => {
     expect(markup).toContain('chat-md')
     expect(markup).toContain('<pre')
     expect(markup).toContain('<a')
+  })
+
+  it('forwards the className prop onto the root, after the stable hook', () => {
+    const { container } = render(<HeadlessMarkdown content="x" className="host-md" />)
+    const root = container.querySelector('.chat-md.host-md')
+    expect(root).not.toBeNull()
+    // Stable hook stays first; the forwarded class is appended.
+    expect(root?.className).toBe('chat-md host-md')
+  })
+
+  it('appends injected classNames to the root + every markdown atom', () => {
+    const { container } = render(
+      <ChatProvider
+        classNames={{
+          md: 'md-x',
+          mdP: 'mdp-x',
+          mdPre: 'mdpre-x',
+          mdLink: 'mdlink-x',
+          mdCodeInline: 'mdcode-x',
+        }}
+      >
+        <HeadlessMarkdown content={'use `c` and [l](https://e.com)\n\n```ts\nx()\n```'} />
+      </ChatProvider>,
+    )
+    expect(container.querySelector('.chat-md.md-x')).not.toBeNull()
+    expect(container.querySelector('.chat-md-p.mdp-x')).not.toBeNull()
+    expect(container.querySelector('.chat-md-pre.mdpre-x')).not.toBeNull()
+    expect(container.querySelector('.chat-md-link.mdlink-x')).not.toBeNull()
+    expect(container.querySelector('.chat-md-code-inline.mdcode-x')).not.toBeNull()
+  })
+
+  it('combines the className prop and the injected md class (hook, prop, injected order)', () => {
+    const { container } = render(
+      <ChatProvider classNames={{ md: 'md-x' }}>
+        <HeadlessMarkdown content="x" className="host-md" />
+      </ChatProvider>,
+    )
+    expect(container.querySelector('.chat-md')?.className).toBe('chat-md host-md md-x')
   })
 })

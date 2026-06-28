@@ -16,16 +16,12 @@
  *    server-side without `window`/`document` (it returns `null` when closed).
  */
 import { useCallback, useEffect, useRef } from 'react'
-import { useChatComponents } from '../context'
+import { cx } from '../../cx'
+import { useChatClassNames, useChatComponents } from '../context'
 import type { LightboxProps } from '../contract'
 
 /** Selector matching the focusable controls the overlay owns (the close button). */
 const FOCUSABLE = 'button, [href], [tabindex]:not([tabindex="-1"])'
-
-/** Joins truthy class-name parts with a single space. */
-function classes(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(' ')
-}
 
 /**
  * SSR-safe reduced-motion read. Returns `true` only in a DOM that reports the
@@ -43,6 +39,7 @@ function prefersReducedMotion(): boolean {
  */
 export function Lightbox({ src, alt, open, onClose, className }: LightboxProps) {
   const { icons } = useChatComponents()
+  const cn = useChatClassNames()
   const closeRef = useRef<HTMLButtonElement>(null)
   // The element focused before the overlay opened, restored on close. Typed as
   // a focusable element so the cleanup can restore it directly.
@@ -124,13 +121,13 @@ export function Lightbox({ src, alt, open, onClose, className }: LightboxProps) 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismiss is supplementary; Escape + close button are the primary keyboard paths.
     <div
-      className={classes('chat-lightbox', className)}
+      className={cx('chat-lightbox', cn.lightbox, className)}
       data-reduced-motion={reduced ? 'true' : undefined}
       // Backdrop click dismisses; clicks on the dialog body are stopped below.
       onClick={onClose}
     >
       <div
-        className="chat-lightbox-dialog"
+        className={cx('chat-lightbox-dialog', cn.lightboxDialog)}
         // biome-ignore lint/a11y/useSemanticElements: a native <dialog> manages its own focus/backdrop, conflicting with this self-contained focus-trap + backdrop-dismiss overlay; an ARIA dialog div is intentional.
         role="dialog"
         aria-modal="true"
@@ -142,13 +139,13 @@ export function Lightbox({ src, alt, open, onClose, className }: LightboxProps) 
         <button
           ref={closeRef}
           type="button"
-          className="chat-lightbox-close"
+          className={cx('chat-lightbox-close', cn.lightboxClose)}
           onClick={onClose}
           aria-label="Close"
         >
-          <CloseIcon className="chat-lightbox-close-icon" />
+          <CloseIcon className={cx('chat-lightbox-close-icon', cn.lightboxCloseIcon)} />
         </button>
-        <img className="chat-lightbox-image" src={src} alt={alt} />
+        <img className={cx('chat-lightbox-image', cn.lightboxImage)} src={src} alt={alt} />
       </div>
     </div>
   )

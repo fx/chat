@@ -10,6 +10,8 @@
  * SSR-safe: pure render, no `window`/`document` access.
  */
 import type { ReactNode } from 'react'
+import { cx } from '../../cx'
+import { useChatClassNames } from '../context'
 import type { MarkdownProps } from '../contract'
 
 /** Matches a Markdown link `[text](href)`. */
@@ -25,12 +27,21 @@ function isSafeHref(href: string): boolean {
   return /^(https?:|mailto:)/i.test(href)
 }
 
+/** The resolved class names for the inline markdown atoms (link, inline code). */
+interface InlineClasses {
+  /** Class for a rendered `<a>` link (stable hook + injected host class). */
+  link: string
+  /** Class for a rendered inline `<code>` (stable hook + injected host class). */
+  codeInline: string
+}
+
 /**
  * Render a single line of inline markdown — links and inline code — into React
  * nodes. Text is rendered as-is (React escapes it); links become anchors,
- * inline code becomes `<code>`.
+ * inline code becomes `<code>`. The resolved `classes` are threaded in from the
+ * component so the host-injected `classNames` reach these leaf atoms.
  */
-function renderInline(line: string, keyPrefix: string): ReactNode[] {
+function renderInline(line: string, keyPrefix: string, classes: InlineClasses): ReactNode[] {
   const nodes: ReactNode[] = []
   let cursor = 0
   let index = 0
@@ -58,7 +69,7 @@ function renderInline(line: string, keyPrefix: string): ReactNode[] {
         nodes.push(
           <a
             key={`${keyPrefix}-${index}`}
-            className="chat-md-link"
+            className={classes.link}
             href={href}
             rel="noopener noreferrer"
             target="_blank"
@@ -72,7 +83,7 @@ function renderInline(line: string, keyPrefix: string): ReactNode[] {
       }
     } else {
       nodes.push(
-        <code key={`${keyPrefix}-${index}`} className="chat-md-code-inline">
+        <code key={`${keyPrefix}-${index}`} className={classes.codeInline}>
           {match[1] as string}
         </code>,
       )
@@ -136,11 +147,25 @@ export function parseBlocks(content: string): Block[] {
 /**
  * The headless Markdown component. Renders the safe subset described above and
  * sets `data-streaming` when `streaming` is true so hosts can style a caret.
+ *
+ * Class injection: the root joins the stable `chat-md` hook, the optional
+ * per-instance `className` prop, and the context-injected `classNames.md`. Each
+ * inner atom (paragraph, fenced code, link, inline code) appends its matching
+ * injected class after its stable hook. With no `className` and no injected map,
+ * output is byte-identical to the unstyled default.
  */
-export function HeadlessMarkdown({ content, streaming }: MarkdownProps) {
+export function HeadlessMarkdown({ content, streaming, className }: MarkdownProps) {
+  const cn = useChatClassNames()
+  const inlineClasses: InlineClasses = {
+    link: cx('chat-md-link', cn.mdLink),
+    codeInline: cx('chat-md-code-inline', cn.mdCodeInline),
+  }
   const blocks = parseBlocks(content)
   return (
-    <div className="chat-md" data-streaming={streaming ? 'true' : undefined}>
+    <div
+      className={cx('chat-md', className, cn.md)}
+      data-streaming={streaming ? 'true' : undefined}
+    >
       {blocks.map((block, blockIndex) => {
         // Parsed blocks are a stable, non-reordering positional list, so the
         // block position is the correct identity.
@@ -149,7 +174,7 @@ export function HeadlessMarkdown({ content, streaming }: MarkdownProps) {
           return (
             <pre
               key={blockKey}
-              className="chat-md-pre"
+              className={cx('chat-md-pre', cn.mdPre)}
               {...(block.language ? { 'data-language': block.language } : {})}
             >
               <code>{block.code}</code>
@@ -157,7 +182,7 @@ export function HeadlessMarkdown({ content, streaming }: MarkdownProps) {
           )
         }
         return (
-          <p key={blockKey} className="chat-md-p">
+          <p key={blockKey} className={cx('chat-md-p', cn.mdP)}>
             {block.lines.map((line, lineIndex) => {
               // Parsed lines are positional and never reorder, so the line's
               // position within the block is its stable identity.
@@ -165,7 +190,7 @@ export function HeadlessMarkdown({ content, streaming }: MarkdownProps) {
               return (
                 <span key={lineKey}>
                   {lineIndex > 0 ? <br /> : null}
-                  {renderInline(line, lineKey)}
+                  {renderInline(line, lineKey, inlineClasses)}
                 </span>
               )
             })}
