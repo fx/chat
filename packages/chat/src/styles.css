@@ -417,7 +417,10 @@
   text-align: right;
   padding-top: 0;
   font-size: 0.625rem;
-  line-height: 1.4;
+  /* line-height:1 collapses the cell's line-box to the 10px digit height so the
+     timestamp glyphs sit at the TOP of the cell, aligning with the top-aligned
+     disclosure caret (no ~2px line-gap drop from a 14px line-box). */
+  line-height: 1;
   color: var(--chat-muted);
   font-variant-numeric: tabular-nums;
   user-select: none;
@@ -549,6 +552,11 @@
   align-items: center;
   gap: calc(var(--chat-gap) / 2);
   min-width: 0;
+  /* line-height:1 collapses the header's line-box to the font size so the kind
+     icon + label (+ timer/tps) glyphs sit at the TOP of the line-box, aligning
+     with the top-aligned disclosure caret instead of dropping ~2px from a
+     line-centered ~16px line-box. */
+  line-height: 1;
 }
 
 /* The renderer-owned header (`.chat-row-header`) is placed inside whatever

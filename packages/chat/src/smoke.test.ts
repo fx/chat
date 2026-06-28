@@ -345,6 +345,10 @@ describe('@fx/chat public surface', () => {
     expect(time).toContain('tabular-nums')
     expect(time).toMatch(/flex-shrink:\s*0/)
     expect(time).toMatch(/text-align:\s*right/)
+    // line-height:1 collapses the cell's line-box to the digit height so the
+    // timestamp glyphs sit at the TOP of the cell, aligning with the
+    // top-aligned disclosure caret (no ~2px line-gap drop).
+    expect(time).toMatch(/line-height:\s*1\s*;/)
     // The content cell can shrink (min-width:0) and takes the remaining space.
     const content = block('.chat-gutter-content')
     expect(content).toContain('min-width: 0')
@@ -561,6 +565,16 @@ describe('@fx/chat public surface', () => {
       css.match(/\.chat-row-icon,\s*\n\.chat-collapsible-caret\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(iconRule).toMatch(/width:\s*0\.75rem/)
     expect(iconRule).toMatch(/height:\s*0\.75rem/)
+
+    // The aux-row header (`.chat-row-header`) holds the kind icon + label
+    // (+ timer/tps). line-height:1 collapses its line-box to the font size so
+    // the icon and label glyphs sit at the TOP of the line-box, aligning with
+    // the top-aligned disclosure caret instead of dropping ~2px from a
+    // line-centered taller line-box. align-items/flex/gap stay intact.
+    const rowHeader = block('.chat-row-header')
+    expect(rowHeader).toContain('display: flex')
+    expect(rowHeader).toMatch(/align-items:\s*center/)
+    expect(rowHeader).toMatch(/line-height:\s*1\s*;/)
 
     // The inline metadata indicators — hidden-count `(+N)`, timer, and tok/s —
     // render as PLAIN small (10px) muted text, NOT filled badge chips. They share
