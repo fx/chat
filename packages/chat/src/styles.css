@@ -248,6 +248,20 @@
   padding: 0 var(--chat-gap) var(--chat-gap);
 }
 
+/* Expanded grouped-run body: the reference indents the opened aux body with a
+   small top gap + a hairline left rule (`mt-0.5 ml-[13px] border-l-2 pl-3`).
+   Keep it tight and token-driven — a ~2px top margin and a left border + ~12px
+   left pad — so the inner blocks read as a tight indented thread, not a boxed
+   block. */
+.chat-group-body {
+  margin-top: calc(var(--chat-gap-compact) / 3);
+  padding-left: var(--chat-gap);
+  border-left: 2px solid var(--chat-border);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--chat-gap-compact) / 3);
+}
+
 .chat-codeblock,
 .chat-md-pre {
   margin: 0;
@@ -489,12 +503,22 @@
    padding, and compact footer spacing. Token-driven (`--chat-gap-compact`) and
    headless-only — the grouping/footer behavior is decided in the renderer; this
    only tightens spacing. */
+/* Inter-message gap: the reference separates turns via small per-block inner
+   margins, so the uniform log gap can be tight (~4px). `--chat-gap-compact`/1.5
+   ≈ 4px keeps it token-driven. */
 .chat-log[data-minimal="true"] {
-  gap: var(--chat-gap-compact);
+  gap: calc(var(--chat-gap-compact) / 1.5);
 }
 
 .chat-message[data-minimal="true"] {
   gap: calc(var(--chat-gap-compact) / 2);
+}
+
+/* Inter-block-row spacing within a message: the reference's aux rows read nearly
+   flush, so tighten the block/message gaps to ~2px in minimal mode. Token-driven
+   via `--chat-gap-compact`/3 ≈ 2px. */
+.chat-message[data-minimal="true"] .chat-message-blocks {
+  gap: calc(var(--chat-gap-compact) / 3);
 }
 
 /* Minimal mode tightens the spacing BETWEEN rows (the log/message gaps and the
@@ -559,6 +583,18 @@ summary .chat-row-header,
   font-weight: 500;
   color: var(--chat-muted);
   padding: calc(var(--chat-gap) / 3) calc(var(--chat-gap) / 1.5);
+}
+
+/* The grouped-run disclosure root (`.chat-row chat-group`) is a CONTAINER, not a
+   toggle: the reference gives it NO padding and NO margin — the compact `4px 8px`
+   toggle padding lives on the HEADER (`.chat-collapsible-header` / the `.chat-row`
+   baseline for a bare static row), not on the group wrapper. Without this the
+   group inherits `.chat-row`'s padding and reads as a boxed, spaced-out block
+   instead of the reference's flush group. Specificity (0,2,0) over `.chat-row`
+   (0,1,0) zeroes the wrapper while leaving the bare-row baseline intact. */
+.chat-row.chat-group {
+  padding: 0;
+  margin: 0;
 }
 
 /* CollapsibleRow owns ONLY the spinner (active) / success check (flash)
@@ -659,6 +695,32 @@ summary .chat-row-header,
   min-width: 0;
 }
 
+/* Footer buttons inherit the host registry's button typography, which can be as
+   large as 14px. Force the reference's 10px footer scale onto EVERY footer button
+   (label + glyph) so action labels and the kebab read at the muted footer size
+   regardless of the host button's default font-size. */
+.chat-footer button {
+  font-size: 0.625rem;
+}
+
+/* The host registry maps footer Button/CopyButton to FIXED-SIZE square icon
+   buttons (e.g. `size-5`/`size-6` + `justify-center`), which clips a text label
+   to a 20px square and collides the button's children. Make the ACTION buttons
+   (Copy/Regenerate/Fork/Reset) flexible so their label sits beside the icon and
+   the button grows with its content — only the kebab reveal toggle stays a fixed
+   square. The `:not(.chat-footer-reveal)` selector's specificity (0,2,1) beats
+   Tailwind's `.size-5`/`.size-6` (0,1,0), so the host's square sizing is
+   overridden for the action buttons while the kebab keeps it. */
+.chat-footer button:not(.chat-footer-reveal) {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  /* 2px 4px — the reference action-button padding. */
+  padding: 0.125rem 0.25rem;
+  /* 2px between the icon and its label. */
+  gap: 0.125rem;
+}
+
 /* Footer action icons: size to the reference's 10px regardless of the host icon
    set. CSS width/height overrides the SVG's own width/height attributes, so a
    host whose icon ships a 16px intrinsic size still renders at the footer scale
@@ -680,9 +742,13 @@ summary .chat-row-header,
 
 /* The action-button text label (e.g. "Regenerate"), shown inline in the default
    layout and revealed by the kebab in compact mode. It inherits the footer's
-   small/muted scale; a small gap sits between the icon and the label. */
+   small (10px) muted scale; the flexible action button's `gap` (2px) already
+   separates the icon from the label, so the label needs no extra left margin —
+   the prior `margin-left` would push it off-center inside the auto-width button. */
 .chat-footer-label {
-  margin-left: calc(var(--chat-gap) / 4);
+  display: inline;
+  font-size: inherit;
+  color: inherit;
 }
 
 .chat-footer-metrics {

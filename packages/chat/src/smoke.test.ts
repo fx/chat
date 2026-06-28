@@ -367,6 +367,19 @@ describe('@fx/chat public surface', () => {
     // The minimal rules reference the compact token.
     expect(block('.chat-log[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
     expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
+
+    // Inter-block-row spacing within a message is tightened (~2px) so aux rows
+    // read nearly flush like the reference — still token-driven.
+    const blockRowGap =
+      css.match(/\.chat-message\[data-minimal="true"\] \.chat-message-blocks\s*\{([^}]*)\}/)?.[1] ??
+      ''
+    expect(blockRowGap).toContain('var(--chat-gap-compact)')
+
+    // The grouped-run disclosure root is a CONTAINER with no padding/margin — the
+    // 4px 8px toggle padding lives on the header, not the wrapper.
+    const groupContainer = css.match(/\.chat-row\.chat-group\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(groupContainer).toMatch(/padding:\s*0/)
+    expect(groupContainer).toMatch(/margin:\s*0/)
     // Minimal mode tightens the GAPS between rows, NOT the bubble's internal
     // padding: the reference keeps bubble padding constant across densities. No
     // minimal-mode rule may override `.chat-text` padding.
@@ -440,6 +453,23 @@ describe('@fx/chat public surface', () => {
     expect(footer).toMatch(/font-size:\s*0\.625rem/)
     expect(footer).toContain('var(--chat-muted)')
     expect(footer).toMatch(/margin-top:/)
+
+    // Footer buttons override the host registry's default (up to 14px) button
+    // font-size down to the 10px footer scale.
+    const footerButton = css.match(/\.chat-footer button\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerButton).toMatch(/font-size:\s*0\.625rem/)
+
+    // The ACTION buttons are flexible (auto width/height, no min-width, compact
+    // 2px 4px padding + 2px gap) so a revealed text label sits beside the icon
+    // instead of overflowing the host's fixed square — the kebab reveal toggle is
+    // excluded so it stays a fixed square.
+    const footerAction =
+      css.match(/\.chat-footer button:not\(\.chat-footer-reveal\)\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerAction).toMatch(/width:\s*auto/)
+    expect(footerAction).toMatch(/height:\s*auto/)
+    expect(footerAction).toMatch(/min-width:\s*0/)
+    expect(footerAction).toMatch(/padding:\s*0\.125rem\s+0\.25rem/)
+    expect(footerAction).toMatch(/gap:\s*0\.125rem/)
     // Footer metrics inherit the small footer size instead of re-asserting 0.75rem.
     const metrics = css.match(/\n\.chat-footer-metrics\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(metrics).toMatch(/font-size:\s*inherit/)
