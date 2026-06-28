@@ -59,7 +59,7 @@ export interface CollapsibleRowProps {
   /**
    * Optional content rendered in the header AFTER the affordance (when present)
    * and BEFORE the leading kind icon — used by `BlockGroup` for the `(+N)`
-   * hidden-count badge, so it sits just after the disclosure caret.
+   * hidden-count text, so it sits just after the disclosure caret.
    */
   prefix?: ReactNode
   /** Extra className on the disclosure root. */
@@ -165,16 +165,8 @@ export function CollapsibleRow({
           Error
         </Badge>
       ) : null}
-      {timerPill ? (
-        <Badge className="chat-row-timer" tone="default">
-          {formatDuration(elapsed)}
-        </Badge>
-      ) : null}
-      {tps ? (
-        <Badge className="chat-row-tps" tone="default">
-          {tps}
-        </Badge>
-      ) : null}
+      {timerPill ? <span className="chat-row-timer">{formatDuration(elapsed)}</span> : null}
+      {tps ? <span className="chat-row-tps">{tps}</span> : null}
     </span>
   )
 

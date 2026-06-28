@@ -1,14 +1,13 @@
 /**
  * `BlockGroup` — renders a collapsed run of auxiliary blocks under one
  * disclosure, with a header summary chip selected by the grouping policy and a
- * `+N` badge counting the hidden blocks.
+ * plain muted `(+N)` text count of the hidden blocks.
  *
  * The header summary text is derived from the chosen block's kind via the
  * grouping policy's selection (`selectHeaderSummary`), never via ad-hoc kind
  * branching in the log walk.
  */
 import type { ContentBlock } from '../model'
-import { useChatComponents } from '../registry'
 import { CollapsibleRow } from './CollapsibleRow'
 import { summarizeBlock } from './blockSummary'
 import { BlockView } from './blocks'
@@ -62,7 +61,6 @@ function groupIsActive(blocks: RenderableBlock[], context: BlockRenderContext): 
 
 /** Renders the collapsed group disclosure. */
 export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGroupProps) {
-  const { Badge } = useChatComponents()
   // The trailing status only heads the summary while it is the live row; a
   // completed run surfaces the latest tool/reasoning summary instead.
   const trailingBlock = blocks[blocks.length - 1] as RenderableBlock
@@ -105,15 +103,10 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       : undefined
     : context.tokensPerSecond
 
-  // The `(+N)` hidden-count badge renders right after the disclosure caret and
-  // BEFORE the kind icon/label (reference order), via CollapsibleRow's `prefix`
-  // slot. Rendered only when there is a hidden remainder.
-  const prefix =
-    hiddenCount > 0 ? (
-      <Badge className="chat-group-more" tone="default">
-        (+{hiddenCount})
-      </Badge>
-    ) : null
+  // The `(+N)` hidden-count renders as plain muted text right after the
+  // disclosure caret and BEFORE the kind icon/label (reference order), via
+  // CollapsibleRow's `prefix` slot. Rendered only when there is a hidden remainder.
+  const prefix = hiddenCount > 0 ? <span className="chat-group-more">(+{hiddenCount})</span> : null
 
   const label = (
     <span className="chat-group-summary">

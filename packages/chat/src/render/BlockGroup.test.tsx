@@ -31,15 +31,18 @@ const tool = (id: string, name = id): ContentBlock => ({
 const status = (id: string): ContentBlock => ({ type: 'status', id })
 
 describe('BlockGroup', () => {
-  it('renders a header summary chip and a (+N) badge', () => {
+  it('renders a header summary chip and a (+N) plain-text count', () => {
     const blocks = [reasoning('r'), tool('t1', 'search'), tool('t2', 'fetch')]
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} defaultOpen />)
     // Latest header-eligible block (fetch) heads the summary chip.
     const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
     expect(summary.textContent).toBe('fetch')
-    // The hidden-count badge is parenthesized `(+N)` (reference format).
+    // The hidden-count `(+N)` is plain muted text (parenthesized, reference
+    // format) — a bare <span>, NOT a filled `Badge` chip (no `chat-badge`).
     const more = container.querySelector('.chat-group-more') as HTMLElement
     expect(more.textContent).toBe('(+2)')
+    expect(more.tagName).toBe('SPAN')
+    expect(more.classList.contains('chat-badge')).toBe(false)
     expect(screen.getByText('(+2)')).toBeInTheDocument()
   })
 
@@ -71,9 +74,17 @@ describe('BlockGroup', () => {
       />,
     )
     const header = container.querySelector('.chat-row-header') as HTMLElement
-    // A status summary KEEPS its timer pill — the "Generating…"/"Generated"
-    // label does not embed the duration, so the pill carries it.
-    expect(header.querySelector('.chat-row-timer')).not.toBeNull()
+    // A status summary KEEPS its timer + tok/s — the "Generating…"/"Generated"
+    // label does not embed the duration, so these carry it. They render as plain
+    // muted text spans (NOT filled `Badge` chips — no `chat-badge`).
+    const timer = header.querySelector('.chat-row-timer') as HTMLElement
+    const tps = header.querySelector('.chat-row-tps') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.tagName).toBe('SPAN')
+    expect(timer.classList.contains('chat-badge')).toBe(false)
+    expect(tps).not.toBeNull()
+    expect(tps.tagName).toBe('SPAN')
+    expect(tps.classList.contains('chat-badge')).toBe(false)
     expect(within(header).getByText('<1s')).toBeInTheDocument()
     expect(within(header).getByText('8.0 tok/s')).toBeInTheDocument()
   })
@@ -140,9 +151,9 @@ describe('BlockGroup', () => {
     expect(within(header).getByText('167.0 tok/s')).toBeInTheDocument()
   })
 
-  it('renders the (+N) badge as a prefix right after the caret, before the kind icon', () => {
+  it('renders the (+N) count as a prefix right after the caret, before the kind icon', () => {
     // Reference collapsed header order: [caret] [(+N)] [brain icon] [label] …
-    // The (+N) badge is CollapsibleRow's `prefix` slot, so within the header it
+    // The (+N) text is CollapsibleRow's `prefix` slot, so within the header it
     // precedes the leading kind icon in document order.
     const blocks: ContentBlock[] = [
       { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
@@ -155,6 +166,8 @@ describe('BlockGroup', () => {
     const icon = header.querySelector('.chat-row-icon') as HTMLElement
     expect(more).not.toBeNull()
     expect(more.textContent).toBe('(+2)')
+    expect(more.tagName).toBe('SPAN')
+    expect(more.classList.contains('chat-badge')).toBe(false)
     expect(icon).not.toBeNull()
     // (+N) precedes the kind icon in document order.
     expect(more.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

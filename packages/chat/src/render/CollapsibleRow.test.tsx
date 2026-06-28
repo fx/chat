@@ -102,19 +102,30 @@ describe('CollapsibleRow affordance precedence', () => {
 })
 
 describe('CollapsibleRow pills + icon', () => {
-  it('renders a live timer pill when showTimer and active', () => {
-    row({ label: 'T', isActive: true, showTimer: true, startedAt: 0 })
-    expect(screen.getByText('<1s')).toBeInTheDocument()
+  it('renders a live timer as plain muted text when showTimer and active', () => {
+    const { container } = row({ label: 'T', isActive: true, showTimer: true, startedAt: 0 })
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('<1s')
+    // Plain muted text span, NOT a filled `Badge` chip (no `chat-badge`).
+    expect(timer.tagName).toBe('SPAN')
+    expect(timer.classList.contains('chat-badge')).toBe(false)
   })
 
-  it('renders a finalized timer pill when showTimer and durationMs', () => {
-    row({ label: 'T', showTimer: true, durationMs: 2500, alwaysShow: true })
-    expect(screen.getByText('2.5s')).toBeInTheDocument()
+  it('renders a finalized timer as plain muted text when showTimer and durationMs', () => {
+    const { container } = row({ label: 'T', showTimer: true, durationMs: 2500, alwaysShow: true })
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('2.5s')
+    expect(timer.tagName).toBe('SPAN')
+    expect(timer.classList.contains('chat-badge')).toBe(false)
   })
 
-  it('renders a tokens/sec pill when present', () => {
-    row({ label: 'T', alwaysShow: true, tokensPerSecond: 12.3 })
-    expect(screen.getByText('12.3 tok/s')).toBeInTheDocument()
+  it('renders tokens/sec as plain muted text when present', () => {
+    const { container } = row({ label: 'T', alwaysShow: true, tokensPerSecond: 12.3 })
+    const tps = container.querySelector('.chat-row-tps') as HTMLElement
+    expect(tps.textContent).toBe('12.3 tok/s')
+    // Plain muted text span, NOT a filled `Badge` chip (no `chat-badge`).
+    expect(tps.tagName).toBe('SPAN')
+    expect(tps.classList.contains('chat-badge')).toBe(false)
   })
 
   it('omits the tokens/sec pill for a non-positive rate', () => {

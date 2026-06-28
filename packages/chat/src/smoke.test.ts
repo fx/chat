@@ -560,11 +560,20 @@ describe('@fx/chat public surface', () => {
     expect(iconRule).toMatch(/width:\s*0\.75rem/)
     expect(iconRule).toMatch(/height:\s*0\.75rem/)
 
-    // The hidden-count badge is small + muted (parenthesized `(+N)` content is
-    // produced by BlockGroup, asserted in its own suite).
-    const groupMore = css.match(/\n\.chat-group-more\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(groupMore).toMatch(/font-size:\s*0\.625rem/)
-    expect(groupMore).toContain('var(--chat-muted)')
+    // The inline metadata indicators — hidden-count `(+N)`, timer, and tok/s —
+    // render as PLAIN small (10px) muted text, NOT filled badge chips. They share
+    // one grouped rule that must clear any inherited badge background/border/
+    // padding so a host's `Badge` styling cannot re-skin them into pills.
+    const inlineMeta =
+      css.match(/\.chat-group-more,\s*\n\.chat-row-timer,\s*\n\.chat-row-tps\s*\{([^}]*)\}/)?.[1] ??
+      ''
+    expect(inlineMeta).toMatch(/font-size:\s*0\.625rem/)
+    expect(inlineMeta).toContain('var(--chat-muted)')
+    expect(inlineMeta).toMatch(/font-variant-numeric:\s*tabular-nums/)
+    // No filled-pill chrome: explicitly cleared background / border / padding.
+    expect(inlineMeta).toMatch(/background:\s*none/)
+    expect(inlineMeta).toMatch(/border:\s*0/)
+    expect(inlineMeta).toMatch(/padding:\s*0\b/)
   })
 
   it('depends on no UI kit, icon set, or markdown engine', () => {

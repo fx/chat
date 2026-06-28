@@ -788,20 +788,23 @@ summary .chat-row-header,
   min-width: 0;
 }
 
-/* The hidden-count badge renders `(+N)` small + muted, matching the reference's
-   parenthesized, secondary overflow indicator. */
-.chat-group-more {
-  font-size: 0.625rem;
-  color: var(--chat-muted);
-}
-
-/* The `+N` overflow badge and the timer/tps pills in a collapsed group header
-   must not be squeezed to zero or wrap their short text when the label takes the
-   remaining width — the label (above) absorbs the shrinkage via truncation, so
-   these stay at their intrinsic size. */
+/* The inline metadata indicators — the hidden-count `(+N)`, the live/final
+   timer, and the tok/s rate — render as PLAIN small muted text (matching the
+   reference's `text-[10px] text-muted-foreground/70` spans), NOT as filled
+   badge chips. Explicitly clear any inherited badge background/border/padding so
+   a host whose `Badge` styling leaked in cannot re-skin these into pills. */
 .chat-group-more,
 .chat-row-timer,
 .chat-row-tps {
+  font-size: 0.625rem;
+  color: var(--chat-muted);
+  font-variant-numeric: tabular-nums;
+  background: none;
+  border: 0;
+  padding: 0;
+  /* The short text must not be squeezed to zero or wrap when the label takes the
+     remaining width — the label absorbs the shrinkage via truncation, so these
+     stay at their intrinsic size. */
   flex-shrink: 0;
 }
 
