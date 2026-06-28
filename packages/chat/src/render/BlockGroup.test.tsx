@@ -98,14 +98,61 @@ describe('BlockGroup', () => {
     expect(within(header).queryByText(/tok\/s/)).toBeNull()
   })
 
-  it('does not show a timer when the summary is not a status block', () => {
+  it('omits the duration pill for a reasoning summary that carries no durationMs (but keeps tok/s)', () => {
+    // A reasoning summary surfaces its OWN block duration, not the message-level
+    // one, so a reasoning block with no durationMs shows no timer pill — the
+    // message-level durationMs (5000) must NOT leak in. The message-level tok/s
+    // still surfaces (reference renders the rate pill on the collapsed header).
     const blocks = [reasoning('r1'), reasoning('r2')]
     const { container } = render(
       <BlockGroup blocks={blocks} context={ctx({ durationMs: 5000, tokensPerSecond: 9 })} />,
     )
     const header = container.querySelector('.chat-row-header') as HTMLElement
     expect(within(header).queryByText('5.0s')).toBeNull()
-    expect(within(header).queryByText(/tok\/s/)).toBeNull()
+    expect(within(header).getByText('9.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('surfaces a reasoning summary block-own duration pill + brain icon', () => {
+    // A completed reasoning summary mirrors the bare ReasoningBlock header: the
+    // `brain` kind icon and a "Thought for <dur>" label from its OWN durationMs,
+    // plus the corresponding duration pill.
+    const blocks: ContentBlock[] = [
+      { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
+      { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1300 },
+    ]
+    const { container } = render(
+      <BlockGroup blocks={blocks} context={ctx({ tokensPerSecond: 167 })} />,
+    )
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    // brain kind icon present.
+    expect(header.querySelector('.chat-row-icon')).not.toBeNull()
+    // Label mirrors the bare reasoning header.
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe(
+      'Thought for 1.3s',
+    )
+    // Duration pill (block-own) + tok/s pill both on the collapsed header.
+    expect(within(header).getByText('1.3s')).toBeInTheDocument()
+    expect(within(header).getByText('167.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('renders the (+N) badge as a prefix right after the caret, before the kind icon', () => {
+    // Reference collapsed header order: [caret] [(+N)] [brain icon] [label] …
+    // The (+N) badge is CollapsibleRow's `prefix` slot, so within the header it
+    // precedes the leading kind icon in document order.
+    const blocks: ContentBlock[] = [
+      { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
+      { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1300 },
+      { type: 'reasoning', id: 'r3', text: 'c', durationMs: 1300 },
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    const more = header.querySelector('.chat-group-more') as HTMLElement
+    const icon = header.querySelector('.chat-row-icon') as HTMLElement
+    expect(more).not.toBeNull()
+    expect(more.textContent).toBe('(+2)')
+    expect(icon).not.toBeNull()
+    // (+N) precedes the kind icon in document order.
+    expect(more.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('marks the group active when the trailing status is active', () => {
@@ -195,8 +242,10 @@ describe('BlockGroup', () => {
       { type: 'text', id: 'tx', text: 't' },
       { type: 'system', id: 'sy', text: 's' },
     ]
-    render(<BlockGroup blocks={blocks} context={ctx()} />)
-    expect(screen.getByText('System')).toBeInTheDocument()
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    // "System prompt" appears both as the summary label and inside the (rendered
+    // but collapsed) inner SystemBlockView header; assert the summary chip text.
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('System prompt')
   })
 
   it('reasoning summary label appears when reasoning is the chosen block', () => {
