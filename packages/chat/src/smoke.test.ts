@@ -368,12 +368,19 @@ describe('@fx/chat public surface', () => {
     expect(block('.chat-log[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
     expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
 
-    // Inter-block-row spacing within a message is tightened (~2px) so aux rows
-    // read nearly flush like the reference — still token-driven.
+    // Inter-block-row spacing within a message is tightened to ~1px so aux rows
+    // read visually flush like the reference — still token-driven via the
+    // compact token divided by 6.
     const blockRowGap =
       css.match(/\.chat-message\[data-minimal="true"\] \.chat-message-blocks\s*\{([^}]*)\}/)?.[1] ??
       ''
     expect(blockRowGap).toContain('var(--chat-gap-compact)')
+    expect(blockRowGap).toMatch(/gap:\s*calc\(var\(--chat-gap-compact\)\s*\/\s*6\)/)
+
+    // Inter-message (turn) gap stays a small but non-zero separation, tightened
+    // from the prior ~4px to ~2.4px (compact token / 2.5), still token-driven.
+    const logGap = css.match(/\.chat-log\[data-minimal="true"\]\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(logGap).toMatch(/gap:\s*calc\(var\(--chat-gap-compact\)\s*\/\s*2\.5\)/)
 
     // The grouped-run disclosure root is a CONTAINER with no padding/margin — the
     // 4px 8px toggle padding lives on the header, not the wrapper.
@@ -386,6 +393,36 @@ describe('@fx/chat public surface', () => {
     expect(css).not.toMatch(
       /\.chat-message\[data-minimal="true"\][^{]*\.chat-text\s*\{[^}]*padding/,
     )
+  })
+
+  it('sizes user plain text to the reference 14px / 20px (text-sm)', () => {
+    // The assistant answer is sized by the host's prose, but the USER message
+    // plain text inherits the chat base size unless pinned. The reference user
+    // body text is 14px / line-height 20px.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const plain = css.match(/\.chat-text-plain\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(plain).toMatch(/font-size:\s*0\.875rem/)
+    expect(plain).toMatch(/line-height:\s*1\.25rem/)
+  })
+
+  it('styles the expanded aux-group body as a subtle caret-aligned hairline rule', () => {
+    // Reference expanded group body: `ml-[13px] border-l-2 border-border/60 pl-3`
+    // with margin-top 0 and flush items (gap 0). The 13px left margin centers the
+    // rule under the disclosure caret; the rule is 60% opacity of the border
+    // token; the left pad is `--chat-gap` (= pl-3).
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const body = css.match(/\.chat-group-body\s*\{([^}]*)\}/)?.[1] ?? ''
+    // 60% opacity border via color-mix on the border token.
+    expect(body).toMatch(
+      /border-left:\s*2px solid color-mix\(in srgb,\s*var\(--chat-border\)\s*60%,\s*transparent\)/,
+    )
+    // Caret-alignment is a fixed geometric constant (13px).
+    expect(body).toMatch(/margin-left:\s*0\.8125rem/)
+    // Flush to the prior row + flush items.
+    expect(body).toMatch(/margin-top:\s*0/)
+    expect(body).toMatch(/gap:\s*0/)
+    // Left pad stays token-driven at the reference pl-3 (= --chat-gap = 12px).
+    expect(body).toMatch(/padding-left:\s*var\(--chat-gap\)/)
   })
 
   it('keeps narrow-width rows from overflowing horizontally (responsive reflow)', () => {

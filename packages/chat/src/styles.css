@@ -249,17 +249,20 @@
 }
 
 /* Expanded grouped-run body: the reference indents the opened aux body with a
-   small top gap + a hairline left rule (`mt-0.5 ml-[13px] border-l-2 pl-3`).
-   Keep it tight and token-driven — a ~2px top margin and a left border + ~12px
-   left pad — so the inner blocks read as a tight indented thread, not a boxed
-   block. */
+   subtle hairline left rule flush to the content (`ml-[13px] border-l-2
+   border-border/60 pl-3`, mt-0, flush items). The 13px left margin is a
+   geometric constant that centers the rule under the disclosure caret (the
+   header has ~8px left padding + a 12px caret); the border is 60% opacity of
+   the border token; the 12px left pad is `--chat-gap` (= pl-3). Items render
+   flush (gap 0) with no top margin so the thread reads tight, not boxed. */
 .chat-group-body {
-  margin-top: calc(var(--chat-gap-compact) / 3);
+  margin-top: 0;
+  margin-left: 0.8125rem;
   padding-left: var(--chat-gap);
-  border-left: 2px solid var(--chat-border);
+  border-left: 2px solid color-mix(in srgb, var(--chat-border) 60%, transparent);
   display: flex;
   flex-direction: column;
-  gap: calc(var(--chat-gap-compact) / 3);
+  gap: 0;
 }
 
 .chat-codeblock,
@@ -503,22 +506,23 @@
    padding, and compact footer spacing. Token-driven (`--chat-gap-compact`) and
    headless-only — the grouping/footer behavior is decided in the renderer; this
    only tightens spacing. */
-/* Inter-message gap: the reference separates turns via small per-block inner
-   margins, so the uniform log gap can be tight (~4px). `--chat-gap-compact`/1.5
-   ≈ 4px keeps it token-driven. */
+/* Inter-message gap: the reference separates turns with very little space —
+   most spacing comes from small per-block inner margins. Keep a tight ~2-3px
+   turn separation, token-driven via `--chat-gap-compact` (= 6px) / 2.5 ≈ 2.4px. */
 .chat-log[data-minimal="true"] {
-  gap: calc(var(--chat-gap-compact) / 1.5);
+  gap: calc(var(--chat-gap-compact) / 2.5);
 }
 
 .chat-message[data-minimal="true"] {
   gap: calc(var(--chat-gap-compact) / 2);
 }
 
-/* Inter-block-row spacing within a message: the reference's aux rows read nearly
-   flush, so tighten the block/message gaps to ~2px in minimal mode. Token-driven
-   via `--chat-gap-compact`/3 ≈ 2px. */
+/* Inter-block-row spacing within a message: the reference's aux rows render
+   visually flush — spacing comes only from tiny inner margins, not a flex gap.
+   Reduce to ~1px (`--chat-gap-compact`/6) so stacked rows sit flush like the
+   reference, still token-driven. */
 .chat-message[data-minimal="true"] .chat-message-blocks {
-  gap: calc(var(--chat-gap-compact) / 3);
+  gap: calc(var(--chat-gap-compact) / 6);
 }
 
 /* Minimal mode tightens the spacing BETWEEN rows (the log/message gaps and the
@@ -641,6 +645,11 @@ summary .chat-row-header,
 }
 
 .chat-text-plain {
+  /* User plain text matches the reference's `text-sm` (14px / 20px). The
+     assistant answer is sized by the host's prose; the user body text inherits
+     the chat base size unless we pin it here. */
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
