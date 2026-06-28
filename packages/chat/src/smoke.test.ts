@@ -338,17 +338,18 @@ describe('@fx/chat public surface', () => {
     const row = block('.chat-gutter-row')
     expect(row).toContain('display: flex')
     expect(row).toMatch(/align-items:\s*flex-start/)
-    // The clock cell: fixed 56px width, muted token color, tabular figures.
+    // The clock cell: 64px (4rem) width so the 12px `HH:MM:SS` doesn't clip,
+    // muted token color, tabular figures, 12px font (unified aux-line size).
     const time = block('.chat-gutter-time')
-    expect(time).toMatch(/width:\s*3\.5rem/)
+    expect(time).toMatch(/width:\s*4rem/)
+    expect(time).toMatch(/font-size:\s*0\.75rem/)
     expect(time).toContain('var(--chat-muted)')
     expect(time).toContain('tabular-nums')
     expect(time).toMatch(/flex-shrink:\s*0/)
     expect(time).toMatch(/text-align:\s*right/)
-    // line-height:1 collapses the cell's line-box to the digit height so the
-    // timestamp glyphs sit at the TOP of the cell, aligning with the
-    // top-aligned disclosure caret (no ~2px line-gap drop).
-    expect(time).toMatch(/line-height:\s*1\s*;/)
+    // line-height 1.4 (matching .chat-row-header) so the gutter timestamp and the
+    // content line share a baseline across the two columns.
+    expect(time).toMatch(/line-height:\s*1\.4\s*;/)
     // The content cell can shrink (min-width:0) and takes the remaining space.
     const content = block('.chat-gutter-content')
     expect(content).toContain('min-width: 0')
@@ -559,31 +560,33 @@ describe('@fx/chat public surface', () => {
       /padding:\s*calc\(var\(--chat-gap\)\s*\/\s*3\)\s+calc\(var\(--chat-gap\)\s*\/\s*1\.5\)/,
     )
 
-    // Leading kind icon + disclosure caret are 12px (0.75rem) square. The rule is
-    // grouped (`.chat-row-icon, .chat-collapsible-caret`).
+    // Leading kind icon + disclosure caret are sized to 1em so they scale with
+    // the 12px aux line and sit inline-centered within the line-box (1em =
+    // 0.75rem here). The rule is grouped (`.chat-row-icon, .chat-collapsible-caret`).
     const iconRule =
       css.match(/\.chat-row-icon,\s*\n\.chat-collapsible-caret\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(iconRule).toMatch(/width:\s*0\.75rem/)
-    expect(iconRule).toMatch(/height:\s*0\.75rem/)
+    expect(iconRule).toMatch(/width:\s*1em/)
+    expect(iconRule).toMatch(/height:\s*1em/)
 
     // The aux-row header (`.chat-row-header`) holds the kind icon + label
-    // (+ timer/tps). line-height:1 collapses its line-box to the font size so
-    // the icon and label glyphs sit at the TOP of the line-box, aligning with
-    // the top-aligned disclosure caret instead of dropping ~2px from a
-    // line-centered taller line-box. align-items/flex/gap stay intact.
+    // (+ timer/tps). line-height 1.4 (matching .chat-gutter-time) and
+    // align-items:center keep the caret, icon, label, and pills vertically
+    // centered on one cohesive line — the 1em icons stay centered within the
+    // ~17px line-box without expanding it.
     const rowHeader = block('.chat-row-header')
     expect(rowHeader).toContain('display: flex')
     expect(rowHeader).toMatch(/align-items:\s*center/)
-    expect(rowHeader).toMatch(/line-height:\s*1\s*;/)
+    expect(rowHeader).toMatch(/line-height:\s*1\.4\s*;/)
 
     // The inline metadata indicators — hidden-count `(+N)`, timer, and tok/s —
-    // render as PLAIN small (10px) muted text, NOT filled badge chips. They share
-    // one grouped rule that must clear any inherited badge background/border/
-    // padding so a host's `Badge` styling cannot re-skin them into pills.
+    // render as PLAIN 12px muted text (unified with the rest of the aux line),
+    // NOT filled badge chips. They share one grouped rule that must clear any
+    // inherited badge background/border/padding so a host's `Badge` styling
+    // cannot re-skin them into pills.
     const inlineMeta =
       css.match(/\.chat-group-more,\s*\n\.chat-row-timer,\s*\n\.chat-row-tps\s*\{([^}]*)\}/)?.[1] ??
       ''
-    expect(inlineMeta).toMatch(/font-size:\s*0\.625rem/)
+    expect(inlineMeta).toMatch(/font-size:\s*0\.75rem/)
     expect(inlineMeta).toContain('var(--chat-muted)')
     expect(inlineMeta).toMatch(/font-variant-numeric:\s*tabular-nums/)
     // No filled-pill chrome: explicitly cleared background / border / padding.

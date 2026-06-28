@@ -413,14 +413,18 @@
 
 .chat-gutter-time {
   flex-shrink: 0;
-  width: 3.5rem;
+  /* 4rem (64px) reserves room for the 12px `HH:MM:SS` (8 monospace chars ≈ 58px)
+     so the timestamp never clips or wraps. Right-aligned against the content. */
+  width: 4rem;
   text-align: right;
   padding-top: 0;
-  font-size: 0.625rem;
-  /* line-height:1 collapses the cell's line-box to the 10px digit height so the
-     timestamp glyphs sit at the TOP of the cell, aligning with the top-aligned
-     disclosure caret (no ~2px line-gap drop from a 14px line-box). */
-  line-height: 1;
+  /* Unify the metadata line at 12px: the gutter timestamp matches the row label,
+     tok/s, timer, and (+N) so the whole aux line reads as one cohesive size. */
+  font-size: 0.75rem;
+  /* Share the SAME line-height (1.4) as `.chat-row-header` so the gutter
+     timestamp's first line and the content line sit on the same baseline across
+     the two columns (12px / 1.4 in both → aligned first lines). */
+  line-height: 1.4;
   color: var(--chat-muted);
   font-variant-numeric: tabular-nums;
   user-select: none;
@@ -549,14 +553,17 @@
 
 .chat-row-header {
   display: flex;
+  /* Vertically center the caret, kind icon, label, tok/s, and timer on one line
+     so the whole aux line reads as cohesive text (the 1em icons stay centered
+     within the line-box rather than top-pinned). */
   align-items: center;
   gap: calc(var(--chat-gap) / 2);
   min-width: 0;
-  /* line-height:1 collapses the header's line-box to the font size so the kind
-     icon + label (+ timer/tps) glyphs sit at the TOP of the line-box, aligning
-     with the top-aligned disclosure caret instead of dropping ~2px from a
-     line-centered ~16px line-box. */
-  line-height: 1;
+  /* Normal text leading (1.4), matching `.chat-gutter-time`, so the gutter
+     timestamp and this content line share a baseline. The ~17px line-box (12px
+     × 1.4) comfortably contains the 1em (12px) icons centered, so the inline
+     icons don't expand the line height. */
+  line-height: 1.4;
 }
 
 /* The renderer-owned header (`.chat-row-header`) is placed inside whatever
@@ -631,11 +638,15 @@ summary .chat-row-header,
 }
 
 /* Aux-header icons: the leading kind icon and the disclosure caret are sized to
-   the reference's 12px (Phosphor/lucide SVGs honor explicit width/height). */
+   1em so they scale with the 12px aux line and sit inline-centered within the
+   line-box (vertically centered by `.chat-row-header { align-items: center }`),
+   reading as part of the cohesive line of text rather than top-pinned glyphs.
+   1em = 0.75rem at the 12px line size; using `1em` keeps the icon tied to the
+   font size. Phosphor/lucide SVGs honor explicit width/height. */
 .chat-row-icon,
 .chat-collapsible-caret {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 1em;
+  height: 1em;
 }
 
 .chat-row-affordance {
@@ -806,7 +817,9 @@ summary .chat-row-header,
 .chat-group-more,
 .chat-row-timer,
 .chat-row-tps {
-  font-size: 0.625rem;
+  /* 12px (0.75rem) to match the rest of the aux line — the timestamp, label, and
+     icons are all 12px so (+N), the timer, and tok/s read as one cohesive line. */
+  font-size: 0.75rem;
   color: var(--chat-muted);
   font-variant-numeric: tabular-nums;
   background: none;
