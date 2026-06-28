@@ -26,3 +26,4 @@
 | 0009 | [Theming & Layout Parity](changes/0009-visual-density-parity.md) | [Component Registry](specs/component-registry/) | complete | 0003, 0004 |
 | 0010 | [Single-Caret Disclosure Ownership](changes/0010-single-caret-disclosure.md) | [Message Rendering](specs/message-rendering/) | complete | 0003, 0004 |
 | 0011 | [Minimal / Density Mode](changes/0011-minimal-density-mode.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0007 |
+| 0012 | [Per-Block Timestamp Gutter](changes/0012-timestamp-gutter.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0009 |

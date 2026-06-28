@@ -105,3 +105,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0004", "0007"]
+  - id: "0012"
+    name: timestamp-gutter
+    path: changes/0012-timestamp-gutter.md
+    description: Per-block timestamp gutter — fixed 56px HH:MM:SS clock column, log-wide same-second de-dupe, timestampGutter prop; replaces the per-message timestamp
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004", "0009"]

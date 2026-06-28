@@ -233,6 +233,41 @@ scope** and MUST NOT appear in this package.
 - **THEN** the output is byte-for-byte the default grouped behavior and no `data-minimal` attribute
   is present.
 
+### Timestamp Gutter
+
+- The log MUST support an OPTIONAL per-block TIMESTAMP GUTTER layout, enabled by the host via a
+  `timestampGutter?: boolean` prop on `MessageLog` and `MessageItem` (default off). When OFF, rows
+  render in a plain column with no gutter and no timestamps.
+- When ON, each top-level rendered row (the aux group row, the answer text-block row, the user
+  message row) MUST render as a TWO-COLUMN layout: a FIXED-width (56px) left clock cell
+  (`.chat-gutter-time`) + the row content (`.chat-gutter-content`, `min-width: 0; flex: 1`), wrapped
+  in `.chat-gutter-row`. The clock cell MUST always reserve its width even when blank.
+- The clock MUST be local 24-hour `HH:MM:SS`, zero-padded, built manually (NOT
+  `toLocaleTimeString`) for constant width and SSR-safety. A missing/invalid/non-finite timestamp
+  MUST yield an empty (but width-reserving, `aria-hidden`) cell.
+- The clock MUST be DE-DUPED LOG-WIDE: consecutive rows across the WHOLE log that resolve to the
+  same `HH:MM:SS` MUST show the time once (on the first row of the run); later same-second rows MUST
+  render a blank cell. A blank/invalid row MUST reset the run so the next identical time prints
+  again. `MessageLog` MUST build ONE de-duper per render and thread it to every `MessageItem` so the
+  de-dupe spans message boundaries (render order = DOM order, top to bottom).
+- The row timestamp MUST prefer a block-level timestamp (`startedAt`, currently carried by
+  `tool_call`; a group uses its FIRST block's) when finite and positive, else fall back to the
+  message `createdAt`.
+
+#### Scenario: Gutter de-dupes a same-second run
+
+- **GIVEN** a log whose consecutive rows resolve to the same `HH:MM:SS` and `timestampGutter` is set
+- **WHEN** the log renders
+- **THEN** the first row of the run shows the clock and each later same-second row renders a blank,
+  width-reserved, `aria-hidden` gutter cell.
+
+#### Scenario: Invalid timestamp blanks but reserves width
+
+- **GIVEN** a row whose resolved timestamp is missing or invalid and `timestampGutter` is set
+- **WHEN** the row renders
+- **THEN** the `.chat-gutter-time` cell is empty (`aria-hidden`) yet still reserves its 56px width so
+  the content column stays aligned, and the blank row resets the de-dupe run.
+
 ### Affordances
 
 - The package MUST expose, as OPTIONAL callbacks on the message/log, at least: `onRegenerate`,
@@ -509,3 +544,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-27 | Added token-driven role styling (user/assistant bubbles via `data-role`, system unbubbled) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-27 | Disclosure caret owned solely by the `Collapsible` slot; substrate affordance precedence drops the caret (idle bodied row renders no affordance icon) | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
 | 2026-06-27 | Added minimal / density mode: `minimal` flag folds a turn's aux to one group (`collapseTurnAux`), forces compact footer, `data-minimal` layout hook | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |
+| 2026-06-28 | Added per-block timestamp gutter: `timestampGutter` flag renders each row in a fixed 56px `HH:MM:SS` clock column (`formatClockTime`), de-duped log-wide via `createClockGutterDeduper`, block `startedAt` → message `createdAt` fallback; replaces the prior per-message timestamp | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
