@@ -7,7 +7,9 @@
  * grouping policy's selection (`selectHeaderSummary`), never via ad-hoc kind
  * branching in the log walk.
  */
+import { cx } from '../cx'
 import type { ContentBlock } from '../model'
+import { useChatClassNames } from '../registry'
 import { CollapsibleRow } from './CollapsibleRow'
 import { summarizeBlock } from './blockSummary'
 import { BlockView } from './blocks'
@@ -61,6 +63,7 @@ function groupIsActive(blocks: RenderableBlock[], context: BlockRenderContext): 
 
 /** Renders the collapsed group disclosure. */
 export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGroupProps) {
+  const cn = useChatClassNames()
   // The trailing status only heads the summary while it is the live row; a
   // completed run surfaces the latest tool/reasoning summary instead.
   const trailingBlock = blocks[blocks.length - 1] as RenderableBlock
@@ -106,11 +109,14 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   // The `(+N)` hidden-count renders as plain muted text right after the
   // disclosure caret and BEFORE the kind icon/label (reference order), via
   // CollapsibleRow's `prefix` slot. Rendered only when there is a hidden remainder.
-  const prefix = hiddenCount > 0 ? <span className="chat-group-more">(+{hiddenCount})</span> : null
+  const prefix =
+    hiddenCount > 0 ? (
+      <span className={cx('chat-group-more', cn.groupMore)}>(+{hiddenCount})</span>
+    ) : null
 
   const label = (
-    <span className="chat-group-summary">
-      <span className="chat-group-summary-label">{summary.label}</span>
+    <span className={cx('chat-group-summary', cn.groupSummary)}>
+      <span className={cx('chat-group-summary-label', cn.groupSummaryLabel)}>{summary.label}</span>
     </span>
   )
 
@@ -126,9 +132,9 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       {...(tokensPerSecond !== undefined ? { tokensPerSecond } : {})}
       defaultOpen={defaultOpen}
       alwaysShow
-      className="chat-group"
+      className={cx('chat-group', cn.group)}
     >
-      <div className="chat-group-body" data-testid="chat-group-body">
+      <div className={cx('chat-group-body', cn.groupBody)} data-testid="chat-group-body">
         {blocks.map((block) => (
           <BlockView
             key={block.id}

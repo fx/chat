@@ -43,7 +43,8 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useChatComponents } from '../registry'
+import { cx } from '../cx'
+import { useChatClassNames, useChatComponents } from '../registry'
 import { computePopupAnchor } from './caret'
 import type { CompletionItem, CompletionMatch, CompletionProvider } from './completion/types'
 
@@ -196,6 +197,7 @@ function CompletionPopupImpl(
   ref: React.Ref<CompletionPopupHandle>,
 ) {
   const { icons, ScrollArea } = useChatComponents()
+  const cn = useChatClassNames()
   const Spinner = icons.spinner
 
   // Caret offset, refreshed whenever the composer reports a key/selection event.
@@ -518,7 +520,7 @@ function CompletionPopupImpl(
   const content: ReactNode = (
     <div
       ref={popupElRef}
-      className="chat-completion-popup"
+      className={cx('chat-completion-popup', cn.completionPopup)}
       data-flip={coords.flip ? 'true' : undefined}
       style={{
         position: 'fixed',
@@ -530,10 +532,13 @@ function CompletionPopupImpl(
         ...themeVars,
       }}
     >
-      <ScrollArea className="chat-completion-scroll">
+      <ScrollArea className={cx('chat-completion-scroll', cn.completionScroll)}>
         {loading && items.length === 0 ? (
-          <div className="chat-completion-loading" data-testid="chat-completion-loading">
-            <Spinner className="chat-completion-spinner" />
+          <div
+            className={cx('chat-completion-loading', cn.completionLoading)}
+            data-testid="chat-completion-loading"
+          >
+            <Spinner className={cx('chat-completion-spinner', cn.completionSpinner)} />
           </div>
         ) : (
           // WAI-ARIA listbox/option pattern: focus stays on the textarea (via
@@ -542,7 +547,7 @@ function CompletionPopupImpl(
           // biome-ignore lint/a11y/useFocusableInteractive: focus stays in the textarea by design.
           <ul
             id={listboxId}
-            className="chat-completion-list"
+            className={cx('chat-completion-list', cn.completionList)}
             // biome-ignore lint/a11y/useSemanticElements: ARIA listbox role is intended here.
             // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: driven via the textarea.
             role="listbox"
@@ -558,7 +563,7 @@ function CompletionPopupImpl(
                 role="option"
                 aria-selected={index === highlight}
                 data-active={index === highlight ? 'true' : undefined}
-                className="chat-completion-option"
+                className={cx('chat-completion-option', cn.completionOption)}
                 // Mousedown (not click) so the textarea never loses focus first.
                 onMouseDown={(event) => {
                   event.preventDefault()
@@ -566,10 +571,16 @@ function CompletionPopupImpl(
                 }}
                 onMouseEnter={() => setHighlight(index)}
               >
-                {item.icon ? <span className="chat-completion-icon">{item.icon}</span> : null}
-                <span className="chat-completion-label">{item.label}</span>
+                {item.icon ? (
+                  <span className={cx('chat-completion-icon', cn.completionIcon)}>{item.icon}</span>
+                ) : null}
+                <span className={cx('chat-completion-label', cn.completionLabel)}>
+                  {item.label}
+                </span>
                 {item.description ? (
-                  <span className="chat-completion-description">{item.description}</span>
+                  <span className={cx('chat-completion-description', cn.completionDescription)}>
+                    {item.description}
+                  </span>
                 ) : null}
               </li>
             ))}

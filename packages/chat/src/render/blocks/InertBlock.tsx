@@ -7,7 +7,8 @@
  * (debug) mode it surfaces the block as JSON via the registry `JsonView`;
  * otherwise it renders nothing visible. It NEVER throws.
  */
-import { useChatComponents } from '../../registry'
+import { cx } from '../../cx'
+import { useChatClassNames, useChatComponents } from '../../registry'
 import type { RenderableBlock } from '../extensions'
 
 /** Props for {@link InertBlockView}. */
@@ -20,8 +21,13 @@ export interface InertBlockViewProps {
 /** Renders the inert placeholder for an unknown block type. */
 export function InertBlockView({ block, raw = false }: InertBlockViewProps) {
   const { JsonView } = useChatComponents()
+  const cn = useChatClassNames()
   return (
-    <div className="chat-inert-block" data-block-type={block.type} data-inert="true">
+    <div
+      className={cx('chat-inert-block', cn.inertBlock)}
+      data-block-type={block.type}
+      data-inert="true"
+    >
       {raw ? <JsonView value={block} /> : null}
     </div>
   )

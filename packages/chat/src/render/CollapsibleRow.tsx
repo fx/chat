@@ -24,7 +24,8 @@
  */
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useChatComponents } from '../registry'
+import { cx } from '../cx'
+import { useChatClassNames, useChatComponents } from '../registry'
 import { formatDuration, formatTokensPerSecond } from './format'
 import { useElapsedTimer, useFlashComplete } from './hooks'
 
@@ -89,6 +90,7 @@ export function CollapsibleRow({
   className,
 }: CollapsibleRowProps) {
   const { Collapsible, Badge, icons } = useChatComponents()
+  const cn = useChatClassNames()
   const flash = useFlashComplete(isActive)
   const elapsed = useElapsedTimer({ startedAt, isActive, durationMs })
 
@@ -144,37 +146,49 @@ export function CollapsibleRow({
   const tps = formatTokensPerSecond(tokensPerSecond)
 
   const header = (
-    <span className="chat-row-header" data-affordance={affordanceTone}>
+    <span className={cx('chat-row-header', cn.rowHeader)} data-affordance={affordanceTone}>
       {/* Render the affordance span ONLY when there is an affordance icon (active
           spinner / flash check). An idle body/filler row emits nothing here, so
           there is no empty width-reserving box between the caret and the kind
           icon/label. */}
       {Affordance ? (
-        <span className="chat-row-affordance" data-affordance={affordanceTone}>
-          <Affordance className="chat-row-affordance-icon" />
+        <span
+          className={cx('chat-row-affordance', cn.rowAffordance)}
+          data-affordance={affordanceTone}
+        >
+          <Affordance className={cx('chat-row-affordance-icon', cn.rowAffordanceIcon)} />
         </span>
       ) : null}
       {prefix}
-      {LeadingIcon ? <LeadingIcon className="chat-row-icon" /> : null}
-      <span className="chat-row-label">{label}</span>
+      {LeadingIcon ? <LeadingIcon className={cx('chat-row-icon', cn.rowIcon)} /> : null}
+      <span className={cx('chat-row-label', cn.rowLabel)}>{label}</span>
       {error ? (
         // Non-color glanceable marker on the collapsed header: a text "Error"
         // chip (in addition to the error color/border) so the failure reads
         // without relying on color. Pending/running/success rows omit it.
-        <Badge className="chat-row-error-marker" tone="error">
+        <Badge className={cx('chat-row-error-marker', cn.rowErrorMarker)} tone="error">
           Error
         </Badge>
       ) : null}
-      {timerPill ? <span className="chat-row-timer">{formatDuration(elapsed)}</span> : null}
-      {tps ? <span className="chat-row-tps">{tps}</span> : null}
+      {timerPill ? (
+        <span className={cx('chat-row-timer', cn.rowTimer)}>{formatDuration(elapsed)}</span>
+      ) : null}
+      {tps ? <span className={cx('chat-row-tps', cn.rowTps)}>{tps}</span> : null}
     </span>
   )
 
   // When there is no body, render a static (non-toggling) row so an empty
-  // disclosure cannot be expanded into nothing.
-  const rootClass = ['chat-row', error ? 'chat-row-error' : null, className]
-    .filter(Boolean)
-    .join(' ')
+  // disclosure cannot be expanded into nothing. The host class overrides
+  // (`cn.row`, and `cn.rowError` only in the error case) are folded into the
+  // join after their stable hooks; `className` (e.g. BlockGroup's `chat-group`)
+  // trails so an outer styled wrapper keeps the last word.
+  const rootClass = cx(
+    'chat-row',
+    cn.row,
+    error ? 'chat-row-error' : null,
+    error ? cn.rowError : null,
+    className,
+  )
 
   if (!hasBody) {
     return (

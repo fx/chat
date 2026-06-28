@@ -19,8 +19,9 @@
  * component only tracks which image is enlarged via React state.
  */
 import { useCallback, useState } from 'react'
+import { cx } from '../cx'
 import type { Attachment } from '../model'
-import { useChatComponents } from '../registry'
+import { useChatClassNames, useChatComponents } from '../registry'
 import type { IconName } from '../registry'
 import { isSafeAttachmentUrl } from './url'
 
@@ -86,9 +87,10 @@ function ImageGrid({
   onExpand: (attachment: Attachment) => void
 }) {
   const { icons } = useChatComponents()
+  const cn = useChatClassNames()
   const ExpandIcon = icons.expand
   return (
-    <ul className="chat-attachment-grid">
+    <ul className={cx('chat-attachment-grid', cn.attachmentGrid)}>
       {images.map((image, index) => {
         const alt = imageAlt(image.name)
         const safe = isSafeAttachmentUrl(image.url)
@@ -97,30 +99,33 @@ function ImageGrid({
             // Attachments are a stable, non-reordering positional list; the
             // url keeps keys distinct when two entries share an index slot.
             key={`img-${index}-${image.url}`}
-            className="chat-attachment-grid-item"
+            className={cx('chat-attachment-grid-item', cn.attachmentGridItem)}
             data-safe={safe ? 'true' : 'false'}
           >
             {safe ? (
               <button
                 type="button"
-                className="chat-attachment-thumb"
+                className={cx('chat-attachment-thumb', cn.attachmentThumb)}
                 onClick={() => onExpand(image)}
                 aria-label={`Expand ${alt}`}
               >
                 <img
-                  className="chat-attachment-thumb-image"
+                  className={cx('chat-attachment-thumb-image', cn.attachmentThumbImage)}
                   src={image.url}
                   alt={alt}
                   loading="lazy"
                 />
-                <span className="chat-attachment-thumb-expand" aria-hidden="true">
+                <span
+                  className={cx('chat-attachment-thumb-expand', cn.attachmentThumbExpand)}
+                  aria-hidden="true"
+                >
                   <ExpandIcon />
                 </span>
               </button>
             ) : (
               // Unsafe scheme: render inert — no `src`, no expand control.
               <span
-                className="chat-attachment-thumb"
+                className={cx('chat-attachment-thumb', cn.attachmentThumb)}
                 data-inert="true"
                 role="img"
                 aria-label={alt}
@@ -136,20 +141,25 @@ function ImageGrid({
 /** A single video/audio/file chip with a scheme-safe download/open affordance. */
 function AttachmentChip({ attachment }: { attachment: Attachment }) {
   const { icons } = useChatComponents()
+  const cn = useChatClassNames()
   const kind = attachment.kind as 'video' | 'audio' | 'file'
   const Icon = icons[CHIP_ICON[kind]]
   const DownloadIcon = icons.download
   const label = deriveAttachmentLabel(attachment)
   const safe = isSafeAttachmentUrl(attachment.url)
   return (
-    <li className="chat-attachment-chip" data-kind={kind} data-safe={safe ? 'true' : 'false'}>
-      <span className="chat-attachment-chip-icon" aria-hidden="true">
+    <li
+      className={cx('chat-attachment-chip', cn.attachmentChip)}
+      data-kind={kind}
+      data-safe={safe ? 'true' : 'false'}
+    >
+      <span className={cx('chat-attachment-chip-icon', cn.attachmentChipIcon)} aria-hidden="true">
         <Icon />
       </span>
-      <span className="chat-attachment-chip-name">{label}</span>
+      <span className={cx('chat-attachment-chip-name', cn.attachmentChipName)}>{label}</span>
       {safe ? (
         <a
-          className="chat-attachment-chip-download"
+          className={cx('chat-attachment-chip-download', cn.attachmentChipDownload)}
           href={attachment.url}
           download
           target="_blank"
@@ -160,7 +170,11 @@ function AttachmentChip({ attachment }: { attachment: Attachment }) {
         </a>
       ) : (
         // Unsafe scheme: no link is rendered, so the URL is never followed.
-        <span className="chat-attachment-chip-download" data-inert="true" aria-hidden="true">
+        <span
+          className={cx('chat-attachment-chip-download', cn.attachmentChipDownload)}
+          data-inert="true"
+          aria-hidden="true"
+        >
           <DownloadIcon />
         </span>
       )}
@@ -171,6 +185,7 @@ function AttachmentChip({ attachment }: { attachment: Attachment }) {
 /** Renders the attachment region for a message (images grid + media/file chips). */
 export function MessageAttachments({ attachments }: MessageAttachmentsProps) {
   const { Lightbox } = useChatComponents()
+  const cn = useChatClassNames()
   // The currently-enlarged image attachment, or `null` when the overlay is closed.
   const [active, setActive] = useState<Attachment | null>(null)
 
@@ -181,10 +196,10 @@ export function MessageAttachments({ attachments }: MessageAttachmentsProps) {
   const others = attachments.filter((a) => a.kind !== 'image')
 
   return (
-    <div className="chat-attachments" data-testid="message-attachments">
+    <div className={cx('chat-attachments', cn.attachments)} data-testid="message-attachments">
       {images.length > 0 ? <ImageGrid images={images} onExpand={handleExpand} /> : null}
       {others.length > 0 ? (
-        <ul className="chat-attachment-chips">
+        <ul className={cx('chat-attachment-chips', cn.attachmentChips)}>
           {others.map((attachment, index) => (
             <AttachmentChip
               // Positional, non-reordering list; url disambiguates the index.

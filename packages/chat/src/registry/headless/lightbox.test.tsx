@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ChatProvider } from '../context'
 import { Lightbox } from './lightbox'
 
 /** Stub `matchMedia` with a controllable reduced-motion preference. */
@@ -39,6 +40,29 @@ describe('headless Lightbox', () => {
     )
     expect((container.firstChild as HTMLElement).className).toContain('host-lb')
     expect((container.firstChild as HTMLElement).className).toContain('chat-lightbox')
+  })
+
+  it('appends injected classNames to every lightbox hook', () => {
+    const { container } = render(
+      <ChatProvider
+        classNames={{
+          lightbox: 'lb-x',
+          lightboxDialog: 'lbd-x',
+          lightboxClose: 'lbc-x',
+          lightboxCloseIcon: 'lbci-x',
+          lightboxImage: 'lbi-x',
+        }}
+      >
+        <Lightbox src="https://x/a.png" alt="a" open onClose={() => {}} className="host-lb" />
+      </ChatProvider>,
+    )
+    // Backdrop: stable hook + injected class + the per-instance className prop.
+    const backdrop = container.querySelector('.chat-lightbox.lb-x.host-lb')
+    expect(backdrop).not.toBeNull()
+    expect(container.querySelector('.chat-lightbox-dialog.lbd-x')).not.toBeNull()
+    expect(container.querySelector('.chat-lightbox-close.lbc-x')).not.toBeNull()
+    expect(container.querySelector('.chat-lightbox-close-icon.lbci-x')).not.toBeNull()
+    expect(container.querySelector('.chat-lightbox-image.lbi-x')).not.toBeNull()
   })
 
   it('moves focus to the close control on open', () => {
