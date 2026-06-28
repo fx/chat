@@ -321,6 +321,52 @@ describe('@fx/chat public surface', () => {
     expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
   })
 
+  it('keeps narrow-width rows from overflowing horizontally (responsive reflow)', () => {
+    // At 375px the dense one-line flex rows (footer metrics, the minimal-mode
+    // group header) previously overflowed because their content could neither
+    // shrink, truncate, nor break. Assert the per-element responsive guards so a
+    // regression that drops them fails here instead of in a 375px viewport.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+
+    // The footer reflows (wrap) and can shrink so its metrics child can break.
+    // Anchor to the standalone `.chat-footer { … }` rule (newline-prefixed) so
+    // the match is not stolen by a descendant rule like
+    // `.chat-message[data-minimal="true"] .chat-footer { … }`.
+    const footer = css.match(/\n\.chat-footer\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footer).toContain('flex-wrap: wrap')
+    expect(footer).toContain('min-width: 0')
+
+    // The metrics span shrinks and breaks its long "model · ms · tok/s" string.
+    // Anchor to the standalone rule (newline-prefixed) so a role-scoped rule
+    // like `.chat-message[data-role="user"] .chat-footer-metrics` is not matched.
+    const metrics = css.match(/\n\.chat-footer-metrics\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(metrics).toContain('min-width: 0')
+    expect(metrics).toContain('overflow-wrap: anywhere')
+
+    // The minimal-mode group label truncates (ellipsis) to keep the dense one
+    // line while shrinking inside its flex summary at narrow widths.
+    const groupLabel = block('.chat-group-summary-label')
+    expect(groupLabel).toContain('min-width: 0')
+    expect(groupLabel).toContain('overflow: hidden')
+    expect(groupLabel).toContain('text-overflow: ellipsis')
+    expect(groupLabel).toContain('white-space: nowrap')
+
+    // The group summary can shrink so its truncating label takes the slack.
+    expect(block('.chat-group-summary')).toContain('min-width: 0')
+
+    // The `+N` overflow badge and header pills hold their intrinsic size (the
+    // label absorbs the shrink), so they neither collapse nor wrap. The rule is
+    // grouped (`.chat-group-more, .chat-row-timer, .chat-row-tps`), so match the
+    // body whose selector list contains `.chat-group-more`.
+    const groupMoreRule =
+      css.match(new RegExp(`${escapeRegExp('.chat-group-more')}[^{]*\\{([^}]*)\\}`))?.[1] ?? ''
+    expect(groupMoreRule).toContain('flex-shrink: 0')
+  })
+
   it('depends on no UI kit, icon set, or markdown engine', () => {
     const graph = Object.keys({
       ...(pkg.dependencies ?? {}),

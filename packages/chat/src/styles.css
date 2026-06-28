@@ -497,13 +497,25 @@ summary .chat-row-header,
   cursor: pointer;
 }
 
-.chat-row-label,
-.chat-group-summary-label {
+.chat-row-label {
   /* min-width:0 lets the label shrink inside its flex row so long unbroken text
      wraps (via the break rules below) instead of forcing horizontal overflow. */
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.chat-group-summary-label {
+  /* The minimal-mode group header is an intentionally dense ONE-LINE row, so the
+     label shrinks-and-truncates (ellipsis) rather than wrapping: min-width:0 lets
+     it shrink inside the flex summary, and the overflow/ellipsis/nowrap trio
+     clips a long tool label at narrow widths instead of forcing horizontal
+     overflow. At desktop widths the text fits, so the ellipsis never engages and
+     the one-line look is unchanged. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-row {
@@ -587,12 +599,23 @@ summary .chat-row-header,
   display: flex;
   align-items: center;
   gap: calc(var(--chat-gap) / 2);
+  /* flex-wrap lets the footer reflow only when its controls + metrics exceed the
+     available width (a no-op at desktop widths, where they fit on one line);
+     min-width:0 lets the row shrink inside its bubble so the metrics child can
+     in turn shrink/break instead of forcing horizontal overflow at 375px. */
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .chat-footer-metrics {
   font-size: 0.75rem;
   color: var(--chat-muted);
+  /* min-width:0 lets the metrics span shrink inside the flex footer; overflow-wrap
+     breaks the long unbroken "model · 1234ms · 56.7 tok/s" string so it reflows
+     onto the next line instead of pushing past the viewport at narrow widths. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-group-summary {
@@ -600,6 +623,16 @@ summary .chat-row-header,
   align-items: center;
   gap: calc(var(--chat-gap) / 2);
   min-width: 0;
+}
+
+/* The `+N` overflow badge and the timer/tps pills in a collapsed group header
+   must not be squeezed to zero or wrap their short text when the label takes the
+   remaining width — the label (above) absorbs the shrinkage via truncation, so
+   these stay at their intrinsic size. */
+.chat-group-more,
+.chat-row-timer,
+.chat-row-tps {
+  flex-shrink: 0;
 }
 
 /* ── User attachments (change 0008) ─────────────────────────────────────────
