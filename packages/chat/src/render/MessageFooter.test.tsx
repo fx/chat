@@ -103,6 +103,21 @@ describe('MessageFooter compact mode', () => {
     expect(screen.queryByLabelText('Hide actions')).toBeNull()
     expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
   })
+
+  it('omits the kebab in compact mode for an empty metrics object', () => {
+    // An empty metrics object renders no metrics line, so it is NOT revealable —
+    // the kebab must not appear (it would open nothing).
+    render(<MessageFooter copyText="x" compact metrics={{}} />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+  })
+
+  it('omits the kebab in compact mode for metrics with all-undefined fields', () => {
+    const metrics: MessageMetrics = { tokensPerSecond: 0 }
+    render(<MessageFooter copyText="x" compact metrics={metrics} />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+  })
 })
 
 describe('MessageFooter metrics', () => {

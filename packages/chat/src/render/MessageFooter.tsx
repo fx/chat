@@ -36,7 +36,27 @@ export interface MessageFooterProps {
   compact?: boolean
 }
 
-/** Renders the metrics line (model · duration · tokens/sec) for present fields. */
+/**
+ * Whether a metrics object has any renderable content. Mirrors `Metrics`'
+ * own field checks so callers (e.g. the compact reveal gate) agree with what
+ * `Metrics` would actually render — an empty/all-undefined metrics object has
+ * no content and reveals nothing.
+ */
+function hasMetricsContent(metrics?: MessageMetrics): boolean {
+  if (!metrics) return false
+  return Boolean(
+    metrics.model ||
+      metrics.durationMs !== undefined ||
+      formatTokensPerSecond(metrics.tokensPerSecond),
+  )
+}
+
+/**
+ * Renders the metrics line (model · duration · tokens/sec) for present fields.
+ * The caller MUST gate rendering on `hasMetricsContent` — this renderer assumes
+ * at least one field is presentable (it is the single source of truth for the
+ * field checks; the emptiness decision lives in `hasMetricsContent`).
+ */
 function Metrics({ metrics }: { metrics: MessageMetrics }) {
   const cn = useChatClassNames()
   const parts: string[] = []
@@ -44,7 +64,6 @@ function Metrics({ metrics }: { metrics: MessageMetrics }) {
   if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
   const tps = formatTokensPerSecond(metrics.tokensPerSecond)
   if (tps) parts.push(tps)
-  if (parts.length === 0) return null
   return (
     <span className={cx('chat-footer-metrics', cn.footerMetrics)} data-testid="chat-footer-metrics">
       {parts.join(' · ')}
@@ -77,9 +96,10 @@ export function MessageFooter({
   const showMetrics = !compact || revealed
   // The kebab reveals action labels and the metrics line. In compact mode it is
   // only worth rendering when there is actually something to reveal: at least one
-  // action callback (regenerate/fork/reset) OR metrics. With nothing to reveal,
-  // toggling it would show nothing, so omit the kebab entirely.
-  const hasRevealable = Boolean(onRegenerate || onFork || onReset || metrics)
+  // action callback (regenerate/fork/reset) OR metrics with renderable content.
+  // An empty/all-undefined metrics object renders nothing, so it does not count.
+  // With nothing to reveal, toggling it would show nothing, so omit the kebab.
+  const hasRevealable = Boolean(onRegenerate || onFork || onReset || hasMetricsContent(metrics))
 
   const label = (text: string) =>
     showLabels ? <span className={cx('chat-footer-label', cn.footerLabel)}>{text}</span> : null
@@ -130,7 +150,7 @@ export function MessageFooter({
           {label('Reset')}
         </Button>
       ) : null}
-      {metrics && showMetrics ? <Metrics metrics={metrics} /> : null}
+      {metrics && showMetrics && hasMetricsContent(metrics) ? <Metrics metrics={metrics} /> : null}
     </div>
   )
 }
