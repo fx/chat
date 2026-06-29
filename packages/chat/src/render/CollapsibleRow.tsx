@@ -5,7 +5,13 @@
  * Responsibilities:
  * - A clickable header carrying an affordance icon, a label, optional pills.
  * - Affordance-icon precedence: active → spinner; just-completed → success check
- *   (flash); has-body → caret (open/closed); otherwise → muted filler.
+ *   (flash); otherwise → NO affordance icon AND no affordance span at all (an
+ *   idle body/filler row emits nothing, so there is no empty box or gap between
+ *   the caret and the kind icon/label). The disclosure caret is owned SOLELY by
+ *   the registry
+ *   `Collapsible` slot — this substrate MUST NOT render its own caret. A running,
+ *   expandable row may therefore show BOTH the spinner (this affordance) and the
+ *   Collapsible's caret, which is acceptable.
  * - Optional live-timer pill and tokens/sec pill.
  * - Controlled (`open`/`onOpenChange`) and uncontrolled (`defaultOpen`) use,
  *   where a change to the host's `defaultOpen` (e.g. a verbose/expand-all flip)
@@ -50,6 +56,12 @@ export interface CollapsibleRowProps {
   error?: boolean
   /** Optional leading icon name (e.g. `wrench`, `brain`, `gear`). */
   iconName?: 'wrench' | 'brain' | 'gear'
+  /**
+   * Optional content rendered in the header AFTER the affordance (when present)
+   * and BEFORE the leading kind icon — used by `BlockGroup` for the `(+N)`
+   * hidden-count text, so it sits just after the disclosure caret.
+   */
+  prefix?: ReactNode
   /** Extra className on the disclosure root. */
   className?: string
 }
@@ -73,6 +85,7 @@ export function CollapsibleRow({
   alwaysShow = false,
   error = false,
   iconName,
+  prefix,
   className,
 }: CollapsibleRowProps) {
   const { Collapsible, Badge, icons } = useChatComponents()
@@ -93,20 +106,23 @@ export function CollapsibleRow({
   // by a ref holding the previous prop value so the set runs at most once per
   // `defaultOpen` change (no infinite loop, no StrictMode warning). React
   // re-renders the component immediately without committing the intermediate
-  // DOM, so `isOpen` below already reflects the new value this same render.
+  // DOM, so `internalOpen` already reflects the new value this same render and
+  // is forwarded to the Collapsible slot below.
   // See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   if (!controlled && prevDefault.current !== defaultOpen) {
     prevDefault.current = defaultOpen
     if (internalOpen !== defaultOpen) setInternalOpen(defaultOpen)
   }
-  const isOpen = controlled ? (open as boolean) : internalOpen
 
   const hasBody = children != null && children !== false
   const timerPill = showTimer && (isActive || durationMs !== undefined)
   // Auto-hide: nothing to show and not forced.
   if (!alwaysShow && !isActive && !flash && !timerPill && !hasBody) return null
 
-  // Affordance-icon precedence.
+  // Affordance-icon precedence. The disclosure caret is NOT emitted here — the
+  // registry `Collapsible` slot is the sole caret owner — so a bodied idle row
+  // carries the `body` tone (for layout/styling) but renders no affordance icon,
+  // exactly like the `filler` tone.
   let Affordance: typeof icons.spinner | undefined
   let affordanceTone: 'active' | 'success' | 'body' | 'filler'
   if (isActive) {
@@ -116,7 +132,8 @@ export function CollapsibleRow({
     Affordance = icons.check
     affordanceTone = 'success'
   } else if (hasBody) {
-    Affordance = isOpen ? icons.caretDown : icons.caretRight
+    // Bodied + idle: the Collapsible slot renders the caret; emit no icon here.
+    Affordance = undefined
     affordanceTone = 'body'
   } else {
     Affordance = undefined
@@ -128,9 +145,16 @@ export function CollapsibleRow({
 
   const header = (
     <span className="chat-row-header" data-affordance={affordanceTone}>
-      <span className="chat-row-affordance" data-affordance={affordanceTone}>
-        {Affordance ? <Affordance className="chat-row-affordance-icon" /> : null}
-      </span>
+      {/* Render the affordance span ONLY when there is an affordance icon (active
+          spinner / flash check). An idle body/filler row emits nothing here, so
+          there is no empty width-reserving box between the caret and the kind
+          icon/label. */}
+      {Affordance ? (
+        <span className="chat-row-affordance" data-affordance={affordanceTone}>
+          <Affordance className="chat-row-affordance-icon" />
+        </span>
+      ) : null}
+      {prefix}
       {LeadingIcon ? <LeadingIcon className="chat-row-icon" /> : null}
       <span className="chat-row-label">{label}</span>
       {error ? (
@@ -141,16 +165,8 @@ export function CollapsibleRow({
           Error
         </Badge>
       ) : null}
-      {timerPill ? (
-        <Badge className="chat-row-timer" tone="default">
-          {formatDuration(elapsed)}
-        </Badge>
-      ) : null}
-      {tps ? (
-        <Badge className="chat-row-tps" tone="default">
-          {tps}
-        </Badge>
-      ) : null}
+      {timerPill ? <span className="chat-row-timer">{formatDuration(elapsed)}</span> : null}
+      {tps ? <span className="chat-row-tps">{tps}</span> : null}
     </span>
   )
 

@@ -60,7 +60,12 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
   - `Tooltip` — wraps a trigger and shows content on hover/focus (MAY be a no-op passthrough
     in the headless default).
   - `Collapsible` — a disclosure with a header trigger and a body; controlled and
-    uncontrolled use MUST both be supported.
+    uncontrolled use MUST both be supported. The `Collapsible` slot OWNS the disclosure
+    caret/chevron: the headless default renders its own caret in the summary; a host override
+    renders its own caret or none (a host override MAY legally omit a caret). The render-layer
+    substrate (`CollapsibleRow`) MUST NOT render a disclosure caret — caret rendering is owned
+    solely by the `Collapsible` slot, so the substrate never adds a second one regardless of the
+    injected registry.
   - `CodeBlock` — renders preformatted code/text with OPTIONAL language.
   - `JsonView` — renders a (possibly large) JSON value in a collapsible/scrollable view;
     MAY be implemented on top of `CodeBlock`.
@@ -120,6 +125,16 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - The package's headless visuals MUST be driven by CSS custom properties (e.g.
   `--chat-fg`, `--chat-muted`, `--chat-accent`, `--chat-border`, `--chat-error`,
   `--chat-success`, `--chat-radius`), with sensible light/dark defaults.
+- `--chat-font-family` MUST default to `inherit` so the chat surface adopts the host page's
+  font rather than forcing a system stack. The `font-family: var(--chat-font-family)` override
+  seam MUST remain on the headless primitives so a host can still restyle the whole surface by
+  redefining the single token.
+- The token set MUST include role-bubble tokens so a turn reads as a conversation:
+  `--chat-user-bubble-bg` / `--chat-user-bubble-fg` (the user's sent bubble, defaulting to the
+  accent surface), `--chat-assistant-bubble-bg` / `--chat-assistant-bubble-fg` (the assistant's
+  received bubble on a subtle neutral surface), and `--chat-bubble-max-width`. They MUST have
+  light AND dark defaults, and the `:root` and `[data-theme="light"]` token sets MUST stay
+  identical (a smoke/parity test enforces this across the full token set).
 - Hosts MUST be able to restyle the headless defaults entirely by redefining these variables,
   without overriding components.
 - The package MUST ship `@fx/chat/styles.css` defining default variable values; importing it is
@@ -131,6 +146,27 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - **GIVEN** a host using the headless registry
 - **WHEN** the host redefines the CSS custom properties in its own stylesheet
 - **THEN** the chat surface adopts the new colors/spacing with no registry changes.
+
+### Focus Visibility (a11y)
+
+- Every focusable interactive control the package styles — buttons (`.chat-button`), the copy
+  control (`.chat-copybutton`), the disclosure `<summary>` trigger (`.chat-collapsible-header`),
+  the attachment thumb/download affordances, and the lightbox close — MUST expose a visible
+  `:focus-visible` indicator (a ring) so keyboard users always see which control is focused.
+- The focus ring MUST be token-driven — colored via `--chat-accent` — so it is theme-aware and a
+  host can restyle it by redefining the token without overriding any component. The rules are
+  ADDITIVE to the existing `:hover`/`:active` affordances.
+- Controls with a non-focus keyboard model are excluded: the completion popup options take no
+  focus ring because focus remains in the textarea and the active option is tracked via
+  `aria-activedescendant`.
+
+#### Scenario: Keyboard focus is visible
+
+- **GIVEN** a host using the package stylesheet
+- **WHEN** a keyboard user tabs to a button, the copy control, the disclosure summary, or an
+  attachment download affordance
+- **THEN** the control paints a `--chat-accent`-colored `:focus-visible` ring, and the ring color
+  follows any host override of `--chat-accent`.
 
 ### Headless Default Registry
 
@@ -228,3 +264,6 @@ type IconName =
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0003-component-registry](../../changes/0003-component-registry.md) |
 | 2026-06-26 | Added OPTIONAL `Lightbox`/`ImageOverlay` slot and `download`/`expand` icons for attachment rendering — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
+| 2026-06-27 | Defaulted `--chat-font-family` to `inherit` and added role-bubble theme tokens (`--chat-user-bubble-*`, `--chat-assistant-bubble-*`, `--chat-bubble-max-width`) with light/dark defaults | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
+| 2026-06-27 | Clarified the `Collapsible` slot is the SOLE owner of the disclosure caret; the render substrate MUST NOT render one | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
+| 2026-06-28 | Required a visible, token-driven `:focus-visible` ring (via `--chat-accent`) on every focusable package control (button, copy, collapsible summary, attachment thumb/download, lightbox close); completion popup excluded (aria-activedescendant model) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |

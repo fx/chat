@@ -88,6 +88,14 @@ const Gear = (props: IconProps) => (
   </Svg>
 )
 
+const DotsThree = (props: IconProps) => (
+  <Svg {...props}>
+    <circle cx={3.5} cy={8} r={1} fill="currentColor" stroke="none" />
+    <circle cx={8} cy={8} r={1} fill="currentColor" stroke="none" />
+    <circle cx={12.5} cy={8} r={1} fill="currentColor" stroke="none" />
+  </Svg>
+)
+
 const Regenerate = (props: IconProps) => (
   <Svg {...props}>
     <path d="M13 8a5 5 0 1 1-1.5-3.5" />
@@ -183,6 +191,7 @@ export const headlessIcons: IconRegistry = Object.freeze({
   wrench: Wrench,
   brain: Brain,
   gear: Gear,
+  dotsThree: DotsThree,
   regenerate: Regenerate,
   fork: Fork,
   reset: Reset,

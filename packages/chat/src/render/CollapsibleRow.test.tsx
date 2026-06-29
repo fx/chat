@@ -66,37 +66,66 @@ describe('CollapsibleRow affordance precedence', () => {
     )
   })
 
-  it('shows a caret when it has a body and is idle', () => {
-    row({ label: 'B', children: <span>b</span> })
-    expect(screen.getByText('B').closest('.chat-row-header')).toHaveAttribute(
-      'data-affordance',
-      'body',
-    )
+  it('carries the body tone but renders NO affordance span when idle with a body', () => {
+    // The disclosure caret is owned by the Collapsible slot, not this substrate:
+    // a bodied idle row keeps the `body` tone on the header (for layout/styling)
+    // but emits NO affordance span at all — so there is no empty width-reserving
+    // box (and no gap) between the caret and the kind icon/label.
+    const { container } = row({ label: 'B', children: <span>b</span> })
+    const header = screen.getByText('B').closest('.chat-row-header') as HTMLElement
+    expect(header).toHaveAttribute('data-affordance', 'body')
+    expect(container.querySelector('.chat-row-affordance')).toBeNull()
   })
 
-  it('shows a muted filler when idle with no body but alwaysShow', () => {
-    row({ label: 'F', alwaysShow: true })
-    expect(screen.getByText('F').closest('.chat-row-header')).toHaveAttribute(
+  it('renders NO affordance span when idle with no body but alwaysShow', () => {
+    const { container } = row({ label: 'F', alwaysShow: true })
+    const header = screen.getByText('F').closest('.chat-row-header') as HTMLElement
+    expect(header).toHaveAttribute('data-affordance', 'filler')
+    expect(container.querySelector('.chat-row-affordance')).toBeNull()
+  })
+
+  it('still renders the spinner icon while active and the check icon on flash', () => {
+    const { container, rerender } = row({ label: 'A', isActive: true, alwaysShow: true })
+    expect(container.querySelector('.chat-row-affordance-icon')).not.toBeNull()
+    expect(screen.getByText('A').closest('.chat-row-header')).toHaveAttribute(
       'data-affordance',
-      'filler',
+      'active',
+    )
+    rerender(<CollapsibleRow label="A" isActive={false} alwaysShow />)
+    // Flash → success check icon present.
+    expect(container.querySelector('.chat-row-affordance-icon')).not.toBeNull()
+    expect(screen.getByText('A').closest('.chat-row-header')).toHaveAttribute(
+      'data-affordance',
+      'success',
     )
   })
 })
 
 describe('CollapsibleRow pills + icon', () => {
-  it('renders a live timer pill when showTimer and active', () => {
-    row({ label: 'T', isActive: true, showTimer: true, startedAt: 0 })
-    expect(screen.getByText('<1s')).toBeInTheDocument()
+  it('renders a live timer as plain muted text when showTimer and active', () => {
+    const { container } = row({ label: 'T', isActive: true, showTimer: true, startedAt: 0 })
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('<1s')
+    // Plain muted text span, NOT a filled `Badge` chip (no `chat-badge`).
+    expect(timer.tagName).toBe('SPAN')
+    expect(timer.classList.contains('chat-badge')).toBe(false)
   })
 
-  it('renders a finalized timer pill when showTimer and durationMs', () => {
-    row({ label: 'T', showTimer: true, durationMs: 2500, alwaysShow: true })
-    expect(screen.getByText('2.5s')).toBeInTheDocument()
+  it('renders a finalized timer as plain muted text when showTimer and durationMs', () => {
+    const { container } = row({ label: 'T', showTimer: true, durationMs: 2500, alwaysShow: true })
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('2.5s')
+    expect(timer.tagName).toBe('SPAN')
+    expect(timer.classList.contains('chat-badge')).toBe(false)
   })
 
-  it('renders a tokens/sec pill when present', () => {
-    row({ label: 'T', alwaysShow: true, tokensPerSecond: 12.3 })
-    expect(screen.getByText('12.3 tok/s')).toBeInTheDocument()
+  it('renders tokens/sec as plain muted text when present', () => {
+    const { container } = row({ label: 'T', alwaysShow: true, tokensPerSecond: 12.3 })
+    const tps = container.querySelector('.chat-row-tps') as HTMLElement
+    expect(tps.textContent).toBe('12.3 tok/s')
+    // Plain muted text span, NOT a filled `Badge` chip (no `chat-badge`).
+    expect(tps.tagName).toBe('SPAN')
+    expect(tps.classList.contains('chat-badge')).toBe(false)
   })
 
   it('omits the tokens/sec pill for a non-positive rate', () => {
@@ -107,6 +136,42 @@ describe('CollapsibleRow pills + icon', () => {
   it('renders a leading icon when iconName is set', () => {
     const { container } = row({ label: 'I', alwaysShow: true, iconName: 'wrench' })
     expect(container.querySelector('.chat-row-icon')).not.toBeNull()
+  })
+
+  it('renders the prefix slot AFTER any affordance and BEFORE the leading icon', () => {
+    // Active row → spinner affordance present; prefix renders between it and the
+    // kind icon (reference collapsed-header order: [affordance/caret][prefix][icon]).
+    const { container } = row({
+      label: 'P',
+      isActive: true,
+      iconName: 'brain',
+      prefix: <span data-testid="pre">(+2)</span>,
+    })
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    const affordance = header.querySelector('.chat-row-affordance') as HTMLElement
+    const pre = screen.getByTestId('pre')
+    const icon = header.querySelector('.chat-row-icon') as HTMLElement
+    expect(affordance).not.toBeNull()
+    expect(pre).not.toBeNull()
+    expect(icon).not.toBeNull()
+    // affordance precedes prefix precedes icon in document order.
+    expect(affordance.compareDocumentPosition(pre) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(pre.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders the prefix even with no affordance (idle), before the leading icon', () => {
+    const { container } = row({
+      label: 'P',
+      alwaysShow: true,
+      iconName: 'brain',
+      prefix: <span data-testid="pre">(+1)</span>,
+    })
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    // No affordance span on an idle row.
+    expect(header.querySelector('.chat-row-affordance')).toBeNull()
+    const pre = screen.getByTestId('pre')
+    const icon = header.querySelector('.chat-row-icon') as HTMLElement
+    expect(pre.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('applies error styling', () => {

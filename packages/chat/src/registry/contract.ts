@@ -138,6 +138,7 @@ export type IconName =
   | 'wrench'
   | 'brain'
   | 'gear'
+  | 'dotsThree'
   | 'regenerate'
   | 'fork'
   | 'reset'

@@ -99,6 +99,12 @@ generative-UI bridges, UI-prefs store) MUST be left to the host.
   leaves it or the token changes.
 - A short loading delay MUST elapse before showing a loading state, to avoid flicker on fast
   providers.
+- Because the popup portals to `document.body`, it MUST carry the composer's themed context with
+  it: it MUST copy the textarea's resolved `--chat-*` tokens onto its own root. Since
+  `--chat-font-family` now defaults to `inherit` (which would resolve against `<body>` once
+  portaled), the popup MUST instead copy the textarea's RESOLVED computed `font-family` as a real
+  CSS property — NOT the token — so the popup paints in the same font as the composer even when a
+  host scopes a font to a wrapper around it.
 
 #### Scenario: Keyboard apply keeps focus in textarea
 
@@ -216,3 +222,4 @@ interface ChatInputProps {
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0005-input-composer](../../changes/0005-input-composer.md) |
+| 2026-06-27 | Completion popup copies the textarea's resolved computed `font-family` (not the `inherit`-default token) so the portaled popup matches the composer font | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |

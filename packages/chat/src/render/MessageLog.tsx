@@ -33,10 +33,25 @@ export interface MessageLogProps extends MessageCallbacks {
   flat?: boolean
   /** Render each message as raw JSON (debug). */
   raw?: boolean
+  /**
+   * Minimal / density mode: fold each assistant turn's auxiliary blocks into one
+   * group and force compact footers (threaded to every `MessageItem`).
+   */
+  minimal?: boolean
   /** Default-open state for collapsibles (verbose/expand-all). */
   defaultOpen?: boolean
   /** Show per-message footers. */
   showFooter?: boolean
+  /**
+   * Render each top-level row in a two-column TIMESTAMP GUTTER layout (a fixed
+   * left clock cell + the row content). Each `MessageItem` owns its OWN
+   * per-render clock de-duper (render-pure — no shared cross-component mutable
+   * state), so consecutive same-second rows WITHIN a message show the time once
+   * and blank the rest; each message's first row shows its own clock (no
+   * cross-message de-dupe). OPTIONAL; off by default (plain column, no
+   * timestamps).
+   */
+  timestampGutter?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
   /**
@@ -60,9 +75,11 @@ export function MessageLog({
   streamingMessageId,
   flat,
   raw,
+  minimal,
   defaultOpen,
   showFooter,
   compactFooter,
+  timestampGutter,
   extensions,
   onRegenerate,
   onFork,
@@ -72,6 +89,10 @@ export function MessageLog({
   // Interleave messages and host-supplied custom timeline items by createdAt/at.
   // With no timeline items, this is the messages in order (default path).
   const timeline = mergeTimeline(messages, extensions?.timelineItems)
+  // No log-wide clock de-duper is created here: a shared mutable de-duper
+  // threaded across components is render-impure (StrictMode/concurrent
+  // re-renders desync the closure). Each `MessageItem` instead owns its own
+  // per-render de-duper, so de-dupe is deterministic per message.
   const items = timeline.map((entry) => {
     if (entry.kind === 'item') {
       // An item entry only exists when `extensions.timelineItems` was non-empty,
@@ -95,9 +116,11 @@ export function MessageLog({
         isActive={isActive}
         {...(flat !== undefined ? { flat } : {})}
         {...(raw !== undefined ? { raw } : {})}
+        {...(minimal !== undefined ? { minimal } : {})}
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}
+        {...(timestampGutter !== undefined ? { timestampGutter } : {})}
         {...(extensions ? { extensions } : {})}
         {...(onRegenerate ? { onRegenerate: () => onRegenerate(message.id) } : {})}
         {...(onFork ? { onFork: () => onFork(message.id) } : {})}
@@ -106,5 +129,14 @@ export function MessageLog({
     )
   })
 
-  return <div className="chat-log">{renderList ? renderList(items) : items}</div>
+  // Mirror MessageItem's gate: minimal density only engages when neither flat
+  // nor raw is active, so `<MessageLog minimal flat>` / `<MessageLog minimal raw>`
+  // add NO `data-minimal` hook on `.chat-log`.
+  const minimalActive = minimal && !flat && !raw
+
+  return (
+    <div className="chat-log" {...(minimalActive ? { 'data-minimal': 'true' } : {})}>
+      {renderList ? renderList(items) : items}
+    </div>
+  )
 }

@@ -56,8 +56,8 @@ function assertResolvedStructure(root: HTMLElement) {
   expect(within(user).getByText('@analyst')).toHaveAttribute('data-agent-id', 'analyst')
 
   // The assistant's grouped auxiliary run (reasoning + 2 tools + status) collapses
-  // into a disclosure with a `+N` badge counting the hidden members.
-  expect(within(assistant).getByText('+3')).toBeInTheDocument()
+  // into a disclosure with a `(+N)` badge counting the hidden members.
+  expect(within(assistant).getByText('(+3)')).toBeInTheDocument()
 
   // The markdown answer renders bare beneath the grouped metadata.
   expect(within(assistant).getByText(/Revenue rose/i)).toBeInTheDocument()
@@ -78,6 +78,29 @@ describe('cross-registry parity', () => {
       unmount()
     })
   }
+
+  it('folds each assistant turn into one collapsed group in minimal mode across all registries', () => {
+    // Change 0011: minimal/density mode folds ALL of an assistant turn's aux
+    // blocks (reasoning + 2 tools + status) into ONE group, with the markdown
+    // answer bare beneath it — proven across all three registries.
+    for (const id of REGISTRY_IDS) {
+      const { container, unmount } = render(
+        <ChatProvider components={REGISTRIES[id].components}>
+          <MessageLog messages={resolvedConversation} minimal defaultOpen />
+        </ChatProvider>,
+      )
+      const assistant = container.querySelector('[data-message-id="a1"]') as HTMLElement
+      // Exactly one collapsed group for the assistant turn's metadata.
+      expect(within(assistant).getByText('(+3)')).toBeInTheDocument()
+      expect(assistant.querySelectorAll('.chat-group')).toHaveLength(1)
+      // The markdown answer renders bare beneath the group.
+      expect(within(assistant).getByText(/Revenue rose/i)).toBeInTheDocument()
+      // Minimal mode marks the log + message wrappers for the density layout.
+      expect(container.querySelector('.chat-log')).toHaveAttribute('data-minimal', 'true')
+      expect(assistant).toHaveAttribute('data-minimal', 'true')
+      unmount()
+    }
+  })
 
   it('produces the same message/block/grouping skeleton across all three registries', () => {
     const skeletons = REGISTRY_IDS.map((id) => {

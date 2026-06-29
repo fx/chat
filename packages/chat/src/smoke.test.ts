@@ -8,6 +8,70 @@ const pkgDir = resolve(here, '..')
 const pkg = JSON.parse(readFileSync(resolve(pkgDir, 'package.json'), 'utf8'))
 
 /**
+ * Escape EVERY regex metacharacter in a string so it can be embedded literally
+ * in a `RegExp`. A selector-fragment escape that only handled `[`, `]`, `"` left
+ * `.` (and `(`/`)`/`*` etc.) as wildcards — e.g. `.chat-message` would match
+ * `Xchat-message` — so exact-selector assertions could pass on the wrong rule.
+ */
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Parse the `--chat-*` custom-property declarations out of the first rule body
+ * matching `selector` in `css`. Returns a map of token name → trimmed value.
+ * Lifted to module scope (NOT exported — Biome `noExportsInTest` forbids
+ * exports in test files) so multiple tests can compare token values across
+ * `:root`, the explicit light/dark hooks, and the OS-dark media block.
+ */
+const tokensOf = (css: string, selector: string): Record<string, string> => {
+  const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+  const body = m?.[1] ?? ''
+  const tokens: Record<string, string> = {}
+  for (const decl of body.split(';')) {
+    const dm = decl.match(/(--chat-[\w-]+)\s*:\s*(.+)/)
+    if (dm?.[1] && dm[2]) tokens[dm[1]] = dm[2].trim()
+  }
+  return tokens
+}
+
+/**
+ * Extract the body of the `@media (prefers-color-scheme: dark) { … }` block via
+ * balanced-brace scanning so dark-scoped assertions are confined to that block
+ * (a `[\s\S]*` regex can run past the closing brace and match unrelated rules).
+ * Returns '' when there is no such block.
+ */
+const extractDarkMediaBody = (source: string): string => {
+  const head = source.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{/)
+  if (head?.index === undefined) return ''
+  let depth = 1
+  const start = head.index + head[0].length
+  // Track whether we're inside a CSS string literal so a brace that appears in a
+  // value like `content: "}"` is NOT treated as structural (which would slice
+  // the block short). Only `{`/`}` outside quotes affect the brace depth. A
+  // backslash escapes the next character inside a string (e.g. `"\""`).
+  let quote: '"' | "'" | null = null
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i]
+    if (quote) {
+      if (ch === '\\') {
+        i++ // skip the escaped character
+      } else if (ch === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+    } else if (ch === '{') {
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0) return source.slice(start, i)
+    }
+  }
+  return ''
+}
+
+/**
  * Smoke test for the public package surface. Asserts that all three public
  * entry points resolve, and — critically for the architecture spec — that the
  * surface pulls in no UI-kit / icon-set / markdown-engine dependency. We assert
@@ -77,6 +141,36 @@ describe('@fx/chat public surface', () => {
     expect(block('.chat-collapsible-header')).toContain('min-height: 44px')
   })
 
+  it('gives interactive controls a token-driven :focus-visible ring', () => {
+    // Keyboard users must get a visible focus indicator on every focusable
+    // package control, and it must be theme-aware (token-driven via
+    // `--chat-accent`) so hosts can restyle it without overriding components.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    // Match the rule whose selector list contains `<selector>:focus-visible`,
+    // returning the declaration body. Handles both grouped (comma-separated)
+    // and standalone focus-visible selectors.
+    const focusBlock = (selector: string) => {
+      const re = new RegExp(`${escapeRegExp(selector)}:focus-visible[^{]*\\{([^}]*)\\}`)
+      return css.match(re)?.[1] ?? ''
+    }
+    for (const selector of [
+      '.chat-button',
+      '.chat-copybutton',
+      // The collapsible trigger is the `<summary class="chat-collapsible-header">`.
+      '.chat-collapsible-header',
+      // The attachment download/expand affordances are focusable button/link.
+      '.chat-attachment-thumb',
+      '.chat-attachment-chip-download',
+    ]) {
+      const body = focusBlock(selector)
+      expect(body).toContain('outline: 2px solid var(--chat-accent)')
+      expect(body).toContain('outline-offset: 2px')
+    }
+    // The popup options are deliberately NOT given a focus ring: focus stays in
+    // the textarea (aria-activedescendant model), so they never receive focus.
+    expect(css).not.toContain('.chat-completion-option:focus-visible')
+  })
+
   it('makes an explicit data-theme win over prefers-color-scheme', () => {
     // Precedence contract: `[data-theme="light"]` is light always,
     // `[data-theme="dark"]` is dark always, and a root with NO `data-theme`
@@ -97,21 +191,6 @@ describe('@fx/chat public surface', () => {
     // regression like `:root{` (no space) or a commented `:root {` must NOT slip
     // through.
     const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
-    const extractDarkMediaBody = (source: string): string => {
-      const head = source.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{/)
-      if (head?.index === undefined) return ''
-      let depth = 1
-      const start = head.index + head[0].length
-      for (let i = start; i < source.length; i++) {
-        const ch = source[i]
-        if (ch === '{') depth++
-        else if (ch === '}') {
-          depth--
-          if (depth === 0) return source.slice(start, i)
-        }
-      }
-      return ''
-    }
     const darkMediaBody = extractDarkMediaBody(cssNoComments)
     expect(darkMediaBody).not.toBe('')
     // It MUST scope to `:root:not([data-theme])`.
@@ -123,20 +202,397 @@ describe('@fx/chat public surface', () => {
 
     // (c) The `:root` light defaults and the `[data-theme="light"]` values must
     // stay in sync — duplicated literals are allowed only if they match exactly.
-    const tokensOf = (selector: string): Record<string, string> => {
-      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
-      const body = m?.[1] ?? ''
-      const tokens: Record<string, string> = {}
-      for (const decl of body.split(';')) {
-        const dm = decl.match(/(--chat-[\w-]+)\s*:\s*(.+)/)
-        if (dm?.[1] && dm[2]) tokens[dm[1]] = dm[2].trim()
-      }
-      return tokens
-    }
-    const root = tokensOf(':root')
-    const explicitLight = tokensOf('\\[data-theme="light"\\]')
+    const root = tokensOf(css, ':root')
+    const explicitLight = tokensOf(css, '\\[data-theme="light"\\]')
     expect(Object.keys(explicitLight).length).toBeGreaterThan(0)
     expect(explicitLight).toEqual(root)
+  })
+
+  it('defaults --chat-font-family to inherit in :root and [data-theme="light"]', () => {
+    // Change 0009: the base font is inherited from the host page (not a forced
+    // system stack) so the chat surface matches the surrounding app. The
+    // override seam (`font-family: var(--chat-font-family)` declarations) stays.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    expect(block(':root')).toMatch(/--chat-font-family:\s*inherit\s*;/)
+    expect(block('\\[data-theme="light"\\]')).toMatch(/--chat-font-family:\s*inherit\s*;/)
+    // The override seam is still present so hosts can restyle via the token.
+    expect(css).toContain('font-family: var(--chat-font-family)')
+  })
+
+  it('defines the role-bubble tokens with light and dark values', () => {
+    // Change 0009: user/assistant bubble tokens exist in the light set and the
+    // assistant surface gets a distinct dark value under both dark hooks.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    const bubbleTokens = [
+      '--chat-user-bubble-bg',
+      '--chat-user-bubble-fg',
+      '--chat-assistant-bubble-bg',
+      '--chat-assistant-bubble-fg',
+      '--chat-bubble-max-width',
+    ]
+    for (const token of bubbleTokens) {
+      expect(block(':root')).toContain(`${token}:`)
+    }
+    // The light value is the baseline the dark surfaces must differ from.
+    const lightAssistantBg = tokensOf(css, ':root')['--chat-assistant-bubble-bg']
+    expect(lightAssistantBg).toBeDefined()
+
+    // The assistant bubble has a dedicated dark surface in the explicit dark hook
+    // — and it must be a genuinely DIFFERENT value, not a re-statement of the
+    // light one (a presence-only check passes even if dark reuses light).
+    const explicitDarkAssistantBg = tokensOf(css, '\\[data-theme="dark"\\]')[
+      '--chat-assistant-bubble-bg'
+    ]
+    expect(explicitDarkAssistantBg).toBeDefined()
+    expect(explicitDarkAssistantBg).not.toBe(lightAssistantBg)
+
+    // …and under the OS-dark media block (a darker neutral than the light value).
+    // Scope the check to the media block's BODY (balanced-brace extraction) so a
+    // `[\s\S]*` regex can't satisfy it by matching a declaration past the closing
+    // brace.
+    const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const darkMediaBody = extractDarkMediaBody(cssNoComments)
+    expect(darkMediaBody).not.toBe('')
+    // Extract the OS-dark assistant bubble value from the media-block body and
+    // assert it, too, differs from the light baseline.
+    const mediaDarkAssistantBg = darkMediaBody
+      .match(/--chat-assistant-bubble-bg\s*:\s*([^;]+)/)?.[1]
+      ?.trim()
+    expect(mediaDarkAssistantBg).toBeDefined()
+    expect(mediaDarkAssistantBg).not.toBe(lightAssistantBg)
+  })
+
+  it('styles the answer-text bubble (not the whole message) from the bubble tokens', () => {
+    // Realigned layout: the bubble shape lives ONLY on the answer text block
+    // (`.chat-text`), scoped by role — NOT on the message wrapper and NOT on the
+    // auxiliary `.chat-row`/`.chat-collapsible` rows. Both roles are LEFT-aligned;
+    // the role distinction is the bubble color. Hosts can restyle via the tokens.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    // The user/assistant answer text carries the bubble bg/fg/radius/padding.
+    const userText = block('.chat-message[data-role="user"] .chat-text')
+    expect(userText).toContain('var(--chat-user-bubble-bg)')
+    expect(userText).toContain('var(--chat-user-bubble-fg)')
+    expect(userText).toContain('var(--chat-radius)')
+    // Bubble padding (0.625rem vertical / 0.9375rem = 15px horizontal) is a
+    // constant — it must NOT compress with density (the gutter/gap rows tighten
+    // in minimal mode, not the bubble).
+    expect(userText).toMatch(/padding:\s*0\.625rem\s+0\.9375rem/)
+    // The bubble caps at the reference max-width (token-driven) — it must not be
+    // uncapped (`max-width: none`) on the text block.
+    expect(userText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
+    // The bubble hugs its content (width: fit-content) so short text like "test"
+    // stays on one line instead of being squeezed to a few px and wrapping.
+    expect(userText).toMatch(/width:\s*fit-content/)
+    const assistantText = block('.chat-message[data-role="assistant"] .chat-text')
+    expect(assistantText).toContain('var(--chat-assistant-bubble-bg)')
+    expect(assistantText).toContain('var(--chat-assistant-bubble-fg)')
+    expect(assistantText).toContain('var(--chat-radius)')
+    expect(assistantText).toMatch(/padding:\s*0\.625rem\s+0\.9375rem/)
+    expect(assistantText).toMatch(/max-width:\s*var\(--chat-bubble-max-width\)/)
+    expect(assistantText).toMatch(/width:\s*fit-content/)
+    // The message wrapper must NOT shrink to its content: it has no role-scoped
+    // align-self/margin/max-width rule, so it stretches to the full `.chat-log`
+    // column width (the column's default `align-items: stretch`). That gives the
+    // bubble the full width to resolve its 85% cap against — putting the cap +
+    // `align-self: flex-start` on the WRAPPER collapsed it and wrapped short
+    // text. The 85% cap + left-alignment now live on the `.chat-text` bubble.
+    const wrapper =
+      css.match(
+        /\.chat-message\[data-role="user"\],\s*\n\.chat-message\[data-role="assistant"\]\s*\{([^}]*)\}/,
+      )?.[1] ?? null
+    expect(wrapper).toBeNull()
+    // The user footer metrics use the full bubble foreground so they meet WCAG
+    // AA contrast (no sub-4.5:1 color-mix).
+    const userMetrics = block('.chat-message[data-role="user"] .chat-footer-metrics')
+    expect(userMetrics).toContain('var(--chat-user-bubble-fg)')
+    expect(userMetrics).not.toContain('color-mix')
+    // A mention inside the user TEXT bubble is re-toned to the bubble foreground
+    // so it is not accent-on-accent (invisible) — the bubble bg is the accent.
+    const userMention = block('.chat-message[data-role="user"] .chat-text .chat-mention')
+    expect(userMention).toContain('var(--chat-user-bubble-fg)')
+  })
+
+  it('defines the per-block timestamp-gutter layout rules (change 0012)', () => {
+    // The gutter is a two-column row: a fixed 56px clock cell + the content. The
+    // prior `.chat-message-time` chrome is removed in favor of this layout.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    // The prior per-message timestamp rule is gone.
+    expect(css).not.toContain('.chat-message-time')
+    // The row is a flex two-column layout.
+    const row = block('.chat-gutter-row')
+    expect(row).toContain('display: flex')
+    expect(row).toMatch(/align-items:\s*flex-start/)
+    // The clock cell: 64px (4rem) width so the 12px `HH:MM:SS` doesn't clip,
+    // muted token color, tabular figures, 12px font (unified aux-line size).
+    const time = block('.chat-gutter-time')
+    expect(time).toMatch(/width:\s*4rem/)
+    expect(time).toMatch(/font-size:\s*0\.75rem/)
+    expect(time).toContain('var(--chat-muted)')
+    expect(time).toContain('tabular-nums')
+    expect(time).toMatch(/flex-shrink:\s*0/)
+    expect(time).toMatch(/text-align:\s*right/)
+    // line-height 1.4 (matching .chat-row-header) so the gutter timestamp and the
+    // content line share a baseline across the two columns.
+    expect(time).toMatch(/line-height:\s*1\.4\s*;/)
+    // The content cell can shrink (min-width:0) and takes the remaining space.
+    const content = block('.chat-gutter-content')
+    expect(content).toContain('min-width: 0')
+    expect(content).toContain('flex: 1')
+  })
+
+  it('defines minimal/density-mode rules driven by --chat-gap-compact', () => {
+    // Change 0011: minimal mode tightens spacing via a compact gap token, applied
+    // to the log and message wrappers keyed off data-minimal. Token-driven and
+    // headless-only.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    const tokenBlock = (selector: string) => {
+      const m = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+    // The compact token exists in the light set (and stays in :root/[data-theme=light] sync).
+    expect(tokenBlock(':root')).toContain('--chat-gap-compact:')
+    expect(tokenBlock('\\[data-theme="light"\\]')).toContain('--chat-gap-compact:')
+    // …and is present under the explicit dark hook (light+dark coverage).
+    expect(tokenBlock('\\[data-theme="dark"\\]')).toContain('--chat-gap-compact:')
+    // The message-wrapper minimal rule references the compact token. (The
+    // inter-message LOG gap is a fixed ~10px separation — asserted below — not
+    // the compact token, so distinct turns read as distinct.)
+    expect(block('.chat-message[data-minimal="true"]')).toContain('var(--chat-gap-compact)')
+
+    // Inter-block-row spacing within a message is tightened to ~1px so aux rows
+    // read visually flush like the reference — still token-driven via the
+    // compact token divided by 6.
+    const blockRowGap =
+      css.match(/\.chat-message\[data-minimal="true"\] \.chat-message-blocks\s*\{([^}]*)\}/)?.[1] ??
+      ''
+    expect(blockRowGap).toContain('var(--chat-gap-compact)')
+    expect(blockRowGap).toMatch(/gap:\s*calc\(var\(--chat-gap-compact\)\s*\/\s*6\)/)
+
+    // Inter-message (turn) gap gives a clear ~10px separation between turns so
+    // distinct messages read as distinct (raised from the prior ~2.4px).
+    const logGap = css.match(/\.chat-log\[data-minimal="true"\]\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(logGap).toMatch(/gap:\s*0\.625rem/)
+
+    // The grouped-run disclosure root is a CONTAINER with no padding/margin — the
+    // 4px 8px toggle padding lives on the header, not the wrapper.
+    const groupContainer = css.match(/\.chat-row\.chat-group\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(groupContainer).toMatch(/padding:\s*0/)
+    expect(groupContainer).toMatch(/margin:\s*0/)
+    // Minimal mode tightens the GAPS between rows, NOT the bubble's internal
+    // padding: the reference keeps bubble padding constant across densities. No
+    // minimal-mode rule may override `.chat-text` padding.
+    expect(css).not.toMatch(
+      /\.chat-message\[data-minimal="true"\][^{]*\.chat-text\s*\{[^}]*padding/,
+    )
+  })
+
+  it('sizes user plain text to the reference 14px / 20px (text-sm)', () => {
+    // The assistant answer is sized by the host's prose, but the USER message
+    // plain text inherits the chat base size unless pinned. The reference user
+    // body text is 14px / line-height 20px.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const plain = css.match(/\.chat-text-plain\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(plain).toMatch(/font-size:\s*0\.875rem/)
+    expect(plain).toMatch(/line-height:\s*1\.25rem/)
+  })
+
+  it('styles the expanded aux-group body as a subtle caret-aligned hairline rule', () => {
+    // Reference expanded group body: `border-l-2 border-border/60 pl-3` with
+    // margin-top 0 and flush items (gap 0). The 5px left margin centers the rule
+    // under the disclosure caret now that the trigger's `px-2 py-1` padding is
+    // gone (the 12px caret sits flush at the content-left edge, center ~6px in,
+    // so a 2px border lands at ~5px); the rule is 60% opacity of the border
+    // token; the left pad is `--chat-gap` (= pl-3).
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const body = css.match(/\.chat-group-body\s*\{([^}]*)\}/)?.[1] ?? ''
+    // 60% opacity border via color-mix on the border token.
+    expect(body).toMatch(
+      /border-left:\s*2px solid color-mix\(in srgb,\s*var\(--chat-border\)\s*60%,\s*transparent\)/,
+    )
+    // Caret-alignment is a fixed geometric constant (5px).
+    expect(body).toMatch(/margin-left:\s*0\.3125rem/)
+    // Flush to the prior row + flush items.
+    expect(body).toMatch(/margin-top:\s*0/)
+    expect(body).toMatch(/gap:\s*0/)
+    // Left pad stays token-driven at the reference pl-3 (= --chat-gap = 12px).
+    expect(body).toMatch(/padding-left:\s*var\(--chat-gap\)/)
+  })
+
+  it('keeps narrow-width rows from overflowing horizontally (responsive reflow)', () => {
+    // At 375px the dense one-line flex rows (footer metrics, the minimal-mode
+    // group header) previously overflowed because their content could neither
+    // shrink, truncate, nor break. Assert the per-element responsive guards so a
+    // regression that drops them fails here instead of in a 375px viewport.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+
+    // The footer reflows (wrap) and can shrink so its metrics child can break.
+    // Anchor to the standalone `.chat-footer { … }` rule (newline-prefixed) so
+    // the match is not stolen by a descendant rule like
+    // `.chat-message[data-minimal="true"] .chat-footer { … }`.
+    const footer = css.match(/\n\.chat-footer\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footer).toContain('flex-wrap: wrap')
+    expect(footer).toContain('min-width: 0')
+
+    // The metrics span shrinks and breaks its long "model · ms · tok/s" string.
+    // Anchor to the standalone rule (newline-prefixed) so a role-scoped rule
+    // like `.chat-message[data-role="user"] .chat-footer-metrics` is not matched.
+    const metrics = css.match(/\n\.chat-footer-metrics\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(metrics).toContain('min-width: 0')
+    expect(metrics).toContain('overflow-wrap: anywhere')
+
+    // The minimal-mode group label truncates (ellipsis) to keep the dense one
+    // line while shrinking inside its flex summary at narrow widths.
+    const groupLabel = block('.chat-group-summary-label')
+    expect(groupLabel).toContain('min-width: 0')
+    expect(groupLabel).toContain('overflow: hidden')
+    expect(groupLabel).toContain('text-overflow: ellipsis')
+    expect(groupLabel).toContain('white-space: nowrap')
+
+    // The group summary can shrink so its truncating label takes the slack.
+    expect(block('.chat-group-summary')).toContain('min-width: 0')
+
+    // The `(+N)` overflow badge and header pills hold their intrinsic size (the
+    // label absorbs the shrink), so they neither collapse nor wrap. The rule is
+    // grouped (`.chat-group-more, .chat-row-timer, .chat-row-tps`), so anchor to
+    // the grouped selector list (a standalone `.chat-group-more` typography rule
+    // also exists and must NOT be matched here).
+    const groupMoreShrink =
+      css.match(/\.chat-group-more,\s*\n\.chat-row-timer,\s*\n\.chat-row-tps\s*\{([^}]*)\}/)?.[1] ??
+      ''
+    expect(groupMoreShrink).toContain('flex-shrink: 0')
+  })
+
+  it('renders the footer + aux header at the reference density metrics', () => {
+    // The reference footer row is small (10px) + muted; the aux collapsible
+    // header (the collapsed tool/reasoning/status toggle) is small (12px),
+    // medium-weight, muted, with a compact `px-2 py-1`-feel padding; and the
+    // leading kind icon + disclosure caret are 12px square. All token-driven
+    // where a token exists.
+    const css = readFileSync(resolve(pkgDir, pkg.exports['./styles.css']), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${escapeRegExp(selector)}\\s*\\{([^}]*)\\}`))
+      return m?.[1] ?? ''
+    }
+
+    // Footer row: 10px + muted, sitting just below the bubble (margin-top).
+    const footer = css.match(/\n\.chat-footer\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footer).toMatch(/font-size:\s*0\.625rem/)
+    expect(footer).toContain('var(--chat-muted)')
+    expect(footer).toMatch(/margin-top:/)
+
+    // Footer buttons override the host registry's default (up to 14px) button
+    // font-size down to the 10px footer scale.
+    const footerButton = css.match(/\.chat-footer button\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerButton).toMatch(/font-size:\s*0\.625rem/)
+
+    // The ACTION buttons are flexible (auto width/height, no min-width, compact
+    // 2px 4px padding + 2px gap) so a revealed text label sits beside the icon
+    // instead of overflowing the host's fixed square — the kebab reveal toggle is
+    // excluded so it stays a fixed square.
+    const footerAction =
+      css.match(/\.chat-footer button:not\(\.chat-footer-reveal\)\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerAction).toMatch(/width:\s*auto/)
+    expect(footerAction).toMatch(/height:\s*auto/)
+    expect(footerAction).toMatch(/min-width:\s*0/)
+    expect(footerAction).toMatch(/padding:\s*0\.125rem\s+0\.25rem/)
+    expect(footerAction).toMatch(/gap:\s*0\.125rem/)
+    // Footer metrics inherit the small footer size instead of re-asserting 0.75rem.
+    const metrics = css.match(/\n\.chat-footer-metrics\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(metrics).toMatch(/font-size:\s*inherit/)
+
+    // Footer action icons are sized to the reference's 10px (0.625rem) square in
+    // CSS so they render correctly regardless of the host icon set's intrinsic
+    // SVG size (CSS width/height overrides the SVG width/height attributes).
+    const footerIcon = css.match(/\n\.chat-footer-icon\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerIcon).toMatch(/width:\s*0\.625rem/)
+    expect(footerIcon).toMatch(/height:\s*0\.625rem/)
+
+    // EVERY <svg> inside the footer is sized to 10px (0.625rem), not just the
+    // ones carrying `.chat-footer-icon`. Some registry slots (e.g. the
+    // `CopyButton`) render their own icon markup without that class, so the
+    // class-only rule left the Copy icon at its intrinsic 16px. The
+    // `.chat-footer svg` rule overrides the SVG's own width/height attributes so
+    // all footer icons match regardless of the host's CopyButton markup.
+    const footerSvg = css.match(/\.chat-footer svg[^{]*\{([^}]*)\}/)?.[1] ?? ''
+    expect(footerSvg).toMatch(/width:\s*0\.625rem/)
+    expect(footerSvg).toMatch(/height:\s*0\.625rem/)
+
+    // Aux header (renderer-owned `.chat-row` baseline): 12px + medium weight +
+    // muted + compact padding.
+    const row = css.match(/\n\.chat-row\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(row).toMatch(/font-size:\s*0\.75rem/)
+    expect(row).toMatch(/font-weight:\s*500/)
+    expect(row).toContain('var(--chat-muted)')
+    expect(row).toMatch(
+      /padding:\s*calc\(var\(--chat-gap\)\s*\/\s*3\)\s+calc\(var\(--chat-gap\)\s*\/\s*1\.5\)/,
+    )
+
+    // Headless disclosure summary header: same 12px + medium weight + compact
+    // padding so a registry that uses the `<summary>` matches the reference.
+    const header = block('.chat-collapsible-header')
+    expect(header).toMatch(/font-size:\s*0\.75rem/)
+    expect(header).toMatch(/font-weight:\s*500/)
+    expect(header).toMatch(
+      /padding:\s*calc\(var\(--chat-gap\)\s*\/\s*3\)\s+calc\(var\(--chat-gap\)\s*\/\s*1\.5\)/,
+    )
+
+    // Leading kind icon + disclosure caret are sized to 1em so they scale with
+    // the 12px aux line and sit inline-centered within the line-box (1em =
+    // 0.75rem here). The rule is grouped (`.chat-row-icon, .chat-collapsible-caret`).
+    const iconRule =
+      css.match(/\.chat-row-icon,\s*\n\.chat-collapsible-caret\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(iconRule).toMatch(/width:\s*1em/)
+    expect(iconRule).toMatch(/height:\s*1em/)
+
+    // The aux-row header (`.chat-row-header`) holds the kind icon + label
+    // (+ timer/tps). line-height 1.4 (matching .chat-gutter-time) and
+    // align-items:center keep the caret, icon, label, and pills vertically
+    // centered on one cohesive line — the 1em icons stay centered within the
+    // ~17px line-box without expanding it.
+    const rowHeader = block('.chat-row-header')
+    expect(rowHeader).toContain('display: flex')
+    expect(rowHeader).toMatch(/align-items:\s*center/)
+    expect(rowHeader).toMatch(/line-height:\s*1\.4\s*;/)
+
+    // The inline metadata indicators — hidden-count `(+N)`, timer, and tok/s —
+    // render as PLAIN 12px muted text (unified with the rest of the aux line),
+    // NOT filled badge chips. They share one grouped rule that must clear any
+    // inherited badge background/border/padding so a host's `Badge` styling
+    // cannot re-skin them into pills.
+    const inlineMeta =
+      css.match(/\.chat-group-more,\s*\n\.chat-row-timer,\s*\n\.chat-row-tps\s*\{([^}]*)\}/)?.[1] ??
+      ''
+    expect(inlineMeta).toMatch(/font-size:\s*0\.75rem/)
+    expect(inlineMeta).toContain('var(--chat-muted)')
+    expect(inlineMeta).toMatch(/font-variant-numeric:\s*tabular-nums/)
+    // No filled-pill chrome: explicitly cleared background / border / padding.
+    expect(inlineMeta).toMatch(/background:\s*none/)
+    expect(inlineMeta).toMatch(/border:\s*0/)
+    expect(inlineMeta).toMatch(/padding:\s*0\b/)
   })
 
   it('depends on no UI kit, icon set, or markdown engine', () => {
@@ -169,5 +625,40 @@ describe('@fx/chat public surface', () => {
         expect(dep.startsWith(prefix)).toBe(false)
       }
     }
+  })
+})
+
+describe('extractDarkMediaBody brace scanner', () => {
+  const wrap = (body: string) => `@media (prefers-color-scheme: dark) {${body}}`
+
+  it('returns the balanced body for a plain block', () => {
+    expect(extractDarkMediaBody(wrap(':root{--x:1}'))).toBe(':root{--x:1}')
+  })
+
+  it('ignores braces inside double-quoted string values', () => {
+    // A `}` inside `content: "}"` must NOT close the media block early.
+    const body = '.a::after{content:"}"}.b{--x:1}'
+    expect(extractDarkMediaBody(wrap(body))).toBe(body)
+  })
+
+  it('ignores braces inside single-quoted string values', () => {
+    const body = ".a::after{content:'{'}.b{--x:1}"
+    expect(extractDarkMediaBody(wrap(body))).toBe(body)
+  })
+
+  it('honors backslash escapes inside string literals', () => {
+    // `"\"}"` — the escaped quote does NOT end the string, so the brace stays
+    // quoted and the trailing real quote closes it.
+    const body = '.a::after{content:"\\"}"}.b{--x:1}'
+    expect(extractDarkMediaBody(wrap(body))).toBe(body)
+  })
+
+  it('returns "" when there is no dark media block', () => {
+    expect(extractDarkMediaBody(':root{--x:1}')).toBe('')
+  })
+
+  it('returns "" when the media block is never closed', () => {
+    // No matching closing brace at depth 0 → scan falls through to ''.
+    expect(extractDarkMediaBody('@media (prefers-color-scheme: dark) {:root{--x:1}')).toBe('')
   })
 })

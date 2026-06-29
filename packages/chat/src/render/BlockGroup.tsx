@@ -1,15 +1,15 @@
 /**
  * `BlockGroup` — renders a collapsed run of auxiliary blocks under one
  * disclosure, with a header summary chip selected by the grouping policy and a
- * `+N` badge counting the hidden blocks.
+ * plain muted `(+N)` text count of the hidden blocks.
  *
  * The header summary text is derived from the chosen block's kind via the
  * grouping policy's selection (`selectHeaderSummary`), never via ad-hoc kind
  * branching in the log walk.
  */
 import type { ContentBlock } from '../model'
-import { useChatComponents } from '../registry'
 import { CollapsibleRow } from './CollapsibleRow'
+import { summarizeBlock } from './blockSummary'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock } from './extensions'
@@ -25,25 +25,6 @@ export interface BlockGroupProps {
   defaultOpen?: boolean
   /** Optional render-layer extensions (threaded to inner blocks + grouping). */
   extensions?: ChatExtensions
-}
-
-/** A short, human label for the summary-chip block. */
-function summaryLabel(block: RenderableBlock): string {
-  switch (block.type) {
-    case 'reasoning':
-      return 'Reasoning'
-    case 'tool_call':
-      return (block as Extract<ContentBlock, { type: 'tool_call' }>).name
-    case 'status':
-      return 'Status'
-    case 'text':
-      return 'Text'
-    case 'system':
-      return 'System'
-    default:
-      // Custom (host-defined) kind opted into grouping: label by its type.
-      return block.type
-  }
 }
 
 /** Whether a single block is currently active (drives the spinner). */
@@ -80,7 +61,6 @@ function groupIsActive(blocks: RenderableBlock[], context: BlockRenderContext): 
 
 /** Renders the collapsed group disclosure. */
 export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGroupProps) {
-  const { Badge } = useChatComponents()
   // The trailing status only heads the summary while it is the live row; a
   // completed run surfaces the latest tool/reasoning summary instead.
   const trailingBlock = blocks[blocks.length - 1] as RenderableBlock
@@ -92,32 +72,57 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   )
   const isActive = groupIsActive(blocks, context)
 
+  // Derive the collapsed-header summary (kind icon + label + timing) from the
+  // SAME `summarizeBlock` helper the bare renderers use, so the group header
+  // mirrors what the bare block shows (e.g. `brain` + "Thought for 1.3s" for a
+  // reasoning summary) and the two can't drift. Active state for the summary
+  // mirrors the row-level activeness of the chosen block.
+  const summaryActive = blockIsActive(summaryBlock, context)
+  const summary = summarizeBlock(summaryBlock, { isActive: summaryActive })
+
   // When the chosen summary is a status row, surface its live/final timing and
   // tokens/sec on the collapsed header — that is the whole reason the policy
   // prefers a trailing active status as the summary (to keep the timer visible).
   const summaryIsStatus = summaryBlock.type === 'status'
-  const tokensPerSecond = summaryIsStatus && isActive ? context.tokensPerSecond : undefined
+
+  // Timer: ONLY a status summary surfaces a timer pill (status labels don't
+  // embed the duration, so the pill carries it), using the message-level
+  // duration. Reasoning/tool summaries set `summary.showTimer === false` — their
+  // bare renderers show no timer pill, and the reasoning "Thought for <dur>"
+  // label already embeds the duration, so a separate pill would duplicate it.
+  // tok/s: the status summary shows the live rate; a reasoning/tool summary
+  // shows the message-level finalized rate so the collapsed header still carries
+  // the same `N tok/s` pill the reference renders (independent of the timer).
+  const showTimer = summaryIsStatus || summary.showTimer
+  const durationMs = summaryIsStatus ? context.durationMs : summary.durationMs
+  // Status summary: live tok/s only while active (unchanged). Reasoning/tool
+  // summary: the message-level finalized tok/s so the pill matches the reference.
+  const tokensPerSecond = summaryIsStatus
+    ? isActive
+      ? context.tokensPerSecond
+      : undefined
+    : context.tokensPerSecond
+
+  // The `(+N)` hidden-count renders as plain muted text right after the
+  // disclosure caret and BEFORE the kind icon/label (reference order), via
+  // CollapsibleRow's `prefix` slot. Rendered only when there is a hidden remainder.
+  const prefix = hiddenCount > 0 ? <span className="chat-group-more">(+{hiddenCount})</span> : null
 
   const label = (
     <span className="chat-group-summary">
-      <span className="chat-group-summary-label">{summaryLabel(summaryBlock)}</span>
-      {hiddenCount > 0 ? (
-        <Badge className="chat-group-more" tone="default">
-          +{hiddenCount}
-        </Badge>
-      ) : null}
+      <span className="chat-group-summary-label">{summary.label}</span>
     </span>
   )
 
   return (
     <CollapsibleRow
       label={label}
+      {...(prefix ? { prefix } : {})}
+      {...(summary.iconName ? { iconName: summary.iconName } : {})}
       isActive={isActive}
       startedAt={context.startedAt}
-      showTimer={summaryIsStatus}
-      {...(summaryIsStatus && context.durationMs !== undefined
-        ? { durationMs: context.durationMs }
-        : {})}
+      showTimer={showTimer}
+      {...(showTimer && durationMs !== undefined ? { durationMs } : {})}
       {...(tokensPerSecond !== undefined ? { tokensPerSecond } : {})}
       defaultOpen={defaultOpen}
       alwaysShow

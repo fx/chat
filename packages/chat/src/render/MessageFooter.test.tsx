@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { MessageMetrics } from '../model'
+import { ChatProvider } from '../registry'
+import type { PartialChatComponents } from '../registry'
 import { MessageFooter } from './MessageFooter'
 
 describe('MessageFooter affordances', () => {
@@ -32,15 +34,53 @@ describe('MessageFooter affordances', () => {
 })
 
 describe('MessageFooter compact mode', () => {
-  it('hides controls behind a reveal toggle', () => {
-    render(<MessageFooter copyText="x" compact onRegenerate={vi.fn()} />)
-    // Controls are hidden until revealed.
-    expect(screen.queryByLabelText('Copy message')).toBeNull()
-    fireEvent.click(screen.getByLabelText('Show actions'))
+  it('shows icon-only action buttons ALWAYS; reveals labels + metrics on toggle', () => {
+    const metrics: MessageMetrics = { model: 'gpt-x', durationMs: 1500, tokensPerSecond: 9.9 }
+    render(<MessageFooter copyText="x" compact onRegenerate={vi.fn()} metrics={metrics} />)
+    // Action buttons are ALWAYS visible (icon-only) next to the kebab.
     expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
-    // Toggling again hides them.
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
+    // But their text labels and the metrics line are hidden until revealed.
+    expect(screen.queryByText('Regenerate', { selector: '.chat-footer-label' })).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+    // Reveal → labels + metrics appear; buttons stay.
+    fireEvent.click(screen.getByLabelText('Show actions'))
+    expect(screen.getByText('Regenerate', { selector: '.chat-footer-label' })).toBeInTheDocument()
+    expect(screen.getByTestId('chat-footer-metrics')).toBeInTheDocument()
+    expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+    // Toggle again hides labels + metrics again; buttons stay.
     fireEvent.click(screen.getByLabelText('Hide actions'))
-    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    expect(screen.queryByText('Regenerate', { selector: '.chat-footer-label' })).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+    expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+  })
+
+  it('shows action labels inline (no toggle) in the default non-compact layout', () => {
+    render(<MessageFooter copyText="x" onRegenerate={vi.fn()} />)
+    expect(screen.getByText('Regenerate', { selector: '.chat-footer-label' })).toBeInTheDocument()
+  })
+
+  it('uses the dotsThree (kebab) icon for the reveal toggle', () => {
+    // The reveal toggle must reference the `dotsThree` semantic icon so a host
+    // registry can map it to its own kebab/"more" icon.
+    const stub: PartialChatComponents = {
+      icons: {
+        dotsThree: () => <span data-testid="kebab-icon">⋯</span>,
+      },
+    }
+    render(
+      <ChatProvider components={stub}>
+        <MessageFooter copyText="x" compact onRegenerate={vi.fn()} />
+      </ChatProvider>,
+    )
+    const toggle = screen.getByLabelText('Show actions')
+    expect(within(toggle).getByTestId('kebab-icon')).toBeInTheDocument()
+  })
+
+  it('does not render the reveal toggle when not compact', () => {
+    render(<MessageFooter copyText="x" onRegenerate={vi.fn()} />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByLabelText('Hide actions')).toBeNull()
   })
 })
 

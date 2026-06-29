@@ -57,6 +57,7 @@ describe('@fx/chat/headless entry', () => {
         'check',
         'close',
         'copy',
+        'dotsThree',
         'download',
         'expand',
         'file',

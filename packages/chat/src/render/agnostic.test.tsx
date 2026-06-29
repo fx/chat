@@ -106,8 +106,8 @@ function assertStructure(root: HTMLElement) {
   expect(within(user).getByAltText('pic')).toBeInTheDocument()
   // Assistant answer text renders bare beneath the grouped metadata.
   expect(within(assistant).getByText('the answer')).toBeInTheDocument()
-  // Two metadata blocks (reasoning + tool) collapse: a +1 badge is shown.
-  expect(within(assistant).getByText('+1')).toBeInTheDocument()
+  // Two metadata blocks (reasoning + tool) collapse: a (+1) badge is shown.
+  expect(within(assistant).getByText('(+1)')).toBeInTheDocument()
   // Copy affordance present per message.
   expect(within(assistant).getByLabelText('Copy message')).toBeInTheDocument()
 }

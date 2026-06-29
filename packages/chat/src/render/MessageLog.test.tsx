@@ -83,4 +83,84 @@ describe('MessageLog', () => {
     const { container } = render(<MessageLog messages={messages} />)
     expect(container.querySelector('.chat-log')).not.toBeNull()
   })
+
+  it('threads minimal to each message and marks the log data-minimal', () => {
+    const { container } = render(<MessageLog messages={messages} minimal defaultOpen />)
+    expect(container.querySelector('.chat-log')).toHaveAttribute('data-minimal', 'true')
+    // Every message wrapper carries data-minimal too (threaded to MessageItem).
+    const wrappers = container.querySelectorAll('[data-message-id]')
+    expect(wrappers).toHaveLength(2)
+    for (const w of wrappers) {
+      expect(w).toHaveAttribute('data-minimal', 'true')
+    }
+  })
+
+  it('omits data-minimal when minimal is absent', () => {
+    const { container } = render(<MessageLog messages={messages} />)
+    expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+  })
+
+  it('drops the log data-minimal hook when flat overrides minimal', () => {
+    const { container } = render(<MessageLog messages={messages} minimal flat />)
+    expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+  })
+
+  it('drops the log data-minimal hook when raw overrides minimal', () => {
+    const { container } = render(<MessageLog messages={messages} minimal raw />)
+    expect(container.querySelector('.chat-log')).not.toHaveAttribute('data-minimal')
+    expect(container.querySelector('[data-minimal]')).toBeNull()
+  })
+
+  it('renders no timestamp gutter by default', () => {
+    const { container } = render(<MessageLog messages={messages} />)
+    expect(container.querySelector('.chat-gutter-row')).toBeNull()
+    expect(container.querySelector('[data-timestamp-gutter]')).toBeNull()
+  })
+
+  it('threads timestampGutter to each message and wraps rows in gutter rows', () => {
+    const { container } = render(<MessageLog messages={messages} timestampGutter />)
+    // Every message wrapper advertises the gutter hook.
+    const wrappers = container.querySelectorAll('[data-message-id]')
+    for (const w of wrappers) {
+      expect(w).toHaveAttribute('data-timestamp-gutter', 'true')
+    }
+    // Rows are wrapped in the two-column gutter layout.
+    expect(container.querySelector('.chat-gutter-row')).not.toBeNull()
+    expect(container.querySelector('.chat-gutter-time')).not.toBeNull()
+    expect(container.querySelector('.chat-gutter-content')).not.toBeNull()
+  })
+
+  it('does NOT de-dupe across messages: each message prints its own first-row clock', () => {
+    // Both messages share createdAt 0 (faked system time). De-dupe is PER-MESSAGE
+    // (each MessageItem owns its own per-render deduper for render purity), so
+    // there is no cross-message suppression — BOTH first rows print the clock.
+    const sameSecond: ChatMessage[] = [
+      {
+        id: 'm1',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't1', text: 'a' }],
+        createdAt: 0,
+      },
+      {
+        id: 'm2',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't2', text: 'b' }],
+        createdAt: 0,
+      },
+    ]
+    const { container } = render(<MessageLog messages={sameSecond} timestampGutter />)
+    // Scope to the block rows; each message also gutter-wraps its footer with a
+    // forced-blank clock cell, which is not part of this per-message-clock check.
+    const cells = Array.from(
+      container.querySelectorAll('.chat-message-blocks .chat-gutter-time'),
+    ) as HTMLElement[]
+    expect(cells).toHaveLength(2)
+    // Each message's first (and only) row prints its own clock — no cross-message
+    // blanking.
+    expect(cells[0]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
+    expect(cells[1]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
+    expect(cells[1]).not.toHaveAttribute('aria-hidden')
+  })
 })

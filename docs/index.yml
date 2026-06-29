@@ -84,3 +84,31 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0002", "0004"]
+  - id: "0009"
+    name: visual-density-parity
+    path: changes/0009-visual-density-parity.md
+    description: Theming/layout parity — inherit host font, role bubbles (user/assistant) via tokens, popup computed-font copy
+    spec: component-registry
+    status: complete
+    depends_on: ["0003", "0004"]
+  - id: "0010"
+    name: single-caret-disclosure
+    path: changes/0010-single-caret-disclosure.md
+    description: Single-caret disclosure ownership — Collapsible slot owns the caret, substrate drops it, CSS hack removed
+    spec: message-rendering
+    status: complete
+    depends_on: ["0003", "0004"]
+  - id: "0011"
+    name: minimal-density-mode
+    path: changes/0011-minimal-density-mode.md
+    description: Minimal/density mode — fold a turn's aux to one group (collapseTurnAux), compact footer, data-minimal layout
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004", "0007"]
+  - id: "0012"
+    name: timestamp-gutter
+    path: changes/0012-timestamp-gutter.md
+    description: Per-block timestamp gutter — fixed 56px HH:MM:SS clock column, per-message same-second de-dupe (render-pure; each MessageItem owns its deduper), timestampGutter prop; replaces the per-message timestamp
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004", "0009"]

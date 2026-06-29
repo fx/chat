@@ -72,6 +72,29 @@ scope** and MUST NOT appear in this package.
 - **WHEN** it renders
 - **THEN** the image is shown in the output area (audio likewise via an audio affordance).
 
+### Role Styling
+
+- The message wrapper MUST always expose the message `role` as a `data-role` attribute so a
+  conversation reads as exchanged bubbles. The package stylesheet MUST style `user` and
+  `assistant` roles as chat bubbles driven entirely by the role-bubble theme tokens (see
+  [component-registry › Theme Tokens](../component-registry/)): the user bubble right-aligned on
+  the accent surface, the assistant bubble left-aligned on a subtle neutral surface, both using
+  `--chat-radius`, token-derived padding, and `--chat-bubble-max-width`.
+- Only `user` and `assistant` MUST be bubble-styled (no `agent` role exists); a `system` message
+  MUST NOT get a bubble so notices stay visually distinct from the dialogue.
+- Role styling MUST be token-driven and headless-only: it MUST add no component override and a
+  host MUST be able to restyle or disable it by redefining the role-bubble tokens.
+- Footer metrics inside the user bubble MUST remain legible (WCAG AA) against the accent
+  surface; the stylesheet MUST re-tone them within the user bubble accordingly.
+
+#### Scenario: A turn renders as user and assistant bubbles
+
+- **GIVEN** a user message followed by an assistant message
+- **WHEN** the log renders with the package stylesheet applied
+- **THEN** the user wrapper carries `data-role="user"` and is right-aligned on the user-bubble
+  surface, the assistant wrapper carries `data-role="assistant"` and is left-aligned on the
+  assistant-bubble surface, and a `system` message (if any) carries no bubble.
+
 ### Collapsible Substrate
 
 - All collapsible blocks (reasoning, tool_call, system, grouped runs) MUST share one
@@ -81,7 +104,14 @@ scope** and MUST NOT appear in this package.
 - The substrate MUST support controlled (`open`/`onOpenChange`) and uncontrolled
   (`defaultOpen`) use.
 - The affordance icon precedence MUST be: active → spinner; just-completed → success check
-  (flash); has-body → caret (open/closed); otherwise → muted filler.
+  (flash); otherwise → NO affordance icon (an empty filler span is preserved for layout). The
+  disclosure caret MUST NOT be rendered by the substrate — caret rendering is OWNED by the
+  registry `Collapsible` slot (see [component-registry › Primitive Contract](../component-registry/)).
+  The headless default `Collapsible` renders a caret; a host override renders its own caret or
+  none (it MAY legally omit one). Because the substrate never adds a caret of its own, it can
+  never produce a second one. An idle bodied row therefore renders no affordance icon while the
+  headless Collapsible shows the open/closed caret; a running expandable row MAY show both the
+  spinner (affordance) and the Collapsible caret, which is acceptable.
 - The substrate MUST auto-hide when it has no active state, no flash, no timer, and no body
   (so empty lifecycle rows do not clutter the log), unless explicitly told to always show.
 
@@ -90,6 +120,15 @@ scope** and MUST NOT appear in this package.
 - **GIVEN** a user has manually collapsed a block
 - **WHEN** the host flips a global "verbose/expand-all" default
 - **THEN** the block adopts the new default-open state (manual override is reset).
+
+#### Scenario: Caret ownership belongs to the Collapsible slot
+
+- **GIVEN** an idle bodied collapsible row rendered through any registry (headless or a host
+  override)
+- **WHEN** it renders
+- **THEN** any disclosure caret comes from the `Collapsible` slot — the substrate adds no
+  caret of its own. With the headless default `Collapsible` exactly one caret shows; a host
+  override that omits its caret legally shows none.
 
 ### Streaming & Timing State Machine
 
@@ -145,6 +184,102 @@ scope** and MUST NOT appear in this package.
 - **WHEN** the log renders in grouped mode
 - **THEN** the four metadata blocks collapse under one disclosure with a header summary chip
   and a `+N` badge, and the answer text renders bare beneath it.
+
+### Minimal / Density Mode
+
+- `MessageLog` and `MessageItem` MUST accept an OPTIONAL `minimal` flag (default `false`). When
+  absent, output MUST be identical to the default grouped behavior.
+- In minimal mode, an assistant turn MUST fold ALL of its `auxEligible` blocks into a SINGLE
+  collapsed disclosure — even non-adjacent aux blocks separated by non-aux content — rather than
+  only maximal runs. This is a denser "one metadata line per turn" view. A single aux block MUST
+  still collapse into a one-item group (unlike the default pass, which renders a lone aux block
+  bare).
+- The single aux group MUST be emitted at the position of the FIRST auxiliary block
+  (chronology-preserving); every non-aux block (the answer, any generative/custom content) MUST
+  render bare in its original order.
+- Minimal mode MUST force a compact footer and MUST mark the log (`.chat-log`) and each message
+  wrapper (`.chat-message`) with `data-minimal="true"` so the stylesheet can apply a tighter,
+  token-driven layout (`--chat-gap-compact`). Spacing is the only visual change; grouping/footer
+  behavior is decided in the renderer.
+- `flat` MUST take precedence over `minimal` (flat renders every block bare); `raw` MUST take
+  precedence over `minimal` (raw renders the JSON view). User messages MUST get the compact
+  chrome but MUST NOT aux-collapse (their default non-aux content stays bare/visible).
+- Minimal mode MUST respect host timeline-behavior flags via the same overrides as the default
+  pass (a host-opted `auxEligible` custom kind folds in; a per-tool-name non-aux override stays
+  bare). Top-level `timelineItems` MUST remain interleaved by order and MUST NOT be folded — only a
+  turn's own blocks fold.
+- The folding pass MUST be a pure, DOM-free function (`collapseTurnAux`) that reuses the shared
+  timeline-behavior policy; it MUST NOT reimplement summary/hidden-count selection.
+
+#### Scenario: Minimal folds a turn's aux to one line with the answer bare
+
+- **GIVEN** an assistant turn `[reasoning, tool_call, status, text]` and `minimal` set
+- **WHEN** the log renders
+- **THEN** the three metadata blocks collapse under ONE disclosure (with a header summary and `+N`
+  badge), the answer `text` renders bare beneath it, the footer is compact, and the log/message
+  wrappers carry `data-minimal="true"`.
+
+#### Scenario: Minimal folds non-adjacent aux into the same group
+
+- **GIVEN** an assistant turn `[reasoning, text, tool_call]` and `minimal` set
+- **WHEN** the log renders
+- **THEN** the reasoning and tool_call fold into ONE group (placed at the reasoning's position) and
+  the interim `text` renders bare — whereas the default grouped pass would yield two separate runs.
+
+#### Scenario: Minimal default is unchanged when off
+
+- **GIVEN** an assistant turn and `minimal` set to `false` (or absent)
+- **WHEN** the log renders
+- **THEN** the output is byte-for-byte the default grouped behavior and no `data-minimal` attribute
+  is present.
+
+### Timestamp Gutter
+
+- The log MUST support an OPTIONAL per-block TIMESTAMP GUTTER layout, enabled by the host via a
+  `timestampGutter?: boolean` prop on `MessageLog` and `MessageItem` (default off). When OFF, rows
+  render in a plain column with no gutter and no timestamps.
+- When ON, each top-level rendered row (the aux group row, the answer text-block row, the user
+  message row) MUST render as a TWO-COLUMN layout: a FIXED-width (56px) left clock cell
+  (`.chat-gutter-time`) + the row content (`.chat-gutter-content`, `min-width: 0; flex: 1`), wrapped
+  in `.chat-gutter-row`. The clock cell MUST always reserve its width even when blank.
+- The clock MUST be local 24-hour `HH:MM:SS`, zero-padded, built manually (NOT
+  `toLocaleTimeString`) for constant width and SSR-safety. A missing/invalid/non-finite timestamp
+  MUST yield an empty (but width-reserving, `aria-hidden`) cell.
+- The clock MUST be DE-DUPED PER-MESSAGE: consecutive rows WITHIN a message that resolve to the same
+  `HH:MM:SS` MUST show the time once (on the first row of the run); later same-second rows MUST render
+  a blank cell. A blank/invalid row MUST reset the run so the next identical time prints again. Each
+  message's first row MUST show its own clock (there is NO cross-message de-dupe). Each `MessageItem`
+  MUST build its OWN per-render `createClockGutterDeduper()` and feed it that message's rows; the
+  de-duper MUST NOT be shared across `MessageItem` instances. This is a RENDER-PURITY requirement: a
+  shared mutable de-duper threaded across components desyncs under React's multi-invoke render
+  (StrictMode double-invoke, concurrent re-render) and blanks every committed gutter cell — so the
+  de-duper MUST be created inside each `MessageItem` render and used only for that message's rows.
+- The row timestamp MUST prefer a block-level timestamp (`startedAt`, currently carried by
+  `tool_call`; a group uses its FIRST block's) when finite and positive, else fall back to the
+  message `createdAt`.
+
+#### Scenario: Gutter de-dupes a same-second run within a message
+
+- **GIVEN** a message whose consecutive rows resolve to the same `HH:MM:SS` and `timestampGutter` is
+  set
+- **WHEN** the message renders
+- **THEN** the first row of the run shows the clock and each later same-second row renders a blank,
+  width-reserved, `aria-hidden` gutter cell.
+
+#### Scenario: No cross-message de-dupe (each message prints its own first-row clock)
+
+- **GIVEN** two messages that resolve to the same `HH:MM:SS` and `timestampGutter` is set
+- **WHEN** the log renders
+- **THEN** EACH message's first row shows its own clock (de-dupe is per-message, not log-wide), and
+  re-rendering yields identical committed gutter cells (render purity — each `MessageItem` owns a
+  fresh per-render de-duper, so StrictMode/concurrent re-renders cannot desync it).
+
+#### Scenario: Invalid timestamp blanks but reserves width
+
+- **GIVEN** a row whose resolved timestamp is missing or invalid and `timestampGutter` is set
+- **WHEN** the row renders
+- **THEN** the `.chat-gutter-time` cell is empty (`aria-hidden`) yet still reserves its 56px width so
+  the content column stays aligned, and the blank row resets the de-dupe run.
 
 ### Affordances
 
@@ -326,9 +461,11 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 <MessageLog messages isStreaming streamingMessageId onRegenerate? onFork? onReset? extensions?>
   merge messages + extensions.timelineItems → ordered timeline (by createdAt / at)
   for each timeline entry:
-     message     → <MessageItem data-message-id=id>
-        grouped renderer applies timeline-behavior registry (+ host custom-kind flags):
-           run of auxEligible blocks → <BlockGroup> (collapsed disclosure)
+     message     → <MessageItem data-message-id=id [data-minimal]>
+        grouping pass applies timeline-behavior registry (+ host custom-kind flags):
+           default  → groupBlocks: each MAXIMAL run of auxEligible blocks → <BlockGroup>
+           minimal  → collapseTurnAux: ALL aux blocks → ONE <BlockGroup> at first-aux index
+                      (+ forced compact footer)
            non-aux block             → bare renderer
         block dispatch (in precedence order):
            tool_call w/ override name → extensions.toolRenderers[name]
@@ -347,6 +484,8 @@ attachments through the registry, accessibly, responsively, and theme-aware.
   `ReasoningBlock`, `ToolCallBlock`, `StatusBlock`, `SystemBlock`, `RawJsonBlock`,
   `MessageFooter`).
 - A shared `CollapsibleRow` substrate over the registry `Collapsible`.
+- An OPTIONAL `minimal` (density) flag on `MessageLog`/`MessageItem` selecting the `collapseTurnAux`
+  folding pass + compact footer + `data-minimal` layout hook.
 - An `extensions` prop carrying `blockRenderers`, `toolRenderers`, optional per-custom-kind
   grouping flags, and `timelineItems`; an inert fallback renderer for unknown block types.
 - An attachment region (`MessageAttachments`) composing an image grid, a registry-backed
@@ -358,6 +497,10 @@ attachments through the registry, accessibly, responsively, and theme-aware.
   eligibleForHeaderSummary }`; pure and exported.
 - **grouping pass** — single linear walk producing bare items and grouped runs; deterministic
   and unit-testable without the DOM.
+- **minimal grouping pass** (`collapseTurnAux`) — a separate pure linear walk for density mode:
+  folds ALL of a turn's `auxEligible` blocks into ONE group emitted at the first aux block's index,
+  with non-aux blocks bare in order. Reuses the shared timeline-behavior policy; deterministic and
+  DOM-free.
 - **timing hooks** — pure-input hooks driven by epoch timestamps; tested with fake timers.
 - **block dispatch with extensions** — a single dispatch resolves, in order: tool-name override
   (for `tool_call`), core renderer (for core `type`s), host `blockRenderers[type]` (for custom
@@ -411,3 +554,8 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-25 | Initial spec created | [0004-message-rendering](../../changes/0004-message-rendering.md) |
 | 2026-06-26 | Added render-layer extensibility (custom block/tool renderers, custom timeline items, inert unknown-type fallback) — not yet implemented | [0007-render-extensibility](../../changes/0007-render-extensibility.md) |
 | 2026-06-26 | Added user-attachment rendering (image grid + lightbox, media/file chips, scheme-safe download) — not yet implemented | [0008-attachment-rendering](../../changes/0008-attachment-rendering.md) |
+| 2026-06-27 | Added token-driven role styling (user/assistant bubbles via `data-role`, system unbubbled) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
+| 2026-06-27 | Disclosure caret owned solely by the `Collapsible` slot; substrate affordance precedence drops the caret (idle bodied row renders no affordance icon) | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
+| 2026-06-27 | Added minimal / density mode: `minimal` flag folds a turn's aux to one group (`collapseTurnAux`), forces compact footer, `data-minimal` layout hook | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |
+| 2026-06-28 | Added per-block timestamp gutter: `timestampGutter` flag renders each row in a fixed 56px `HH:MM:SS` clock column (`formatClockTime`), de-duped via `createClockGutterDeduper`, block `startedAt` → message `createdAt` fallback; replaces the prior per-message timestamp | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
+| 2026-06-28 | Render-purity fix for the timestamp gutter: de-dupe is now PER-MESSAGE (each `MessageItem` owns a fresh per-render `createClockGutterDeduper`), not a shared log-wide deduper threaded via `renderGutter`. The shared mutable closure desynced under React's multi-invoke render (StrictMode/concurrent) and blanked every committed gutter cell; per-message first rows now always show their clock | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |

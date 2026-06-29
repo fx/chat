@@ -30,6 +30,55 @@ export function formatTokensPerSecond(rate: number | undefined): string | undefi
   return `${rate.toFixed(1)} tok/s`
 }
 
+/**
+ * Format an epoch-ms (or ISO-string) timestamp as a local 24-hour `HH:MM:SS`
+ * clock label, zero-padded. Built manually from `Date` math (NOT
+ * `toLocaleTimeString`) so every output is constant-width and locale-stable.
+ * SSR-safe (pure `Date` math, no DOM). Returns `''` for `null`, `undefined`,
+ * the empty string, or any non-finite / invalid input so callers can render an
+ * empty (but width-reserving) gutter cell.
+ */
+export function formatClockTime(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return ''
+  const date = new Date(value)
+  const ms = date.getTime()
+  if (!Number.isFinite(ms)) return ''
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
+}
+
+/**
+ * Create a stateful de-duper for clock-gutter cells. The returned function
+ * formats a timestamp via {@link formatClockTime} and returns `''` when the
+ * formatted value equals the immediately-previous NON-EMPTY formatted value —
+ * so a run of consecutive rows sharing the same `HH:MM:SS` shows the time once
+ * (on the first row) and blanks the rest. A blank/invalid input (formatting to
+ * `''`) resets the run, so the next identical time prints again.
+ *
+ * Pure per instance (no shared module state): each call to this factory yields
+ * an independent de-duper. Because the returned closure is mutable, it MUST NOT
+ * be shared across React component renders — a shared instance desyncs under
+ * StrictMode/concurrent re-renders (render impurity). Each `MessageItem` creates
+ * its OWN per-render instance and feeds it that message's rows top-to-bottom, so
+ * de-dupe is deterministic per render.
+ */
+export function createClockGutterDeduper(): (value: number | string | null | undefined) => string {
+  let previous = ''
+  return (value) => {
+    const clock = formatClockTime(value)
+    if (clock === '') {
+      // A blank/invalid row resets the run so the next identical time prints.
+      previous = ''
+      return ''
+    }
+    if (clock === previous) return ''
+    previous = clock
+    return clock
+  }
+}
+
 /** A finite, positive number, or `undefined`. */
 function positive(value: number | undefined): number | undefined {
   return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined

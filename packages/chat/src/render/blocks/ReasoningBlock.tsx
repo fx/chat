@@ -9,7 +9,7 @@
 import type { ReasoningBlock } from '../../model'
 import { useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
-import { formatDuration } from '../format'
+import { summarizeBlock } from '../blockSummary'
 
 /** Props for {@link ReasoningBlockView}. */
 export interface ReasoningBlockViewProps {
@@ -30,17 +30,13 @@ export function ReasoningBlockView({
   defaultOpen,
 }: ReasoningBlockViewProps) {
   const { Markdown } = useChatComponents()
-  // Label precedence: actively streaming → "Thinking…"; completed with a known
-  // duration → "Thought for <dur>"; completed without timing data → a neutral
-  // "Reasoning" (never "Thinking…", which would imply it is still in progress).
-  let label: string
-  if (isActive) {
-    label = 'Thinking…'
-  } else if (block.durationMs !== undefined) {
-    label = `Thought for ${formatDuration(block.durationMs)}`
-  } else {
-    label = 'Reasoning'
-  }
+  // Label + icon precedence comes from the shared `summarizeBlock` helper so the
+  // bare view and the collapsed `BlockGroup` summary cannot drift: actively
+  // streaming → "Thinking…"; completed with a known duration → "Thought for
+  // <dur>"; completed without timing data → a neutral "Reasoning".
+  // A reasoning block always carries the `brain` kind icon (per summarizeBlock),
+  // so pass it unconditionally.
+  const { label } = summarizeBlock(block, { isActive })
   return (
     <CollapsibleRow
       label={label}
