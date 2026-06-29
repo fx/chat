@@ -49,10 +49,12 @@ export interface MessageItemProps {
   /** Show the footer affordances. */
   showFooter?: boolean
   /**
-   * Render each top-level row in a two-column TIMESTAMP GUTTER layout: a fixed
-   * 56px left clock cell (`HH:MM:SS`, local, de-duped within this message) + the
-   * row content on the right. OPTIONAL; the host enables it. When OFF (default),
-   * rows render in a plain column with no gutter and no timestamps.
+   * Render each top-level row in a two-column TIMESTAMP GUTTER layout: a
+   * host-width left clock cell (`HH:MM:SS`, local, de-duped within this message)
+   * + the row content on the right. The cell width is host-supplied via the
+   * `gutterTime` classNames key (the package bakes none). OPTIONAL; the host
+   * enables it. When OFF (default), rows render in a plain column with no gutter
+   * and no timestamps.
    */
   timestampGutter?: boolean
   /** Compact footer mode. */
