@@ -74,26 +74,28 @@ scope** and MUST NOT appear in this package.
 
 ### Role Styling
 
-- The message wrapper MUST always expose the message `role` as a `data-role` attribute so a
-  conversation reads as exchanged bubbles. The package stylesheet MUST style `user` and
-  `assistant` roles as chat bubbles driven entirely by the role-bubble theme tokens (see
-  [component-registry › Theme Tokens](../component-registry/)): the user bubble right-aligned on
-  the accent surface, the assistant bubble left-aligned on a subtle neutral surface, both using
-  `--chat-radius`, token-derived padding, and `--chat-bubble-max-width`.
-- Only `user` and `assistant` MUST be bubble-styled (no `agent` role exists); a `system` message
-  MUST NOT get a bubble so notices stay visually distinct from the dialogue.
-- Role styling MUST be token-driven and headless-only: it MUST add no component override and a
-  host MUST be able to restyle or disable it by redefining the role-bubble tokens.
-- Footer metrics inside the user bubble MUST remain legible (WCAG AA) against the accent
-  surface; the stylesheet MUST re-tone them within the user bubble accordingly.
+- The message wrapper MUST always expose the message `role` as a `data-role` attribute, and the
+  answer-text and user-text elements MUST carry their stable `.chat-*` hooks (e.g. `.chat-text`,
+  `.chat-text-user` / `.chat-text-assistant`), so a host can style a conversation as exchanged
+  bubbles. The package is HEADLESS (change 0013): the TRANSCRIPT VISUAL STYLING — role bubbles,
+  colors, alignment, radius, padding, max-width — is HOST-SUPPLIED via the `classNames` injection
+  map (see [component-registry › classNames Injection](../component-registry/)). The package
+  ships NO bubble CSS.
+- The `data-role` attribute and the stable hooks MUST be exposed for `user`, `assistant`, and
+  `system` so the host can style (or deliberately not style) each role; the package MUST NOT
+  bake in which roles get a bubble.
+- Role styling MUST be host-supplied and additive: the package MUST add no component override and
+  MUST NOT ship a default look. A host applies its bubbles entirely through `classNames` onto the
+  stable hooks.
 
-#### Scenario: A turn renders as user and assistant bubbles
+#### Scenario: A turn exposes role hooks for host bubble styling
 
 - **GIVEN** a user message followed by an assistant message
-- **WHEN** the log renders with the package stylesheet applied
-- **THEN** the user wrapper carries `data-role="user"` and is right-aligned on the user-bubble
-  surface, the assistant wrapper carries `data-role="assistant"` and is left-aligned on the
-  assistant-bubble surface, and a `system` message (if any) carries no bubble.
+- **WHEN** the log renders
+- **THEN** the user wrapper carries `data-role="user"`, the assistant wrapper carries
+  `data-role="assistant"`, and each answer/user text element carries its stable `.chat-*` hook
+  (plus any host `classNames` value) so the host can paint the user/assistant bubbles — the
+  package itself ships no bubble CSS.
 
 ### Collapsible Substrate
 
@@ -198,9 +200,10 @@ scope** and MUST NOT appear in this package.
   (chronology-preserving); every non-aux block (the answer, any generative/custom content) MUST
   render bare in its original order.
 - Minimal mode MUST force a compact footer and MUST mark the log (`.chat-log`) and each message
-  wrapper (`.chat-message`) with `data-minimal="true"` so the stylesheet can apply a tighter,
-  token-driven layout (`--chat-gap-compact`). Spacing is the only visual change; grouping/footer
-  behavior is decided in the renderer.
+  wrapper (`.chat-message`) with `data-minimal="true"` so a host can apply a tighter density
+  layout via its `classNames`/CSS targeting that attribute. The package is HEADLESS (change
+  0013), so the compacted SPACING itself is host-supplied; the renderer only decides the
+  grouping/footer behavior and emits the `data-minimal` hook.
 - `flat` MUST take precedence over `minimal` (flat renders every block bare); `raw` MUST take
   precedence over `minimal` (raw renders the JSON view). User messages MUST get the compact
   chrome but MUST NOT aux-collapse (their default non-aux content stays bare/visible).
@@ -239,9 +242,13 @@ scope** and MUST NOT appear in this package.
   `timestampGutter?: boolean` prop on `MessageLog` and `MessageItem` (default off). When OFF, rows
   render in a plain column with no gutter and no timestamps.
 - When ON, each top-level rendered row (the aux group row, the answer text-block row, the user
-  message row) MUST render as a TWO-COLUMN layout: a FIXED-width (56px) left clock cell
-  (`.chat-gutter-time`) + the row content (`.chat-gutter-content`, `min-width: 0; flex: 1`), wrapped
-  in `.chat-gutter-row`. The clock cell MUST always reserve its width even when blank.
+  message row) MUST be wrapped in `.chat-gutter-row` carrying a left clock cell
+  (`.chat-gutter-time`) + the row content (`.chat-gutter-content`) as two stable DOM hooks. The
+  renderer emits the structure and the timestamp; the package is HEADLESS (change 0013), so the
+  two-column VISUAL LAYOUT (the fixed clock-cell width, the muted/tabular look, the content cell
+  taking the remaining width) is HOST-SUPPLIED via `classNames` onto those hooks. The clock cell
+  is always emitted (and `aria-hidden` when blank) so the host can reserve its width even when
+  empty.
 - The clock MUST be local 24-hour `HH:MM:SS`, zero-padded, built manually (NOT
   `toLocaleTimeString`) for constant width and SSR-safety. A missing/invalid/non-finite timestamp
   MUST yield an empty (but width-reserving, `aria-hidden`) cell.
@@ -402,8 +409,9 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 - Attachments of `kind: 'image'` MUST render as a responsive thumbnail **grid**: each thumbnail
   MUST use the attachment `url`, MUST carry accessible alternative text (the attachment `name`
   when present, otherwise a generic localized fallback such as "image attachment"), and MUST be
-  lazy-loaded. The grid MUST be responsive (reflow by available width) and theme-aware (driven
-  by the package CSS custom properties, no hard-coded colors).
+  lazy-loaded. The grid MUST be responsive (reflow by available width) and carry stable `.chat-*`
+  hooks so its look is host-supplied via `classNames` (the package is headless — change 0013 —
+  and ships no attachment theme).
 - The image grid MUST provide an **expand/lightbox affordance**: activating a thumbnail (click
   or keyboard) MUST open a larger view of that image via a registry-supplied overlay slot. The
   overlay MUST be keyboard-operable (focusable, dismissable via `Escape` and a close control),
@@ -429,7 +437,7 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 - **GIVEN** a `user` message with three `kind:'image'` attachments
 - **WHEN** the message renders
 - **THEN** three lazy-loaded thumbnails render in a responsive grid, each with accessible alt
-  text (the attachment `name` when present), driven by the package theme tokens.
+  text (the attachment `name` when present), carrying stable `.chat-*` hooks for host styling.
 
 #### Scenario: Lightbox open/close is keyboard-operable
 
@@ -559,3 +567,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-27 | Added minimal / density mode: `minimal` flag folds a turn's aux to one group (`collapseTurnAux`), forces compact footer, `data-minimal` layout hook | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |
 | 2026-06-28 | Added per-block timestamp gutter: `timestampGutter` flag renders each row in a fixed 56px `HH:MM:SS` clock column (`formatClockTime`), de-duped via `createClockGutterDeduper`, block `startedAt` → message `createdAt` fallback; replaces the prior per-message timestamp | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
 | 2026-06-28 | Render-purity fix for the timestamp gutter: de-dupe is now PER-MESSAGE (each `MessageItem` owns a fresh per-render `createClockGutterDeduper`), not a shared log-wide deduper threaded via `renderGutter`. The shared mutable closure desynced under React's multi-invoke render (StrictMode/concurrent) and blanked every committed gutter cell; per-message first rows now always show their clock | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
+| 2026-06-29 | Package goes fully headless: transcript visual styling (role bubbles, density spacing, gutter layout, attachment look) is host-supplied via the `classNames` map onto the stable `.chat-*` hooks. The renderer still emits the `data-role` / `data-minimal` / `.chat-gutter-*` hooks; the package ships no transcript theme | [0013-headless-styling](../../changes/0013-headless-styling.md) |

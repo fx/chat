@@ -93,6 +93,119 @@ export interface CopyButtonProps {
 export interface MarkdownProps {
   content: string
   streaming?: boolean
+  /**
+   * Optional extra class appended to the markdown root, AFTER the stable
+   * `chat-md` hook and BEFORE the context-injected `classNames.md`. Lets a
+   * caller (or a host Markdown adapter) target a specific markdown instance
+   * without redefining the registry slot. Defaults to absent (no extra class).
+   */
+  className?: string
+}
+
+/**
+ * Host-overridable class names, one optional key per stable `.chat-*` render
+ * hook (the `chat-` prefix stripped, camelCased). Threaded through React context
+ * by {@link ChatProviderProps.classNames}; each render component appends its
+ * matching value AFTER the stable `chat-*` class, so a host can style every
+ * element with its own design system without losing the stable hooks. Every key
+ * is OPTIONAL — an absent key appends nothing, leaving output byte-identical to
+ * the unstyled default. The names are generic and design-system-agnostic by
+ * design (no host/app coupling).
+ */
+export interface ChatClassNames {
+  log?: string
+  message?: string
+  messageBlocks?: string
+  gutterRow?: string
+  gutterTime?: string
+  gutterContent?: string
+  row?: string
+  rowError?: string
+  rowHeader?: string
+  rowAffordance?: string
+  rowAffordanceIcon?: string
+  rowIcon?: string
+  rowLabel?: string
+  rowErrorMarker?: string
+  rowTimer?: string
+  rowTps?: string
+  group?: string
+  groupBody?: string
+  groupSummary?: string
+  groupSummaryLabel?: string
+  groupMore?: string
+  text?: string
+  textUser?: string
+  textAssistant?: string
+  textPlain?: string
+  mention?: string
+  toolBody?: string
+  toolSection?: string
+  toolSectionLabel?: string
+  toolMedia?: string
+  toolMediaImage?: string
+  toolMediaAudio?: string
+  reasoningBody?: string
+  systemBody?: string
+  rawJson?: string
+  inertBlock?: string
+  timelineItem?: string
+  footer?: string
+  footerMetrics?: string
+  footerLabel?: string
+  footerCopy?: string
+  footerRegenerate?: string
+  footerFork?: string
+  footerReset?: string
+  footerReveal?: string
+  footerIcon?: string
+  attachments?: string
+  attachmentGrid?: string
+  attachmentGridItem?: string
+  attachmentThumb?: string
+  attachmentThumbImage?: string
+  attachmentThumbExpand?: string
+  attachmentChips?: string
+  attachmentChip?: string
+  attachmentChipIcon?: string
+  attachmentChipName?: string
+  attachmentChipDownload?: string
+  md?: string
+  mdP?: string
+  mdPre?: string
+  mdLink?: string
+  mdCodeInline?: string
+  input?: string
+  inputAttachments?: string
+  inputAttachment?: string
+  inputAttachmentIcon?: string
+  inputAttachmentName?: string
+  inputAttachmentRemove?: string
+  inputAttachmentRemoveIcon?: string
+  inputField?: string
+  inputOverlay?: string
+  inputMention?: string
+  inputTextarea?: string
+  inputFile?: string
+  inputActions?: string
+  inputAttach?: string
+  inputSend?: string
+  inputStop?: string
+  inputActionIcon?: string
+  completionPopup?: string
+  completionScroll?: string
+  completionList?: string
+  completionOption?: string
+  completionIcon?: string
+  completionLabel?: string
+  completionDescription?: string
+  completionLoading?: string
+  completionSpinner?: string
+  lightbox?: string
+  lightboxDialog?: string
+  lightboxClose?: string
+  lightboxCloseIcon?: string
+  lightboxImage?: string
 }
 
 /**

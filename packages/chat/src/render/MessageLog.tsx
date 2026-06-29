@@ -10,6 +10,8 @@
  * No data fetching, router, or store — it renders exactly what it is given.
  */
 import type { ReactNode } from 'react'
+import { cx } from '../cx'
+import { useChatClassNames } from '../registry'
 import { MessageItem } from './MessageItem'
 import { TimelineItemView } from './TimelineItemView'
 import type { ChatExtensions, RenderableMessage } from './extensions'
@@ -86,6 +88,7 @@ export function MessageLog({
   onReset,
   renderList,
 }: MessageLogProps) {
+  const cn = useChatClassNames()
   // Interleave messages and host-supplied custom timeline items by createdAt/at.
   // With no timeline items, this is the messages in order (default path).
   const timeline = mergeTimeline(messages, extensions?.timelineItems)
@@ -135,7 +138,7 @@ export function MessageLog({
   const minimalActive = minimal && !flat && !raw
 
   return (
-    <div className="chat-log" {...(minimalActive ? { 'data-minimal': 'true' } : {})}>
+    <div className={cx('chat-log', cn.log)} {...(minimalActive ? { 'data-minimal': 'true' } : {})}>
       {renderList ? renderList(items) : items}
     </div>
   )

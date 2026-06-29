@@ -14,6 +14,7 @@
 import { ChatInput, type ChatMessage, ChatProvider, MessageLog, referenceProvider } from '@fx/chat'
 import { useMemo, useState } from 'react'
 import type { RegistryEntry } from './registries'
+import { demoClassNames } from './registries/shared/class-names'
 
 /** Props for {@link Pane}. */
 export interface PaneProps {
@@ -55,12 +56,9 @@ export function Pane({
   const [sent, setSent] = useState<string[]>([])
   const attachments = useAttachments(messages)
 
-  // The theme hook differs per registry: the headless pane drives the package's
-  // `--chat-*` variables via `data-theme`; the Tailwind-based panes use `.dark`.
-  const wrapperClass = [
-    'demo-pane-surface',
-    registry.themeKind === 'tailwind' && theme === 'dark' ? 'dark' : '',
-  ]
+  // Every pane is styled by the shared Tailwind `classNames` theme, so dark mode
+  // is the `.dark` class on the surface (the demo tokens flip under it).
+  const wrapperClass = ['demo-pane-surface', theme === 'dark' ? 'dark' : '']
     .filter(Boolean)
     .join(' ')
 
@@ -73,7 +71,7 @@ export function Pane({
       ) : null}
 
       <div className={wrapperClass}>
-        <ChatProvider components={registry.components}>
+        <ChatProvider components={registry.components} classNames={demoClassNames}>
           <div className="demo-pane-log">
             <MessageLog
               messages={messages}

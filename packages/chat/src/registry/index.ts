@@ -8,6 +8,7 @@ export type {
   BadgeProps,
   BadgeTone,
   ButtonProps,
+  ChatClassNames,
   ChatComponents,
   CodeBlockProps,
   CollapsibleProps,
@@ -24,5 +25,11 @@ export type {
   TooltipProps,
 } from './contract'
 export type { ChatProviderProps } from './context'
-export { ChatProvider, mergeRegistry, useChatComponents } from './context'
+export {
+  ChatProvider,
+  mergeClassNames,
+  mergeRegistry,
+  useChatClassNames,
+  useChatComponents,
+} from './context'
 export { headlessComponents } from './headless'

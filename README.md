@@ -43,11 +43,15 @@ bun run check:no-internal-refs  # fail on any private-application reference
 
 - `@fx/chat` — the root surface (provider, renderers, composer, hooks, types).
 - `@fx/chat/headless` — the default unstyled registry, with zero design-system dependencies.
-- `@fx/chat/styles.css` — optional base stylesheet defining default values for the package's
-  `--chat-*` CSS custom properties; hosts may override every variable.
+- `@fx/chat/structure.css` — optional layout-only stylesheet (animation keyframes, the
+  mention-overlay alignment box, and the lightbox/completion positioning). It carries NO theme;
+  a host that uses only the transcript and supplies a full `classNames` theme needs none of it.
 
-React (`react`, `react-dom`) is a peer dependency; the package supports React 18 and 19 and
-bundles no UI kit, icon set, or markdown engine.
+The package is **headless**: it ships no visual CSS. All styling — colors, fonts, spacing,
+radius, density, the whole transcript look — is supplied by the host through the `classNames`
+prop on `<ChatProvider>`, applied onto the stable `.chat-*` DOM hooks. React (`react`,
+`react-dom`) is a peer dependency; the package supports React 18 and 19 and bundles no UI kit,
+icon set, or markdown engine.
 
 ## License
 

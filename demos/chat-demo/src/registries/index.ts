@@ -2,10 +2,10 @@
  * Registry catalog.
  *
  * The three interchangeable design-system adapters, keyed by id. Each entry is a
- * thin `ChatComponents` registry plus a label and the wrapper class the demo
- * applies to scope that registry's theme tokens (headless uses the package's
- * `--chat-*` variables via `data-theme`; fx-ui and shadcn use the Tailwind
- * `.dark` class + `--background`/`--foreground` token set).
+ * thin `ChatComponents` registry plus a label. Every pane is styled by the same
+ * shared `classNames` theme against the demo's Tailwind design tokens and uses
+ * the `.dark` class for dark mode — the panes differ only in WHICH components
+ * render the registry slots, not in how the surface is styled.
  */
 import type { ChatComponents } from '@fx/chat'
 import { fxUiRegistry } from './fx-ui'
@@ -20,8 +20,6 @@ export interface RegistryEntry {
   id: RegistryId
   label: string
   components: ChatComponents
-  /** How this registry expresses dark mode: the package var hook vs Tailwind. */
-  themeKind: 'chat-vars' | 'tailwind'
 }
 
 /** The ordered registry catalog. */
@@ -30,19 +28,16 @@ export const REGISTRIES: Record<RegistryId, RegistryEntry> = {
     id: 'fx-ui',
     label: 'fx-ui',
     components: fxUiRegistry,
-    themeKind: 'tailwind',
   },
   shadcn: {
     id: 'shadcn',
     label: 'shadcn',
     components: shadcnRegistry,
-    themeKind: 'tailwind',
   },
   headless: {
     id: 'headless',
     label: 'headless',
     components: headlessRegistry,
-    themeKind: 'chat-vars',
   },
 }
 

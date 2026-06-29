@@ -8,8 +8,9 @@
  * the collapsed header (via {@link CollapsibleRow}'s `error` prop) so the
  * failure never rests on color alone (WCAG 1.4.1).
  */
+import { cx } from '../../cx'
 import type { ToolCallBlock } from '../../model'
-import { useChatComponents } from '../../registry'
+import { useChatClassNames, useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
 
 /** Props for {@link ToolCallBlockView}. */
@@ -33,11 +34,17 @@ function MediaItem({
   url: string
   label: string
 }) {
+  const cn = useChatClassNames()
   if (kind === 'image') {
-    return <img className="chat-tool-media-image" src={url} alt={label} />
+    return <img className={cx('chat-tool-media-image', cn.toolMediaImage)} src={url} alt={label} />
   }
   return (
-    <audio className="chat-tool-media-audio" controls src={url} aria-label={label}>
+    <audio
+      className={cx('chat-tool-media-audio', cn.toolMediaAudio)}
+      controls
+      src={url}
+      aria-label={label}
+    >
       <track kind="captions" />
     </audio>
   )
@@ -51,6 +58,7 @@ function MediaItem({
  */
 export function ToolCallBlockView({ block, defaultOpen }: ToolCallBlockViewProps) {
   const { JsonView } = useChatComponents()
+  const cn = useChatClassNames()
   const isError = block.status === 'error'
   const isActive = block.status === 'running' || block.status === 'pending'
   const hasResult = block.result !== undefined
@@ -67,19 +75,19 @@ export function ToolCallBlockView({ block, defaultOpen }: ToolCallBlockViewProps
       defaultOpen={isError ? true : defaultOpen}
       alwaysShow
     >
-      <div className="chat-tool-body">
-        <div className="chat-tool-section" data-section="input">
-          <span className="chat-tool-section-label">Input</span>
+      <div className={cx('chat-tool-body', cn.toolBody)}>
+        <div className={cx('chat-tool-section', cn.toolSection)} data-section="input">
+          <span className={cx('chat-tool-section-label', cn.toolSectionLabel)}>Input</span>
           <JsonView value={block.arguments} />
         </div>
         {hasResult ? (
-          <div className="chat-tool-section" data-section="output">
-            <span className="chat-tool-section-label">Output</span>
+          <div className={cx('chat-tool-section', cn.toolSection)} data-section="output">
+            <span className={cx('chat-tool-section-label', cn.toolSectionLabel)}>Output</span>
             <JsonView value={block.result} />
           </div>
         ) : null}
         {media.length > 0 ? (
-          <div className="chat-tool-media" data-section="media">
+          <div className={cx('chat-tool-media', cn.toolMedia)} data-section="media">
             {media.map((item, index) => (
               // Media items are positional and non-reordering; url+index is stable.
               <MediaItem

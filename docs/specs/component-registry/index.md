@@ -9,6 +9,11 @@ and every icon and the markdown renderer are **injected by the host** through a 
 *semantics* of each block but never hard-code a styled primitive or icon. The package MUST
 ship a complete **headless default** registry so it renders with zero host configuration.
 
+The package is fully HEADLESS (change 0013): it ships NO visual theme. All visual styling —
+colors, fonts, spacing, radius, density, role bubbles, the whole transcript look — is supplied
+by the host through the `classNames` injection map, applied onto the stable `.chat-*` DOM hooks
+(see [classNames Injection](#classnames-injection)).
+
 ## Background
 
 In the extraction source the only design-system couplings were two primitives (`Button`,
@@ -120,53 +125,59 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - Assistant text and reasoning MUST render through `Markdown`; user text MUST render as plain
   text with mention highlighting (see input-composer), not through `Markdown`.
 
-### Theme Tokens
+### classNames Injection (Styling Mechanism)
 
-- The package's headless visuals MUST be driven by CSS custom properties (e.g.
-  `--chat-fg`, `--chat-muted`, `--chat-accent`, `--chat-border`, `--chat-error`,
-  `--chat-success`, `--chat-radius`), with sensible light/dark defaults.
-- `--chat-font-family` MUST default to `inherit` so the chat surface adopts the host page's
-  font rather than forcing a system stack. The `font-family: var(--chat-font-family)` override
-  seam MUST remain on the headless primitives so a host can still restyle the whole surface by
-  redefining the single token.
-- The token set MUST include role-bubble tokens so a turn reads as a conversation:
-  `--chat-user-bubble-bg` / `--chat-user-bubble-fg` (the user's sent bubble, defaulting to the
-  accent surface), `--chat-assistant-bubble-bg` / `--chat-assistant-bubble-fg` (the assistant's
-  received bubble on a subtle neutral surface), and `--chat-bubble-max-width`. They MUST have
-  light AND dark defaults, and the `:root` and `[data-theme="light"]` token sets MUST stay
-  identical (a smoke/parity test enforces this across the full token set).
-- Hosts MUST be able to restyle the headless defaults entirely by redefining these variables,
-  without overriding components.
-- The package MUST ship `@fx/chat/styles.css` defining default variable values; importing it is
-  OPTIONAL for hosts (the headless registry renders without it, and hosts MAY override every
-  variable).
+The package is HEADLESS (change 0013): it ships NO visual theme. The host supplies ALL visual
+styling — colors, fonts, spacing, radius, density, role bubbles, the whole transcript look —
+through the `classNames` injection map, applied onto the stable `.chat-*` DOM hooks. The
+headless primitives are unstyled semantic HTML carrying those stable hooks.
+
+- The package MUST expose a `ChatClassNames` map with one OPTIONAL key per stable `.chat-*`
+  render hook (the `chat-` prefix stripped, camelCased; e.g. `text`, `message`, `gutterTime`,
+  `lightbox`, `inputTextarea`). It is threaded through React context by the
+  `<ChatProvider classNames={…}>` prop.
+- Each render component MUST append its matching `classNames` value AFTER the stable `.chat-*`
+  class so a host styles every element with its own design system WITHOUT losing the stable
+  hooks. Every key MUST be OPTIONAL: an absent key appends nothing, leaving output
+  byte-identical to the unstyled default.
+- The key names MUST be generic and design-system-agnostic (no host/app coupling).
+- Nested `<ChatProvider>`s MUST shallow-merge `classNames` (an inner provider overrides only
+  the keys it supplies). With no `classNames`, the injected map MUST be empty and rendering
+  MUST still be valid (unstyled semantic HTML on the stable hooks).
+- Role styling (user/assistant bubbles), font, density, colors, radius, and focus rings are
+  ALL host concerns supplied via `classNames` — the package MUST NOT ship any of them.
 
 #### Scenario: Restyle without component overrides
 
 - **GIVEN** a host using the headless registry
-- **WHEN** the host redefines the CSS custom properties in its own stylesheet
-- **THEN** the chat surface adopts the new colors/spacing with no registry changes.
+- **WHEN** the host passes a `classNames` map (e.g. `{ text: 'host-bubble', message: 'host-row' }`)
+  to `<ChatProvider>`
+- **THEN** each element carries both its stable `.chat-*` hook AND the host class, and an
+  element whose key is absent carries only its stable hook — the host themes the surface with
+  no registry/component change.
 
 ### Focus Visibility (a11y)
 
-- Every focusable interactive control the package styles — buttons (`.chat-button`), the copy
-  control (`.chat-copybutton`), the disclosure `<summary>` trigger (`.chat-collapsible-header`),
-  the attachment thumb/download affordances, and the lightbox close — MUST expose a visible
-  `:focus-visible` indicator (a ring) so keyboard users always see which control is focused.
-- The focus ring MUST be token-driven — colored via `--chat-accent` — so it is theme-aware and a
-  host can restyle it by redefining the token without overriding any component. The rules are
-  ADDITIVE to the existing `:hover`/`:active` affordances.
-- Controls with a non-focus keyboard model are excluded: the completion popup options take no
-  focus ring because focus remains in the textarea and the active option is tracked via
+- Every focusable interactive control carries a stable `.chat-*` hook (buttons `.chat-button`,
+  the copy control `.chat-copybutton`, the disclosure `<summary>` trigger
+  `.chat-collapsible-header`, the attachment thumb/download affordances, and the lightbox close),
+  and MUST be themeable via a `classNames` key so a host CAN style a visible `:focus-visible`
+  indicator without overriding components.
+- Because the package is headless (change 0013), the focus-ring VISUALS are a host concern
+  supplied through `classNames` — the package ships no focus-ring CSS. The accessibility
+  requirement is that the controls remain keyboard-operable and individually targetable so the
+  host can paint a ring on each.
+- Controls with a non-focus keyboard model are excluded: the completion popup options never
+  take focus because focus remains in the textarea and the active option is tracked via
   `aria-activedescendant`.
 
-#### Scenario: Keyboard focus is visible
+#### Scenario: Host can paint a focus ring on every control
 
-- **GIVEN** a host using the package stylesheet
+- **GIVEN** a host that supplies `classNames` for the focusable controls
 - **WHEN** a keyboard user tabs to a button, the copy control, the disclosure summary, or an
   attachment download affordance
-- **THEN** the control paints a `--chat-accent`-colored `:focus-visible` ring, and the ring color
-  follows any host override of `--chat-accent`.
+- **THEN** each control carries its stable `.chat-*` hook plus the host class, so the host's
+  `:focus-visible` styling applies — with no registry/component change.
 
 ### Headless Default Registry
 
@@ -267,3 +278,4 @@ type IconName =
 | 2026-06-27 | Defaulted `--chat-font-family` to `inherit` and added role-bubble theme tokens (`--chat-user-bubble-*`, `--chat-assistant-bubble-*`, `--chat-bubble-max-width`) with light/dark defaults | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-27 | Clarified the `Collapsible` slot is the SOLE owner of the disclosure caret; the render substrate MUST NOT render one | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
 | 2026-06-28 | Required a visible, token-driven `:focus-visible` ring (via `--chat-accent`) on every focusable package control (button, copy, collapsible summary, attachment thumb/download, lightbox close); completion popup excluded (aria-activedescendant model) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
+| 2026-06-29 | Package goes fully headless: the styling mechanism is the `classNames` injection map onto the stable `.chat-*` hooks (not shipped CSS-var theme tokens). The default theme (font, role bubbles, density, focus rings) is removed; visual styling — including focus rings — is host-supplied via `classNames` | [0013-headless-styling](../../changes/0013-headless-styling.md) |

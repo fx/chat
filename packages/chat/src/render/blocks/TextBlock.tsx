@@ -6,9 +6,10 @@
  * `mentions` tokenizer. The markdown decision follows the block's `markdown`
  * hint when set, otherwise the message role.
  */
+import { cx } from '../../cx'
 import { mentionsToSegments } from '../../mentions'
 import type { TextBlock } from '../../model'
-import { useChatComponents } from '../../registry'
+import { useChatClassNames, useChatComponents } from '../../registry'
 
 /** Props for {@link TextBlockView}. */
 export interface TextBlockViewProps {
@@ -21,9 +22,10 @@ export interface TextBlockViewProps {
 
 /** Render plain user text with `@mention` spans highlighted. */
 function PlainTextWithMentions({ text }: { text: string }) {
+  const cn = useChatClassNames()
   const segments = mentionsToSegments(text)
   return (
-    <span className="chat-text-plain">
+    <span className={cx('chat-text-plain', cn.textPlain)}>
       {segments.map((segment, index) =>
         typeof segment === 'string' ? (
           // Segments are a stable, non-reordering positional list, so the index
@@ -32,7 +34,11 @@ function PlainTextWithMentions({ text }: { text: string }) {
           // biome-ignore lint/suspicious/noArrayIndexKey: positional, non-reordering list
           <span key={`t-${index}`}>{segment}</span>
         ) : (
-          <span key={segment.key} className="chat-mention" data-agent-id={segment.mention.agentId}>
+          <span
+            key={segment.key}
+            className={cx('chat-mention', cn.mention)}
+            data-agent-id={segment.mention.agentId}
+          >
             {segment.mention.text}
           </span>
         ),
@@ -47,6 +53,15 @@ function PlainTextWithMentions({ text }: { text: string }) {
  */
 export function TextBlockView({ block, messageRole, streaming }: TextBlockViewProps) {
   const { Markdown } = useChatComponents()
+  const cn = useChatClassNames()
+  // The role-aware host class: a user turn appends `cn.textUser`, any other role
+  // (assistant/system) appends `cn.textAssistant`, AFTER the stable `chat-text`
+  // hook and the role-agnostic `cn.text`.
+  const textClass = cx(
+    'chat-text',
+    cn.text,
+    messageRole === 'user' ? cn.textUser : cn.textAssistant,
+  )
   // User-authored text is ALWAYS plain text with mention highlighting — never
   // Markdown — even if the block carries a `markdown: true` hint (per the
   // rendering spec). Assistant text renders through Markdown by default; the
@@ -55,13 +70,13 @@ export function TextBlockView({ block, messageRole, streaming }: TextBlockViewPr
     messageRole === 'user' ? false : (block.markdown ?? messageRole === 'assistant')
   if (asMarkdown) {
     return (
-      <div className="chat-text">
+      <div className={textClass}>
         <Markdown content={block.text} {...(streaming !== undefined ? { streaming } : {})} />
       </div>
     )
   }
   return (
-    <div className="chat-text">
+    <div className={textClass}>
       <PlainTextWithMentions text={block.text} />
     </div>
   )

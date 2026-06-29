@@ -19,26 +19,13 @@ export const version = '0.0.0'
 export * from './model'
 
 /**
- * A `clsx`-style class-name joiner. Accepts strings, falsy values, and nested
- * arrays; ignores anything falsy; joins the rest with a single space.
- *
- * Vendored deliberately so the package carries no runtime dependency.
+ * The `clsx`-style class-name joiner + its value type. Implemented in the
+ * dependency-free `./cx` leaf module so the render/input layers can import it
+ * without an import cycle through this barrel; re-exported here so the public
+ * surface (`import { cx } from '@fx/chat'`) is unchanged.
  */
-export type ClassValue = string | number | false | null | undefined | ClassValue[]
-
-export function cx(...values: ClassValue[]): string {
-  const out: string[] = []
-  for (const value of values) {
-    if (!value) continue
-    if (Array.isArray(value)) {
-      const nested = cx(...value)
-      if (nested) out.push(nested)
-    } else {
-      out.push(String(value))
-    }
-  }
-  return out.join(' ')
-}
+export { cx } from './cx'
+export type { ClassValue } from './cx'
 
 export * from './registry'
 

@@ -102,8 +102,13 @@ registries (fx/ui, shadcn/ui, defaults), toggleable in place to compare or rende
 - Each demo registry MUST supply a real icon set (e.g. fx/ui's icons, lucide for shadcn) and
   MAY wire a real markdown engine via the registry `Markdown` slot, demonstrating that these
   are host-injected and not library dependencies.
-- The `headless` registry in the demo MUST use the package's built-in defaults to show the
-  zero-dependency baseline.
+- The package is HEADLESS (change 0013): it ships no visual theme. Each demo pane MUST therefore
+  supply its OWN visual look through the `classNames` injection map passed to `<ChatProvider>`,
+  mapping its design system's classes onto the stable `.chat-*` hooks. This is the demo's proof
+  that the transcript look is host-supplied, not a library default.
+- The `headless` registry in the demo MUST use the package's built-in (unstyled) primitives plus
+  a demo-supplied `classNames` theme to show the zero-dependency baseline with a host-provided
+  look.
 
 ## Design
 
@@ -148,7 +153,9 @@ demo (static Vite app)
 - **Markdown engine for demos** — which engine to wire for fx-ui/shadcn panes.
   - Current default: a small, popular React markdown renderer; headless stays on the built-in.
 - **Theme source** — per-registry theme vs one shared token set.
-  - Current default: each registry brings its own theme; headless uses the package CSS vars.
+  - Current default (change 0013): the package ships no theme, so EACH pane supplies its own
+    visual look via the `classNames` injection map onto the stable `.chat-*` hooks; the headless
+    pane brings a demo-supplied `classNames` theme rather than a built-in one.
 
 ## References
 
@@ -163,3 +170,4 @@ demo (static Vite app)
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0006-demos](../../changes/0006-demos.md) |
 | 2026-06-27 | Added a Minimal/density toggle to the controls strip, threaded to `MessageLog` across all three registries | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |
+| 2026-06-29 | Package goes fully headless: each demo pane now supplies its OWN visual look via the `classNames` injection map onto the stable `.chat-*` hooks (the package ships no theme); the headless pane brings a demo-supplied `classNames` theme | [0013-headless-styling](../../changes/0013-headless-styling.md) |

@@ -15,8 +15,9 @@
  * Every visual atom and icon comes from `useChatComponents()`.
  */
 import { useState } from 'react'
+import { cx } from '../cx'
 import type { MessageMetrics } from '../model'
-import { useChatComponents } from '../registry'
+import { useChatClassNames, useChatComponents } from '../registry'
 import { formatDuration, formatTokensPerSecond } from './format'
 
 /** Props for {@link MessageFooter}. */
@@ -37,6 +38,7 @@ export interface MessageFooterProps {
 
 /** Renders the metrics line (model · duration · tokens/sec) for present fields. */
 function Metrics({ metrics }: { metrics: MessageMetrics }) {
+  const cn = useChatClassNames()
   const parts: string[] = []
   if (metrics.model) parts.push(metrics.model)
   if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
@@ -44,7 +46,7 @@ function Metrics({ metrics }: { metrics: MessageMetrics }) {
   if (tps) parts.push(tps)
   if (parts.length === 0) return null
   return (
-    <span className="chat-footer-metrics" data-testid="chat-footer-metrics">
+    <span className={cx('chat-footer-metrics', cn.footerMetrics)} data-testid="chat-footer-metrics">
       {parts.join(' · ')}
     </span>
   )
@@ -60,6 +62,7 @@ export function MessageFooter({
   compact = false,
 }: MessageFooterProps) {
   const { Button, CopyButton, icons } = useChatComponents()
+  const cn = useChatClassNames()
   const [revealed, setRevealed] = useState(false)
   const RegenerateIcon = icons.regenerate
   const ForkIcon = icons.fork
@@ -74,35 +77,51 @@ export function MessageFooter({
   const showMetrics = !compact || revealed
 
   const label = (text: string) =>
-    showLabels ? <span className="chat-footer-label">{text}</span> : null
+    showLabels ? <span className={cx('chat-footer-label', cn.footerLabel)}>{text}</span> : null
 
   return (
-    <div className="chat-footer" data-compact={compact ? 'true' : undefined}>
+    <div className={cx('chat-footer', cn.footer)} data-compact={compact ? 'true' : undefined}>
       {compact ? (
         <Button
-          className="chat-footer-reveal"
+          className={cx('chat-footer-reveal', cn.footerReveal)}
           aria-label={revealed ? 'Hide actions' : 'Show actions'}
           onClick={() => setRevealed((v) => !v)}
         >
-          <icons.dotsThree className="chat-footer-icon" />
+          <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
         </Button>
       ) : null}
-      <CopyButton value={copyText} aria-label="Copy message" className="chat-footer-copy" />
+      <CopyButton
+        value={copyText}
+        aria-label="Copy message"
+        className={cx('chat-footer-copy', cn.footerCopy)}
+      />
       {onRegenerate ? (
-        <Button className="chat-footer-regenerate" aria-label="Regenerate" onClick={onRegenerate}>
-          <RegenerateIcon className="chat-footer-icon" />
+        <Button
+          className={cx('chat-footer-regenerate', cn.footerRegenerate)}
+          aria-label="Regenerate"
+          onClick={onRegenerate}
+        >
+          <RegenerateIcon className={cx('chat-footer-icon', cn.footerIcon)} />
           {label('Regenerate')}
         </Button>
       ) : null}
       {onFork ? (
-        <Button className="chat-footer-fork" aria-label="Fork" onClick={onFork}>
-          <ForkIcon className="chat-footer-icon" />
+        <Button
+          className={cx('chat-footer-fork', cn.footerFork)}
+          aria-label="Fork"
+          onClick={onFork}
+        >
+          <ForkIcon className={cx('chat-footer-icon', cn.footerIcon)} />
           {label('Fork')}
         </Button>
       ) : null}
       {onReset ? (
-        <Button className="chat-footer-reset" aria-label="Reset" onClick={onReset}>
-          <ResetIcon className="chat-footer-icon" />
+        <Button
+          className={cx('chat-footer-reset', cn.footerReset)}
+          aria-label="Reset"
+          onClick={onReset}
+        >
+          <ResetIcon className={cx('chat-footer-icon', cn.footerIcon)} />
           {label('Reset')}
         </Button>
       ) : null}

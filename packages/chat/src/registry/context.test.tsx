@@ -1,8 +1,14 @@
 import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { ChatProvider, mergeRegistry, useChatComponents } from './context'
-import type { ButtonProps, IconProps } from './contract'
+import {
+  ChatProvider,
+  mergeClassNames,
+  mergeRegistry,
+  useChatClassNames,
+  useChatComponents,
+} from './context'
+import type { ButtonProps, ChatClassNames, IconProps } from './contract'
 import { headlessComponents } from './headless'
 
 /** Probe component that renders slot identities from the effective registry. */
@@ -118,6 +124,80 @@ describe('icon overrides reach the built-in headless primitives', () => {
     // icon-only overrides flow into the default primitives.
     expect(document.querySelector('[data-icon="caret"]')).toBeTruthy()
     expect(document.querySelector('[data-icon="copy"]')).toBeTruthy()
+  })
+})
+
+/** Probe that renders selected effective class-name keys for assertions. */
+function ClassNamesProbe() {
+  const cn = useChatClassNames()
+  return (
+    <div>
+      <span data-testid="cn-log">{cn.log ?? 'none'}</span>
+      <span data-testid="cn-message">{cn.message ?? 'none'}</span>
+    </div>
+  )
+}
+
+describe('useChatClassNames', () => {
+  it('returns an empty map with no provider (every key absent)', () => {
+    render(<ClassNamesProbe />)
+    expect(screen.getByTestId('cn-log')).toHaveTextContent('none')
+    expect(screen.getByTestId('cn-message')).toHaveTextContent('none')
+  })
+
+  it('is empty when a provider supplies no classNames', () => {
+    render(
+      <ChatProvider>
+        <ClassNamesProbe />
+      </ChatProvider>,
+    )
+    expect(screen.getByTestId('cn-log')).toHaveTextContent('none')
+  })
+
+  it('exposes the classNames a provider supplies', () => {
+    render(
+      <ChatProvider classNames={{ log: 'host-log', message: 'host-message' }}>
+        <ClassNamesProbe />
+      </ChatProvider>,
+    )
+    expect(screen.getByTestId('cn-log')).toHaveTextContent('host-log')
+    expect(screen.getByTestId('cn-message')).toHaveTextContent('host-message')
+  })
+
+  it('nested providers shallow-merge classNames, inner key wins, outer preserved', () => {
+    render(
+      <ChatProvider classNames={{ log: 'outer-log', message: 'outer-message' }}>
+        <ChatProvider classNames={{ message: 'inner-message' }}>
+          <ClassNamesProbe />
+        </ChatProvider>
+      </ChatProvider>,
+    )
+    // Inner overrides `message`; the outer `log` survives the nested provider.
+    expect(screen.getByTestId('cn-message')).toHaveTextContent('inner-message')
+    expect(screen.getByTestId('cn-log')).toHaveTextContent('outer-log')
+  })
+
+  it('a nested provider with no classNames inherits the outer map unchanged', () => {
+    render(
+      <ChatProvider classNames={{ log: 'outer-log' }}>
+        <ChatProvider>
+          <ClassNamesProbe />
+        </ChatProvider>
+      </ChatProvider>,
+    )
+    expect(screen.getByTestId('cn-log')).toHaveTextContent('outer-log')
+  })
+})
+
+describe('mergeClassNames', () => {
+  it('returns the inherited map unchanged when nothing is supplied', () => {
+    const inherited: ChatClassNames = { log: 'a' }
+    expect(mergeClassNames(inherited, undefined)).toBe(inherited)
+  })
+
+  it('shallow-merges supplied keys over inherited (supplied wins)', () => {
+    const merged = mergeClassNames({ log: 'a', message: 'b' }, { message: 'c' })
+    expect(merged).toEqual({ log: 'a', message: 'c' })
   })
 })
 

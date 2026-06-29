@@ -27,9 +27,10 @@ import {
   useRef,
   useState,
 } from 'react'
+import { cx } from '../cx'
 import { mentionsToSegments } from '../mentions'
 import type { Attachment } from '../model'
-import { useChatComponents } from '../registry'
+import { useChatClassNames, useChatComponents } from '../registry'
 import { CompletionPopup, type CompletionPopupHandle } from './CompletionPopup'
 import type { CompletionProvider } from './completion/types'
 
@@ -262,6 +263,7 @@ export function ChatInput({
   )
 
   const { Button, icons } = useChatComponents()
+  const cn = useChatClassNames()
   const SendIcon = icons.send
   const StopIcon = icons.stop
   const PaperclipIcon = icons.paperclip
@@ -442,22 +444,27 @@ export function ChatInput({
   const stopHandler = isStreaming && onStop ? onStop : null
 
   return (
-    <div className="chat-input" data-disabled={disabled ? 'true' : undefined}>
+    <div className={cx('chat-input', cn.input)} data-disabled={disabled ? 'true' : undefined}>
       {hasAttachments ? (
-        <ul className="chat-input-attachments" aria-label="Attachments">
+        <ul className={cx('chat-input-attachments', cn.inputAttachments)} aria-label="Attachments">
           {attachmentList.map((attachment, index) => (
-            <li key={`${attachment.url}-${index}`} className="chat-input-attachment">
-              <PaperclipIcon className="chat-input-attachment-icon" />
-              <span className="chat-input-attachment-name">
+            <li
+              key={`${attachment.url}-${index}`}
+              className={cx('chat-input-attachment', cn.inputAttachment)}
+            >
+              <PaperclipIcon className={cx('chat-input-attachment-icon', cn.inputAttachmentIcon)} />
+              <span className={cx('chat-input-attachment-name', cn.inputAttachmentName)}>
                 {attachment.name ?? attachment.url}
               </span>
               <Button
-                className="chat-input-attachment-remove"
+                className={cx('chat-input-attachment-remove', cn.inputAttachmentRemove)}
                 aria-label={`Remove ${attachment.name ?? attachment.url}`}
                 disabled={disabled}
                 onClick={() => removeAttachment(attachmentList, index)}
               >
-                <CloseIcon className="chat-input-attachment-remove-icon" />
+                <CloseIcon
+                  className={cx('chat-input-attachment-remove-icon', cn.inputAttachmentRemoveIcon)}
+                />
               </Button>
             </li>
           ))}
@@ -465,7 +472,7 @@ export function ChatInput({
       ) : null}
 
       <div
-        className="chat-input-field"
+        className={cx('chat-input-field', cn.inputField)}
         // Drag-and-drop hook: hand dropped files to the host (no processing).
         onDrop={
           attachEnabled
@@ -480,7 +487,11 @@ export function ChatInput({
         }
         onDragOver={attachEnabled ? (event) => event.preventDefault() : undefined}
       >
-        <div ref={overlayRef} className="chat-input-overlay" aria-hidden="true">
+        <div
+          ref={overlayRef}
+          className={cx('chat-input-overlay', cn.inputOverlay)}
+          aria-hidden="true"
+        >
           {segments.map((segment, index) =>
             typeof segment === 'string' ? (
               // Literal runs can repeat (e.g. `@a x @b x`), so the index keeps
@@ -488,7 +499,7 @@ export function ChatInput({
               // biome-ignore lint/suspicious/noArrayIndexKey: positional, non-reordering list
               <span key={`text-${index}`}>{segment}</span>
             ) : (
-              <span key={segment.key} className="chat-input-mention">
+              <span key={segment.key} className={cx('chat-input-mention', cn.inputMention)}>
                 {segment.mention.text}
               </span>
             ),
@@ -498,7 +509,7 @@ export function ChatInput({
         </div>
         <textarea
           ref={textareaRef}
-          className="chat-input-textarea"
+          className={cx('chat-input-textarea', cn.inputTextarea)}
           value={value}
           rows={1}
           placeholder={placeholder}
@@ -537,7 +548,7 @@ export function ChatInput({
           ref={fileInputRef}
           type="file"
           multiple
-          className="chat-input-file"
+          className={cx('chat-input-file', cn.inputFile)}
           // Visually hidden but kept in the a11y tree for the picker affordance.
           style={{ display: 'none' }}
           {...(accept ? { accept } : {})}
@@ -545,29 +556,33 @@ export function ChatInput({
         />
       ) : null}
 
-      <div className="chat-input-actions">
+      <div className={cx('chat-input-actions', cn.inputActions)}>
         {onAddFiles ? (
           <Button
-            className="chat-input-attach"
+            className={cx('chat-input-attach', cn.inputAttach)}
             aria-label="Attach file"
             disabled={disabled}
             onClick={() => fileInputRef.current?.click()}
           >
-            <PaperclipIcon className="chat-input-action-icon" />
+            <PaperclipIcon className={cx('chat-input-action-icon', cn.inputActionIcon)} />
           </Button>
         ) : null}
         {stopHandler ? (
-          <Button className="chat-input-stop" aria-label="Stop" onClick={stopHandler}>
-            <StopIcon className="chat-input-action-icon" />
+          <Button
+            className={cx('chat-input-stop', cn.inputStop)}
+            aria-label="Stop"
+            onClick={stopHandler}
+          >
+            <StopIcon className={cx('chat-input-action-icon', cn.inputActionIcon)} />
           </Button>
         ) : (
           <Button
-            className="chat-input-send"
+            className={cx('chat-input-send', cn.inputSend)}
             aria-label="Send"
             disabled={!canSend}
             onClick={submit}
           >
-            <SendIcon className="chat-input-action-icon" />
+            <SendIcon className={cx('chat-input-action-icon', cn.inputActionIcon)} />
           </Button>
         )}
       </div>

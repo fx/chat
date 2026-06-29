@@ -8,7 +8,7 @@ specs:
     status: active
   - name: component-registry
     path: specs/component-registry/
-    description: Design-system-agnostic injection contract — provider, primitives, icons, markdown slot, theme tokens
+    description: Design-system-agnostic injection contract — provider, primitives, icons, markdown slot, classNames styling injection
     status: active
   - name: demos
     path: specs/demos/
@@ -112,3 +112,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0004", "0009"]
+  - id: "0013"
+    name: headless-styling
+    path: changes/0013-headless-styling.md
+    description: Fully headless — package ships no visual CSS; styling host-supplied via the classNames API onto stable .chat-* hooks; structure.css carries layout mechanics only; ./styles.css export replaced by ./structure.css
+    spec: component-registry
+    status: complete
+    depends_on: ["0003", "0009"]
