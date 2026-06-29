@@ -1,9 +1,10 @@
 /**
  * Headless primitive components.
  *
- * Each primitive is built from semantic HTML and styled exclusively by the
- * package's `--chat-*` CSS custom properties (see `../../styles.css`). No
- * third-party UI kit is referenced. All components are SSR-safe (pure render,
+ * Each primitive is built from semantic HTML carrying the stable `.chat-*`
+ * hooks and is otherwise UNSTYLED — the package ships no visual CSS, so the host
+ * supplies all styling through the `classNames` API (see the registry context).
+ * No third-party UI kit is referenced. All components are SSR-safe (pure render,
  * no `window`/`document` access at module scope or during render).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'

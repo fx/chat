@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": ["**/*.css"],
-  "files": ["dist", "src/styles.css"],
+  "files": ["dist", "src/structure.css"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,7 +15,7 @@
       "types": "./dist/headless.d.ts",
       "import": "./dist/headless.js"
     },
-    "./styles.css": "./src/styles.css"
+    "./structure.css": "./src/structure.css"
   },
   "scripts": {
     "build": "tsdown",

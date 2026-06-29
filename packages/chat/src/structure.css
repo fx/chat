@@ -1,0 +1,140 @@
+/**
+ * @fx/chat — structure.css (layout mechanics only; NO theme).
+ *
+ * The package is HEADLESS: all visual styling — colors, fonts, spacing, radius,
+ * density, bubbles, the whole transcript look — comes from the host through the
+ * `classNames` API (see the component registry), applied onto the stable
+ * `.chat-*` DOM hooks. This stylesheet ships ONLY the structural mechanics that
+ * cannot be expressed as per-element utility classes:
+ *
+ *   - animation keyframes (a host utility can't define @keyframes for raw CSS
+ *     consumers),
+ *   - the mention-overlay alignment technique (two layers MUST share one box or
+ *     highlighted runs drift from the typed text),
+ *   - the fixed-overlay positioning for the lightbox and the completion popup.
+ *
+ * It is OPTIONAL: a host that uses only the transcript (its own composer and
+ * lightbox) and supplies a full `classNames` theme — including `animate-spin`
+ * for the active affordance — needs none of this. It exists so the package's
+ * OWN composer/lightbox/spinners work out of the box (e.g. in the demos).
+ */
+
+/* ── Animation keyframes ─────────────────────────────────────────────────── */
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes chat-lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The active affordance spinner (render layer) and the completion loader spin.
+   A host that supplies its own spinner utility may ignore these hooks. */
+.chat-row-affordance[data-affordance="active"] .chat-row-affordance-icon,
+.chat-completion-spinner {
+  animation: chat-spin 0.8s linear infinite;
+}
+
+/* ── Mention overlay (composer) ──────────────────────────────────────────────
+   The highlight overlay sits behind the textarea; the two MUST share an
+   identical box so highlighted runs line up exactly with the typed text. The
+   shared metrics (box model, font, line-height, wrapping) are mechanical, not
+   thematic — the visible border color / padding scale can be re-themed by the
+   host, but the overlay and textarea must keep matching values. */
+.chat-input-field {
+  position: relative;
+}
+
+.chat-input-overlay,
+.chat-input-textarea {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  font: inherit;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.chat-input-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: transparent;
+}
+
+.chat-input-textarea {
+  position: relative;
+  display: block;
+  width: 100%;
+  resize: none;
+  background: transparent;
+}
+
+/* ── Lightbox overlay ────────────────────────────────────────────────────────
+   Fixed full-viewport backdrop with a centered dialog; the close control is
+   pinned to the dialog corner. */
+.chat-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: chat-lightbox-fade 0.12s ease;
+}
+
+.chat-lightbox[data-reduced-motion="true"] {
+  animation: none;
+}
+
+.chat-lightbox-dialog {
+  position: relative;
+  display: flex;
+  max-width: min(90vw, 64rem);
+  max-height: 90vh;
+}
+
+.chat-lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+.chat-lightbox-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+/* ── Completion popup ─────────────────────────────────────────────────────────
+   The popup floats above content; its scroll region caps its height. Box
+   placement is supplied by the host/floating logic. */
+.chat-completion-popup {
+  z-index: 1000;
+}
+
+.chat-completion-scroll {
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────────
+   Drop the spinners under a reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-row-affordance[data-affordance="active"] .chat-row-affordance-icon,
+  .chat-completion-spinner {
+    animation: none;
+  }
+}
