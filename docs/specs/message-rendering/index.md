@@ -75,8 +75,8 @@ scope** and MUST NOT appear in this package.
 ### Role Styling
 
 - The message wrapper MUST always expose the message `role` as a `data-role` attribute, and the
-  answer-text / user-text element MUST carry the single stable `.chat-text` hook (there are NO
-  per-role `.chat-text-user` / `.chat-text-assistant` hooks). A host styles a role by combining
+  answer-text and user-text elements MUST each carry the single stable `.chat-text` hook (there are
+  NO per-role `.chat-text-user` / `.chat-text-assistant` hooks). A host styles a role by combining
   the stable `.chat-text` hook with the `data-role="user|assistant|system"` ancestor on
   `.chat-message`, and/or via the role-keyed `classNames.textUser` / `classNames.textAssistant`
   entries the renderer appends BY ROLE onto the answer text (user → `textUser`, assistant →
