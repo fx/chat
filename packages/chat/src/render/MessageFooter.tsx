@@ -75,13 +75,18 @@ export function MessageFooter({
   // The metrics line is always shown in the default layout, but in compact mode
   // it is part of what the kebab reveals.
   const showMetrics = !compact || revealed
+  // The kebab reveals action labels and the metrics line. In compact mode it is
+  // only worth rendering when there is actually something to reveal: at least one
+  // action callback (regenerate/fork/reset) OR metrics. With nothing to reveal,
+  // toggling it would show nothing, so omit the kebab entirely.
+  const hasRevealable = Boolean(onRegenerate || onFork || onReset || metrics)
 
   const label = (text: string) =>
     showLabels ? <span className={cx('chat-footer-label', cn.footerLabel)}>{text}</span> : null
 
   return (
     <div className={cx('chat-footer', cn.footer)} data-compact={compact ? 'true' : undefined}>
-      {compact ? (
+      {compact && hasRevealable ? (
         <Button
           className={cx('chat-footer-reveal', cn.footerReveal)}
           aria-label={revealed ? 'Hide actions' : 'Show actions'}

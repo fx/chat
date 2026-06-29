@@ -95,7 +95,9 @@ function blockTimestamp(block: RenderableBlock): number | undefined {
  */
 function groupedItemTimestamp(item: GroupedItem): number | undefined {
   if (item.kind === 'bare') return blockTimestamp(item.block)
-  // Groups are non-empty by construction (only runs of length >= 2 form a group).
+  // Groups are always non-empty by construction (every group has at least one
+  // block), but they are NOT limited to runs of length >= 2 — in minimal mode
+  // `collapseTurnAux` can emit a single-item group.
   return blockTimestamp(item.blocks[0] as RenderableBlock)
 }
 
