@@ -69,9 +69,16 @@ Related specs:
   minimum:
   - `.` — the root: provider, message log, block renderers, composer, hooks, types.
   - `./headless` — the default unstyled component registry (zero design-system deps).
-  - `./styles.css` — base stylesheet defining default values for the package's CSS custom
-    properties. The package MUST ship this entry; importing it is OPTIONAL for hosts (the
-    headless registry renders without it, and hosts MAY override every variable).
+  - `./structure.css` — a small stylesheet shipping ONLY layout mechanics (animation
+    `@keyframes`, the mention-overlay alignment box, the lightbox + completion-popup
+    fixed-overlay positioning, a `prefers-reduced-motion` guard). It carries NO visual theme.
+    The package MUST ship this entry; importing it is OPTIONAL for hosts (the headless registry
+    renders without it, and a host that uses only the transcript with its own composer/lightbox
+    and a full `classNames` theme needs none of it).
+- The package MUST ship NO visual theme CSS. All visual styling (colors, fonts, spacing, radius,
+  density, role bubbles, the whole transcript look) is host-supplied through the `classNames`
+  injection map (see [component-registry](../component-registry/)) applied onto the stable
+  `.chat-*` DOM hooks.
 - Every entry point MUST be tree-shakeable; importing the composer MUST NOT pull in unrelated
   modules.
 - The package MUST NOT expose any block type, hook, or helper that is specific to a consuming
@@ -151,7 +158,7 @@ Related specs:
 ├── model      normalized Message / ContentBlock / ToolInvocation types + codec
 │              (pure, no React, no DOM)                       → message-model spec
 ├── registry   <ChatProvider>, ChatComponents contract,
-│              default headless component set, CSS-var theme  → component-registry spec
+│              default headless component set, classNames seam → component-registry spec
 ├── render     <MessageLog>, block renderers, streaming hooks,
 │              timeline grouping                              → message-rendering spec
 └── input      headless composer, completion-provider API,
@@ -225,11 +232,10 @@ not in the rule.
 - **Bundler choice** — `tsdown` vs `tsup` vs `unbuild`.
   - Options: `tsdown` (fast, esbuild/rolldown), `tsup` (mature), `unbuild`.
   - Current default: `tsdown` for speed and clean ESM + `.d.ts`, revisit if dual-CJS needed.
-- **CSS delivery** — ship a compiled `styles.css` of CSS custom properties vs document the
-  variables and let hosts define them.
-  - Current default: the package ships `./styles.css` with sensible defaults (shipping is
-    required); importing it is optional and hosts may
-    override every variable.
+- **CSS delivery** — ship a default visual theme vs ship no look at all.
+  - Current default (change 0013): the package ships NO visual theme. It ships `./structure.css`
+    with layout mechanics only (required); importing it is optional. All visual styling is
+    host-supplied via the `classNames` injection map onto the stable `.chat-*` hooks.
 - **Markdown contract** — inject a `Markdown` component slot vs accept a render function.
   - Current default: a `Markdown` slot on the registry (see component-registry), so the
     package never depends on a markdown engine.
@@ -248,3 +254,4 @@ not in the rule.
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0001-bootstrap-monorepo](../../changes/0001-bootstrap-monorepo.md) |
+| 2026-06-29 | Package goes fully headless: ships NO visual theme CSS (host-supplied via the `classNames` map onto `.chat-*` hooks); the `./styles.css` export is replaced by `./structure.css` (layout mechanics only) | [0013-headless-styling](../../changes/0013-headless-styling.md) |

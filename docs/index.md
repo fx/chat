@@ -5,7 +5,7 @@
 | Spec | Description | Status |
 |------|-------------|--------|
 | [Architecture](specs/architecture/) | Project-level concerns — identity, layout, build, distribution, CI, testing conventions | active |
-| [Component Registry](specs/component-registry/) | Design-system-agnostic injection contract — provider, primitives, icons, markdown slot, theme tokens | active |
+| [Component Registry](specs/component-registry/) | Design-system-agnostic injection contract — provider, primitives, icons, markdown slot, classNames styling injection | active |
 | [Demos](specs/demos/) | Static three-registry GitHub Pages demo proving design-system agnosticism | active |
 | [Input Composer](specs/input-composer/) | Headless message composer, completion-provider contract, completion popup, mentions | active |
 | [Message Model](specs/message-model/) | Normalized transport-agnostic message/content-block model and codec | active |
@@ -27,3 +27,4 @@
 | 0010 | [Single-Caret Disclosure Ownership](changes/0010-single-caret-disclosure.md) | [Message Rendering](specs/message-rendering/) | complete | 0003, 0004 |
 | 0011 | [Minimal / Density Mode](changes/0011-minimal-density-mode.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0007 |
 | 0012 | [Per-Block Timestamp Gutter](changes/0012-timestamp-gutter.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0009 |
+| 0013 | [Headless Styling](changes/0013-headless-styling.md) | [Component Registry](specs/component-registry/) | complete | 0003, 0009 |

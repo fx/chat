@@ -1,11 +1,11 @@
 /**
  * Demo stylesheet — Tailwind v4 + a self-contained shadcn-style token set.
  *
- * The styled adapters (fx-ui, shadcn) render against these design tokens
- * (`--background`, `--primary`, `--muted`, …). Light values live under `:root`;
- * dark values under `.dark`, toggled by the theme control on the pane wrapper.
- * The headless adapter does NOT use these tokens — it brings the package's own
- * `--chat-*` variables via `@fx/chat/styles.css` and the `data-theme` hook.
+ * All three adapters render against these design tokens (`--background`,
+ * `--primary`, `--muted`, …) via the shared `classNames` theme. Light values
+ * live under `:root`; dark values under `.dark`, toggled by the theme control on
+ * the pane wrapper. (The package itself ships no visual CSS — only the structural
+ * mechanics in `@fx/chat/structure.css`, imported once in `App.tsx`.)
  *
  * Tokens are stored as HSL channel triplets and surfaced to Tailwind via
  * `@theme inline` so utilities like `bg-primary`/`text-muted-foreground` resolve.
@@ -196,20 +196,53 @@ body {
   color: hsl(var(--foreground));
 }
 
-/* The headless pane paints itself from --chat-* vars; keep its frame neutral. */
-.demo-pane[data-registry="headless"] {
-  background: var(--chat-bg, hsl(var(--background)));
-  color: var(--chat-fg, hsl(var(--foreground)));
+/*
+ * Headless-pane primitive chrome. The headless registry renders the package's
+ * built-in primitives (semantic HTML on `.chat-*` hooks); unlike the fx-ui /
+ * shadcn panes (whose registry components carry their own chrome), these need a
+ * little base styling for buttons, badges, code, and the disclosure trigger. The
+ * transcript itself is styled by the shared `classNames` theme like every pane.
+ * Scoped to the headless pane so it never touches the component-based panes.
+ */
+.demo-pane[data-registry="headless"] .chat-button,
+.demo-pane[data-registry="headless"] .chat-copybutton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  cursor: pointer;
 }
 
-/*
- * The headless pane brings its own `--chat-*` paint on `.demo-pane`; its surface
- * must stay transparent so that paint (and `data-theme` flips) shows through
- * rather than being covered by the design-token background.
- */
-.demo-pane[data-registry="headless"] .demo-pane-surface {
-  background: transparent;
-  color: inherit;
+.demo-pane[data-registry="headless"] .chat-button:hover,
+.demo-pane[data-registry="headless"] .chat-copybutton:hover {
+  background: hsl(var(--muted));
+}
+
+.demo-pane[data-registry="headless"] .chat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.375rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.75rem;
+}
+
+.demo-pane[data-registry="headless"] .chat-codeblock,
+.demo-pane[data-registry="headless"] .chat-md-pre {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--muted));
+  overflow-x: auto;
+}
+
+.demo-pane[data-registry="headless"] .chat-collapsible-header {
+  cursor: pointer;
 }
 
 .demo-pane-header {

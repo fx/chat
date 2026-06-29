@@ -100,11 +100,12 @@ generative-UI bridges, UI-prefs store) MUST be left to the host.
 - A short loading delay MUST elapse before showing a loading state, to avoid flicker on fast
   providers.
 - Because the popup portals to `document.body`, it MUST carry the composer's themed context with
-  it: it MUST copy the textarea's resolved `--chat-*` tokens onto its own root. Since
-  `--chat-font-family` now defaults to `inherit` (which would resolve against `<body>` once
-  portaled), the popup MUST instead copy the textarea's RESOLVED computed `font-family` as a real
-  CSS property — NOT the token — so the popup paints in the same font as the composer even when a
-  host scopes a font to a wrapper around it.
+  it: it MUST copy the textarea's resolved `--chat-*` custom properties (any the HOST has defined
+  — the package itself ships none; see change 0013) onto its own root so a host theme scoped to a
+  wrapper around the composer still reaches the portaled popup. It MUST also copy the textarea's
+  RESOLVED computed `font-family` as a real CSS property — NOT a token — so the popup paints in
+  the same font as the composer even when the host's font is inherited from a wrapper (which would
+  otherwise resolve against `<body>` once portaled).
 
 #### Scenario: Keyboard apply keeps focus in textarea
 
@@ -121,7 +122,13 @@ generative-UI bridges, UI-prefs store) MUST be left to the host.
 - The mention regex MUST treat a mention as `@<id>` at start-of-string or after whitespace
   (so `email@host` is not a mention), with an id charset documented as part of the contract.
 - The composer MUST render a non-interactive highlight overlay behind the textarea using the
-  segmenter, scroll-synced with the textarea.
+  segmenter, scroll-synced with the textarea. The overlay and the textarea MUST share ONE
+  identical box (box model, font, line-height, wrapping) so highlighted runs line up exactly with
+  the typed text. These shared alignment mechanics — the `.chat-input-field` positioning context
+  and the shared `.chat-input-overlay` / `.chat-input-textarea` box — are layout, not theme, and
+  are the composer mechanics shipped in the package's `structure.css` (the package is otherwise
+  headless; see change 0013). The visible look (border color, padding scale) is host-supplied via
+  `classNames`, but the overlay and textarea MUST keep matching metrics.
 - The composer MUST support atomic mention deletion: `Backspace`/`Delete` at a mention
   boundary MUST remove the whole `@<id>` token (and a single adjacent space) in one keystroke.
 
@@ -223,3 +230,4 @@ interface ChatInputProps {
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0005-input-composer](../../changes/0005-input-composer.md) |
 | 2026-06-27 | Completion popup copies the textarea's resolved computed `font-family` (not the `inherit`-default token) so the portaled popup matches the composer font | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
+| 2026-06-29 | Package goes fully headless: composer/popup VISUALS are host-supplied via `classNames`. The mention-overlay alignment mechanics (`.chat-input-field` context + the shared `.chat-input-overlay` / `.chat-input-textarea` box) and the popup fixed-overlay positioning ship in `structure.css` as layout, not theme; the popup copies any HOST-defined `--chat-*` tokens (the package ships none) | [0013-headless-styling](../../changes/0013-headless-styling.md) |
