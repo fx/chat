@@ -82,6 +82,42 @@ describe('MessageFooter compact mode', () => {
     expect(screen.queryByLabelText('Show actions')).toBeNull()
     expect(screen.queryByLabelText('Hide actions')).toBeNull()
   })
+
+  it('renders the kebab in compact mode when there is something to reveal', () => {
+    // An action callback alone is enough to make the kebab worthwhile.
+    render(<MessageFooter copyText="x" compact onFork={vi.fn()} />)
+    expect(screen.getByLabelText('Show actions')).toBeInTheDocument()
+  })
+
+  it('renders the kebab in compact mode when only metrics are present', () => {
+    const metrics: MessageMetrics = { durationMs: 1000 }
+    render(<MessageFooter copyText="x" compact metrics={metrics} />)
+    expect(screen.getByLabelText('Show actions')).toBeInTheDocument()
+  })
+
+  it('omits the kebab in compact mode when there is nothing to reveal', () => {
+    // No action callbacks and no metrics → toggling would reveal nothing, so the
+    // kebab is not rendered (copy remains, since it needs no callback).
+    render(<MessageFooter copyText="x" compact />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByLabelText('Hide actions')).toBeNull()
+    expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+  })
+
+  it('omits the kebab in compact mode for an empty metrics object', () => {
+    // An empty metrics object renders no metrics line, so it is NOT revealable —
+    // the kebab must not appear (it would open nothing).
+    render(<MessageFooter copyText="x" compact metrics={{}} />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+  })
+
+  it('omits the kebab in compact mode for metrics with all-undefined fields', () => {
+    const metrics: MessageMetrics = { tokensPerSecond: 0 }
+    render(<MessageFooter copyText="x" compact metrics={metrics} />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+  })
 })
 
 describe('MessageFooter metrics', () => {

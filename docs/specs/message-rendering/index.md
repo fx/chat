@@ -75,14 +75,20 @@ scope** and MUST NOT appear in this package.
 ### Role Styling
 
 - The message wrapper MUST always expose the message `role` as a `data-role` attribute, and the
-  answer-text and user-text elements MUST carry their stable `.chat-*` hooks (e.g. `.chat-text`,
-  `.chat-text-user` / `.chat-text-assistant`), so a host can style a conversation as exchanged
-  bubbles. The package is HEADLESS (change 0013): the TRANSCRIPT VISUAL STYLING — role bubbles,
-  colors, alignment, radius, padding, max-width — is HOST-SUPPLIED via the `classNames` injection
-  map (see [component-registry › classNames Injection](../component-registry/)). The package
-  ships NO bubble CSS.
-- The `data-role` attribute and the stable hooks MUST be exposed for `user`, `assistant`, and
-  `system` so the host can style (or deliberately not style) each role; the package MUST NOT
+  answer-text and user-text elements MUST each carry the single stable `.chat-text` hook (there are
+  NO per-role `.chat-text-user` / `.chat-text-assistant` hooks). A host styles a role by combining
+  the stable `.chat-text` hook with the `data-role="user|assistant|system"` ancestor on
+  `.chat-message`, and/or via the role-keyed `classNames.textUser` / `classNames.textAssistant`
+  entries the renderer appends BY ROLE onto the answer text (user → `textUser`, assistant →
+  `textAssistant`, any other role → neither). The package is HEADLESS (change 0013): the
+  TRANSCRIPT VISUAL STYLING — role bubbles, colors, alignment, radius, padding, max-width — is
+  HOST-SUPPLIED via the `classNames` injection map (see
+  [component-registry › classNames Injection](../component-registry/)). The package ships NO
+  bubble CSS.
+- The `data-role` attribute and the stable `.chat-text` hook MUST be exposed for `user`,
+  `assistant`, and `system` so the host can style (or deliberately not style) each role via the
+  `data-role` ancestor; the role-keyed `textUser` / `textAssistant` classNames are applied only
+  for `user` / `assistant` (a `system` text block gets neither role key). The package MUST NOT
   bake in which roles get a bubble.
 - Role styling MUST be host-supplied and additive: the package MUST add no component override and
   MUST NOT ship a default look. A host applies its bubbles entirely through `classNames` onto the
@@ -93,8 +99,9 @@ scope** and MUST NOT appear in this package.
 - **GIVEN** a user message followed by an assistant message
 - **WHEN** the log renders
 - **THEN** the user wrapper carries `data-role="user"`, the assistant wrapper carries
-  `data-role="assistant"`, and each answer/user text element carries its stable `.chat-*` hook
-  (plus any host `classNames` value) so the host can paint the user/assistant bubbles — the
+  `data-role="assistant"`, and each answer/user text element carries the stable `.chat-text` hook
+  (plus the role-keyed `classNames.textUser` / `classNames.textAssistant` value applied by role)
+  so the host can paint the user/assistant bubbles via that hook + the `data-role` ancestor — the
   package itself ships no bubble CSS.
 
 ### Collapsible Substrate
@@ -106,7 +113,9 @@ scope** and MUST NOT appear in this package.
 - The substrate MUST support controlled (`open`/`onOpenChange`) and uncontrolled
   (`defaultOpen`) use.
 - The affordance icon precedence MUST be: active → spinner; just-completed → success check
-  (flash); otherwise → NO affordance icon (an empty filler span is preserved for layout). The
+  (flash); otherwise → NO affordance icon. In the no-affordance case the `CollapsibleRow`
+  substrate OMITS the `.chat-row-affordance` span entirely (an idle/bodied row renders no such
+  span — there is no empty filler span). The
   disclosure caret MUST NOT be rendered by the substrate — caret rendering is OWNED by the
   registry `Collapsible` slot (see [component-registry › Primitive Contract](../component-registry/)).
   The headless default `Collapsible` renders a caret; a host override renders its own caret or
@@ -285,8 +294,10 @@ scope** and MUST NOT appear in this package.
 
 - **GIVEN** a row whose resolved timestamp is missing or invalid and `timestampGutter` is set
 - **WHEN** the row renders
-- **THEN** the `.chat-gutter-time` cell is empty (`aria-hidden`) yet still reserves its 56px width so
-  the content column stays aligned, and the blank row resets the de-dupe run.
+- **THEN** the `.chat-gutter-time` cell is empty (`aria-hidden`) yet still reserves its fixed,
+  HOST-DEFINED width (set via `classNames.gutterTime`; the package ships no fixed width — the
+  reference theme uses `w-16` = 4rem/64px) so the content column stays aligned, and the blank row
+  resets the de-dupe run.
 
 ### Affordances
 

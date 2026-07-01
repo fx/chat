@@ -54,14 +54,18 @@ function PlainTextWithMentions({ text }: { text: string }) {
 export function TextBlockView({ block, messageRole, streaming }: TextBlockViewProps) {
   const { Markdown } = useChatComponents()
   const cn = useChatClassNames()
-  // The role-aware host class: a user turn appends `cn.textUser`, any other role
-  // (assistant/system) appends `cn.textAssistant`, AFTER the stable `chat-text`
-  // hook and the role-agnostic `cn.text`.
-  const textClass = cx(
-    'chat-text',
-    cn.text,
-    messageRole === 'user' ? cn.textUser : cn.textAssistant,
-  )
+  // The role-aware host class: a user turn appends `cn.textUser`, an assistant
+  // turn appends `cn.textAssistant`. Any other role (e.g. `system`) gets NEITHER
+  // role-bubble key — it stays stylable via the stable `chat-text` hook, the
+  // `data-role` ancestor, and the role-agnostic `cn.text`. The role key is
+  // appended AFTER the stable hook and `cn.text`.
+  const roleClass =
+    messageRole === 'user'
+      ? cn.textUser
+      : messageRole === 'assistant'
+        ? cn.textAssistant
+        : undefined
+  const textClass = cx('chat-text', cn.text, roleClass)
   // User-authored text is ALWAYS plain text with mention highlighting — never
   // Markdown — even if the block carries a `markdown: true` hint (per the
   // rendering spec). Assistant text renders through Markdown by default; the

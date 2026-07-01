@@ -7,6 +7,7 @@ import type {
   TextBlock,
   ToolCallBlock,
 } from '../../model'
+import { ChatProvider } from '../../registry'
 import { stubMatchMedia } from '../test-helpers'
 import { BlockView } from './BlockView'
 import type { BlockRenderContext } from './BlockView'
@@ -90,6 +91,51 @@ describe('TextBlockView', () => {
     const block: TextBlock = { type: 'text', id: 't', text: 'x' }
     const { container } = render(<TextBlockView block={block} messageRole="assistant" streaming />)
     expect(container.querySelector('[data-streaming="true"]')).not.toBeNull()
+  })
+
+  it('applies the textUser role key only to a user turn', () => {
+    const block: TextBlock = { type: 'text', id: 't', text: 'hi' }
+    const { container } = render(
+      <ChatProvider classNames={{ textUser: 'host-user', textAssistant: 'host-assistant' }}>
+        <TextBlockView block={block} messageRole="user" />
+      </ChatProvider>,
+    )
+    const text = container.querySelector('.chat-text')
+    expect(text).not.toBeNull()
+    expect(text).toHaveClass('host-user')
+    expect(text).not.toHaveClass('host-assistant')
+  })
+
+  it('applies the textAssistant role key only to an assistant turn', () => {
+    const block: TextBlock = { type: 'text', id: 't', text: 'hi' }
+    const { container } = render(
+      <ChatProvider classNames={{ textUser: 'host-user', textAssistant: 'host-assistant' }}>
+        <TextBlockView block={block} messageRole="assistant" />
+      </ChatProvider>,
+    )
+    const text = container.querySelector('.chat-text')
+    expect(text).not.toBeNull()
+    expect(text).toHaveClass('host-assistant')
+    expect(text).not.toHaveClass('host-user')
+  })
+
+  it('applies NEITHER role key to a system turn (stays stylable via chat-text)', () => {
+    // A `system` role gets no role-bubble key — only the stable `.chat-text`
+    // hook (and the role-agnostic `cn.text`); the host styles it via that hook
+    // plus the `data-role` ancestor.
+    const block: TextBlock = { type: 'text', id: 't', text: 'sys' }
+    const { container } = render(
+      <ChatProvider
+        classNames={{ text: 'host-text', textUser: 'host-user', textAssistant: 'host-assistant' }}
+      >
+        <TextBlockView block={block} messageRole="system" />
+      </ChatProvider>,
+    )
+    const text = container.querySelector('.chat-text')
+    expect(text).not.toBeNull()
+    expect(text).toHaveClass('host-text')
+    expect(text).not.toHaveClass('host-user')
+    expect(text).not.toHaveClass('host-assistant')
   })
 })
 

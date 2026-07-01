@@ -174,8 +174,22 @@ describe('MessageItem', () => {
   })
 
   it('supports compact footer mode', () => {
-    render(<MessageItem message={message()} compactFooter />)
+    const { container } = render(<MessageItem message={message()} compactFooter />)
+    expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
+  })
+
+  it('compact footer shows the reveal kebab when there is something to reveal', () => {
+    // An action callback makes the kebab worthwhile, so it renders in compact mode.
+    render(<MessageItem message={message()} compactFooter onRegenerate={vi.fn()} />)
     expect(screen.getByLabelText('Show actions')).toBeInTheDocument()
+  })
+
+  it('compact footer omits the reveal kebab when there is nothing to reveal', () => {
+    // No action callbacks and no metrics → toggling reveals nothing, so the kebab
+    // is omitted (copy still renders, needing no callback).
+    render(<MessageItem message={message()} compactFooter />)
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
+    expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
   })
 
   it('only the trailing block streams in an active message (earlier reasoning idle)', () => {
@@ -277,9 +291,10 @@ describe('MessageItem', () => {
     expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
     // The answer renders bare.
     expect(screen.getByText('final answer')).toBeInTheDocument()
-    // The footer is forced compact (reveal toggle present).
+    // The footer is forced compact. With no action callbacks or metrics there is
+    // nothing to reveal, so the kebab toggle is correctly omitted.
     expect(container.querySelector('.chat-footer')).toHaveAttribute('data-compact', 'true')
-    expect(screen.getByLabelText('Show actions')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Show actions')).toBeNull()
   })
 
   it('minimal mode folds NON-ADJACENT aux into one group (unlike grouped mode)', () => {
