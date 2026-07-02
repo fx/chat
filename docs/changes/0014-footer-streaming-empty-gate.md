@@ -11,6 +11,15 @@ for every assistant message, so an empty placeholder showed a dangling footer (a
 nothing to copy) and a streaming turn showed regenerate/fork affordances for an answer that did not
 exist yet.
 
+Review follow-up: the copy affordance is additionally gated on CONTENT — `MessageFooter` renders
+the `CopyButton` only when `copyText` is a non-empty string. A tool-call-only assistant turn
+settles with blocks (so the footer renders) but has an empty copy payload; a Copy button that
+copies `''` is exactly the papercut this change removes. The spec's affordance MUSTs are qualified
+by the footer visibility gate, and host responsibilities are documented: hosts must terminalize
+runs (clear `isStreaming`/`streamingMessageId`, including on error), and a turn that settles with
+zero blocks renders no footer — hosts wanting a retry affordance there must surface an error block
+or their own UI.
+
 **Spec:** [message-rendering](../specs/message-rendering/)
 **Status:** complete
 **Depends On:** 0004
@@ -32,11 +41,21 @@ destructive. The reference chat shows the footer only once the turn has settled.
       exactly ONE footer, inside the completed message's `[data-message-id]` wrapper
 - [x] Spec: message-rendering §Affordances requirement + scenario + changelog row
 - [x] Index: sync `docs/index.yml` and `docs/index.md` with change 0014
+- [x] `MessageFooter`: `CopyButton` rendered only for non-empty `copyText`; doc comment updated
+      (copy needs no host callback but requires copyable text)
+- [x] `MessageFooter.test.tsx`: empty `copyText` → no Copy control, other affordances intact
+- [x] `MessageItem.test.tsx`: tool-call-only assistant turn → footer renders, no Copy button
+- [x] Spec: affordance MUSTs qualified by the footer visibility gate; copy bullet gated on
+      non-empty copyable text; host-responsibilities note (terminalize runs; zero-block turns
+      render no footer) + changelog row
 
 ## Changelog
 
 - **2026-07-02** — Initial change: footer suppressed while `isActive` or when the assistant message
   has zero blocks.
+- **2026-07-02** — Review follow-up: copy affordance gated on non-empty `copyText` (tool-call-only
+  turns show no Copy button); spec affordance MUSTs cross-reference the footer visibility gate and
+  document host responsibilities (terminalize runs; zero-block settled turns render no footer).
 
 ## References
 

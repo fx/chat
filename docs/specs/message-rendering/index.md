@@ -303,9 +303,12 @@ scope** and MUST NOT appear in this package.
 
 - The package MUST expose, as OPTIONAL callbacks on the message/log, at least: `onRegenerate`,
   `onFork`, `onReset`. When a callback is provided, its affordance MUST render in the message
-  footer; when absent, the affordance MUST NOT render.
+  footer once the footer renders (see the footer visibility gate below); when absent, the
+  affordance MUST NOT render.
 - The package MUST provide a copy affordance (copy message text) with a copied-state flash,
-  using the registry `CopyButton`, requiring no host callback.
+  using the registry `CopyButton`. It requires no host callback and renders — once the footer
+  renders (see the footer visibility gate below) — only when the message has non-empty copyable
+  text (a tool-call-only turn has an empty copy payload, so no copy control).
 - A compact footer mode MUST be supported (icon-only with a reveal toggle).
 - Footer metrics (model, duration, tokens/sec) MUST render only when present and MUST degrade
   gracefully when absent.
@@ -313,6 +316,11 @@ scope** and MUST NOT appear in this package.
   `MessageLog` terms, `isStreaming && message.id === streamingMessageId`) or when the message
   has ZERO blocks (e.g. a just-created streaming placeholder). The footer affordances are
   completion actions; they render only once the assistant turn has settled and has content.
+- **Host responsibilities:** hosts MUST eventually clear `isStreaming`/`streamingMessageId`
+  (terminalize runs, including on error) — a permanently-active message never shows a footer,
+  by design. Likewise, a turn that settles with ZERO blocks renders no footer, so a host that
+  wants a retry affordance on a failed/empty turn must surface an error block (giving the
+  footer content to attach to) or provide its own UI.
 
 #### Scenario: Affordance visibility follows callbacks
 
@@ -592,3 +600,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-28 | Render-purity fix for the timestamp gutter: de-dupe is now PER-MESSAGE (each `MessageItem` owns a fresh per-render `createClockGutterDeduper`), not a shared log-wide deduper threaded via `renderGutter`. The shared mutable closure desynced under React's multi-invoke render (StrictMode/concurrent) and blanked every committed gutter cell; per-message first rows now always show their clock | [0012-timestamp-gutter](../../changes/0012-timestamp-gutter.md) |
 | 2026-06-29 | Package goes fully headless: transcript visual styling (role bubbles, density spacing, gutter layout, attachment look) is host-supplied via the `classNames` map onto the stable `.chat-*` hooks. The renderer still emits the `data-role` / `data-minimal` / `.chat-gutter-*` hooks; the package ships no transcript theme | [0013-headless-styling](../../changes/0013-headless-styling.md) |
 | 2026-07-02 | Footer completion gate: the assistant footer renders only for non-active (`!isActive`) messages with at least one block — suppressed while actively streaming or on an empty placeholder | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
+| 2026-07-02 | Copy affordance gated on non-empty copy text (tool-call-only turns render no Copy control); affordance MUSTs qualified by the footer visibility gate; host responsibilities documented (terminalize runs; zero-block turns render no footer) | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
