@@ -21,10 +21,10 @@ export function formatDuration(ms: number): string {
   // `totalSeconds < 60` but rounds to '60.0', which belongs to the minutes path.
   const label = totalSeconds.toFixed(1)
   if (totalSeconds < 60 && label !== '60.0') return `${label}s`
-  // Minutes path, computed from the rounded value when it rounded up to 60.
-  const rounded = label === '60.0' ? 60 : totalSeconds
-  const minutes = Math.floor(rounded / 60)
-  const seconds = Math.floor(rounded % 60)
+  // Minutes path; use the rounded-up minute for inputs whose label hit '60.0'.
+  const minuteSeconds = label === '60.0' ? 60 : totalSeconds
+  const minutes = Math.floor(minuteSeconds / 60)
+  const seconds = Math.floor(minuteSeconds % 60)
   return `${minutes}m ${seconds}s`
 }
 
