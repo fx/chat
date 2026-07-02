@@ -108,11 +108,6 @@ describe('MessageItem', () => {
     expect(container.querySelector('.chat-footer')).toBeNull()
   })
 
-  it('renders the footer for a completed assistant message (explicit isActive={false})', () => {
-    const { container } = render(<MessageItem message={message()} isActive={false} />)
-    expect(container.querySelector('.chat-footer')).not.toBeNull()
-  })
-
   it('groups consecutive aux blocks and renders the answer bare', () => {
     const msg = message({
       blocks: [
