@@ -146,9 +146,10 @@ scope** and MUST NOT appear in this package.
 - The package MUST derive the live elapsed timer purely from `startedAt`/`isActive` and a
   finalized `durationMs`, ticking on an interval while active, so values survive component
   remounts. The default tick interval MUST be 100ms so live timer pills count up in tenths
-  of a second, matching the `X.Xs` display precision (the interval is per-row and armed only
-  while active, so effectively one 100ms interval runs per actively-streaming row). A
-  finalized `durationMs` MUST take precedence over the live ticker.
+  of a second, matching the `X.Xs` display precision. The interval is per-row and MUST be
+  armed only while the row is active AND its timer pill actually renders (`CollapsibleRow`
+  gates the hook's `isActive` input on `showTimer`) — an active row without a timer pill
+  ticks nothing. A finalized `durationMs` MUST take precedence over the live ticker.
 - The package MUST provide a flash-on-complete behavior: when a block transitions
   active → inactive, it MUST briefly (a bounded duration) show a success indicator.
 - The package MUST provide a live tokens/sec estimate while streaming and MUST prefer a

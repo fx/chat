@@ -28,6 +28,14 @@ describe('formatDuration', () => {
     expect(formatDuration(605_000)).toBe('10m 5s')
   })
 
+  it('routes inputs that ROUND to 60s onto the minutes path (never "60.0s")', () => {
+    // [59.95s, 60s) passes `< 60` but toFixed(1) rounds to '60.0' — the gate
+    // applies to the rounded value, so these render '1m 0s', not '60.0s'.
+    expect(formatDuration(59_949)).toBe('59.9s')
+    expect(formatDuration(59_950)).toBe('1m 0s')
+    expect(formatDuration(60_000)).toBe('1m 0s')
+  })
+
   it('clamps negative, NaN, and non-finite inputs to "0.0s"', () => {
     expect(formatDuration(-5)).toBe('0.0s')
     expect(formatDuration(Number.NaN)).toBe('0.0s')

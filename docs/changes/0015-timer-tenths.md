@@ -9,8 +9,10 @@ sub-second durations now fall into the existing one-decimal `X.Xs` path and rend
 `useElapsedTimer`'s default `intervalMs` drops from 1000ms to 100ms so a live timer pill counts
 up in tenths (`0.1s`, `0.2s`, … `1.0s`, `1.1s`) — matching the display precision instead of
 sitting frozen on `<1s` for a full second and then jumping whole seconds. The interval is
-per-row and armed only while a row is active, so the cost is one 100ms interval per
-actively-streaming row — effectively one. The ≥60s `Xm Ys` minutes path is untouched.
+per-row and armed only while a row is active AND its timer pill actually renders —
+`CollapsibleRow` gates the hook's `isActive` input on `showTimer`, so an active row without
+a timer pill arms no interval. The cost is one 100ms interval per actively-streaming row
+that shows a timer. The ≥60s `Xm Ys` minutes path is untouched.
 
 **Spec:** [message-rendering](../specs/message-rendering/)
 **Status:** complete
@@ -46,6 +48,9 @@ it displays, and gives short-lived rows a real duration instead of a floor label
 
 - **2026-07-02** — Initial change: `formatDuration` sub-second tenths (no `<1s` floor);
   `useElapsedTimer` default tick 1000ms → 100ms.
+- **2026-07-02** — Review fixes: `formatDuration` gates the sub-minute path on the ROUNDED
+  value ([59.95s, 60s) renders `1m 0s`, never `60.0s`); `CollapsibleRow` arms the elapsed
+  tick only when the timer pill actually renders (`isActive && showTimer`).
 
 ## References
 
