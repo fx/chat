@@ -329,6 +329,15 @@ scope** and MUST NOT appear in this package.
   by design. Likewise, a turn that settles with ZERO blocks renders no footer, so a host that
   wants a retry affordance on a failed/empty turn must surface an error block (giving the
   footer content to attach to) or provide its own UI.
+- An ACTIVE assistant message with zero blocks MUST render a live pending status row (phase
+  `'pre-stream'`, live timer); a settled empty message renders nothing. The row is a synthetic
+  status block (`'<messageId>:pending'`) rendered through the normal `BlockView` dispatch
+  inside the blocks container — "Starting…" label, live timer from the message `createdAt`,
+  tokens/sec pill while active — so the host's optimistic placeholder (appended at send time,
+  before the first token) is never invisible. It MUST render identically in grouped and `flat`
+  modes and, under `timestampGutter`, MUST be gutter-wrapped with the message `createdAt`
+  clock printed. `raw` mode is unaffected (the JSON view wins), and the row disappears as soon
+  as the first real block arrives (the trailing real block becomes the streaming one).
 
 #### Scenario: Affordance visibility follows callbacks
 
@@ -343,6 +352,17 @@ scope** and MUST NOT appear in this package.
 - **WHEN** the log renders
 - **THEN** exactly one footer renders — inside the COMPLETED message's `data-message-id`
   wrapper — and the streaming/empty message renders no footer.
+
+#### Scenario: Active empty placeholder shows a live pending status row
+
+- **GIVEN** a log with an assistant message whose `blocks` array is EMPTY and whose `id`
+  equals `streamingMessageId` while `isStreaming` is set (the host's optimistic placeholder,
+  before the first token arrives)
+- **WHEN** the log renders
+- **THEN** the message renders a live "Starting…" status row (pre-stream phase, live timer)
+  inside its blocks container — gutter-wrapped with the `createdAt` clock when
+  `timestampGutter` is on — and once `isStreaming` clears (or the message is otherwise
+  non-active) the empty message renders nothing again.
 
 ### Scroll-to-Message Utility
 
@@ -610,3 +630,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-07-02 | Footer completion gate: the assistant footer renders only for non-active (`!isActive`) messages with at least one block — suppressed while actively streaming or on an empty placeholder | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Copy affordance gated on non-empty copy text (tool-call-only turns render no Copy control); affordance MUSTs qualified by the footer visibility gate; host responsibilities documented (terminalize runs; zero-block turns render no footer) | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Zero-affordance footers render no chrome at all — including the `timestampGutter` wrapper: `MessageItem` gates its footer branch (and the footer `.chat-gutter-row`) on the exported pure predicate `hasFooterContent`; `MessageFooter` keeps the same predicate as its safety-net early return | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
+| 2026-07-02 | Active empty assistant message renders a live "Starting…" pending status row (synthetic pre-stream status block, live timer from `createdAt`, gutter-wrapped under `timestampGutter`, identical in grouped/`flat` modes); settled-empty stays invisible — restores the host's pre-first-token loading affordance | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |

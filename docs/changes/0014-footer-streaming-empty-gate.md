@@ -11,6 +11,14 @@ for every assistant message, so an empty placeholder showed a dangling footer (a
 nothing to copy) and a streaming turn showed regenerate/fork affordances for an answer that did not
 exist yet.
 
+Completing half of the same behavioral story: with the footer chrome suppressed, an ACTIVE
+assistant message with ZERO blocks (the host's optimistic placeholder appended at send time)
+rendered NOTHING at all until the first token arrived. `MessageItem` now renders a synthetic
+pending status row for that state — `StatusBlockView` with `phase: 'pre-stream'` ("Starting…",
+live timer from `createdAt`, tokens/sec pill) — inside the blocks container, identically in
+grouped and `flat` modes and gutter-wrapped (clock printed) under `timestampGutter`. A SETTLED
+(non-active) empty assistant message still renders nothing.
+
 Review follow-up: the copy affordance is additionally gated on CONTENT — `MessageFooter` renders
 the `CopyButton` only when `copyText` contains non-whitespace characters (`copyText.trim()` is
 non-empty; a whitespace-only payload counts as empty). A tool-call-only assistant turn
@@ -60,6 +68,19 @@ destructive. The reference chat shows the footer only once the turn has settled.
       `hasFooterContent`, so a zero-affordance turn emits no empty `.chat-gutter-row` with a
       blank clock cell; gutter-hygiene test (tool-call-only turn + `timestampGutter` → gutter-row
       count equals block-row count) and direct `hasFooterContent` unit coverage
+- [x] `MessageItem`: ACTIVE empty assistant message renders a synthetic pending status row
+      (`{ type: 'status', id: '<messageId>:pending', phase: 'pre-stream' }` via `BlockView`,
+      with the synthetic id as `activeBlockId` so the live state flows); own branch when
+      `blocks.length === 0` (flat/grouped identical); gutter-wrapped with `createdAt` under
+      `timestampGutter`; `raw` unaffected; settled-empty still renders nothing; doc comment
+      updated
+- [x] `MessageItem.test.tsx`: active+empty → "Starting…"; active+empty+gutter → one gutter row
+      with a printed clock; active+empty+flat → "Starting…"; raw → JSON only; non-assistant
+      active+empty → nothing; settled-empty → still nothing (extended existing pin); first real
+      block → pending row gone
+- [x] `MessageLog.test.tsx`: empty assistant placeholder with `isStreaming` +
+      `streamingMessageId` → "Starting…" visible; rerender with `isStreaming=false` → gone
+- [x] Spec: message-rendering pending-status-row MUST + scenario + changelog row
 
 ## Changelog
 
@@ -77,6 +98,9 @@ destructive. The reference chat shows the footer only once the turn has settled.
   row) on the exported pure predicate `hasFooterContent`, so a zero-affordance turn with
   `timestampGutter` no longer emits a stray empty `.chat-gutter-row` with a blank clock cell;
   `MessageFooter` keeps the same predicate as its safety-net early return.
+- **2026-07-02** — Regression fix (completing half): active empty assistant message renders a
+  live "Starting…" status row — restores the host's pre-first-token loading affordance that
+  the footer/chrome suppression otherwise left blank. Settled-empty stays invisible.
 
 ## References
 

@@ -122,7 +122,7 @@ changes:
   - id: "0014"
     name: footer-streaming-empty-gate
     path: changes/0014-footer-streaming-empty-gate.md
-    description: Footer completion gate — assistant footer renders only for non-active messages with at least one block; suppressed while streaming (isActive) or on an empty placeholder
+    description: Footer completion gate — assistant footer renders only for non-active messages with at least one block; suppressed while streaming (isActive) or on an empty placeholder; active empty assistant message renders a live "Starting…" pending status row (settled-empty stays invisible)
     spec: message-rendering
     status: complete
     depends_on: ["0004"]
