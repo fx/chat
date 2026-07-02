@@ -8,9 +8,12 @@ import {
 } from './format'
 
 describe('formatDuration', () => {
-  it('renders "<1s" for sub-second durations', () => {
-    expect(formatDuration(0)).toBe('<1s')
-    expect(formatDuration(999)).toBe('<1s')
+  it('renders sub-second durations as tenths (no "<1s" floor)', () => {
+    expect(formatDuration(0)).toBe('0.0s')
+    expect(formatDuration(40)).toBe('0.0s')
+    expect(formatDuration(80)).toBe('0.1s')
+    expect(formatDuration(450)).toBe('0.5s')
+    expect(formatDuration(999)).toBe('1.0s')
   })
 
   it('renders "X.Xs" for sub-minute durations', () => {
@@ -25,10 +28,10 @@ describe('formatDuration', () => {
     expect(formatDuration(605_000)).toBe('10m 5s')
   })
 
-  it('clamps negative, NaN, and non-finite inputs to "<1s"', () => {
-    expect(formatDuration(-5)).toBe('<1s')
-    expect(formatDuration(Number.NaN)).toBe('<1s')
-    expect(formatDuration(Number.POSITIVE_INFINITY)).toBe('<1s')
+  it('clamps negative, NaN, and non-finite inputs to "0.0s"', () => {
+    expect(formatDuration(-5)).toBe('0.0s')
+    expect(formatDuration(Number.NaN)).toBe('0.0s')
+    expect(formatDuration(Number.POSITIVE_INFINITY)).toBe('0.0s')
   })
 })
 

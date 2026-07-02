@@ -105,7 +105,7 @@ describe('CollapsibleRow pills + icon', () => {
   it('renders a live timer as plain muted text when showTimer and active', () => {
     const { container } = row({ label: 'T', isActive: true, showTimer: true, startedAt: 0 })
     const timer = container.querySelector('.chat-row-timer') as HTMLElement
-    expect(timer.textContent).toBe('<1s')
+    expect(timer.textContent).toBe('0.0s')
     // Plain muted text span, NOT a filled `Badge` chip (no `chat-badge`).
     expect(timer.tagName).toBe('SPAN')
     expect(timer.classList.contains('chat-badge')).toBe(false)

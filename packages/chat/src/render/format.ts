@@ -4,16 +4,15 @@
 
 /**
  * Format a duration in milliseconds human-readably:
- * - `< 1000ms` → `<1s`
- * - `< 60s` → `X.Xs` (one decimal)
+ * - `< 60s` → `X.Xs` (one decimal; sub-second values render as tenths,
+ *   `0.0s`–`0.9s` — there is no `<1s` floor)
  * - otherwise → `Xm Ys` (whole minutes + whole seconds)
  *
  * Negative, `NaN`, or non-finite inputs are clamped to `0` so the output is
- * always a stable, sensible string.
+ * always a stable, sensible string (`0.0s`).
  */
 export function formatDuration(ms: number): string {
   const safe = Number.isFinite(ms) && ms > 0 ? ms : 0
-  if (safe < 1000) return '<1s'
   const totalSeconds = safe / 1000
   if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
   const minutes = Math.floor(totalSeconds / 60)
