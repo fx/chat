@@ -21,6 +21,16 @@ const message = (overrides?: Partial<ChatMessage>): ChatMessage => ({
   ...overrides,
 })
 
+// Shared settled tool_call block for the zero-affordance-turn tests: no text
+// block, so the copy payload is empty.
+const successToolCall: ChatMessage['blocks'][number] = {
+  type: 'tool_call',
+  id: 't1',
+  name: 'search',
+  arguments: {},
+  status: 'success',
+}
+
 describe('messageCopyText', () => {
   it('concatenates text-block prose, skipping non-text blocks', () => {
     const msg = message({
@@ -95,11 +105,131 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
+  it('renders NO footer for an assistant message with zero blocks', () => {
+    // An empty assistant message (e.g. a just-created streaming placeholder) has
+    // nothing to copy/regenerate yet — the footer must not render. And because
+    // the message is NOT active, no pending status row renders either: a
+    // settled-empty assistant message stays fully invisible.
+    const { container } = render(<MessageItem message={message({ blocks: [] })} />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    expect(screen.queryByText('Starting…')).toBeNull()
+    expect(container.querySelector('.chat-row')).toBeNull()
+  })
+
+  it('renders NO footer for a tool-call-only assistant turn with no callbacks or metrics', () => {
+    // The turn has settled with blocks, but none of them is a text block, so
+    // the copy payload is empty — and with no action callbacks or metrics the
+    // footer has NOTHING to show, so no footer chrome renders at all.
+    const msg = message({
+      blocks: [successToolCall],
+    })
+    const { container } = render(<MessageItem message={msg} />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders NO footer gutter row for a tool-call-only turn with timestampGutter', () => {
+    // Same zero-affordance turn as above, with the timestamp gutter ON: the
+    // footer branch (including its `wrapRow` gutter wrapper) is gated on
+    // `hasFooterContent`, so no empty `.chat-gutter-row` with a blank clock
+    // cell trails the block rows.
+    const msg = message({
+      blocks: [successToolCall],
+    })
+    const { container } = render(<MessageItem message={msg} timestampGutter />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    // The only gutter rows are the block row(s) — no trailing footer row.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const allRows = container.querySelectorAll('.chat-gutter-row')
+    const blockRows = blocksRegion.querySelectorAll('.chat-gutter-row')
+    expect(blockRows.length).toBe(1)
+    expect(allRows.length).toBe(blockRows.length)
+  })
+
+  it('renders the footer WITHOUT a Copy button for a tool-call-only turn with onRegenerate', () => {
+    // With an action callback the footer renders (there is an affordance to
+    // show), but the empty copy payload still omits the Copy control.
+    const msg = message({
+      blocks: [successToolCall],
+    })
+    const { container } = render(<MessageItem message={msg} onRegenerate={() => {}} />)
+    expect(container.querySelector('.chat-footer')).not.toBeNull()
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders NO footer while the message is actively streaming (isActive)', () => {
+    const { container } = render(<MessageItem message={message()} isActive />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+  })
+
+  it('renders a live pending status row for an ACTIVE assistant message with zero blocks', () => {
+    // The host appends an empty optimistic assistant placeholder at send time;
+    // until the first token arrives the message would otherwise render nothing.
+    // The synthetic pre-stream status row restores the loading affordance.
+    const { container } = render(
+      <MessageItem message={message({ blocks: [], createdAt: 0 })} isActive />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+    // It renders inside the blocks container, and still no footer chrome.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    expect(within(blocksRegion).getByText('Starting…')).toBeInTheDocument()
+    expect(container.querySelector('.chat-footer')).toBeNull()
+  })
+
+  it('gutter-wraps the pending status row with the message createdAt clock', () => {
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const { container } = render(
+      <MessageItem message={message({ blocks: [], createdAt })} isActive timestampGutter />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+    // Exactly one gutter row (the pending row), with the message clock printed.
+    const rows = container.querySelectorAll('.chat-gutter-row')
+    expect(rows).toHaveLength(1)
+    const time = rows[0]?.querySelector('.chat-gutter-time') as HTMLElement
+    expect(time.textContent).toBe('09:05:07')
+    expect(time).not.toHaveAttribute('aria-hidden')
+  })
+
+  it('renders the pending status row identically in flat mode', () => {
+    // Flat vs grouped is irrelevant for a one-row synthetic message — the
+    // pending branch bypasses both row mappers. Extensions are threaded through
+    // (the synthetic status block dispatches via the normal BlockView path).
+    render(
+      <MessageItem message={message({ blocks: [], createdAt: 0 })} isActive flat extensions={{}} />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+  })
+
+  it('does NOT render the pending status row in raw mode (JSON view wins)', () => {
+    const { container } = render(
+      <MessageItem message={message({ blocks: [], createdAt: 0 })} isActive raw />,
+    )
+    expect(container.querySelector('.chat-jsonview')).not.toBeNull()
+    expect(screen.queryByText('Starting…')).toBeNull()
+  })
+
+  it('does NOT render the pending status row for an active NON-assistant empty message', () => {
+    // The affordance is assistant-only: an (unusual) active empty user message
+    // keeps rendering nothing.
+    render(<MessageItem message={message({ role: 'user', blocks: [] })} isActive />)
+    expect(screen.queryByText('Starting…')).toBeNull()
+  })
+
+  it('drops the pending status row once the first real block arrives', () => {
+    // Still active, but blocks are no longer empty — the real trailing block is
+    // the streaming one; the synthetic pre-stream row must not linger.
+    render(<MessageItem message={message({ createdAt: 0 })} isActive />)
+    expect(screen.queryByText('Starting…')).toBeNull()
+    expect(screen.getByText('answer')).toBeInTheDocument()
+  })
+
   it('groups consecutive aux blocks and renders the answer bare', () => {
     const msg = message({
       blocks: [
         { type: 'reasoning', id: 'r', text: 'think' },
-        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+        successToolCall,
         { type: 'tool_call', id: 't2', name: 'fetch', arguments: {}, status: 'success' },
         { type: 'status', id: 's' },
         { type: 'text', id: 'a', text: 'final answer' },
@@ -114,10 +244,7 @@ describe('MessageItem', () => {
 
   it('groups without an explicit defaultOpen passthrough', () => {
     const msg = message({
-      blocks: [
-        { type: 'reasoning', id: 'r', text: 'think' },
-        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
-      ],
+      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }, successToolCall],
     })
     const { container } = render(<MessageItem message={msg} />)
     // A two-item aux run still collapses into a group disclosure.
@@ -139,10 +266,7 @@ describe('MessageItem', () => {
 
   it('renders flat when flat is set (no grouping)', () => {
     const msg = message({
-      blocks: [
-        { type: 'reasoning', id: 'r', text: 'think' },
-        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
-      ],
+      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }, successToolCall],
     })
     render(<MessageItem message={msg} flat />)
     expect(screen.queryByText(/\(\+\d+\)/)).toBeNull()
@@ -279,7 +403,7 @@ describe('MessageItem', () => {
     const msg = message({
       blocks: [
         { type: 'reasoning', id: 'r', text: 'think' },
-        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+        successToolCall,
         { type: 'status', id: 's' },
         { type: 'text', id: 'a', text: 'final answer' },
       ],
@@ -340,7 +464,7 @@ describe('MessageItem', () => {
   it('minimal false renders identically to grouped mode (no data-minimal)', () => {
     const blocks: ChatMessage['blocks'] = [
       { type: 'reasoning', id: 'r', text: 'think' },
-      { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
+      successToolCall,
       { type: 'status', id: 's' },
       { type: 'text', id: 'a', text: 'final answer' },
     ]
@@ -361,12 +485,11 @@ describe('MessageItem', () => {
     // Change 0011 (parity fix): flat must win over minimal COMPLETELY — no minimal
     // grouping, no `data-minimal` attribute, and no minimal-forced compact footer.
     const msg = message({
-      blocks: [
-        { type: 'reasoning', id: 'r', text: 'think' },
-        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
-      ],
+      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }, successToolCall],
     })
-    const { container } = render(<MessageItem message={msg} minimal flat />)
+    // onRegenerate keeps the footer rendered (a tool-call-only turn with zero
+    // affordances renders no footer at all) so the compact check stays meaningful.
+    const { container } = render(<MessageItem message={msg} minimal flat onRegenerate={() => {}} />)
     // Flat: no grouping, so no collapsed group and the tool name shows directly.
     expect(container.querySelector('.chat-group')).toBeNull()
     expect(screen.getByText('search')).toBeInTheDocument()
@@ -410,10 +533,7 @@ describe('MessageItem', () => {
     const timelineBehavior = {} as Record<string, never>
     Object.defineProperty(timelineBehavior, 'search', { enumerable: true, get: behaviorSpy })
     const msg = message({
-      blocks: [
-        { type: 'reasoning', id: 'r', text: 'think' },
-        { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
-      ],
+      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }, successToolCall],
     })
 
     // flat: renders without throwing → grouping (and the override lookup) skipped.

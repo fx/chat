@@ -92,7 +92,11 @@ export function CollapsibleRow({
   const { Collapsible, Badge, icons } = useChatComponents()
   const cn = useChatClassNames()
   const flash = useFlashComplete(isActive)
-  const elapsed = useElapsedTimer({ startedAt, isActive, durationMs })
+  // `elapsed` is consumed ONLY by the timer pill (gated on `showTimer` below),
+  // so gate the ticking on the pill actually rendering: without this, an
+  // active row with no timer pill would re-render at 10Hz (100ms default tick)
+  // for nothing. The hook stays generic — the gating lives at this call site.
+  const elapsed = useElapsedTimer({ startedAt, isActive: isActive && showTimer, durationMs })
 
   // Uncontrolled open state seeded from defaultOpen; re-seed when defaultOpen
   // changes (verbose/expand-all flip resets a manual collapse).

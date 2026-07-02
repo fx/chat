@@ -4,20 +4,27 @@
 
 /**
  * Format a duration in milliseconds human-readably:
- * - `< 1000ms` → `<1s`
- * - `< 60s` → `X.Xs` (one decimal)
+ * - `< 60s` → `X.Xs` (one decimal; sub-second values render as tenths,
+ *   `0.0s`–`0.9s` — there is no `<1s` floor)
  * - otherwise → `Xm Ys` (whole minutes + whole seconds)
  *
+ * The sub-minute gate applies to the ROUNDED value: inputs in `[59.95s, 60s)`
+ * round up to the minute via `toFixed(1)` and render `1m 0s`, never `60.0s`.
+ *
  * Negative, `NaN`, or non-finite inputs are clamped to `0` so the output is
- * always a stable, sensible string.
+ * always a stable, sensible string (`0.0s`).
  */
 export function formatDuration(ms: number): string {
   const safe = Number.isFinite(ms) && ms > 0 ? ms : 0
-  if (safe < 1000) return '<1s'
   const totalSeconds = safe / 1000
-  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = Math.floor(totalSeconds % 60)
+  // Format first, then gate on the rounded label: [59.95s, 60s) passes
+  // `totalSeconds < 60` but rounds to '60.0', which belongs to the minutes path.
+  const label = totalSeconds.toFixed(1)
+  if (totalSeconds < 60 && label !== '60.0') return `${label}s`
+  // Minutes path; use the rounded-up minute for inputs whose label hit '60.0'.
+  const minuteSeconds = label === '60.0' ? 60 : totalSeconds
+  const minutes = Math.floor(minuteSeconds / 60)
+  const seconds = Math.floor(minuteSeconds % 60)
   return `${minutes}m ${seconds}s`
 }
 

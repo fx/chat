@@ -4,8 +4,12 @@
  * Derives elapsed milliseconds purely from a `startedAt` epoch timestamp and an
  * `isActive` flag, ticking on an interval while active so the displayed value
  * survives component remounts (it is recomputed from `Date.now() - startedAt`,
- * never accumulated in state). A finalized `durationMs` always wins over the
- * live ticker. Guards against `NaN`/missing inputs by reporting `0`.
+ * never accumulated in state). The default 100ms tick lets timer pills count up
+ * in tenths of a second, matching the display precision of `formatDuration`;
+ * the interval is per-row and only armed while active — callers whose UI does
+ * not consume the tick gate `isActive` at the call site (e.g. `CollapsibleRow`
+ * passes `isActive && showTimer`). A finalized `durationMs` always wins
+ * over the live ticker. Guards against `NaN`/missing inputs by reporting `0`.
  */
 import { useEffect, useState } from 'react'
 
@@ -17,7 +21,12 @@ export interface ElapsedTimerInput {
   isActive: boolean
   /** Finalized wall-clock duration in ms; takes precedence when provided. */
   durationMs?: number | undefined
-  /** Tick interval in ms while active (default 1000). */
+  /**
+   * Tick interval in ms while active (default 100, so a live timer pill ticks
+   * up in tenths — matching the `X.Xs` display precision of `formatDuration`).
+   * The interval is per-row and only armed while active, so the cost is one
+   * 100ms interval per active row whose caller passes `isActive: true`.
+   */
   intervalMs?: number | undefined
 }
 
@@ -37,7 +46,7 @@ export function useElapsedTimer({
   startedAt,
   isActive,
   durationMs,
-  intervalMs = 1000,
+  intervalMs = 100,
 }: ElapsedTimerInput): number {
   const finalized = durationMs !== undefined && Number.isFinite(durationMs) && durationMs >= 0
   const [, setTick] = useState(0)

@@ -37,6 +37,23 @@ describe('MessageLog', () => {
     expect(screen.getByText('Generated')).toBeInTheDocument()
   })
 
+  it('shows a pending "Starting…" row for an empty streaming assistant message', () => {
+    // The host's optimistic placeholder: an assistant message with ZERO blocks
+    // whose id is the streaming one. Before the first token it must render the
+    // synthetic pre-stream status row; once the run terminalizes
+    // (isStreaming=false) the settled-empty message renders nothing again.
+    const withPlaceholder: ChatMessage[] = [
+      messages[0] as ChatMessage,
+      { id: 'a2', role: 'assistant', blocks: [], createdAt: 0 },
+    ]
+    const { rerender } = render(
+      <MessageLog messages={withPlaceholder} isStreaming streamingMessageId="a2" />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+    rerender(<MessageLog messages={withPlaceholder} isStreaming={false} streamingMessageId="a2" />)
+    expect(screen.queryByText('Starting…')).toBeNull()
+  })
+
   it('passes per-message affordance callbacks scoped to the message id', () => {
     const onRegenerate = vi.fn()
     const onFork = vi.fn()
@@ -130,6 +147,34 @@ describe('MessageLog', () => {
     expect(container.querySelector('.chat-gutter-row')).not.toBeNull()
     expect(container.querySelector('.chat-gutter-time')).not.toBeNull()
     expect(container.querySelector('.chat-gutter-content')).not.toBeNull()
+  })
+
+  it('renders the footer ONLY on the completed assistant message while another streams', () => {
+    // Change 0014: the actively-streaming message (id === streamingMessageId with
+    // isStreaming) must render NO footer; the completed one keeps it.
+    const twoAssistants: ChatMessage[] = [
+      {
+        id: 'done',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't1', text: 'finished answer' }],
+      },
+      {
+        id: 'live',
+        role: 'assistant',
+        blocks: [{ type: 'status', id: 's' }],
+        createdAt: 0,
+      },
+    ]
+    const { container } = render(
+      <MessageLog messages={twoAssistants} isStreaming streamingMessageId="live" />,
+    )
+    const footers = container.querySelectorAll('.chat-footer')
+    expect(footers).toHaveLength(1)
+    // The single footer lives inside the COMPLETED message's wrapper.
+    const done = container.querySelector('[data-message-id="done"]') as HTMLElement
+    expect(done.contains(footers[0] as Node)).toBe(true)
+    const live = container.querySelector('[data-message-id="live"]') as HTMLElement
+    expect(live.querySelector('.chat-footer')).toBeNull()
   })
 
   it('does NOT de-dupe across messages: each message prints its own first-row clock', () => {

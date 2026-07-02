@@ -85,7 +85,7 @@ describe('BlockGroup', () => {
     expect(tps).not.toBeNull()
     expect(tps.tagName).toBe('SPAN')
     expect(tps.classList.contains('chat-badge')).toBe(false)
-    expect(within(header).getByText('<1s')).toBeInTheDocument()
+    expect(within(header).getByText('0.0s')).toBeInTheDocument()
     expect(within(header).getByText('8.0 tok/s')).toBeInTheDocument()
   })
 

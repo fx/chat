@@ -77,6 +77,21 @@ describe('useElapsedTimer', () => {
     expect(value()).toBe(1500)
   })
 
+  it('ticks every 100ms by default so pills count up in tenths', () => {
+    render(<Probe isActive startedAt={0} />)
+    expect(value()).toBe(0)
+    // One default tick (100ms) is enough to re-render with the new elapsed —
+    // a 1s default would leave the value at 0 here.
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(value()).toBe(100)
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    expect(value()).toBe(400)
+  })
+
   it('honors a custom interval', () => {
     render(<Probe isActive startedAt={0} intervalMs={500} />)
     expect(value()).toBe(0)

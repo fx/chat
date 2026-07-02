@@ -68,7 +68,7 @@ export {
 export type { MessageAttachmentsProps } from './MessageAttachments'
 export { deriveAttachmentLabel, MessageAttachments } from './MessageAttachments'
 export type { MessageFooterProps } from './MessageFooter'
-export { MessageFooter } from './MessageFooter'
+export { hasFooterContent, MessageFooter } from './MessageFooter'
 export type { MergedEntry, MergedItemEntry, MergedMessageEntry } from './mergeTimeline'
 export { mergeTimeline } from './mergeTimeline'
 export { collapseTurnAux } from './minimalGrouping'

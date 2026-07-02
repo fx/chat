@@ -1,10 +1,16 @@
 /**
  * `MessageFooter` — per-message affordances and metrics.
  *
- * Copy is always AVAILABLE — it needs no host callback (registry `CopyButton`)
- * — whereas regenerate, fork, and reset are available only when their callbacks
- * are provided. In the default (non-compact) layout the controls render inline
+ * Copy is available whenever the message has copyable text — it needs no host
+ * callback (registry `CopyButton`) but renders only when `copyText` has
+ * non-whitespace content (a tool-call-only turn has nothing to copy).
+ * Regenerate, fork, and reset are available only when their callbacks are
+ * provided. In the default (non-compact) layout the controls render inline
  * with their text labels and the metrics line.
+ *
+ * The footer renders NOTHING at all when it has no affordances or metrics to
+ * show — no copyable text, no action callbacks, and no renderable metrics —
+ * so a message with nothing actionable gets no empty footer chrome.
  *
  * In COMPACT mode the action buttons (Copy/Regenerate/Fork/Reset) are ALWAYS
  * visible but ICON-ONLY, sitting next to a kebab (`dotsThree`) toggle. The kebab
@@ -22,7 +28,7 @@ import { formatDuration, formatTokensPerSecond } from './format'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
-  /** The text to copy (whole message text). */
+  /** The text to copy (whole message text). Empty/whitespace-only → the copy control is omitted. */
   copyText: string
   /** Optional regenerate callback; its control renders only when provided. */
   onRegenerate?: () => void
@@ -48,6 +54,34 @@ function hasMetricsContent(metrics?: MessageMetrics): boolean {
     metrics.model ||
       metrics.durationMs !== undefined ||
       formatTokensPerSecond(metrics.tokensPerSecond),
+  )
+}
+
+/**
+ * Whether the footer has ANYTHING to render: non-whitespace copyable text, at
+ * least one action callback, or renderable metrics. This is the single source
+ * of truth for the zero-affordance decision — `MessageFooter` uses it for its
+ * own early return (safety net), and parents (e.g. `MessageItem`'s timestamp-
+ * gutter wrapper) use it to skip the footer branch entirely so no empty
+ * wrapper chrome (a gutter row with a blank clock cell) is emitted around a
+ * footer that would render nothing.
+ *
+ * The parameter maps the relevant {@link MessageFooterProps} keys to REQUIRED
+ * keys (indexed access keeps `undefined` in the optional ones' types), so
+ * callers can pass destructured locals directly even under
+ * `exactOptionalPropertyTypes`.
+ */
+export function hasFooterContent(
+  props: {
+    [K in 'copyText' | 'onRegenerate' | 'onFork' | 'onReset' | 'metrics']: MessageFooterProps[K]
+  },
+): boolean {
+  return Boolean(
+    props.copyText.trim().length > 0 ||
+      props.onRegenerate ||
+      props.onFork ||
+      props.onReset ||
+      hasMetricsContent(props.metrics),
   )
 }
 
@@ -87,9 +121,24 @@ export function MessageFooter({
   const ForkIcon = icons.fork
   const ResetIcon = icons.reset
 
+  // Copy is gated on non-whitespace content: a whitespace-only payload is as
+  // uncopyable as an empty one. The raw `copyText` remains the copied value.
+  const showCopy = copyText.trim().length > 0
+  const hasMetrics = hasMetricsContent(metrics)
+
+  // Nothing to show at all — no copyable text, no action callbacks, and no
+  // renderable metrics — so render no footer chrome whatsoever. `MessageItem`
+  // gates its footer branch (and its gutter-row wrapper) on the same predicate;
+  // this early return remains as the safety net for direct consumers.
+  if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics })) {
+    return null
+  }
+
   // Text labels for the action buttons show inline in the default layout, and in
-  // compact mode only once the kebab reveals them. The buttons (icon) themselves
-  // are ALWAYS visible in both modes.
+  // compact mode only once the kebab reveals them. Each button renders only when
+  // its gate holds (Copy needs non-whitespace `copyText`; regenerate/fork/reset
+  // need their callback), but a rendered button's icon is visible in both modes —
+  // compact mode only hides the labels, never the buttons.
   const showLabels = !compact || revealed
   // The metrics line is always shown in the default layout, but in compact mode
   // it is part of what the kebab reveals.
@@ -99,7 +148,7 @@ export function MessageFooter({
   // action callback (regenerate/fork/reset) OR metrics with renderable content.
   // An empty/all-undefined metrics object renders nothing, so it does not count.
   // With nothing to reveal, toggling it would show nothing, so omit the kebab.
-  const hasRevealable = Boolean(onRegenerate || onFork || onReset || hasMetricsContent(metrics))
+  const hasRevealable = Boolean(onRegenerate || onFork || onReset || hasMetrics)
 
   const label = (text: string) =>
     showLabels ? <span className={cx('chat-footer-label', cn.footerLabel)}>{text}</span> : null
@@ -115,11 +164,13 @@ export function MessageFooter({
           <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
         </Button>
       ) : null}
-      <CopyButton
-        value={copyText}
-        aria-label="Copy message"
-        className={cx('chat-footer-copy', cn.footerCopy)}
-      />
+      {showCopy ? (
+        <CopyButton
+          value={copyText}
+          aria-label="Copy message"
+          className={cx('chat-footer-copy', cn.footerCopy)}
+        />
+      ) : null}
       {onRegenerate ? (
         <Button
           className={cx('chat-footer-regenerate', cn.footerRegenerate)}
@@ -150,7 +201,7 @@ export function MessageFooter({
           {label('Reset')}
         </Button>
       ) : null}
-      {metrics && showMetrics && hasMetricsContent(metrics) ? <Metrics metrics={metrics} /> : null}
+      {metrics && showMetrics && hasMetrics ? <Metrics metrics={metrics} /> : null}
     </div>
   )
 }

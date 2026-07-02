@@ -3,12 +3,90 @@ import { describe, expect, it, vi } from 'vitest'
 import type { MessageMetrics } from '../model'
 import { ChatProvider } from '../registry'
 import type { PartialChatComponents } from '../registry'
-import { MessageFooter } from './MessageFooter'
+import { MessageFooter, hasFooterContent } from './MessageFooter'
+
+const none = {
+  copyText: '',
+  onRegenerate: undefined,
+  onFork: undefined,
+  onReset: undefined,
+  metrics: undefined,
+}
+
+describe('hasFooterContent', () => {
+  it('is false with no copy text, no callbacks, and no metrics', () => {
+    expect(hasFooterContent(none)).toBe(false)
+  })
+
+  it('is false for whitespace-only copy text and an empty metrics object', () => {
+    expect(hasFooterContent({ ...none, copyText: '\n \t', metrics: {} })).toBe(false)
+  })
+
+  it('is true for non-whitespace copy text alone', () => {
+    expect(hasFooterContent({ ...none, copyText: 'hi' })).toBe(true)
+  })
+
+  it('is true for a lone regenerate callback', () => {
+    expect(hasFooterContent({ ...none, onRegenerate: () => {} })).toBe(true)
+  })
+
+  it('is true for a lone fork callback', () => {
+    expect(hasFooterContent({ ...none, onFork: () => {} })).toBe(true)
+  })
+
+  it('is true for a lone reset callback', () => {
+    expect(hasFooterContent({ ...none, onReset: () => {} })).toBe(true)
+  })
+
+  it('is true for renderable metrics alone', () => {
+    expect(hasFooterContent({ ...none, metrics: { durationMs: 1000 } })).toBe(true)
+  })
+})
 
 describe('MessageFooter affordances', () => {
-  it('always renders copy', () => {
+  it('renders copy when copyText is non-empty (no host callback needed)', () => {
     render(<MessageFooter copyText="hi" />)
     expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+  })
+
+  it('omits copy when copyText is empty; other affordances still render', () => {
+    // A tool-call-only assistant turn has an empty copy payload — a Copy button
+    // that copies '' is a papercut, so the control is gated on non-empty text.
+    render(<MessageFooter copyText="" onRegenerate={vi.fn()} />)
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    // The footer still renders the callback-driven affordances.
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
+  })
+
+  it('omits copy when copyText is whitespace-only', () => {
+    // Whitespace-only payloads are as uncopyable as empty ones.
+    render(<MessageFooter copyText={'\n\n'} onRegenerate={vi.fn()} />)
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
+  })
+
+  it('renders NOTHING when there is no copy text, no callbacks, and no metrics', () => {
+    // Zero affordances and zero metrics → no footer chrome at all.
+    const { container } = render(<MessageFooter copyText="" metrics={{}} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders the footer for a lone fork callback with no copy text', () => {
+    render(<MessageFooter copyText="" onFork={vi.fn()} />)
+    expect(screen.getByLabelText('Fork')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders the footer for a lone reset callback with no copy text', () => {
+    render(<MessageFooter copyText="" onReset={vi.fn()} />)
+    expect(screen.getByLabelText('Reset')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders the footer for metrics alone with no copy text or callbacks', () => {
+    render(<MessageFooter copyText="" metrics={{ durationMs: 1000 }} />)
+    expect(screen.getByTestId('chat-footer-metrics').textContent).toBe('1.0s')
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
   it('renders regenerate only when onRegenerate is provided', () => {

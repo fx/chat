@@ -119,3 +119,17 @@ changes:
     spec: component-registry
     status: complete
     depends_on: ["0003", "0009"]
+  - id: "0014"
+    name: footer-streaming-empty-gate
+    path: changes/0014-footer-streaming-empty-gate.md
+    description: Footer completion gate — assistant footer renders only for non-active messages with at least one block; suppressed while streaming (isActive) or on an empty placeholder; active empty assistant message renders a live "Starting…" pending status row (settled-empty stays invisible)
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004"]
+  - id: "0015"
+    name: timer-tenths
+    path: changes/0015-timer-tenths.md
+    description: Tenth-second timers — formatDuration drops the '<1s' floor (sub-second renders as tenths, 0.0s–0.9s) and useElapsedTimer's default tick goes 1000ms → 100ms so live pills count up in tenths matching display precision
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004"]
