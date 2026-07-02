@@ -36,7 +36,10 @@ jobs:
 
       - name: Set commit-pinned version
         working-directory: packages/chat
-        run: npm version --no-git-tag-version "0.0.0-$(git rev-parse --short HEAD)"
+        # Plain file edit — `npm version` resolves the whole dependency tree and
+        # rejects the monorepo root's `workspace:*` protocol.
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='0.0.0-'+process.argv[1];fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')" "$(git rev-parse --short HEAD)"
 
       - name: Publish to GitHub Packages
         working-directory: packages/chat
