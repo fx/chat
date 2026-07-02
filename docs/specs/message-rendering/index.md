@@ -307,8 +307,9 @@ scope** and MUST NOT appear in this package.
   affordance MUST NOT render.
 - The package MUST provide a copy affordance (copy message text) with a copied-state flash,
   using the registry `CopyButton`. It requires no host callback and renders — once the footer
-  renders (see the footer visibility gate below) — only when the message has non-empty copyable
-  text (a tool-call-only turn has an empty copy payload, so no copy control).
+  renders (see the footer visibility gate below) — only when the message has non-whitespace
+  copyable text (whitespace-only counts as empty; a tool-call-only turn has an empty copy
+  payload, so no copy control).
 - A compact footer mode MUST be supported (icon-only with a reveal toggle).
 - Footer metrics (model, duration, tokens/sec) MUST render only when present and MUST degrade
   gracefully when absent.

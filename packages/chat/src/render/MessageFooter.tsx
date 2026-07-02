@@ -135,8 +135,10 @@ export function MessageFooter({
   }
 
   // Text labels for the action buttons show inline in the default layout, and in
-  // compact mode only once the kebab reveals them. The buttons (icon) themselves
-  // are ALWAYS visible in both modes.
+  // compact mode only once the kebab reveals them. Each button renders only when
+  // its gate holds (Copy needs non-whitespace `copyText`; regenerate/fork/reset
+  // need their callback), but a rendered button's icon is visible in both modes —
+  // compact mode only hides the labels, never the buttons.
   const showLabels = !compact || revealed
   // The metrics line is always shown in the default layout, but in compact mode
   // it is part of what the kebab reveals.

@@ -12,7 +12,8 @@ nothing to copy) and a streaming turn showed regenerate/fork affordances for an 
 exist yet.
 
 Review follow-up: the copy affordance is additionally gated on CONTENT — `MessageFooter` renders
-the `CopyButton` only when `copyText` is a non-empty string. A tool-call-only assistant turn
+the `CopyButton` only when `copyText` contains non-whitespace characters (`copyText.trim()` is
+non-empty; a whitespace-only payload counts as empty). A tool-call-only assistant turn
 settles with blocks (so the footer renders) but has an empty copy payload; a Copy button that
 copies `''` is exactly the papercut this change removes. The spec's affordance MUSTs are qualified
 by the footer visibility gate, and host responsibilities are documented: hosts must terminalize
