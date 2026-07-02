@@ -28,3 +28,4 @@
 | 0011 | [Minimal / Density Mode](changes/0011-minimal-density-mode.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0007 |
 | 0012 | [Per-Block Timestamp Gutter](changes/0012-timestamp-gutter.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0009 |
 | 0013 | [Headless Styling](changes/0013-headless-styling.md) | [Component Registry](specs/component-registry/) | complete | 0003, 0009 |
+| 0014 | [Footer Streaming/Empty Gate](changes/0014-footer-streaming-empty-gate.md) | [Message Rendering](specs/message-rendering/) | complete | 0004 |
