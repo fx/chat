@@ -115,6 +115,24 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
+  it('renders NO footer gutter row for a tool-call-only turn with timestampGutter', () => {
+    // Same zero-affordance turn as above, with the timestamp gutter ON: the
+    // footer branch (including its `wrapRow` gutter wrapper) is gated on
+    // `hasFooterContent`, so no empty `.chat-gutter-row` with a blank clock
+    // cell trails the block rows.
+    const msg = message({
+      blocks: [{ type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' }],
+    })
+    const { container } = render(<MessageItem message={msg} timestampGutter />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    // The only gutter rows are the block row(s) — no trailing footer row.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    const allRows = container.querySelectorAll('.chat-gutter-row')
+    const blockRows = blocksRegion.querySelectorAll('.chat-gutter-row')
+    expect(blockRows.length).toBe(1)
+    expect(allRows.length).toBe(blockRows.length)
+  })
+
   it('renders the footer WITHOUT a Copy button for a tool-call-only turn with onRegenerate', () => {
     // With an action callback the footer renders (there is an affordance to
     // show), but the empty copy payload still omits the Copy control.

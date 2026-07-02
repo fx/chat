@@ -3,7 +3,45 @@ import { describe, expect, it, vi } from 'vitest'
 import type { MessageMetrics } from '../model'
 import { ChatProvider } from '../registry'
 import type { PartialChatComponents } from '../registry'
-import { MessageFooter } from './MessageFooter'
+import { MessageFooter, hasFooterContent } from './MessageFooter'
+
+const none = {
+  copyText: '',
+  onRegenerate: undefined,
+  onFork: undefined,
+  onReset: undefined,
+  metrics: undefined,
+}
+
+describe('hasFooterContent', () => {
+  it('is false with no copy text, no callbacks, and no metrics', () => {
+    expect(hasFooterContent(none)).toBe(false)
+  })
+
+  it('is false for whitespace-only copy text and an empty metrics object', () => {
+    expect(hasFooterContent({ ...none, copyText: '\n \t', metrics: {} })).toBe(false)
+  })
+
+  it('is true for non-whitespace copy text alone', () => {
+    expect(hasFooterContent({ ...none, copyText: 'hi' })).toBe(true)
+  })
+
+  it('is true for a lone regenerate callback', () => {
+    expect(hasFooterContent({ ...none, onRegenerate: () => {} })).toBe(true)
+  })
+
+  it('is true for a lone fork callback', () => {
+    expect(hasFooterContent({ ...none, onFork: () => {} })).toBe(true)
+  })
+
+  it('is true for a lone reset callback', () => {
+    expect(hasFooterContent({ ...none, onReset: () => {} })).toBe(true)
+  })
+
+  it('is true for renderable metrics alone', () => {
+    expect(hasFooterContent({ ...none, metrics: { durationMs: 1000 } })).toBe(true)
+  })
+})
 
 describe('MessageFooter affordances', () => {
   it('renders copy when copyText is non-empty (no host callback needed)', () => {

@@ -58,6 +58,34 @@ function hasMetricsContent(metrics?: MessageMetrics): boolean {
 }
 
 /**
+ * Whether the footer has ANYTHING to render: non-whitespace copyable text, at
+ * least one action callback, or renderable metrics. This is the single source
+ * of truth for the zero-affordance decision — `MessageFooter` uses it for its
+ * own early return (safety net), and parents (e.g. `MessageItem`'s timestamp-
+ * gutter wrapper) use it to skip the footer branch entirely so no empty
+ * wrapper chrome (a gutter row with a blank clock cell) is emitted around a
+ * footer that would render nothing.
+ *
+ * The parameter maps the relevant {@link MessageFooterProps} keys to REQUIRED
+ * keys (indexed access keeps `undefined` in the optional ones' types), so
+ * callers can pass destructured locals directly even under
+ * `exactOptionalPropertyTypes`.
+ */
+export function hasFooterContent(
+  props: {
+    [K in 'copyText' | 'onRegenerate' | 'onFork' | 'onReset' | 'metrics']: MessageFooterProps[K]
+  },
+): boolean {
+  return Boolean(
+    props.copyText.trim().length > 0 ||
+      props.onRegenerate ||
+      props.onFork ||
+      props.onReset ||
+      hasMetricsContent(props.metrics),
+  )
+}
+
+/**
  * Renders the metrics line (model · duration · tokens/sec) for present fields.
  * The caller MUST gate rendering on `hasMetricsContent` — this renderer assumes
  * at least one field is presentable (it is the single source of truth for the
@@ -99,8 +127,10 @@ export function MessageFooter({
   const hasMetrics = hasMetricsContent(metrics)
 
   // Nothing to show at all — no copyable text, no action callbacks, and no
-  // renderable metrics — so render no footer chrome whatsoever.
-  if (!showCopy && !onRegenerate && !onFork && !onReset && !hasMetrics) {
+  // renderable metrics — so render no footer chrome whatsoever. `MessageItem`
+  // gates its footer branch (and its gutter-row wrapper) on the same predicate;
+  // this early return remains as the safety net for direct consumers.
+  if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics })) {
     return null
   }
 

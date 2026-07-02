@@ -6,7 +6,10 @@
  * blocks into a single `BlockGroup`; non-aux blocks render bare. A `raw` debug
  * mode renders the whole message via the registry `JsonView` instead. The footer
  * affordances render beneath the blocks — only for completed (non-`isActive`),
- * non-empty assistant messages.
+ * non-empty assistant messages, and only when the footer actually has something
+ * to show (`hasFooterContent`) — so a settled tool-call-only turn with no
+ * callbacks or metrics emits no footer chrome at all, including no empty
+ * timestamp-gutter row.
  *
  * In `minimal` (density) mode, an assistant turn folds ALL of its auxiliary
  * blocks into ONE group (via `collapseTurnAux`) rather than only maximal runs,
@@ -20,7 +23,7 @@ import { cx } from '../cx'
 import { useChatClassNames } from '../registry'
 import { BlockGroup } from './BlockGroup'
 import { MessageAttachments } from './MessageAttachments'
-import { MessageFooter } from './MessageFooter'
+import { MessageFooter, hasFooterContent } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
@@ -288,11 +291,21 @@ export function MessageItem({
         : null}
       {showFooter && !raw && message.role === 'assistant' && !isActive && blocks.length > 0
         ? (() => {
+            const copyText = messageCopyText(message)
+            // Gate the ENTIRE branch — including the gutter-row wrapper below —
+            // on the footer having something to render. `MessageFooter` would
+            // return null anyway (zero-affordance early return), but without
+            // this gate a timestamp-gutter layout would still emit an empty
+            // `.chat-gutter-row` with a blank clock cell around it.
+            const metrics = message.metrics
+            if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics })) {
+              return null
+            }
             const footer = (
               <MessageFooter
-                copyText={messageCopyText(message)}
+                copyText={copyText}
                 compact={effectiveCompactFooter}
-                {...(message.metrics ? { metrics: message.metrics } : {})}
+                {...(metrics ? { metrics } : {})}
                 {...(onRegenerate ? { onRegenerate } : {})}
                 {...(onFork ? { onFork } : {})}
                 {...(onReset ? { onReset } : {})}

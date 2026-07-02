@@ -318,7 +318,11 @@ scope** and MUST NOT appear in this package.
   completion actions; they render only once the assistant turn has settled and has content.
   The footer also renders NOTHING when it has no renderable affordances or metrics to show —
   no copyable (non-whitespace) text, no action callbacks, and no renderable metrics — so a
-  settled turn with nothing actionable gets no empty footer chrome.
+  settled turn with nothing actionable gets no empty footer chrome. This gate applies to the
+  footer's WRAPPER chrome too: with `timestampGutter` enabled, `MessageItem` MUST NOT emit the
+  footer's `.chat-gutter-row` (blank clock cell) when the footer has nothing to render. The
+  zero-affordance decision is the exported pure predicate `hasFooterContent`, shared by
+  `MessageItem`'s branch gate and `MessageFooter`'s safety-net early return.
 - **Host responsibilities:** hosts MUST eventually clear `isStreaming`/`streamingMessageId`
   (terminalize runs, including on error) — a permanently-active message never shows a footer,
   by design. Likewise, a turn that settles with ZERO blocks renders no footer, so a host that
@@ -604,3 +608,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-06-29 | Package goes fully headless: transcript visual styling (role bubbles, density spacing, gutter layout, attachment look) is host-supplied via the `classNames` map onto the stable `.chat-*` hooks. The renderer still emits the `data-role` / `data-minimal` / `.chat-gutter-*` hooks; the package ships no transcript theme | [0013-headless-styling](../../changes/0013-headless-styling.md) |
 | 2026-07-02 | Footer completion gate: the assistant footer renders only for non-active (`!isActive`) messages with at least one block — suppressed while actively streaming or on an empty placeholder | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Copy affordance gated on non-empty copy text (tool-call-only turns render no Copy control); affordance MUSTs qualified by the footer visibility gate; host responsibilities documented (terminalize runs; zero-block turns render no footer) | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
+| 2026-07-02 | Zero-affordance footers render no chrome at all — including the `timestampGutter` wrapper: `MessageItem` gates its footer branch (and the footer `.chat-gutter-row`) on the exported pure predicate `hasFooterContent`; `MessageFooter` keeps the same predicate as its safety-net early return | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |

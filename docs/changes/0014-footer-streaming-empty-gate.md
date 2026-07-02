@@ -52,6 +52,13 @@ destructive. The reference chat shows the footer only once the turn has settled.
       (non-whitespace) text, no action callbacks, and no renderable metrics; copy gated on
       `copyText.trim()` (whitespace-only payloads show no Copy control); tests for the null
       render, whitespace-only copy, and single-affordance footers
+- [x] `MessageFooter`: zero-affordance decision extracted into the exported pure predicate
+      `hasFooterContent` (non-whitespace copy text OR any callback OR renderable metrics); the
+      early return stays as the safety net for direct consumers
+- [x] `MessageItem`: footer branch — including the `timestampGutter` `wrapRow` wrapper — gated on
+      `hasFooterContent`, so a zero-affordance turn emits no empty `.chat-gutter-row` with a
+      blank clock cell; gutter-hygiene test (tool-call-only turn + `timestampGutter` → gutter-row
+      count equals block-row count) and direct `hasFooterContent` unit coverage
 
 ## Changelog
 
@@ -64,6 +71,11 @@ destructive. The reference chat shows the footer only once the turn has settled.
   nothing at all when it has no copyable (non-whitespace) text, no action callbacks, and no
   renderable metrics; whitespace-only `copyText` is treated as empty (`copyText.trim()` gate),
   while the raw text remains the copied value.
+- **2026-07-02** — Review follow-up 3: the empty-footer gate now also suppresses the timestamp-
+  gutter wrapper — `MessageItem` gates its whole footer branch (including the `wrapRow` gutter
+  row) on the exported pure predicate `hasFooterContent`, so a zero-affordance turn with
+  `timestampGutter` no longer emits a stray empty `.chat-gutter-row` with a blank clock cell;
+  `MessageFooter` keeps the same predicate as its safety-net early return.
 
 ## References
 
