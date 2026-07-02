@@ -145,13 +145,18 @@ scope** and MUST NOT appear in this package.
 
 - The package MUST derive the live elapsed timer purely from `startedAt`/`isActive` and a
   finalized `durationMs`, ticking on an interval while active, so values survive component
-  remounts. A finalized `durationMs` MUST take precedence over the live ticker.
+  remounts. The default tick interval MUST be 100ms so live timer pills count up in tenths
+  of a second, matching the `X.Xs` display precision (the interval is per-row and armed only
+  while active, so effectively one 100ms interval runs per actively-streaming row). A
+  finalized `durationMs` MUST take precedence over the live ticker.
 - The package MUST provide a flash-on-complete behavior: when a block transitions
   active → inactive, it MUST briefly (a bounded duration) show a success indicator.
 - The package MUST provide a live tokens/sec estimate while streaming and MUST prefer a
   provider-reported `tokensPerSecond` (or `usage`/`durationMs`-derived value) once the message
   is complete.
-- Reasoning duration MUST be formatted human-readably (`<1s`, `X.Xs`, `Xm Ys`).
+- Reasoning duration MUST be formatted human-readably: `X.Xs` (one decimal) below one minute
+  — sub-second values render as tenths (`0.0s`–`0.9s`; there is NO `<1s` floor) — and `Xm Ys`
+  at one minute and above.
 - These behaviors MUST be exposed as reusable hooks (e.g. `useElapsedTimer`,
   `useFlashComplete`, `useLiveTokensPerSecond`) so hosts can reuse them and tests can drive
   them with fake timers.
@@ -631,3 +636,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-07-02 | Copy affordance gated on non-empty copy text (tool-call-only turns render no Copy control); affordance MUSTs qualified by the footer visibility gate; host responsibilities documented (terminalize runs; zero-block turns render no footer) | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Zero-affordance footers render no chrome at all — including the `timestampGutter` wrapper: `MessageItem` gates its footer branch (and the footer `.chat-gutter-row`) on the exported pure predicate `hasFooterContent`; `MessageFooter` keeps the same predicate as its safety-net early return | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Active empty assistant message renders a live "Starting…" pending status row (synthetic pre-stream status block, live timer from `createdAt`, gutter-wrapped under `timestampGutter`, identical in grouped/`flat` modes); settled-empty stays invisible — restores the host's pre-first-token loading affordance | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
+| 2026-07-02 | Tenth-second timers: `formatDuration` drops the `<1s` floor (sub-second renders as tenths, `0.0s`–`0.9s`); `useElapsedTimer` default tick 1000ms → 100ms so live pills count up in tenths matching display precision | [0015-timer-tenths](../../changes/0015-timer-tenths.md) |

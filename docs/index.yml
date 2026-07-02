@@ -126,3 +126,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0004"]
+  - id: "0015"
+    name: timer-tenths
+    path: changes/0015-timer-tenths.md
+    description: Tenth-second timers — formatDuration drops the '<1s' floor (sub-second renders as tenths, 0.0s–0.9s) and useElapsedTimer's default tick goes 1000ms → 100ms so live pills count up in tenths matching display precision
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004"]
