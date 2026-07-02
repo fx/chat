@@ -96,10 +96,11 @@ export function MessageFooter({
   // Copy is gated on non-whitespace content: a whitespace-only payload is as
   // uncopyable as an empty one. The raw `copyText` remains the copied value.
   const showCopy = copyText.trim().length > 0
+  const hasMetrics = hasMetricsContent(metrics)
 
   // Nothing to show at all — no copyable text, no action callbacks, and no
   // renderable metrics — so render no footer chrome whatsoever.
-  if (!showCopy && !onRegenerate && !onFork && !onReset && !hasMetricsContent(metrics)) {
+  if (!showCopy && !onRegenerate && !onFork && !onReset && !hasMetrics) {
     return null
   }
 
@@ -115,7 +116,7 @@ export function MessageFooter({
   // action callback (regenerate/fork/reset) OR metrics with renderable content.
   // An empty/all-undefined metrics object renders nothing, so it does not count.
   // With nothing to reveal, toggling it would show nothing, so omit the kebab.
-  const hasRevealable = Boolean(onRegenerate || onFork || onReset || hasMetricsContent(metrics))
+  const hasRevealable = Boolean(onRegenerate || onFork || onReset || hasMetrics)
 
   const label = (text: string) =>
     showLabels ? <span className={cx('chat-footer-label', cn.footerLabel)}>{text}</span> : null
@@ -168,7 +169,7 @@ export function MessageFooter({
           {label('Reset')}
         </Button>
       ) : null}
-      {metrics && showMetrics && hasMetricsContent(metrics) ? <Metrics metrics={metrics} /> : null}
+      {metrics && showMetrics && hasMetrics ? <Metrics metrics={metrics} /> : null}
     </div>
   )
 }

@@ -286,7 +286,7 @@ export function MessageItem({
               : attachments
           })()
         : null}
-      {showFooter && !raw && message.role === 'assistant' && !isActive && message.blocks.length > 0
+      {showFooter && !raw && message.role === 'assistant' && !isActive && blocks.length > 0
         ? (() => {
             const footer = (
               <MessageFooter
