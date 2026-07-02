@@ -97,10 +97,14 @@ describe('MessageItem', () => {
 
   it('renders NO footer for an assistant message with zero blocks', () => {
     // An empty assistant message (e.g. a just-created streaming placeholder) has
-    // nothing to copy/regenerate yet — the footer must not render.
+    // nothing to copy/regenerate yet — the footer must not render. And because
+    // the message is NOT active, no pending status row renders either: a
+    // settled-empty assistant message stays fully invisible.
     const { container } = render(<MessageItem message={message({ blocks: [] })} />)
     expect(container.querySelector('.chat-footer')).toBeNull()
     expect(screen.queryByLabelText('Copy message')).toBeNull()
+    expect(screen.queryByText('Starting…')).toBeNull()
+    expect(container.querySelector('.chat-row')).toBeNull()
   })
 
   it('renders NO footer for a tool-call-only assistant turn with no callbacks or metrics', () => {
@@ -148,6 +152,67 @@ describe('MessageItem', () => {
   it('renders NO footer while the message is actively streaming (isActive)', () => {
     const { container } = render(<MessageItem message={message()} isActive />)
     expect(container.querySelector('.chat-footer')).toBeNull()
+  })
+
+  it('renders a live pending status row for an ACTIVE assistant message with zero blocks', () => {
+    // The host appends an empty optimistic assistant placeholder at send time;
+    // until the first token arrives the message would otherwise render nothing.
+    // The synthetic pre-stream status row restores the loading affordance.
+    const { container } = render(
+      <MessageItem message={message({ blocks: [], createdAt: 0 })} isActive />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+    // It renders inside the blocks container, and still no footer chrome.
+    const blocksRegion = container.querySelector('.chat-message-blocks') as HTMLElement
+    expect(within(blocksRegion).getByText('Starting…')).toBeInTheDocument()
+    expect(container.querySelector('.chat-footer')).toBeNull()
+  })
+
+  it('gutter-wraps the pending status row with the message createdAt clock', () => {
+    const createdAt = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const { container } = render(
+      <MessageItem message={message({ blocks: [], createdAt })} isActive timestampGutter />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+    // Exactly one gutter row (the pending row), with the message clock printed.
+    const rows = container.querySelectorAll('.chat-gutter-row')
+    expect(rows).toHaveLength(1)
+    const time = rows[0]?.querySelector('.chat-gutter-time') as HTMLElement
+    expect(time.textContent).toBe('09:05:07')
+    expect(time).not.toHaveAttribute('aria-hidden')
+  })
+
+  it('renders the pending status row identically in flat mode', () => {
+    // Flat vs grouped is irrelevant for a one-row synthetic message — the
+    // pending branch bypasses both row mappers. Extensions are threaded through
+    // (the synthetic status block dispatches via the normal BlockView path).
+    render(
+      <MessageItem message={message({ blocks: [], createdAt: 0 })} isActive flat extensions={{}} />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+  })
+
+  it('does NOT render the pending status row in raw mode (JSON view wins)', () => {
+    const { container } = render(
+      <MessageItem message={message({ blocks: [], createdAt: 0 })} isActive raw />,
+    )
+    expect(container.querySelector('.chat-jsonview')).not.toBeNull()
+    expect(screen.queryByText('Starting…')).toBeNull()
+  })
+
+  it('does NOT render the pending status row for an active NON-assistant empty message', () => {
+    // The affordance is assistant-only: an (unusual) active empty user message
+    // keeps rendering nothing.
+    render(<MessageItem message={message({ role: 'user', blocks: [] })} isActive />)
+    expect(screen.queryByText('Starting…')).toBeNull()
+  })
+
+  it('drops the pending status row once the first real block arrives', () => {
+    // Still active, but blocks are no longer empty — the real trailing block is
+    // the streaming one; the synthetic pre-stream row must not linger.
+    render(<MessageItem message={message({ createdAt: 0 })} isActive />)
+    expect(screen.queryByText('Starting…')).toBeNull()
+    expect(screen.getByText('answer')).toBeInTheDocument()
   })
 
   it('groups consecutive aux blocks and renders the answer bare', () => {

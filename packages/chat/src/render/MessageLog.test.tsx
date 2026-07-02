@@ -37,6 +37,23 @@ describe('MessageLog', () => {
     expect(screen.getByText('Generated')).toBeInTheDocument()
   })
 
+  it('shows a pending "Starting…" row for an empty streaming assistant message', () => {
+    // The host's optimistic placeholder: an assistant message with ZERO blocks
+    // whose id is the streaming one. Before the first token it must render the
+    // synthetic pre-stream status row; once the run terminalizes
+    // (isStreaming=false) the settled-empty message renders nothing again.
+    const withPlaceholder: ChatMessage[] = [
+      messages[0] as ChatMessage,
+      { id: 'a2', role: 'assistant', blocks: [], createdAt: 0 },
+    ]
+    const { rerender } = render(
+      <MessageLog messages={withPlaceholder} isStreaming streamingMessageId="a2" />,
+    )
+    expect(screen.getByText('Starting…')).toBeInTheDocument()
+    rerender(<MessageLog messages={withPlaceholder} isStreaming={false} streamingMessageId="a2" />)
+    expect(screen.queryByText('Starting…')).toBeNull()
+  })
+
   it('passes per-message affordance callbacks scoped to the message id', () => {
     const onRegenerate = vi.fn()
     const onFork = vi.fn()

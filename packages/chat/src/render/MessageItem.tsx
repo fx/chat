@@ -11,6 +11,14 @@
  * callbacks or metrics emits no footer chrome at all, including no empty
  * timestamp-gutter row.
  *
+ * An ACTIVE assistant message with ZERO blocks (the host's optimistic
+ * placeholder appended at send time, before the first token arrives) renders a
+ * synthetic pending status row — `StatusBlockView` with `phase: 'pre-stream'`
+ * ("Starting…", live timer from `createdAt`, tokens/sec pill) — inside the
+ * blocks container, in both grouped and `flat` modes, gutter-wrapped when
+ * `timestampGutter` is on. A SETTLED (non-active) empty assistant message still
+ * renders nothing.
+ *
  * In `minimal` (density) mode, an assistant turn folds ALL of its auxiliary
  * blocks into ONE group (via `collapseTurnAux`) rather than only maximal runs,
  * and the footer is forced compact — a denser, single-metadata-line view. `flat`
@@ -230,6 +238,28 @@ export function MessageItem({
       return timestampGutter ? wrapRow(key, groupedItemTimestamp(item), node) : node
     })
 
+  // Pre-first-token affordance: an ACTIVE assistant message with ZERO blocks is
+  // the host's optimistic placeholder — render a synthetic pending status row
+  // ("Starting…" with a live timer) instead of nothing. The synthetic block id
+  // doubles as the context `activeBlockId` (there is no trailing block to derive
+  // it from), so `BlockView` treats the row as the streaming block and
+  // `StatusBlockView` gets the live state. It renders as its own branch —
+  // flat/grouped both map over an empty array here — and is gutter-wrapped with
+  // the message `createdAt` so the clock cell prints. A settled (non-active)
+  // empty message keeps rendering nothing.
+  const pendingStatusRow = (): ReactNode => {
+    const pendingId = `${message.id}:pending`
+    const row = (
+      <BlockView
+        key={pendingId}
+        block={{ type: 'status', id: pendingId, phase: 'pre-stream' }}
+        context={{ ...context, activeBlockId: pendingId }}
+        {...(extensions ? { extensions } : {})}
+      />
+    )
+    return timestampGutter ? wrapRow(pendingId, message.createdAt, row) : row
+  }
+
   return (
     <div
       className={cx('chat-message', cn.message)}
@@ -242,41 +272,43 @@ export function MessageItem({
         <RawJsonBlockView value={message} />
       ) : (
         <div className={cx('chat-message-blocks', cn.messageBlocks)}>
-          {flat
-            ? flatRows((block) => (
-                <BlockView
-                  key={block.id}
-                  block={block}
-                  context={context}
-                  {...(extensions ? { extensions } : {})}
-                />
-              ))
-            : groupedRows((item) =>
-                item.kind === 'bare'
-                  ? {
-                      key: item.block.id,
-                      node: (
-                        <BlockView
-                          key={item.block.id}
-                          block={item.block}
-                          context={context}
-                          {...(extensions ? { extensions } : {})}
-                        />
-                      ),
-                    }
-                  : {
-                      key: `group-${(item.blocks[0] as { id: string }).id}`,
-                      node: (
-                        <BlockGroup
-                          key={`group-${(item.blocks[0] as { id: string }).id}`}
-                          blocks={item.blocks}
-                          context={context}
-                          {...(defaultOpen !== undefined ? { defaultOpen } : {})}
-                          {...(extensions ? { extensions } : {})}
-                        />
-                      ),
-                    },
-              )}
+          {isActive && message.role === 'assistant' && blocks.length === 0
+            ? pendingStatusRow()
+            : flat
+              ? flatRows((block) => (
+                  <BlockView
+                    key={block.id}
+                    block={block}
+                    context={context}
+                    {...(extensions ? { extensions } : {})}
+                  />
+                ))
+              : groupedRows((item) =>
+                  item.kind === 'bare'
+                    ? {
+                        key: item.block.id,
+                        node: (
+                          <BlockView
+                            key={item.block.id}
+                            block={item.block}
+                            context={context}
+                            {...(extensions ? { extensions } : {})}
+                          />
+                        ),
+                      }
+                    : {
+                        key: `group-${(item.blocks[0] as { id: string }).id}`,
+                        node: (
+                          <BlockGroup
+                            key={`group-${(item.blocks[0] as { id: string }).id}`}
+                            blocks={item.blocks}
+                            context={context}
+                            {...(defaultOpen !== undefined ? { defaultOpen } : {})}
+                            {...(extensions ? { extensions } : {})}
+                          />
+                        ),
+                      },
+                )}
         </div>
       )}
       {!raw && message.role === 'user' && message.attachments && message.attachments.length > 0
