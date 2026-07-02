@@ -95,6 +95,24 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
+  it('renders NO footer for an assistant message with zero blocks', () => {
+    // An empty assistant message (e.g. a just-created streaming placeholder) has
+    // nothing to copy/regenerate yet — the footer must not render.
+    const { container } = render(<MessageItem message={message({ blocks: [] })} />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders NO footer while the message is actively streaming (isActive)', () => {
+    const { container } = render(<MessageItem message={message()} isActive />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+  })
+
+  it('renders the footer for a completed assistant message (explicit isActive={false})', () => {
+    const { container } = render(<MessageItem message={message()} isActive={false} />)
+    expect(container.querySelector('.chat-footer')).not.toBeNull()
+  })
+
   it('groups consecutive aux blocks and renders the answer bare', () => {
     const msg = message({
       blocks: [

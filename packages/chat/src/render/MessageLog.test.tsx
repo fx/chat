@@ -132,6 +132,34 @@ describe('MessageLog', () => {
     expect(container.querySelector('.chat-gutter-content')).not.toBeNull()
   })
 
+  it('renders the footer ONLY on the completed assistant message while another streams', () => {
+    // Change 0014: the actively-streaming message (id === streamingMessageId with
+    // isStreaming) must render NO footer; the completed one keeps it.
+    const twoAssistants: ChatMessage[] = [
+      {
+        id: 'done',
+        role: 'assistant',
+        blocks: [{ type: 'text', id: 't1', text: 'finished answer' }],
+      },
+      {
+        id: 'live',
+        role: 'assistant',
+        blocks: [{ type: 'status', id: 's' }],
+        createdAt: 0,
+      },
+    ]
+    const { container } = render(
+      <MessageLog messages={twoAssistants} isStreaming streamingMessageId="live" />,
+    )
+    const footers = container.querySelectorAll('.chat-footer')
+    expect(footers).toHaveLength(1)
+    // The single footer lives inside the COMPLETED message's wrapper.
+    const done = container.querySelector('[data-message-id="done"]') as HTMLElement
+    expect(done.contains(footers[0] as Node)).toBe(true)
+    const live = container.querySelector('[data-message-id="live"]') as HTMLElement
+    expect(live.querySelector('.chat-footer')).toBeNull()
+  })
+
   it('does NOT de-dupe across messages: each message prints its own first-row clock', () => {
     // Both messages share createdAt 0 (faked system time). De-dupe is PER-MESSAGE
     // (each MessageItem owns its own per-render deduper for render purity), so

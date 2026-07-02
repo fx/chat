@@ -5,7 +5,8 @@
  * It applies the grouping pass (unless `flat`) to fold consecutive auxiliary
  * blocks into a single `BlockGroup`; non-aux blocks render bare. A `raw` debug
  * mode renders the whole message via the registry `JsonView` instead. The footer
- * affordances render beneath the blocks.
+ * affordances render beneath the blocks — only for completed (non-`isActive`),
+ * non-empty assistant messages.
  *
  * In `minimal` (density) mode, an assistant turn folds ALL of its auxiliary
  * blocks into ONE group (via `collapseTurnAux`) rather than only maximal runs,
@@ -285,7 +286,7 @@ export function MessageItem({
               : attachments
           })()
         : null}
-      {showFooter && !raw && message.role === 'assistant'
+      {showFooter && !raw && message.role === 'assistant' && !isActive && message.blocks.length > 0
         ? (() => {
             const footer = (
               <MessageFooter
