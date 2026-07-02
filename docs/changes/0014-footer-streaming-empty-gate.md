@@ -48,6 +48,10 @@ destructive. The reference chat shows the footer only once the turn has settled.
 - [x] Spec: affordance MUSTs qualified by the footer visibility gate; copy bullet gated on
       non-empty copyable text; host-responsibilities note (terminalize runs; zero-block turns
       render no footer) + changelog row
+- [x] `MessageFooter`: zero-affordance early return — renders `null` when there is no copyable
+      (non-whitespace) text, no action callbacks, and no renderable metrics; copy gated on
+      `copyText.trim()` (whitespace-only payloads show no Copy control); tests for the null
+      render, whitespace-only copy, and single-affordance footers
 
 ## Changelog
 
@@ -56,6 +60,10 @@ destructive. The reference chat shows the footer only once the turn has settled.
 - **2026-07-02** — Review follow-up: copy affordance gated on non-empty `copyText` (tool-call-only
   turns show no Copy button); spec affordance MUSTs cross-reference the footer visibility gate and
   document host responsibilities (terminalize runs; zero-block settled turns render no footer).
+- **2026-07-02** — Review follow-up 2: zero-affordance early return — `MessageFooter` renders
+  nothing at all when it has no copyable (non-whitespace) text, no action callbacks, and no
+  renderable metrics; whitespace-only `copyText` is treated as empty (`copyText.trim()` gate),
+  while the raw text remains the copied value.
 
 ## References
 

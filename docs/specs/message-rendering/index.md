@@ -316,6 +316,9 @@ scope** and MUST NOT appear in this package.
   `MessageLog` terms, `isStreaming && message.id === streamingMessageId`) or when the message
   has ZERO blocks (e.g. a just-created streaming placeholder). The footer affordances are
   completion actions; they render only once the assistant turn has settled and has content.
+  The footer also renders NOTHING when it has no renderable affordances or metrics to show —
+  no copyable (non-whitespace) text, no action callbacks, and no renderable metrics — so a
+  settled turn with nothing actionable gets no empty footer chrome.
 - **Host responsibilities:** hosts MUST eventually clear `isStreaming`/`streamingMessageId`
   (terminalize runs, including on error) — a permanently-active message never shows a footer,
   by design. Likewise, a turn that settles with ZERO blocks renders no footer, so a host that
