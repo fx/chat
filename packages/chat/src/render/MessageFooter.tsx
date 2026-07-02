@@ -1,10 +1,12 @@
 /**
  * `MessageFooter` — per-message affordances and metrics.
  *
- * Copy is always AVAILABLE — it needs no host callback (registry `CopyButton`)
- * — whereas regenerate, fork, and reset are available only when their callbacks
- * are provided. In the default (non-compact) layout the controls render inline
- * with their text labels and the metrics line.
+ * Copy is available whenever the message has copyable text — it needs no host
+ * callback (registry `CopyButton`) but renders only when `copyText` is a
+ * non-empty string (a tool-call-only turn has nothing to copy). Regenerate,
+ * fork, and reset are available only when their callbacks are provided. In the
+ * default (non-compact) layout the controls render inline with their text
+ * labels and the metrics line.
  *
  * In COMPACT mode the action buttons (Copy/Regenerate/Fork/Reset) are ALWAYS
  * visible but ICON-ONLY, sitting next to a kebab (`dotsThree`) toggle. The kebab
@@ -22,7 +24,7 @@ import { formatDuration, formatTokensPerSecond } from './format'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
-  /** The text to copy (whole message text). */
+  /** The text to copy (whole message text). Empty → the copy control is omitted. */
   copyText: string
   /** Optional regenerate callback; its control renders only when provided. */
   onRegenerate?: () => void
@@ -115,11 +117,13 @@ export function MessageFooter({
           <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
         </Button>
       ) : null}
-      <CopyButton
-        value={copyText}
-        aria-label="Copy message"
-        className={cx('chat-footer-copy', cn.footerCopy)}
-      />
+      {copyText ? (
+        <CopyButton
+          value={copyText}
+          aria-label="Copy message"
+          className={cx('chat-footer-copy', cn.footerCopy)}
+        />
+      ) : null}
       {onRegenerate ? (
         <Button
           className={cx('chat-footer-regenerate', cn.footerRegenerate)}

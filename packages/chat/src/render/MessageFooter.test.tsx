@@ -6,9 +6,20 @@ import type { PartialChatComponents } from '../registry'
 import { MessageFooter } from './MessageFooter'
 
 describe('MessageFooter affordances', () => {
-  it('always renders copy', () => {
+  it('renders copy when copyText is non-empty (no host callback needed)', () => {
     render(<MessageFooter copyText="hi" />)
     expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+  })
+
+  it('omits copy when copyText is empty; other affordances still render', () => {
+    // A tool-call-only assistant turn has an empty copy payload — a Copy button
+    // that copies '' is a papercut, so the control is gated on non-empty text.
+    const onRegenerate = vi.fn()
+    render(<MessageFooter copyText="" onRegenerate={onRegenerate} />)
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    // The footer still renders the callback-driven affordances.
+    fireEvent.click(screen.getByLabelText('Regenerate'))
+    expect(onRegenerate).toHaveBeenCalledTimes(1)
   })
 
   it('renders regenerate only when onRegenerate is provided', () => {

@@ -103,6 +103,17 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
+  it('renders the footer WITHOUT a Copy button for a tool-call-only assistant turn', () => {
+    // The turn has settled with blocks (footer renders), but none of them is a
+    // text block, so the copy payload is empty — the Copy control is omitted.
+    const msg = message({
+      blocks: [{ type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' }],
+    })
+    const { container } = render(<MessageItem message={msg} />)
+    expect(container.querySelector('.chat-footer')).not.toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
   it('renders NO footer while the message is actively streaming (isActive)', () => {
     const { container } = render(<MessageItem message={message()} isActive />)
     expect(container.querySelector('.chat-footer')).toBeNull()
