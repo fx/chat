@@ -14,12 +14,41 @@ describe('MessageFooter affordances', () => {
   it('omits copy when copyText is empty; other affordances still render', () => {
     // A tool-call-only assistant turn has an empty copy payload — a Copy button
     // that copies '' is a papercut, so the control is gated on non-empty text.
-    const onRegenerate = vi.fn()
-    render(<MessageFooter copyText="" onRegenerate={onRegenerate} />)
+    render(<MessageFooter copyText="" onRegenerate={vi.fn()} />)
     expect(screen.queryByLabelText('Copy message')).toBeNull()
     // The footer still renders the callback-driven affordances.
-    fireEvent.click(screen.getByLabelText('Regenerate'))
-    expect(onRegenerate).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
+  })
+
+  it('omits copy when copyText is whitespace-only', () => {
+    // Whitespace-only payloads are as uncopyable as empty ones.
+    render(<MessageFooter copyText={'\n\n'} onRegenerate={vi.fn()} />)
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
+  })
+
+  it('renders NOTHING when there is no copy text, no callbacks, and no metrics', () => {
+    // Zero affordances and zero metrics → no footer chrome at all.
+    const { container } = render(<MessageFooter copyText="" metrics={{}} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders the footer for a lone fork callback with no copy text', () => {
+    render(<MessageFooter copyText="" onFork={vi.fn()} />)
+    expect(screen.getByLabelText('Fork')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders the footer for a lone reset callback with no copy text', () => {
+    render(<MessageFooter copyText="" onReset={vi.fn()} />)
+    expect(screen.getByLabelText('Reset')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders the footer for metrics alone with no copy text or callbacks', () => {
+    render(<MessageFooter copyText="" metrics={{ durationMs: 1000 }} />)
+    expect(screen.getByTestId('chat-footer-metrics').textContent).toBe('1.0s')
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
   it('renders regenerate only when onRegenerate is provided', () => {

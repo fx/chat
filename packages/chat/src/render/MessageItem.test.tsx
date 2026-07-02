@@ -103,14 +103,27 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
-  it('renders the footer WITHOUT a Copy button for a tool-call-only assistant turn', () => {
-    // The turn has settled with blocks (footer renders), but none of them is a
-    // text block, so the copy payload is empty — the Copy control is omitted.
+  it('renders NO footer for a tool-call-only assistant turn with no callbacks or metrics', () => {
+    // The turn has settled with blocks, but none of them is a text block, so
+    // the copy payload is empty — and with no action callbacks or metrics the
+    // footer has NOTHING to show, so no footer chrome renders at all.
     const msg = message({
       blocks: [{ type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' }],
     })
     const { container } = render(<MessageItem message={msg} />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Copy message')).toBeNull()
+  })
+
+  it('renders the footer WITHOUT a Copy button for a tool-call-only turn with onRegenerate', () => {
+    // With an action callback the footer renders (there is an affordance to
+    // show), but the empty copy payload still omits the Copy control.
+    const msg = message({
+      blocks: [{ type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' }],
+    })
+    const { container } = render(<MessageItem message={msg} onRegenerate={() => {}} />)
     expect(container.querySelector('.chat-footer')).not.toBeNull()
+    expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
@@ -390,7 +403,9 @@ describe('MessageItem', () => {
         { type: 'tool_call', id: 't1', name: 'search', arguments: {}, status: 'success' },
       ],
     })
-    const { container } = render(<MessageItem message={msg} minimal flat />)
+    // onRegenerate keeps the footer rendered (a tool-call-only turn with zero
+    // affordances renders no footer at all) so the compact check stays meaningful.
+    const { container } = render(<MessageItem message={msg} minimal flat onRegenerate={() => {}} />)
     // Flat: no grouping, so no collapsed group and the tool name shows directly.
     expect(container.querySelector('.chat-group')).toBeNull()
     expect(screen.getByText('search')).toBeInTheDocument()

@@ -2,11 +2,15 @@
  * `MessageFooter` — per-message affordances and metrics.
  *
  * Copy is available whenever the message has copyable text — it needs no host
- * callback (registry `CopyButton`) but renders only when `copyText` is a
- * non-empty string (a tool-call-only turn has nothing to copy). Regenerate,
- * fork, and reset are available only when their callbacks are provided. In the
- * default (non-compact) layout the controls render inline with their text
- * labels and the metrics line.
+ * callback (registry `CopyButton`) but renders only when `copyText` has
+ * non-whitespace content (a tool-call-only turn has nothing to copy).
+ * Regenerate, fork, and reset are available only when their callbacks are
+ * provided. In the default (non-compact) layout the controls render inline
+ * with their text labels and the metrics line.
+ *
+ * The footer renders NOTHING at all when it has no affordances or metrics to
+ * show — no copyable text, no action callbacks, and no renderable metrics —
+ * so a message with nothing actionable gets no empty footer chrome.
  *
  * In COMPACT mode the action buttons (Copy/Regenerate/Fork/Reset) are ALWAYS
  * visible but ICON-ONLY, sitting next to a kebab (`dotsThree`) toggle. The kebab
@@ -24,7 +28,7 @@ import { formatDuration, formatTokensPerSecond } from './format'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
-  /** The text to copy (whole message text). Empty → the copy control is omitted. */
+  /** The text to copy (whole message text). Empty/whitespace-only → the copy control is omitted. */
   copyText: string
   /** Optional regenerate callback; its control renders only when provided. */
   onRegenerate?: () => void
@@ -89,6 +93,16 @@ export function MessageFooter({
   const ForkIcon = icons.fork
   const ResetIcon = icons.reset
 
+  // Copy is gated on non-whitespace content: a whitespace-only payload is as
+  // uncopyable as an empty one. The raw `copyText` remains the copied value.
+  const showCopy = copyText.trim().length > 0
+
+  // Nothing to show at all — no copyable text, no action callbacks, and no
+  // renderable metrics — so render no footer chrome whatsoever.
+  if (!showCopy && !onRegenerate && !onFork && !onReset && !hasMetricsContent(metrics)) {
+    return null
+  }
+
   // Text labels for the action buttons show inline in the default layout, and in
   // compact mode only once the kebab reveals them. The buttons (icon) themselves
   // are ALWAYS visible in both modes.
@@ -117,7 +131,7 @@ export function MessageFooter({
           <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
         </Button>
       ) : null}
-      {copyText ? (
+      {showCopy ? (
         <CopyButton
           value={copyText}
           aria-label="Copy message"
