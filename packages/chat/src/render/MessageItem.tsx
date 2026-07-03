@@ -130,13 +130,15 @@ export function MessageItem({
   const cn = useChatClassNames()
   // Only the trailing block of an active message is the streaming one.
   const trailingBlock = message.blocks[message.blocks.length - 1]
-  // Tokens/sec for the render context. While ACTIVE, a live estimate ticks from
-  // the message's text+reasoning content (≈4 chars/token) over elapsed time
-  // since `createdAt`, min-elapsed-guarded so tiny windows yield nothing. Once
-  // complete, the hook's finalized precedence — provider `tokensPerSecond`,
-  // else `usage.completion` over `durationMs` — reproduces the static
-  // derivation this replaced, so completed rendering is unchanged. (The footer
-  // reads `message.metrics` directly and never sees a live value.)
+  // Tokens/sec for the render context. While ACTIVE, the hook prefers an
+  // explicit provider `metrics.tokensPerSecond` (same as after completion) and
+  // only falls back to the live estimate — the message's text+reasoning
+  // content (≈4 chars/token) over elapsed time since `createdAt`,
+  // min-elapsed-guarded so tiny windows yield nothing — when no provider rate
+  // is available. Once complete, the finalized precedence — provider
+  // `tokensPerSecond`, else `usage.completion` over `durationMs` — reproduces
+  // the static derivation this replaced, so completed rendering is unchanged.
+  // (The footer reads `message.metrics` directly and never sees a live value.)
   // `tokenCount` is a LIVE-ONLY input: the hook's inactive branch never reads
   // it, so skip the content walk entirely for settled messages instead of
   // re-counting characters on every transcript re-render.

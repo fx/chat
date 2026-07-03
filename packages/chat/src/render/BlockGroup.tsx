@@ -117,13 +117,8 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   // when this group is itself active OR the whole message has settled — a
   // FINISHED group inside a still-streaming message must not churn with the
   // live estimate (jitter, stall decay, a snap at finalize).
-  const tokensPerSecond = summaryIsStatus
-    ? isActive
-      ? context.tokensPerSecond
-      : undefined
-    : isActive || !context.isActive
-      ? context.tokensPerSecond
-      : undefined
+  const showRate = summaryIsStatus ? isActive : isActive || !context.isActive
+  const tokensPerSecond = showRate ? context.tokensPerSecond : undefined
 
   // The `(+N)` hidden-count renders as plain muted text right after the
   // disclosure caret and BEFORE the kind icon/label (reference order), via
