@@ -94,9 +94,9 @@ function positiveTimestamp(value: number | undefined): number | undefined {
 
 /**
  * Resolve the timestamp for a single rendered block, preferring a block-level
- * timestamp (`startedAt`, currently carried by `tool_call` blocks) when finite
- * and positive. Returns `undefined` when the block carries none, so the caller
- * falls back to the message `createdAt`.
+ * timestamp (`startedAt`, carried by `tool_call` and `reasoning` blocks) when
+ * finite and positive. Returns `undefined` when the block carries none, so the
+ * caller falls back to the message `createdAt`.
  */
 function blockTimestamp(block: RenderableBlock): number | undefined {
   const startedAt = (block as { startedAt?: number }).startedAt

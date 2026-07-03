@@ -167,6 +167,25 @@ describe('ReasoningBlockView', () => {
     expect(timer.textContent).toBe('0.1s')
   })
 
+  it('anchors the live timer at the block startedAt over the message-level prop', () => {
+    // Reasoning that follows earlier turn activity (e.g. tool calls) carries
+    // its own startedAt; the pill ticks from when the THINKING began, not from
+    // the message-level anchor passed as the prop fallback.
+    vi.setSystemTime(2000)
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', startedAt: 1000 }
+    const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('1.0s')
+  })
+
+  it('falls back to the message-level startedAt when the block carries none', () => {
+    vi.setSystemTime(2000)
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think' }
+    const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('2.0s')
+  })
+
   it('shows NO timer pill once finished (the label embeds the duration)', () => {
     const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', durationMs: 2500 }
     const { container } = render(<ReasoningBlockView block={block} />)

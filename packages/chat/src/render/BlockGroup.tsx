@@ -93,18 +93,22 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   // Other summaries follow `summary.showTimer`: an ACTIVE reasoning summary
   // sets it — its "Thinking…" label carries no duration, and with
   // `summary.durationMs` undefined while active, CollapsibleRow's
-  // useElapsedTimer ticks live from `context.startedAt`. Finished
+  // useElapsedTimer ticks live from the timer anchor below. Finished
   // reasoning/tool summaries keep it false — their bare renderers show no
   // timer pill, and the reasoning "Thought for <dur>" label already embeds the
   // duration, so a separate pill would duplicate it.
-  // tok/s: the status summary shows the live rate; a reasoning/tool summary
-  // shows the message-level rate (live while active, finalized once complete)
-  // so the collapsed header still carries the same `N tok/s` pill the
-  // reference renders (independent of the timer).
   const showTimer = summaryIsStatus || summary.showTimer
   const durationMs = summaryIsStatus ? context.durationMs : summary.durationMs
-  // Status summary: live tok/s only while active (unchanged). Reasoning/tool
-  // summary: the message-level finalized tok/s so the pill matches the reference.
+  // Timer anchor: a reasoning summary prefers its block-level `startedAt`
+  // (reasoning that follows earlier tool activity ticks from when the thinking
+  // began, mirroring the bare ReasoningBlockView), falling back to the
+  // message-level `context.startedAt` when the block carries none.
+  const startedAt =
+    (summaryBlock.type === 'reasoning'
+      ? (summaryBlock as Extract<ContentBlock, { type: 'reasoning' }>).startedAt
+      : undefined) ?? context.startedAt
+  // tok/s: the status summary shows the live rate only while active
+  // (unchanged). A reasoning/tool summary shows the message-level rate.
   const tokensPerSecond = summaryIsStatus
     ? isActive
       ? context.tokensPerSecond
@@ -131,7 +135,7 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       {...(prefix ? { prefix } : {})}
       {...(summary.iconName ? { iconName: summary.iconName } : {})}
       isActive={isActive}
-      startedAt={context.startedAt}
+      startedAt={startedAt}
       showTimer={showTimer}
       {...(showTimer && durationMs !== undefined ? { durationMs } : {})}
       {...(tokensPerSecond !== undefined ? { tokensPerSecond } : {})}

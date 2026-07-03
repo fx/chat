@@ -19,7 +19,12 @@ export interface ReasoningBlockViewProps {
   block: ReasoningBlock
   /** Whether this reasoning is actively streaming. */
   isActive?: boolean | undefined
-  /** Epoch-ms start for the live timer while active. */
+  /**
+   * Message-level epoch-ms fallback anchor for the live timer while active.
+   * The block's OWN `startedAt` wins when present, so reasoning that follows
+   * earlier turn activity (e.g. tool calls) ticks from when the thinking
+   * began, not from when the message did.
+   */
   startedAt?: number | undefined
   /** Default-open state (e.g. driven by a verbose toggle). */
   defaultOpen?: boolean | undefined
@@ -49,7 +54,9 @@ export function ReasoningBlockView({
       label={summary.label}
       iconName="brain"
       isActive={isActive}
-      startedAt={startedAt}
+      // Timer anchor: prefer the block's own start (reasoning after earlier
+      // tool activity), falling back to the message-level anchor.
+      startedAt={block.startedAt ?? startedAt}
       durationMs={block.durationMs}
       showTimer={summary.showTimer}
       defaultOpen={defaultOpen}

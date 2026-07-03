@@ -196,6 +196,39 @@ describe('BlockGroup', () => {
     expect(within(header).queryByText(/tok\/s/)).toBeNull()
   })
 
+  it('anchors an active reasoning summary timer at the block startedAt when present', () => {
+    // Turn shape [tools … → reasoning]: the reasoning began at 1000ms, well
+    // after the message start (context.startedAt 0). At t=2000 the timer must
+    // read 1.0s (since the THINKING began), not 2.0s (since the message did).
+    vi.setSystemTime(2000)
+    const blocks: ContentBlock[] = [
+      tool('t1'),
+      { type: 'reasoning', id: 'r', text: 'r', startedAt: 1000 },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('1.0s')
+  })
+
+  it('falls back to context.startedAt for a reasoning summary without its own startedAt', () => {
+    vi.setSystemTime(2000)
+    const blocks = [tool('t1'), reasoning('r')]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('2.0s')
+  })
+
   it('renders the (+N) count as a prefix right after the caret, before the kind icon', () => {
     // Reference collapsed header order: [caret] [(+N)] [brain icon] [label] …
     // The (+N) text is CollapsibleRow's `prefix` slot, so within the header it
