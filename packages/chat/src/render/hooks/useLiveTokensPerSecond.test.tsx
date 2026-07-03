@@ -50,6 +50,18 @@ describe('useLiveTokensPerSecond', () => {
     expect(value()).toBe('42.00')
   })
 
+  it('caches an active provider rate as the finalized fallback (pill survives finalize)', () => {
+    // A provider-rate-only stream (no content worth estimating) that finalizes
+    // with metrics carrying NO rate/usage/duration must keep the last known
+    // provider rate — the active branch caches it like the estimate path does.
+    vi.setSystemTime(100)
+    const { rerender } = render(<Probe isActive startedAt={0} metrics={{ tokensPerSecond: 42 }} />)
+    expect(value()).toBe('42.00')
+    // Finalize with metrics that preserve no rate at all.
+    rerender(<Probe isActive={false} startedAt={0} metrics={{}} />)
+    expect(value()).toBe('42.00')
+  })
+
   it('falls through to the estimate for a non-positive provider rate while active', () => {
     vi.setSystemTime(2000)
     const metrics: MessageMetrics = { tokensPerSecond: 0 }

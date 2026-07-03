@@ -132,6 +132,11 @@ touching finalized output.
   over the live estimate while active (usage/durationMs finalized-only). Accepted: the 300ms
   guard and active-provider precedence are behavior changes to the published hook; the
   cached last-live finalized fallback is intended and history-dependent by design.
+- **2026-07-03** — CodeRabbit follow-up: the active branch caches the provider rate as the
+  last-live snapshot before returning it, so a provider-rate-only stream that finalizes with
+  metrics carrying no rate/usage/duration keeps the last known rate instead of dropping the
+  pill at finalize — the documented brief-transition cover now holds for provider-fed streams
+  too.
 
 ## References
 

@@ -14,7 +14,8 @@
  * order:
  *   1. a provider-reported `metrics.tokensPerSecond`,
  *   2. a value derived from `metrics.usage.completion` over `metrics.durationMs`,
- *   3. the last live estimate captured at the active → inactive transition.
+ *   3. the last live value captured while active (the estimate, or a
+ *      mid-turn provider rate the active branch surfaced).
  *
  * The fallback (3) is a CACHED snapshot, not a recomputation against
  * `Date.now()`, so a completed message's displayed rate stays fixed across
@@ -110,8 +111,14 @@ export function useLiveTokensPerSecond({
   // While ACTIVE, an explicit positive provider rate beats the chars/elapsed
   // estimate (and needs neither a clock anchor nor the min-elapsed window).
   // usage/durationMs stay finalized-only and are NOT consulted here.
+  // Cache it as the last-live snapshot too (like the estimate path below): a
+  // provider-rate-only stream that finalizes with metrics carrying NO rate
+  // then keeps the last known value instead of dropping the pill at finalize.
   const provided = positive(metrics?.tokensPerSecond)
-  if (provided !== undefined) return provided
+  if (provided !== undefined) {
+    lastLive.current = provided
+    return provided
+  }
   if (startedAt === undefined) return undefined
   const elapsedMs = Date.now() - startedAt
   // Min-elapsed guard, BEFORE the estimate computation: a sub-300ms window must
