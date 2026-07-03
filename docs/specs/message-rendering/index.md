@@ -470,7 +470,10 @@ union and **without** forking the renderers. Extension is registry/prop-driven a
   per-kind `{ auxEligible, eligibleForHeaderSummary }` flags alongside its renderer; absent
   flags, the kind is treated as non-aux and not header-eligible. Tool-call overrides MUST
   inherit the existing `tool_call` grouping behavior (aux-eligible, header-eligible) unless the
-  host overrides those flags for that tool.
+  host overrides those flags for that tool. When a custom block heads a collapsed header, the
+  summary label MUST prefer the block's OPTIONAL host-supplied `label` field when it is a
+  non-empty string, and MUST fall back to the raw `type` string otherwise (empty-string,
+  non-string, or absent `label`).
 - All extension points MUST be SSR-safe and MUST NOT introduce a runtime dependency. The core
   union, the default renderers, and the grouping policy MUST be unchanged for non-extended use.
 
@@ -689,3 +692,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-07-02 | Tenth-second timers: `formatDuration` drops the `<1s` floor (sub-second renders as tenths, `0.0s`–`0.9s`); `useElapsedTimer` default tick 1000ms → 100ms so live pills count up in tenths matching display precision | [0015-timer-tenths](../../changes/0015-timer-tenths.md) |
 | 2026-07-03 | Live reasoning timer & tokens/sec: an ACTIVE reasoning block shows a live ticking timer pill on both the collapsed group header and the bare row (`summarizeBlock` `showTimer` is the single source of truth; finished reasoning keeps no pill — the label embeds the duration); `MessageItem` feeds a live context tokens/sec via `useLiveTokensPerSecond` + `approxTokenCount` (text+reasoning chars ÷ 4) with a 300ms min-elapsed guard, finalized precedence unchanged (footer still reads `message.metrics` directly); `deriveTokensPerSecond` removed | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
 | 2026-07-03 | Correctness review fixes: reasoning timers anchor at the block-level `startedAt` (new model field, host `reasoningStartedAt`) with message-level fallback; `summarizeBlock` owns the durationMs finished-gate (stale `isActive` never yields "Thinking…"); non-status group headers show tok/s only when the group is active or the message settled (no live churn on finished groups); provider `metrics.tokensPerSecond` wins over the live estimate while active (usage/durationMs finalized-only); rates rounding to `0.0 tok/s` render nothing; live pills require a finite clock anchor | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
+| 2026-07-03 | Custom-block summary label: `CustomBlock` gains an OPTIONAL typed `label?: string`; when a custom block heads a collapsed header, `summarizeBlock` prefers the host-supplied non-empty string `label` over the raw `type` (empty-string/non-string/absent fall back to `type` unchanged) | [0017-custom-block-summary-label](../../changes/0017-custom-block-summary-label.md) |

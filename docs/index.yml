@@ -140,3 +140,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0004", "0015"]
+  - id: "0017"
+    name: custom-block-summary-label
+    path: changes/0017-custom-block-summary-label.md
+    description: Custom-block summary label — CustomBlock gains an optional typed label field; summarizeBlock prefers a host-supplied non-empty string label over the raw type when a custom block heads a collapsed header (empty/non-string/absent fall back to type)
+    spec: message-rendering
+    status: complete
+    depends_on: ["0007"]
