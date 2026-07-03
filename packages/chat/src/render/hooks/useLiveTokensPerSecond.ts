@@ -2,12 +2,20 @@
  * `useLiveTokensPerSecond` — live tokens/second estimate during streaming with a
  * provider-preferred finalized value.
  *
- * While `isActive`, it ticks on an interval and estimates the rate from the
- * current `tokenCount` over the elapsed time since `startedAt`. Once the message
- * is complete it prefers, in order:
+ * While `isActive`, an explicit positive provider-reported
+ * `metrics.tokensPerSecond` wins outright (a host streaming accurate mid-turn
+ * rates beats the heuristic; `usage`/`durationMs` are finalized-only inputs
+ * and are NOT consulted while active). Otherwise it ticks on an interval and
+ * estimates the rate from the current `tokenCount` over the elapsed time since
+ * `startedAt` — but only once at least {@link MIN_LIVE_ELAPSED_MS} has
+ * elapsed: a handful of tokens over a tiny window extrapolates to a wildly
+ * inflated rate, so sub-300ms windows yield `undefined` and never enter the
+ * cached last-live snapshot. Once the message is complete it prefers, in
+ * order:
  *   1. a provider-reported `metrics.tokensPerSecond`,
  *   2. a value derived from `metrics.usage.completion` over `metrics.durationMs`,
- *   3. the last live estimate captured at the active → inactive transition.
+ *   3. the last live value captured while active (the estimate, or a
+ *      mid-turn provider rate the active branch surfaced).
  *
  * The fallback (3) is a CACHED snapshot, not a recomputation against
  * `Date.now()`, so a completed message's displayed rate stays fixed across
@@ -18,6 +26,14 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { MessageMetrics } from '../../model'
+
+/**
+ * Minimum elapsed ms since `startedAt` before a live estimate is produced.
+ * Below this, the sample window is too small to be meaningful — the first few
+ * tokens over a few milliseconds extrapolate to an absurd rate — so the hook
+ * returns `undefined` and does NOT cache anything.
+ */
+const MIN_LIVE_ELAPSED_MS = 300
 
 /** Input to {@link useLiveTokensPerSecond}. */
 export interface LiveTokensInput {
@@ -74,14 +90,19 @@ export function useLiveTokensPerSecond({
   // Snapshot of the most recent live estimate, captured while active so the
   // finalized fallback does not drift against an advancing wall clock.
   const lastLive = useRef<number | undefined>(undefined)
-  // Reset the cached estimate when a NEW stream begins (a different `startedAt`),
-  // so a later stream that never produces a derivable rate completes as
-  // `undefined` rather than showing the previous stream's stale rate.
+  // Reset the cached value when a NEW stream begins — a different `startedAt`,
+  // OR an inactive → active transition (a reused hook instance whose streams
+  // all omit `startedAt` would otherwise carry the previous stream's rate into
+  // the next finalized fallback) — so a later stream that never produces a
+  // derivable rate completes as `undefined` rather than showing the previous
+  // stream's stale rate.
   const prevStartedAt = useRef<number | undefined>(startedAt)
-  if (prevStartedAt.current !== startedAt) {
-    prevStartedAt.current = startedAt
+  const prevActive = useRef(isActive)
+  if (prevStartedAt.current !== startedAt || (isActive && !prevActive.current)) {
     lastLive.current = undefined
   }
+  prevStartedAt.current = startedAt
+  prevActive.current = isActive
 
   useEffect(() => {
     // Skip arming the ticker for a non-positive/non-finite interval, which the
@@ -92,8 +113,25 @@ export function useLiveTokensPerSecond({
   }, [isActive, intervalMs])
 
   if (!isActive) return finalizedRate(metrics, lastLive.current)
+  // While ACTIVE, an explicit positive provider rate beats the chars/elapsed
+  // estimate (and needs neither a clock anchor nor the min-elapsed window).
+  // usage/durationMs stay finalized-only and are NOT consulted here.
+  // Cache it as the last-live snapshot too (like the estimate path below): a
+  // provider-rate-only stream that finalizes with metrics carrying NO rate
+  // then keeps the last known value instead of dropping the pill at finalize.
+  const provided = positive(metrics?.tokensPerSecond)
+  if (provided !== undefined) {
+    lastLive.current = provided
+    return provided
+  }
   if (startedAt === undefined) return undefined
-  const live = estimate(tokenCount, Date.now() - startedAt)
+  const elapsedMs = Date.now() - startedAt
+  // Min-elapsed guard, BEFORE the estimate computation: a sub-300ms window must
+  // never produce an estimate NOR populate the cached last-live snapshot, so an
+  // inflated early rate can neither render live nor leak into the finalized
+  // fallback.
+  if (elapsedMs < MIN_LIVE_ELAPSED_MS) return undefined
+  const live = estimate(tokenCount, elapsedMs)
   // Only cache a valid (defined) estimate so a transient gap in `tokenCount`
   // does not erase the last good rate used as the finalized fallback.
   if (live !== undefined) lastLive.current = live

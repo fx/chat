@@ -84,6 +84,12 @@ export interface ReasoningBlock {
   type: 'reasoning'
   id: string
   text: string
+  /**
+   * Epoch-ms timestamp the reasoning began, when known. Anchors the live
+   * "Thinking…" timer for reasoning that follows earlier turn activity (e.g.
+   * tool calls); when absent, renderers fall back to the message-level start.
+   */
+  startedAt?: number
   durationMs?: number
 }
 

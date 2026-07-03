@@ -1,7 +1,9 @@
 /**
  * `ReasoningBlockView` — a collapsible "thinking" block.
  *
- * The header reads "Thinking…" while active, else "Thought for <dur>" using the
+ * The header reads "Thinking…" with a live ticking timer pill while active
+ * (the label carries no duration, so the pill surfaces the elapsed time), else
+ * "Thought for <dur>" — which embeds the duration, so no pill — using the
  * human-readable reasoning-duration formatter. The body renders the reasoning
  * text through the registry `Markdown` slot (reasoning is model-authored prose,
  * so it gets the same Markdown treatment as assistant answers).
@@ -11,13 +13,20 @@ import type { ReasoningBlock } from '../../model'
 import { useChatClassNames, useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
 import { summarizeBlock } from '../blockSummary'
+import { positiveTimestamp } from '../format'
 
 /** Props for {@link ReasoningBlockView}. */
 export interface ReasoningBlockViewProps {
   block: ReasoningBlock
   /** Whether this reasoning is actively streaming. */
   isActive?: boolean | undefined
-  /** Epoch-ms start for the live timer while active. */
+  /**
+   * Message-level epoch-ms fallback anchor for the live timer while active.
+   * The block's OWN `startedAt` wins when present AND usable (finite,
+   * positive — see `positiveTimestamp`), so reasoning that follows earlier
+   * turn activity (e.g. tool calls) ticks from when the thinking began, not
+   * from when the message did; an unusable block value falls back here.
+   */
   startedAt?: number | undefined
   /** Default-open state (e.g. driven by a verbose toggle). */
   defaultOpen?: boolean | undefined
@@ -32,20 +41,28 @@ export function ReasoningBlockView({
 }: ReasoningBlockViewProps) {
   const { Markdown } = useChatComponents()
   const cn = useChatClassNames()
-  // Label + icon precedence comes from the shared `summarizeBlock` helper so the
-  // bare view and the collapsed `BlockGroup` summary cannot drift: actively
-  // streaming → "Thinking…"; completed with a known duration → "Thought for
-  // <dur>"; completed without timing data → a neutral "Reasoning".
+  // Label + icon + timer precedence comes from the shared `summarizeBlock`
+  // helper so the bare view and the collapsed `BlockGroup` summary cannot
+  // drift: actively streaming → "Thinking…" WITH a live timer pill
+  // (`showTimer`; `block.durationMs` is undefined while active, so the pill
+  // ticks from `startedAt`); completed with a known duration → "Thought for
+  // <dur>" and no pill (the label embeds the duration); completed without
+  // timing data → a neutral "Reasoning".
   // A reasoning block always carries the `brain` kind icon (per summarizeBlock),
   // so pass it unconditionally.
-  const { label } = summarizeBlock(block, { isActive })
+  const summary = summarizeBlock(block, { isActive })
   return (
     <CollapsibleRow
-      label={label}
+      label={summary.label}
       iconName="brain"
       isActive={isActive}
-      startedAt={startedAt}
+      // Timer anchor: prefer the block's own start (reasoning after earlier
+      // tool activity) only when it is a USABLE (finite, positive) timestamp,
+      // else fall back to the message-level anchor — a NaN/Infinity/
+      // non-positive block value must never defeat the fallback.
+      startedAt={positiveTimestamp(block.startedAt) ?? startedAt}
       durationMs={block.durationMs}
+      showTimer={summary.showTimer}
       defaultOpen={defaultOpen}
       alwaysShow
     >

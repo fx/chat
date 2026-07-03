@@ -61,6 +61,8 @@ export interface HostMessage {
   role: string
   content?: unknown
   reasoning?: string
+  /** Epoch-ms timestamp the reasoning began (mapped to the block `startedAt`). */
+  reasoningStartedAt?: number
   reasoningDurationMs?: number
   toolCalls?: HostToolCall[]
   /** Back-reference to the originating tool call (tool-role messages). */
@@ -257,6 +259,17 @@ export function normalizeMessage(input: HostMessage, mapping?: NormalizeMapping)
       type: 'reasoning',
       id: `${messageId}:reasoning`,
       text: input.reasoning,
+    }
+    // Silent-drop convention (the codec ignores what it can't use): a
+    // non-finite or non-positive reasoningStartedAt (NaN passes typeof
+    // checks) is garbage as an epoch anchor — omit it so it can never defeat
+    // the render layer's message-level timer fallback.
+    if (
+      input.reasoningStartedAt !== undefined &&
+      Number.isFinite(input.reasoningStartedAt) &&
+      input.reasoningStartedAt > 0
+    ) {
+      block.startedAt = input.reasoningStartedAt
     }
     if (input.reasoningDurationMs !== undefined) block.durationMs = input.reasoningDurationMs
     blocks.push(block)
@@ -605,6 +618,7 @@ function assertBlockPayload(block: Record<string, unknown>): void {
       return
     case 'reasoning':
       assertText(block)
+      assertOptionalNumber(block, 'startedAt', 'reasoning block startedAt must be a number')
       assertOptionalNumber(block, 'durationMs', 'reasoning block durationMs must be a number')
       return
     case 'system':

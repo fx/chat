@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ReasoningBlock,
@@ -150,6 +150,65 @@ describe('ReasoningBlockView', () => {
     const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think' }
     render(<ReasoningBlockView block={block} isActive startedAt={0} />)
     expect(screen.getByText('Thinking…')).toBeInTheDocument()
+  })
+
+  it('shows a live ticking timer pill while actively streaming', () => {
+    // "Thinking…" carries no duration, so the live pill surfaces the elapsed
+    // time, ticking from `startedAt` (block.durationMs is undefined while
+    // active, so useElapsedTimer runs live).
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think' }
+    const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('0.0s')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(timer.textContent).toBe('0.1s')
+  })
+
+  it('anchors the live timer at the block startedAt over the message-level prop', () => {
+    // Reasoning that follows earlier turn activity (e.g. tool calls) carries
+    // its own startedAt; the pill ticks from when the THINKING began, not from
+    // the message-level anchor passed as the prop fallback.
+    vi.setSystemTime(2000)
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', startedAt: 1000 }
+    const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('1.0s')
+  })
+
+  it('falls back to the message-level startedAt when the block carries none', () => {
+    vi.setSystemTime(2000)
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think' }
+    const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('2.0s')
+  })
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -5])(
+    'falls back to the message-level anchor for an unusable block startedAt (%s)',
+    (startedAt) => {
+      // A garbage block anchor (NaN passes type checks) must not defeat the
+      // valid message-level fallback — the pill still renders and ticks.
+      vi.setSystemTime(2000)
+      const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', startedAt }
+      const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+      const timer = container.querySelector('.chat-row-timer') as HTMLElement
+      expect(timer).not.toBeNull()
+      expect(timer.textContent).toBe('2.0s')
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      expect(timer.textContent).toBe('2.1s')
+    },
+  )
+
+  it('shows NO timer pill once finished (the label embeds the duration)', () => {
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', durationMs: 2500 }
+    const { container } = render(<ReasoningBlockView block={block} />)
+    expect(screen.getByText('Thought for 2.5s')).toBeInTheDocument()
+    expect(container.querySelector('.chat-row-timer')).toBeNull()
   })
 
   it('labels a completed durationless reasoning block "Reasoning" (not "Thinking…")', () => {

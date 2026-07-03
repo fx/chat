@@ -4,25 +4,38 @@ import { summarizeBlock } from './blockSummary'
 import type { RenderableBlock } from './extensions'
 
 describe('summarizeBlock', () => {
-  it('reasoning: brain icon + "Thinking…" while active, no timer pill', () => {
+  it('reasoning: brain icon + "Thinking…" while active, WITH a live timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
     expect(summarizeBlock(block, { isActive: true })).toEqual({
       iconName: 'brain',
       label: 'Thinking…',
-      // No timer pill — the bare ReasoningBlockView shows none, and the label
-      // (once completed) embeds the duration, so a pill would duplicate it.
-      showTimer: false,
+      // Live timer pill: the "Thinking…" label carries no duration, so the
+      // ticking pill surfaces the elapsed time while reasoning streams.
+      showTimer: true,
     })
   })
 
   it('reasoning: "Thought for <dur>" carries durationMs but NO timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't', durationMs: 1300 }
-    expect(summarizeBlock(block)).toEqual({
+    expect(summarizeBlock(block, { isActive: false })).toEqual({
       iconName: 'brain',
       label: 'Thought for 1.3s',
       durationMs: 1300,
       // durationMs is carried (callers may use it for the label/tooltip), but
       // showTimer is false: the "1.3s" already lives in the label.
+      showTimer: false,
+    })
+  })
+
+  it('reasoning: a known durationMs means FINISHED even when isActive is passed', () => {
+    // summarizeBlock owns the durationMs gate (single source of truth): a
+    // public caller passing a stale isActive with a finalized block still gets
+    // the finished label and NO live pill.
+    const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't', durationMs: 1300 }
+    expect(summarizeBlock(block, { isActive: true })).toEqual({
+      iconName: 'brain',
+      label: 'Thought for 1.3s',
+      durationMs: 1300,
       showTimer: false,
     })
   })
@@ -34,6 +47,15 @@ describe('summarizeBlock', () => {
       label: 'Reasoning',
       showTimer: false,
     })
+  })
+
+  it('reasoning: an OMITTED context defaults to inactive (pins the isActive === true gate)', () => {
+    const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
+    // No context arg at all, and an empty context object: both read inactive.
+    expect(summarizeBlock(block).showTimer).toBe(false)
+    expect(summarizeBlock(block).label).toBe('Reasoning')
+    expect(summarizeBlock(block, {}).showTimer).toBe(false)
+    expect(summarizeBlock(block, {}).label).toBe('Reasoning')
   })
 
   it('tool_call: wrench icon + tool name + block duration', () => {

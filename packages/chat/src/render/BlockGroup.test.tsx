@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ContentBlock } from '../model'
 import { BlockGroup } from './BlockGroup'
@@ -149,6 +149,127 @@ describe('BlockGroup', () => {
     expect(header.querySelector('.chat-row-timer')).toBeNull()
     // tok/s pill still surfaces on the collapsed header.
     expect(within(header).getByText('167.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('surfaces a live ticking timer + tok/s on an ACTIVE reasoning summary header', () => {
+    // The trailing reasoning is streaming, so the summary is the active
+    // reasoning ("Thinking…"). Its label carries no duration, so
+    // `summary.showTimer` surfaces a LIVE timer pill: `summary.durationMs` is
+    // undefined while active, so CollapsibleRow's useElapsedTimer ticks from
+    // `context.startedAt`. The message-level tok/s pill renders alongside it.
+    const blocks = [tool('t1'), reasoning('r')]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0, tokensPerSecond: 12 })}
+      />,
+    )
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('Thinking…')
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    const timer = header.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('0.0s')
+    // The pill TICKS: advancing the fake clock re-renders a larger elapsed.
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(timer.textContent).toBe('0.1s')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(timer.textContent).toBe('0.2s')
+    expect(within(header).getByText('12.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('shows an active reasoning summary timer even without a tok/s rate', () => {
+    // The timer pill is independent of the tok/s pill (e.g. before the live
+    // rate estimate crosses its min-elapsed window).
+    const blocks = [tool('t1'), reasoning('r')]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(header.querySelector('.chat-row-timer')).not.toBeNull()
+    expect(within(header).queryByText(/tok\/s/)).toBeNull()
+  })
+
+  it('anchors an active reasoning summary timer at the block startedAt when present', () => {
+    // Turn shape [tools … → reasoning]: the reasoning began at 1000ms, well
+    // after the message start (context.startedAt 0). At t=2000 the timer must
+    // read 1.0s (since the THINKING began), not 2.0s (since the message did).
+    vi.setSystemTime(2000)
+    const blocks: ContentBlock[] = [
+      tool('t1'),
+      { type: 'reasoning', id: 'r', text: 'r', startedAt: 1000 },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('1.0s')
+  })
+
+  it('falls back to context.startedAt for a reasoning summary without its own startedAt', () => {
+    vi.setSystemTime(2000)
+    const blocks = [tool('t1'), reasoning('r')]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer.textContent).toBe('2.0s')
+  })
+
+  it('falls back to context.startedAt for an UNUSABLE reasoning summary startedAt', () => {
+    // A garbage block anchor (NaN passes type checks; codec-bypassing hosts
+    // can produce it) must not defeat the valid message-level fallback.
+    vi.setSystemTime(2000)
+    const blocks: ContentBlock[] = [
+      tool('t1'),
+      { type: 'reasoning', id: 'r', text: 'r', startedAt: Number.NaN },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('2.0s')
+  })
+
+  it('hides tok/s on a FINISHED group header while the message is still active', () => {
+    // A settled reasoning run inside a still-streaming message must not churn
+    // with the live estimate (jitter, stall decay, a snap at finalize) — the
+    // pill returns once the whole message settles (pinned by the settled-message
+    // tok/s tests above).
+    const blocks: ContentBlock[] = [
+      { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
+      { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1300 },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        // Message active, but the active block lives elsewhere (this group idle).
+        context={ctx({ isActive: true, activeBlockId: 'other', startedAt: 0, tokensPerSecond: 9 })}
+      />,
+    )
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(within(header).queryByText(/tok\/s/)).toBeNull()
+    // The finished label still renders (no live churn, no stale "Thinking…").
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe(
+      'Thought for 1.3s',
+    )
   })
 
   it('renders the (+N) count as a prefix right after the caret, before the kind icon', () => {

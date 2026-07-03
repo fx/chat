@@ -133,3 +133,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0004"]
+  - id: "0016"
+    name: live-reasoning-timer-and-tokens
+    path: changes/0016-live-reasoning-timer-and-tokens.md
+    description: Live reasoning timer & tokens/sec — active reasoning shows a ticking timer pill on the group header and bare row (summarizeBlock showTimer); MessageItem feeds a live context tokens/sec via useLiveTokensPerSecond + approxTokenCount with a 300ms min-elapsed guard; finalized rendering unchanged; deriveTokensPerSecond removed
+    spec: message-rendering
+    status: complete
+    depends_on: ["0004", "0015"]

@@ -15,6 +15,7 @@ import { summarizeBlock } from './blockSummary'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock } from './extensions'
+import { positiveTimestamp } from './format'
 import { selectHeaderSummary } from './grouping'
 
 /** Props for {@link BlockGroup}. */
@@ -88,23 +89,36 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   // prefers a trailing active status as the summary (to keep the timer visible).
   const summaryIsStatus = summaryBlock.type === 'status'
 
-  // Timer: ONLY a status summary surfaces a timer pill (status labels don't
-  // embed the duration, so the pill carries it), using the message-level
-  // duration. Reasoning/tool summaries set `summary.showTimer === false` — their
-  // bare renderers show no timer pill, and the reasoning "Thought for <dur>"
-  // label already embeds the duration, so a separate pill would duplicate it.
-  // tok/s: the status summary shows the live rate; a reasoning/tool summary
-  // shows the message-level finalized rate so the collapsed header still carries
-  // the same `N tok/s` pill the reference renders (independent of the timer).
+  // Timer: a status summary surfaces a timer pill (status labels don't embed
+  // the duration, so the pill carries it), using the message-level duration.
+  // Other summaries follow `summary.showTimer`: an ACTIVE reasoning summary
+  // sets it — its "Thinking…" label carries no duration, and with
+  // `summary.durationMs` undefined while active, CollapsibleRow's
+  // useElapsedTimer ticks live from the timer anchor below. Finished
+  // reasoning/tool summaries keep it false — their bare renderers show no
+  // timer pill, and the reasoning "Thought for <dur>" label already embeds the
+  // duration, so a separate pill would duplicate it.
   const showTimer = summaryIsStatus || summary.showTimer
   const durationMs = summaryIsStatus ? context.durationMs : summary.durationMs
-  // Status summary: live tok/s only while active (unchanged). Reasoning/tool
-  // summary: the message-level finalized tok/s so the pill matches the reference.
-  const tokensPerSecond = summaryIsStatus
-    ? isActive
-      ? context.tokensPerSecond
-      : undefined
-    : context.tokensPerSecond
+  // Timer anchor: a reasoning summary prefers its block-level `startedAt`
+  // (reasoning that follows earlier tool activity ticks from when the thinking
+  // began, mirroring the bare ReasoningBlockView) — but only when it is a
+  // USABLE (finite, positive) timestamp — falling back to the message-level
+  // `context.startedAt` when the block carries none (or garbage: NaN/Infinity/
+  // non-positive must never defeat the fallback).
+  const startedAt =
+    positiveTimestamp(
+      summaryBlock.type === 'reasoning'
+        ? (summaryBlock as Extract<ContentBlock, { type: 'reasoning' }>).startedAt
+        : undefined,
+    ) ?? context.startedAt
+  // tok/s: the status summary shows the live rate only while active
+  // (unchanged). A reasoning/tool summary shows the message-level rate only
+  // when this group is itself active OR the whole message has settled — a
+  // FINISHED group inside a still-streaming message must not churn with the
+  // live estimate (jitter, stall decay, a snap at finalize).
+  const showRate = summaryIsStatus ? isActive : isActive || !context.isActive
+  const tokensPerSecond = showRate ? context.tokensPerSecond : undefined
 
   // The `(+N)` hidden-count renders as plain muted text right after the
   // disclosure caret and BEFORE the kind icon/label (reference order), via
@@ -126,7 +140,7 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       {...(prefix ? { prefix } : {})}
       {...(summary.iconName ? { iconName: summary.iconName } : {})}
       isActive={isActive}
-      startedAt={context.startedAt}
+      startedAt={startedAt}
       showTimer={showTimer}
       {...(showTimer && durationMs !== undefined ? { durationMs } : {})}
       {...(tokensPerSecond !== undefined ? { tokensPerSecond } : {})}

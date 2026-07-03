@@ -121,7 +121,12 @@ export function CollapsibleRow({
   }
 
   const hasBody = children != null && children !== false
-  const timerPill = showTimer && (isActive || durationMs !== undefined)
+  // The LIVE half of the pill condition requires a usable clock: an active row
+  // with no finite `startedAt` would render a permanently frozen "0.0s"
+  // (useElapsedTimer never arms its ticker for a non-finite anchor), so such a
+  // row renders no pill instead. A finalized `durationMs` always renders.
+  const timerPill =
+    showTimer && (durationMs !== undefined || (isActive && Number.isFinite(startedAt)))
   // Auto-hide: nothing to show and not forced.
   if (!alwaysShow && !isActive && !flash && !timerPill && !hasBody) return null
 

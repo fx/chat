@@ -36,8 +36,9 @@ import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock, RenderableMessage } from './extensions'
-import { createClockGutterDeduper, deriveTokensPerSecond } from './format'
+import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from './format'
 import { type GroupedItem, groupBlocks } from './grouping'
+import { useLiveTokensPerSecond } from './hooks'
 import { collapseTurnAux } from './minimalGrouping'
 
 /** Props for {@link MessageItem}. */
@@ -86,16 +87,11 @@ export function messageCopyText(message: RenderableMessage): string {
     .join('\n\n')
 }
 
-/** A finite, positive number, else `undefined`. */
-function positiveTimestamp(value: number | undefined): number | undefined {
-  return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
-}
-
 /**
  * Resolve the timestamp for a single rendered block, preferring a block-level
- * timestamp (`startedAt`, currently carried by `tool_call` blocks) when finite
- * and positive. Returns `undefined` when the block carries none, so the caller
- * falls back to the message `createdAt`.
+ * timestamp (`startedAt`, carried by `tool_call` and `reasoning` blocks) when
+ * finite and positive. Returns `undefined` when the block carries none, so the
+ * caller falls back to the message `createdAt`.
  */
 function blockTimestamp(block: RenderableBlock): number | undefined {
   const startedAt = (block as { startedAt?: number }).startedAt
@@ -134,13 +130,24 @@ export function MessageItem({
   const cn = useChatClassNames()
   // Only the trailing block of an active message is the streaming one.
   const trailingBlock = message.blocks[message.blocks.length - 1]
-  // Prefer a provider tokens/sec, else derive it from usage/duration so the pill
-  // appears for the common metrics shape that omits a precomputed rate.
-  const tokensPerSecond = deriveTokensPerSecond(
-    message.metrics?.tokensPerSecond,
-    message.metrics?.usage?.completion,
-    message.metrics?.durationMs,
-  )
+  // Tokens/sec for the render context. While ACTIVE, the hook prefers an
+  // explicit provider `metrics.tokensPerSecond` (same as after completion) and
+  // only falls back to the live estimate — the message's text+reasoning
+  // content (≈4 chars/token) over elapsed time since `createdAt`,
+  // min-elapsed-guarded so tiny windows yield nothing — when no provider rate
+  // is available. Once complete, the finalized precedence — provider
+  // `tokensPerSecond`, else `usage.completion` over `durationMs` — reproduces
+  // the static derivation this replaced, so completed rendering is unchanged.
+  // (The footer reads `message.metrics` directly and never sees a live value.)
+  // `tokenCount` is a LIVE-ONLY input: the hook's inactive branch never reads
+  // it, so skip the content walk entirely for settled messages instead of
+  // re-counting characters on every transcript re-render.
+  const tokensPerSecond = useLiveTokensPerSecond({
+    startedAt: message.createdAt,
+    isActive,
+    tokenCount: isActive ? approxTokenCount(message.blocks) : undefined,
+    metrics: message.metrics,
+  })
   const context: BlockRenderContext = {
     role: message.role,
     isActive,

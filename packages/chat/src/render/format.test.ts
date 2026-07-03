@@ -1,11 +1,29 @@
 import { describe, expect, it } from 'vitest'
+import type { ContentBlock } from '../model'
+import type { RenderableBlock } from './extensions'
 import {
+  approxTokenCount,
   createClockGutterDeduper,
-  deriveTokensPerSecond,
   formatClockTime,
   formatDuration,
   formatTokensPerSecond,
+  positiveTimestamp,
 } from './format'
+
+describe('positiveTimestamp', () => {
+  it('passes through a finite positive timestamp', () => {
+    expect(positiveTimestamp(1)).toBe(1)
+    expect(positiveTimestamp(1_700_000_000_000)).toBe(1_700_000_000_000)
+  })
+
+  it('normalizes undefined, non-finite, zero, and negative values to undefined', () => {
+    expect(positiveTimestamp(undefined)).toBeUndefined()
+    expect(positiveTimestamp(Number.NaN)).toBeUndefined()
+    expect(positiveTimestamp(Number.POSITIVE_INFINITY)).toBeUndefined()
+    expect(positiveTimestamp(0)).toBeUndefined()
+    expect(positiveTimestamp(-5)).toBeUndefined()
+  })
+})
 
 describe('formatDuration', () => {
   it('renders sub-second durations as tenths (no "<1s" floor)', () => {
@@ -54,25 +72,57 @@ describe('formatTokensPerSecond', () => {
     expect(formatTokensPerSecond(-1)).toBeUndefined()
     expect(formatTokensPerSecond(Number.NaN)).toBeUndefined()
   })
+
+  it('suppresses tiny positive rates that would round to "0.0" (boundary at 0.05)', () => {
+    // e.g. one token over a long stall on the live path: never "0.0 tok/s".
+    expect(formatTokensPerSecond(0.04)).toBeUndefined()
+    expect(formatTokensPerSecond(0.049)).toBeUndefined()
+    // At the rounding boundary the label becomes '0.1' and renders.
+    expect(formatTokensPerSecond(0.05)).toBe('0.1 tok/s')
+  })
 })
 
-describe('deriveTokensPerSecond', () => {
-  it('prefers a positive provider rate', () => {
-    expect(deriveTokensPerSecond(42, 100, 1000)).toBe(42)
+describe('approxTokenCount', () => {
+  it('returns undefined for an empty block list', () => {
+    expect(approxTokenCount([])).toBeUndefined()
   })
 
-  it('derives from completion over durationMs when no provider rate', () => {
-    expect(deriveTokensPerSecond(undefined, 30, 3000)).toBe(10)
+  it('sums text + reasoning character counts and divides by 4 (rounded)', () => {
+    const blocks: ContentBlock[] = [
+      { type: 'text', id: 't', text: 'a'.repeat(10) },
+      { type: 'reasoning', id: 'r', text: 'b'.repeat(11) },
+    ]
+    // 21 chars / 4 = 5.25 → rounds to 5.
+    expect(approxTokenCount(blocks)).toBe(5)
   })
 
-  it('ignores a non-positive provider rate and derives instead', () => {
-    expect(deriveTokensPerSecond(0, 30, 3000)).toBe(10)
+  it('ignores non-prose blocks (tool_call, status, system, custom)', () => {
+    const blocks: RenderableBlock[] = [
+      { type: 'tool_call', id: 'tc', name: 'search', arguments: {}, status: 'success' },
+      { type: 'status', id: 's' },
+      { type: 'system', id: 'sy', text: 'x'.repeat(400) },
+      { type: 'host_card', id: 'hc' } as unknown as RenderableBlock,
+      { type: 'text', id: 't', text: 'c'.repeat(8) },
+    ]
+    // Only the text block counts: 8 / 4 = 2.
+    expect(approxTokenCount(blocks)).toBe(2)
   })
 
-  it('returns undefined when nothing is derivable', () => {
-    expect(deriveTokensPerSecond(undefined, undefined, undefined)).toBeUndefined()
-    expect(deriveTokensPerSecond(undefined, 30, undefined)).toBeUndefined()
-    expect(deriveTokensPerSecond(undefined, undefined, 3000)).toBeUndefined()
+  it('returns undefined when the estimate rounds to 0 (no zero rates)', () => {
+    const blocks: ContentBlock[] = [{ type: 'text', id: 't', text: 'a' }]
+    // 1 char / 4 = 0.25 → rounds to 0 → undefined, not 0.
+    expect(approxTokenCount(blocks)).toBeUndefined()
+  })
+
+  it('tolerates a malformed text/reasoning block without a string text (no throw)', () => {
+    // A codec-bypassing host block missing its required `text` counts as zero
+    // characters instead of throwing mid-render.
+    const blocks = [
+      { type: 'reasoning', id: 'bad' } as unknown as RenderableBlock,
+      { type: 'text', id: 'worse', text: 42 } as unknown as RenderableBlock,
+      { type: 'text', id: 'ok', text: 'd'.repeat(8) } as unknown as RenderableBlock,
+    ]
+    expect(approxTokenCount(blocks)).toBe(2)
   })
 })
 
