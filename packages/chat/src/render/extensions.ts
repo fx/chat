@@ -30,10 +30,13 @@ export interface CustomBlock {
   /** Custom discriminant — any string that is not a core `ContentBlock` type. */
   type: string
   /**
-   * Optional human-readable summary label; used by the grouping header when
-   * this block heads a collapsed disclosure (falls back to `type`).
+   * Optional summary label. When a NON-BLANK STRING, the grouping header
+   * prefers it over the raw `type` when this block heads a collapsed
+   * disclosure; any other value is ignored (treated as absent). Typed
+   * `unknown` so hosts that already carry a non-string `label` payload keep
+   * compiling — the runtime guard in `blockSummary` narrows it.
    */
-  label?: string
+  label?: unknown
   /** Arbitrary host-defined payload. */
   [key: string]: unknown
 }
