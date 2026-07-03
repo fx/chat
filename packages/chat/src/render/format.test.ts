@@ -56,6 +56,14 @@ describe('formatTokensPerSecond', () => {
     expect(formatTokensPerSecond(-1)).toBeUndefined()
     expect(formatTokensPerSecond(Number.NaN)).toBeUndefined()
   })
+
+  it('suppresses tiny positive rates that would round to "0.0" (boundary at 0.05)', () => {
+    // e.g. one token over a long stall on the live path: never "0.0 tok/s".
+    expect(formatTokensPerSecond(0.04)).toBeUndefined()
+    expect(formatTokensPerSecond(0.049)).toBeUndefined()
+    // At the rounding boundary the label becomes '0.1' and renders.
+    expect(formatTokensPerSecond(0.05)).toBe('0.1 tok/s')
+  })
 })
 
 describe('approxTokenCount', () => {
@@ -88,6 +96,17 @@ describe('approxTokenCount', () => {
     const blocks: ContentBlock[] = [{ type: 'text', id: 't', text: 'a' }]
     // 1 char / 4 = 0.25 → rounds to 0 → undefined, not 0.
     expect(approxTokenCount(blocks)).toBeUndefined()
+  })
+
+  it('tolerates a malformed text/reasoning block without a string text (no throw)', () => {
+    // A codec-bypassing host block missing its required `text` counts as zero
+    // characters instead of throwing mid-render.
+    const blocks = [
+      { type: 'reasoning', id: 'bad' } as unknown as RenderableBlock,
+      { type: 'text', id: 'worse', text: 42 } as unknown as RenderableBlock,
+      { type: 'text', id: 'ok', text: 'd'.repeat(8) } as unknown as RenderableBlock,
+    ]
+    expect(approxTokenCount(blocks)).toBe(2)
   })
 })
 

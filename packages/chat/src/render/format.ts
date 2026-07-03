@@ -32,11 +32,16 @@ export function formatDuration(ms: number): string {
 
 /**
  * Format a tokens/second rate as `N.N tok/s`. Non-finite or non-positive
- * inputs yield `undefined` so callers render nothing rather than `0 tok/s`.
+ * inputs — and tiny positive rates that would ROUND to `0.0` (anything below
+ * 0.05, e.g. one token over a long stall on the live path) — yield `undefined`
+ * so callers render nothing rather than a zero rate.
  */
 export function formatTokensPerSecond(rate: number | undefined): string | undefined {
   if (rate === undefined || !Number.isFinite(rate) || rate <= 0) return undefined
-  return `${rate.toFixed(1)} tok/s`
+  const label = rate.toFixed(1)
+  // A positive rate in (0, 0.05) still formats as '0.0' — suppress it too.
+  if (label === '0.0') return undefined
+  return `${label} tok/s`
 }
 
 /**
@@ -95,12 +100,15 @@ export function createClockGutterDeduper(): (value: number | string | null | und
  * block kinds (tool calls, status, system, custom) carry no generated prose
  * and are ignored. Returns `undefined` when the estimate rounds to 0 (no
  * countable content) so callers treat it as "no data" rather than a zero rate.
+ * Robust to malformed (codec-bypassing) blocks: a text/reasoning-typed block
+ * without a string `text` counts as zero characters instead of throwing.
  */
 export function approxTokenCount(blocks: readonly RenderableBlock[]): number | undefined {
   let chars = 0
   for (const block of blocks) {
     if (block.type === 'text' || block.type === 'reasoning') {
-      chars += (block as Extract<ContentBlock, { type: 'text' | 'reasoning' }>).text.length
+      const { text } = block as Partial<Extract<ContentBlock, { type: 'text' | 'reasoning' }>>
+      if (typeof text === 'string') chars += text.length
     }
   }
   const tokens = Math.round(chars / 4)
