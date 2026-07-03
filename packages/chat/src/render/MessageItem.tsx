@@ -142,10 +142,13 @@ export function MessageItem({
   // else `usage.completion` over `durationMs` — reproduces the static
   // derivation this replaced, so completed rendering is unchanged. (The footer
   // reads `message.metrics` directly and never sees a live value.)
+  // `tokenCount` is a LIVE-ONLY input: the hook's inactive branch never reads
+  // it, so skip the content walk entirely for settled messages instead of
+  // re-counting characters on every transcript re-render.
   const tokensPerSecond = useLiveTokensPerSecond({
     startedAt: message.createdAt,
     isActive,
-    tokenCount: approxTokenCount(message.blocks),
+    tokenCount: isActive ? approxTokenCount(message.blocks) : undefined,
     metrics: message.metrics,
   })
   const context: BlockRenderContext = {
