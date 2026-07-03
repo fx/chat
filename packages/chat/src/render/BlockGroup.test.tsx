@@ -229,6 +229,30 @@ describe('BlockGroup', () => {
     expect(timer.textContent).toBe('2.0s')
   })
 
+  it('hides tok/s on a FINISHED group header while the message is still active', () => {
+    // A settled reasoning run inside a still-streaming message must not churn
+    // with the live estimate (jitter, stall decay, a snap at finalize) — the
+    // pill returns once the whole message settles (pinned by the settled-message
+    // tok/s tests above).
+    const blocks: ContentBlock[] = [
+      { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
+      { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1300 },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        // Message active, but the active block lives elsewhere (this group idle).
+        context={ctx({ isActive: true, activeBlockId: 'other', startedAt: 0, tokensPerSecond: 9 })}
+      />,
+    )
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(within(header).queryByText(/tok\/s/)).toBeNull()
+    // The finished label still renders (no live churn, no stale "Thinking…").
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe(
+      'Thought for 1.3s',
+    )
+  })
+
   it('renders the (+N) count as a prefix right after the caret, before the kind icon', () => {
     // Reference collapsed header order: [caret] [(+N)] [brain icon] [label] …
     // The (+N) text is CollapsibleRow's `prefix` slot, so within the header it

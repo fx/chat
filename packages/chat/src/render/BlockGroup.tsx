@@ -108,12 +108,17 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       ? (summaryBlock as Extract<ContentBlock, { type: 'reasoning' }>).startedAt
       : undefined) ?? context.startedAt
   // tok/s: the status summary shows the live rate only while active
-  // (unchanged). A reasoning/tool summary shows the message-level rate.
+  // (unchanged). A reasoning/tool summary shows the message-level rate only
+  // when this group is itself active OR the whole message has settled — a
+  // FINISHED group inside a still-streaming message must not churn with the
+  // live estimate (jitter, stall decay, a snap at finalize).
   const tokensPerSecond = summaryIsStatus
     ? isActive
       ? context.tokensPerSecond
       : undefined
-    : context.tokensPerSecond
+    : isActive || !context.isActive
+      ? context.tokensPerSecond
+      : undefined
 
   // The `(+N)` hidden-count renders as plain muted text right after the
   // disclosure caret and BEFORE the kind icon/label (reference order), via
