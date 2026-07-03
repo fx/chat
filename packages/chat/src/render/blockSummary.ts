@@ -39,12 +39,14 @@ export interface BlockSummaryContext {
  * Derive the {@link BlockSummary} for an auxiliary block. Mirrors each bare
  * renderer's label/icon precedence AND its timer behavior, so the group header
  * stays consistent with the bare block:
- * - reasoning → `brain`; active → "Thinking…", else duration → "Thought for
- *   <dur>", else "Reasoning"; carries `durationMs`. Timer pill ONLY while
- *   ACTIVE: the live "Thinking…" label carries no duration, so the ticking
- *   pill surfaces the elapsed time; once finished, the "Thought for <dur>"
- *   label already embeds the duration, so a separate pill would duplicate it.
- *   (The tok/s pill is added by `BlockGroup`, not here.)
+ * - reasoning → `brain`; active AND durationless → "Thinking…", else duration
+ *   → "Thought for <dur>", else "Reasoning"; carries `durationMs`. A known
+ *   `durationMs` means FINISHED regardless of `isActive` (the gate lives here,
+ *   the single source of truth). Timer pill ONLY while ACTIVE: the live
+ *   "Thinking…" label carries no duration, so the ticking pill surfaces the
+ *   elapsed time; once finished, the "Thought for <dur>" label already embeds
+ *   the duration, so a separate pill would duplicate it. (The tok/s pill is
+ *   added by `BlockGroup`, not here.)
  * - tool_call → `wrench`; label is the tool name; carries `durationMs`, but NO
  *   timer pill — the bare `ToolCallBlockView` renders none, so the group header
  *   matches it.
@@ -58,8 +60,15 @@ export function summarizeBlock(
   switch (block.type) {
     case 'reasoning': {
       const durationMs = (block as Extract<ContentBlock, { type: 'reasoning' }>).durationMs
+      // A reasoning block with a known duration is FINISHED regardless of the
+      // caller's active flag — the durationMs gate lives HERE (the single
+      // source of truth), so a public caller passing `isActive: true` with a
+      // finalized block still gets "Thought for <dur>" and no stale live
+      // pill. Internal callers' own durationMs gates (e.g. `blockIsActive`)
+      // are redundant but harmless.
+      const active = context.isActive === true && durationMs === undefined
       let label: string
-      if (context.isActive) {
+      if (active) {
         label = 'Thinking…'
       } else if (durationMs !== undefined) {
         label = `Thought for ${formatDuration(durationMs)}`
@@ -74,7 +83,7 @@ export function summarizeBlock(
         // the live pill ticks the elapsed time. Once finished, the "Thought
         // for <dur>" label already carries the duration, so a separate pill
         // would duplicate it.
-        showTimer: context.isActive === true,
+        showTimer: active,
       }
     }
     case 'tool_call': {

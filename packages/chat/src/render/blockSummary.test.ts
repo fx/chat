@@ -27,6 +27,19 @@ describe('summarizeBlock', () => {
     })
   })
 
+  it('reasoning: a known durationMs means FINISHED even when isActive is passed', () => {
+    // summarizeBlock owns the durationMs gate (single source of truth): a
+    // public caller passing a stale isActive with a finalized block still gets
+    // the finished label and NO live pill.
+    const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't', durationMs: 1300 }
+    expect(summarizeBlock(block, { isActive: true })).toEqual({
+      iconName: 'brain',
+      label: 'Thought for 1.3s',
+      durationMs: 1300,
+      showTimer: false,
+    })
+  })
+
   it('reasoning: neutral "Reasoning" when idle with no duration, no timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
     expect(summarizeBlock(block)).toEqual({
@@ -34,6 +47,15 @@ describe('summarizeBlock', () => {
       label: 'Reasoning',
       showTimer: false,
     })
+  })
+
+  it('reasoning: an OMITTED context defaults to inactive (pins the isActive === true gate)', () => {
+    const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
+    // No context arg at all, and an empty context object: both read inactive.
+    expect(summarizeBlock(block).showTimer).toBe(false)
+    expect(summarizeBlock(block).label).toBe('Reasoning')
+    expect(summarizeBlock(block, {}).showTimer).toBe(false)
+    expect(summarizeBlock(block, {}).label).toBe('Reasoning')
   })
 
   it('tool_call: wrench icon + tool name + block duration', () => {
