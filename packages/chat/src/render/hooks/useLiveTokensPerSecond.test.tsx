@@ -33,6 +33,35 @@ describe('useLiveTokensPerSecond', () => {
     expect(value()).toBe('2.50')
   })
 
+  it('returns none while active before 300ms has elapsed, even with tokens', () => {
+    // Sub-300ms sample windows extrapolate a handful of tokens into an absurd
+    // rate — the min-elapsed guard suppresses the estimate entirely.
+    vi.setSystemTime(200)
+    render(<Probe isActive startedAt={0} tokenCount={10} />)
+    expect(value()).toBe('none')
+  })
+
+  it('starts returning estimates once 300ms has elapsed', () => {
+    vi.setSystemTime(200)
+    render(<Probe isActive startedAt={0} tokenCount={10} intervalMs={100} />)
+    expect(value()).toBe('none')
+    // The next tick crosses the 300ms threshold: 10 tokens over 0.3s.
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(value()).toBe('33.33')
+  })
+
+  it('never caches a sub-300ms estimate as the finalized fallback', () => {
+    // The guard sits BEFORE the estimate computation, so an early-window rate
+    // cannot enter the cache and resurface once the stream completes.
+    vi.setSystemTime(200)
+    const { rerender } = render(<Probe isActive startedAt={0} tokenCount={10} />)
+    expect(value()).toBe('none')
+    rerender(<Probe isActive={false} startedAt={0} tokenCount={10} />)
+    expect(value()).toBe('none')
+  })
+
   it('returns none while active without a startedAt', () => {
     render(<Probe isActive tokenCount={10} />)
     expect(value()).toBe('none')
