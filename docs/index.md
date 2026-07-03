@@ -30,3 +30,4 @@
 | 0013 | [Headless Styling](changes/0013-headless-styling.md) | [Component Registry](specs/component-registry/) | complete | 0003, 0009 |
 | 0014 | [Footer Streaming/Empty Gate](changes/0014-footer-streaming-empty-gate.md) | [Message Rendering](specs/message-rendering/) | complete | 0004 |
 | 0015 | [Tenth-Second Timers](changes/0015-timer-tenths.md) | [Message Rendering](specs/message-rendering/) | complete | 0004 |
+| 0016 | [Live Reasoning Timer & Tokens/Sec](changes/0016-live-reasoning-timer-and-tokens.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0015 |

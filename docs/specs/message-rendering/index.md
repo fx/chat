@@ -47,7 +47,10 @@ scope** and MUST NOT appear in this package.
   - `text` (assistant) → markdown bubble via the registry `Markdown`.
   - `text` (user, on a user message) → plain text with mention highlighting (see
     [input-composer](../input-composer/)), never markdown.
-  - `reasoning` → a collapsible "thinking" block labeled with its duration when known.
+  - `reasoning` → a collapsible "thinking" block labeled with its duration when known; while
+    ACTIVELY streaming it MUST show a live ticking elapsed-timer pill (the "Thinking…" label
+    carries no duration), and once finished it MUST show no pill (the "Thought for <dur>"
+    label embeds the duration).
   - `tool_call` → a collapsible block showing tool name, input (arguments), and, when
     present, output (result) plus any extracted media; error styling driven by
     `status === 'error'`.
@@ -154,7 +157,16 @@ scope** and MUST NOT appear in this package.
   active → inactive, it MUST briefly (a bounded duration) show a success indicator.
 - The package MUST provide a live tokens/sec estimate while streaming and MUST prefer a
   provider-reported `tokensPerSecond` (or `usage`/`durationMs`-derived value) once the message
-  is complete.
+  is complete. `MessageItem` MUST feed this into the render context via
+  `useLiveTokensPerSecond`, estimating the in-flight token count from the message's `text` +
+  `reasoning` content (`approxTokenCount`: summed character length ÷ 4, rounded; `undefined`
+  when 0) over elapsed time since the message `createdAt`. A live estimate MUST NOT be
+  produced — nor cached as the finalized last-live fallback — before 300ms has elapsed
+  (`MIN_LIVE_ELAPSED_MS`): a handful of tokens over a tiny window extrapolates to an absurd
+  rate. Once the message is inactive, the finalized precedence (provider rate →
+  `usage.completion` over `durationMs` → cached last-live snapshot) applies, so completed
+  rendering is identical to a static metrics derivation. The message FOOTER metrics MUST keep
+  reading `message.metrics` directly — a live estimate never appears in the footer.
 - Reasoning duration MUST be formatted human-readably: `X.Xs` (one decimal) below one minute
   — sub-second values render as tenths (`0.0s`–`0.9s`; there is NO `<1s` floor) — and `Xm Ys`
   at one minute and above.
@@ -191,8 +203,26 @@ scope** and MUST NOT appear in this package.
   ineligible item (the live status row, to keep the timer visible) if present; otherwise the
   latest header-eligible item; otherwise the trailing item. A `+N` badge MUST count hidden
   items.
+- Collapsed-header timer/tok-s pills: a STATUS summary MUST surface the message-level timer
+  pill (its label embeds no duration) plus the live tokens/sec while active. An ACTIVE
+  REASONING summary MUST likewise surface a LIVE ticking timer pill (the "Thinking…" label
+  carries no duration; the block's `durationMs` is undefined while active, so the pill ticks
+  from the message `startedAt`) alongside the context tokens/sec pill. A FINISHED reasoning
+  or tool summary MUST show NO timer pill — the reasoning "Thought for <dur>" label already
+  embeds the duration, and their bare renderers show none — while the message-level tokens/sec
+  pill still renders. This timer rule is the shared `summarizeBlock` helper's `showTimer`
+  (single source of truth), so the bare reasoning row and the group header cannot drift.
 - The grouping policy MUST be the single source of truth; the renderer MUST NOT branch on
   block kind with ad-hoc conditionals.
+
+#### Scenario: Active reasoning shows a live ticking timer
+
+- **GIVEN** an active assistant message whose trailing block is a durationless `reasoning`
+  block (bare, or the summary of a collapsed group)
+- **WHEN** it renders and the fake/real clock advances
+- **THEN** the "Thinking…" header shows a timer pill counting up from the message `startedAt`
+  (ticking in tenths), and once the block finishes with a `durationMs` the pill disappears in
+  favor of the "Thought for <dur>" label.
 
 #### Scenario: Reasoning + tools collapse to one line
 
@@ -638,3 +668,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-07-02 | Zero-affordance footers render no chrome at all — including the `timestampGutter` wrapper: `MessageItem` gates its footer branch (and the footer `.chat-gutter-row`) on the exported pure predicate `hasFooterContent`; `MessageFooter` keeps the same predicate as its safety-net early return | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Active empty assistant message renders a live "Starting…" pending status row (synthetic pre-stream status block, live timer from `createdAt`, gutter-wrapped under `timestampGutter`, identical in grouped/`flat` modes); settled-empty stays invisible — restores the host's pre-first-token loading affordance | [0014-footer-streaming-empty-gate](../../changes/0014-footer-streaming-empty-gate.md) |
 | 2026-07-02 | Tenth-second timers: `formatDuration` drops the `<1s` floor (sub-second renders as tenths, `0.0s`–`0.9s`); `useElapsedTimer` default tick 1000ms → 100ms so live pills count up in tenths matching display precision | [0015-timer-tenths](../../changes/0015-timer-tenths.md) |
+| 2026-07-03 | Live reasoning timer & tokens/sec: an ACTIVE reasoning block shows a live ticking timer pill on both the collapsed group header and the bare row (`summarizeBlock` `showTimer` is the single source of truth; finished reasoning keeps no pill — the label embeds the duration); `MessageItem` feeds a live context tokens/sec via `useLiveTokensPerSecond` + `approxTokenCount` (text+reasoning chars ÷ 4) with a 300ms min-elapsed guard, finalized precedence unchanged (footer still reads `message.metrics` directly); `deriveTokensPerSecond` removed | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
