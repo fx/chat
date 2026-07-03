@@ -41,6 +41,34 @@ describe('useLiveTokensPerSecond', () => {
     expect(value()).toBe('none')
   })
 
+  it('prefers a positive provider rate while ACTIVE (no clock, no min-elapsed window)', () => {
+    // A host streaming accurate mid-turn rates beats the chars/elapsed
+    // estimate; the provider value needs neither startedAt nor 300ms elapsed.
+    vi.setSystemTime(100)
+    const metrics: MessageMetrics = { tokensPerSecond: 42 }
+    render(<Probe isActive tokenCount={10} metrics={metrics} />)
+    expect(value()).toBe('42.00')
+  })
+
+  it('falls through to the estimate for a non-positive provider rate while active', () => {
+    vi.setSystemTime(2000)
+    const metrics: MessageMetrics = { tokensPerSecond: 0 }
+    render(<Probe isActive startedAt={0} tokenCount={10} metrics={metrics} />)
+    // 10 tokens over 2s = 5 tok/s.
+    expect(value()).toBe('5.00')
+  })
+
+  it('does NOT consult usage/durationMs while active (finalized-only inputs)', () => {
+    vi.setSystemTime(2000)
+    const metrics: MessageMetrics = { usage: { completion: 100 }, durationMs: 1000 }
+    const { rerender } = render(<Probe isActive startedAt={0} tokenCount={10} metrics={metrics} />)
+    // The estimate (10 tokens / 2s), NOT the usage-derived 100 tok/s.
+    expect(value()).toBe('5.00')
+    // Without a derivable estimate, the rate is none — usage is still ignored.
+    rerender(<Probe isActive startedAt={0} metrics={metrics} />)
+    expect(value()).toBe('none')
+  })
+
   it('starts returning estimates once 300ms has elapsed', () => {
     vi.setSystemTime(200)
     render(<Probe isActive startedAt={0} tokenCount={10} intervalMs={100} />)

@@ -323,13 +323,11 @@ describe('MessageItem', () => {
     expect(screen.queryByText(/tok\/s/)).toBeNull()
   })
 
-  it('ignores provider metrics for the context rate while ACTIVE (live estimate only)', () => {
-    // A stray provider tokensPerSecond on a still-streaming message must not
-    // leak into the live status row — the finalized precedence applies only
-    // once the message completes. Isolate the claim: put the clock PAST the
-    // 300ms guard and give the message real content, so a live estimate IS
-    // produced (80 chars / 4 = 20 tokens over 2s = 10 tok/s) and its presence
-    // proves the provider value specifically was ignored.
+  it('prefers an explicit provider rate over the live estimate while ACTIVE', () => {
+    // A host streaming accurate mid-turn rates beats the chars/4 heuristic.
+    // The clock is PAST the 300ms guard and the content would estimate
+    // 10 tok/s (80 chars / 4 = 20 tokens over 2s), so the provider 7 tok/s
+    // rendering — and the estimate NOT rendering — pins the precedence.
     vi.setSystemTime(2000)
     const msg = message({
       blocks: [
@@ -340,8 +338,26 @@ describe('MessageItem', () => {
       metrics: { tokensPerSecond: 7 },
     })
     render(<MessageItem message={msg} isActive />)
+    expect(screen.getByText('7.0 tok/s')).toBeInTheDocument()
+    expect(screen.queryByText('10.0 tok/s')).toBeNull()
+  })
+
+  it('uses the estimate (not usage-derived) for usage-only metrics while ACTIVE', () => {
+    // usage/durationMs are finalized-only inputs: while streaming they must
+    // not be consulted (100 completion tokens over 1s would read 100 tok/s);
+    // the live estimate (20 tokens over 2s = 10 tok/s) renders instead.
+    vi.setSystemTime(2000)
+    const msg = message({
+      blocks: [
+        { type: 'text', id: 't', text: 'a'.repeat(80) },
+        { type: 'status', id: 's' },
+      ],
+      createdAt: 0,
+      metrics: { usage: { completion: 100 }, durationMs: 1000 },
+    })
+    render(<MessageItem message={msg} isActive />)
     expect(screen.getByText('10.0 tok/s')).toBeInTheDocument()
-    expect(screen.queryByText('7.0 tok/s')).toBeNull()
+    expect(screen.queryByText('100.0 tok/s')).toBeNull()
   })
 
   it('threads the provider tokensPerSecond to a completed group header (unchanged)', () => {

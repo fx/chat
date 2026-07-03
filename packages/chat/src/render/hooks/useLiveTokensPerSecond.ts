@@ -2,12 +2,16 @@
  * `useLiveTokensPerSecond` — live tokens/second estimate during streaming with a
  * provider-preferred finalized value.
  *
- * While `isActive`, it ticks on an interval and estimates the rate from the
- * current `tokenCount` over the elapsed time since `startedAt` — but only once
- * at least {@link MIN_LIVE_ELAPSED_MS} has elapsed: a handful of tokens over a
- * tiny window extrapolates to a wildly inflated rate, so sub-300ms windows
- * yield `undefined` and never enter the cached last-live snapshot. Once the
- * message is complete it prefers, in order:
+ * While `isActive`, an explicit positive provider-reported
+ * `metrics.tokensPerSecond` wins outright (a host streaming accurate mid-turn
+ * rates beats the heuristic; `usage`/`durationMs` are finalized-only inputs
+ * and are NOT consulted while active). Otherwise it ticks on an interval and
+ * estimates the rate from the current `tokenCount` over the elapsed time since
+ * `startedAt` — but only once at least {@link MIN_LIVE_ELAPSED_MS} has
+ * elapsed: a handful of tokens over a tiny window extrapolates to a wildly
+ * inflated rate, so sub-300ms windows yield `undefined` and never enter the
+ * cached last-live snapshot. Once the message is complete it prefers, in
+ * order:
  *   1. a provider-reported `metrics.tokensPerSecond`,
  *   2. a value derived from `metrics.usage.completion` over `metrics.durationMs`,
  *   3. the last live estimate captured at the active → inactive transition.
@@ -103,6 +107,11 @@ export function useLiveTokensPerSecond({
   }, [isActive, intervalMs])
 
   if (!isActive) return finalizedRate(metrics, lastLive.current)
+  // While ACTIVE, an explicit positive provider rate beats the chars/elapsed
+  // estimate (and needs neither a clock anchor nor the min-elapsed window).
+  // usage/durationMs stay finalized-only and are NOT consulted here.
+  const provided = positive(metrics?.tokensPerSecond)
+  if (provided !== undefined) return provided
   if (startedAt === undefined) return undefined
   const elapsedMs = Date.now() - startedAt
   // Min-elapsed guard, BEFORE the estimate computation: a sub-300ms window must
