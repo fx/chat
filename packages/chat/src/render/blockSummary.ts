@@ -53,7 +53,7 @@ export interface BlockSummaryContext {
  * - system → `gear`; label "System prompt"; no timer.
  * - any other kind (status, custom) → label from its type, no icon, no timer. A
  *   custom kind MAY carry a host-supplied `label` string (see
- *   `CustomBlock.label`), preferred over the raw `type` when non-empty.
+ *   `CustomBlock.label`), preferred over the raw `type` when non-blank.
  */
 export function summarizeBlock(
   block: RenderableBlock,
@@ -107,11 +107,14 @@ export function summarizeBlock(
       return { label: 'Text', showTimer: false }
     default: {
       // Custom (host-defined) kind: prefer the host-supplied `label` duck-field
-      // (see `CustomBlock.label`) when it is a non-empty string, else label by
+      // (see `CustomBlock.label`) when it is a non-blank string, else label by
       // its type. No icon, no timer.
       const custom = block as { label?: unknown }
       return {
-        label: typeof custom.label === 'string' && custom.label !== '' ? custom.label : block.type,
+        label:
+          typeof custom.label === 'string' && custom.label.trim() !== ''
+            ? custom.label
+            : block.type,
         showTimer: false,
       }
     }

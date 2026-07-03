@@ -111,13 +111,18 @@ describe('summarizeBlock', () => {
     expect(summarizeBlock(block)).toEqual({ label: 'custom_widget', showTimer: false })
   })
 
-  it('custom kind: prefers a host-supplied non-empty `label` over the raw type', () => {
+  it('custom kind: prefers a host-supplied non-blank `label` over the raw type', () => {
     const block = { type: 'job-status', id: 'c', label: 'Job status' } as unknown as RenderableBlock
     expect(summarizeBlock(block)).toEqual({ label: 'Job status', showTimer: false })
   })
 
   it('custom kind: an EMPTY-STRING `label` falls back to the type', () => {
     const block = { type: 'job-status', id: 'c', label: '' } as unknown as RenderableBlock
+    expect(summarizeBlock(block)).toEqual({ label: 'job-status', showTimer: false })
+  })
+
+  it('custom kind: a WHITESPACE-ONLY `label` falls back to the type', () => {
+    const block = { type: 'job-status', id: 'c', label: '  \t ' } as unknown as RenderableBlock
     expect(summarizeBlock(block)).toEqual({ label: 'job-status', showTimer: false })
   })
 
