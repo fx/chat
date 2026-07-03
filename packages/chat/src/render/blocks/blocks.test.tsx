@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ReasoningBlock,
@@ -150,6 +150,28 @@ describe('ReasoningBlockView', () => {
     const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think' }
     render(<ReasoningBlockView block={block} isActive startedAt={0} />)
     expect(screen.getByText('Thinking…')).toBeInTheDocument()
+  })
+
+  it('shows a live ticking timer pill while actively streaming', () => {
+    // "Thinking…" carries no duration, so the live pill surfaces the elapsed
+    // time, ticking from `startedAt` (block.durationMs is undefined while
+    // active, so useElapsedTimer runs live).
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think' }
+    const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('0.0s')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(timer.textContent).toBe('0.1s')
+  })
+
+  it('shows NO timer pill once finished (the label embeds the duration)', () => {
+    const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', durationMs: 2500 }
+    const { container } = render(<ReasoningBlockView block={block} />)
+    expect(screen.getByText('Thought for 2.5s')).toBeInTheDocument()
+    expect(container.querySelector('.chat-row-timer')).toBeNull()
   })
 
   it('labels a completed durationless reasoning block "Reasoning" (not "Thinking…")', () => {
