@@ -22,9 +22,10 @@ export interface ReasoningBlockViewProps {
   isActive?: boolean | undefined
   /**
    * Message-level epoch-ms fallback anchor for the live timer while active.
-   * The block's OWN `startedAt` wins when present, so reasoning that follows
-   * earlier turn activity (e.g. tool calls) ticks from when the thinking
-   * began, not from when the message did.
+   * The block's OWN `startedAt` wins when present AND usable (finite,
+   * positive — see `positiveTimestamp`), so reasoning that follows earlier
+   * turn activity (e.g. tool calls) ticks from when the thinking began, not
+   * from when the message did; an unusable block value falls back here.
    */
   startedAt?: number | undefined
   /** Default-open state (e.g. driven by a verbose toggle). */
