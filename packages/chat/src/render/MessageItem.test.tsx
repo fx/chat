@@ -31,6 +31,18 @@ const successToolCall: ChatMessage['blocks'][number] = {
   status: 'success',
 }
 
+// Shared settled two-reasoning-block run for the finalized tokens/sec tests:
+// the pair collapses into ONE group whose collapsed header surfaces the
+// context (message-level) rate.
+const finalizedReasoningBlocks: ChatMessage['blocks'] = [
+  { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1000 },
+  { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1000 },
+]
+
+/** The collapsed header of the (single) group the run above folds into. */
+const groupHeader = (container: HTMLElement) =>
+  container.querySelector('.chat-row-header') as HTMLElement
+
 describe('messageCopyText', () => {
   it('concatenates text-block prose, skipping non-text blocks', () => {
     const msg = message({
@@ -314,14 +326,21 @@ describe('MessageItem', () => {
   it('ignores provider metrics for the context rate while ACTIVE (live estimate only)', () => {
     // A stray provider tokensPerSecond on a still-streaming message must not
     // leak into the live status row — the finalized precedence applies only
-    // once the message completes.
-    vi.setSystemTime(200)
+    // once the message completes. Isolate the claim: put the clock PAST the
+    // 300ms guard and give the message real content, so a live estimate IS
+    // produced (80 chars / 4 = 20 tokens over 2s = 10 tok/s) and its presence
+    // proves the provider value specifically was ignored.
+    vi.setSystemTime(2000)
     const msg = message({
-      blocks: [{ type: 'status', id: 's' }],
+      blocks: [
+        { type: 'text', id: 't', text: 'a'.repeat(80) },
+        { type: 'status', id: 's' },
+      ],
       createdAt: 0,
       metrics: { tokensPerSecond: 7 },
     })
     render(<MessageItem message={msg} isActive />)
+    expect(screen.getByText('10.0 tok/s')).toBeInTheDocument()
     expect(screen.queryByText('7.0 tok/s')).toBeNull()
   })
 
@@ -329,15 +348,11 @@ describe('MessageItem', () => {
     // Finalized precedence: the provider-reported rate wins, identical to the
     // static derivation this hook wiring replaced.
     const msg = message({
-      blocks: [
-        { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1000 },
-        { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1000 },
-      ],
+      blocks: finalizedReasoningBlocks,
       metrics: { tokensPerSecond: 7 },
     })
     const { container } = render(<MessageItem message={msg} />)
-    const header = container.querySelector('.chat-row-header') as HTMLElement
-    expect(within(header).getByText('7.0 tok/s')).toBeInTheDocument()
+    expect(within(groupHeader(container)).getByText('7.0 tok/s')).toBeInTheDocument()
   })
 
   it('wires footer affordance callbacks', () => {
@@ -387,15 +402,11 @@ describe('MessageItem', () => {
     // Completed message: 20 completion tokens over 2s = 10 tok/s, surfaced on
     // the collapsed group header — identical to the static derivation.
     const msg = message({
-      blocks: [
-        { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1000 },
-        { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1000 },
-      ],
+      blocks: finalizedReasoningBlocks,
       metrics: { usage: { completion: 20 }, durationMs: 2000 },
     })
     const { container } = render(<MessageItem message={msg} />)
-    const header = container.querySelector('.chat-row-header') as HTMLElement
-    expect(within(header).getByText('10.0 tok/s')).toBeInTheDocument()
+    expect(within(groupHeader(container)).getByText('10.0 tok/s')).toBeInTheDocument()
   })
 
   it('renders no footer tokens/sec while the message is active (footer reads metrics only)', () => {
