@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ContentBlock } from '../model'
 import { BlockGroup } from './BlockGroup'
@@ -149,6 +149,51 @@ describe('BlockGroup', () => {
     expect(header.querySelector('.chat-row-timer')).toBeNull()
     // tok/s pill still surfaces on the collapsed header.
     expect(within(header).getByText('167.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('surfaces a live ticking timer + tok/s on an ACTIVE reasoning summary header', () => {
+    // The trailing reasoning is streaming, so the summary is the active
+    // reasoning ("Thinking…"). Its label carries no duration, so
+    // `summary.showTimer` surfaces a LIVE timer pill: `summary.durationMs` is
+    // undefined while active, so CollapsibleRow's useElapsedTimer ticks from
+    // `context.startedAt`. The message-level tok/s pill renders alongside it.
+    const blocks = [tool('t1'), reasoning('r')]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0, tokensPerSecond: 12 })}
+      />,
+    )
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('Thinking…')
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    const timer = header.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('0.0s')
+    // The pill TICKS: advancing the fake clock re-renders a larger elapsed.
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(timer.textContent).toBe('0.1s')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(timer.textContent).toBe('0.2s')
+    expect(within(header).getByText('12.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('shows an active reasoning summary timer even without a tok/s rate', () => {
+    // The timer pill is independent of the tok/s pill (e.g. before the live
+    // rate estimate crosses its min-elapsed window).
+    const blocks = [tool('t1'), reasoning('r')]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(header.querySelector('.chat-row-timer')).not.toBeNull()
+    expect(within(header).queryByText(/tok\/s/)).toBeNull()
   })
 
   it('renders the (+N) count as a prefix right after the caret, before the kind icon', () => {
