@@ -51,7 +51,9 @@ Related: [message-rendering](../message-rendering/) consumes this model;
   each tagged by a `type` field:
   - `text` — assistant or user prose. Carries `text: string`. MAY carry `markdown?: boolean`
     hint (assistant text is markdown by default; user text is plain by default).
-  - `reasoning` — model thinking. Carries `text: string` and OPTIONAL `durationMs`.
+  - `reasoning` — model thinking. Carries `text: string` and OPTIONAL `startedAt` (epoch
+    ms; anchors the live thinking timer for reasoning that follows earlier turn activity)
+    and `durationMs`.
   - `tool_call` — a single tool invocation (see Tool Invocation).
   - `status` — a generation-lifecycle marker. Carries an OPTIONAL `phase` of
     `'pre-stream' | 'streaming' | 'complete'`.
@@ -162,7 +164,7 @@ interface ToolCallBlock {
 
 type ContentBlock =
   | { type: 'text'; id: string; text: string; markdown?: boolean }
-  | { type: 'reasoning'; id: string; text: string; durationMs?: number }
+  | { type: 'reasoning'; id: string; text: string; startedAt?: number; durationMs?: number }
   | { type: 'status'; id: string; phase?: 'pre-stream' | 'streaming' | 'complete' }
   | { type: 'system'; id: string; text: string }
   | ToolCallBlock
@@ -233,3 +235,4 @@ interface ChatMessage {
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0002-message-model](../../changes/0002-message-model.md) |
+| 2026-07-03 | `ReasoningBlock` gains an OPTIONAL epoch-ms `startedAt` (mirroring `tool_call`), mapped by the codec from the optional host field `reasoningStartedAt` and validated by `assertChatMessage` — anchors the render layer's live thinking timer | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
