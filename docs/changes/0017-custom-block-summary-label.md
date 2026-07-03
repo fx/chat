@@ -54,7 +54,7 @@ the minimal seam: no new extension map, no renderer changes, safe fallback to th
 - **2026-07-03** — Review fix (Codex): `label` is declared `unknown`, not `string` — a
   string declaration broke source compatibility for hosts already carrying a non-string
   `label` payload (previously legal via the index signature); the runtime guard in
-  `blockSummary` narrows it, so behavior is unchanged.
+  `summarizeBlock` narrows it, so behavior is unchanged.
 
 ## References
 

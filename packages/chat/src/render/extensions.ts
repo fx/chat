@@ -34,7 +34,7 @@ export interface CustomBlock {
    * prefers it over the raw `type` when this block heads a collapsed
    * disclosure; any other value is ignored (treated as absent). Typed
    * `unknown` so hosts that already carry a non-string `label` payload keep
-   * compiling — the runtime guard in `blockSummary` narrows it.
+   * compiling — the runtime guard in `summarizeBlock` narrows it.
    */
   label?: unknown
   /** Arbitrary host-defined payload. */
