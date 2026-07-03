@@ -137,6 +137,13 @@ touching finalized output.
   metrics carrying no rate/usage/duration keeps the last known rate instead of dropping the
   pill at finalize — the documented brief-transition cover now holds for provider-fed streams
   too.
+- **2026-07-03** — Final review fixes: the last-live cache also resets on every inactive →
+  active transition, so a reused hook instance whose streams all omit `startedAt` no longer
+  carries stream A's rate into stream B's finalized fallback; the block-level reasoning timer
+  anchor applies only when it is a finite, positive timestamp (shared `positiveTimestamp`
+  helper at both render call sites — NaN/Infinity/0/negative fall back to the message-level
+  anchor), and the codec silently drops a non-finite/non-positive `reasoningStartedAt` so
+  garbage never enters the model.
 
 ## References
 
