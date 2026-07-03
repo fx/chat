@@ -175,6 +175,22 @@ describe('normalizeMessage — flat-content normalization', () => {
     expect(reasoning).not.toHaveProperty('durationMs')
   })
 
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -5])(
+    'silently drops a non-finite/non-positive reasoningStartedAt (%s)',
+    (reasoningStartedAt) => {
+      // NaN passes typeof-number checks but is garbage as an epoch anchor —
+      // it must never enter the model, where it would defeat the render
+      // layer's message-level timer fallback.
+      const message = normalizeMessage({
+        id: 'm1',
+        role: 'assistant',
+        reasoning: 'hmm',
+        reasoningStartedAt,
+      })
+      expect(message.blocks[0]).not.toHaveProperty('startedAt')
+    },
+  )
+
   it('omits the reasoning block when reasoning is empty', () => {
     const message = normalizeMessage({ id: 'r0', role: 'assistant', reasoning: '', content: 'hi' })
     expect(message.blocks.map((b) => b.type)).toEqual(['text'])

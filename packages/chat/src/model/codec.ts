@@ -260,7 +260,17 @@ export function normalizeMessage(input: HostMessage, mapping?: NormalizeMapping)
       id: `${messageId}:reasoning`,
       text: input.reasoning,
     }
-    if (input.reasoningStartedAt !== undefined) block.startedAt = input.reasoningStartedAt
+    // Silent-drop convention (the codec ignores what it can't use): a
+    // non-finite or non-positive reasoningStartedAt (NaN passes typeof
+    // checks) is garbage as an epoch anchor — omit it so it can never defeat
+    // the render layer's message-level timer fallback.
+    if (
+      input.reasoningStartedAt !== undefined &&
+      Number.isFinite(input.reasoningStartedAt) &&
+      input.reasoningStartedAt > 0
+    ) {
+      block.startedAt = input.reasoningStartedAt
+    }
     if (input.reasoningDurationMs !== undefined) block.durationMs = input.reasoningDurationMs
     blocks.push(block)
   }
