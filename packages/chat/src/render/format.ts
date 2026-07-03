@@ -1,6 +1,8 @@
 /**
  * Pure formatting helpers for the render layer. No React, no DOM.
  */
+import type { ContentBlock } from '../model'
+import type { RenderableBlock } from './extensions'
 
 /**
  * Format a duration in milliseconds human-readably:
@@ -86,25 +88,21 @@ export function createClockGutterDeduper(): (value: number | string | null | und
   }
 }
 
-/** A finite, positive number, or `undefined`. */
-function positive(value: number | undefined): number | undefined {
-  return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
-}
-
 /**
- * Resolve a finalized tokens/second rate from per-message metrics: prefer a
- * provider-reported `tokensPerSecond`, else derive it from `completion` tokens
- * over `durationMs`. Returns `undefined` when neither is derivable.
+ * Approximate a message's generated token count from its content: the summed
+ * character length of its `text` and `reasoning` blocks divided by 4 (the
+ * common chars-per-token heuristic), rounded to the nearest integer. Other
+ * block kinds (tool calls, status, system, custom) carry no generated prose
+ * and are ignored. Returns `undefined` when the estimate rounds to 0 (no
+ * countable content) so callers treat it as "no data" rather than a zero rate.
  */
-export function deriveTokensPerSecond(
-  tokensPerSecond: number | undefined,
-  completion: number | undefined,
-  durationMs: number | undefined,
-): number | undefined {
-  const provided = positive(tokensPerSecond)
-  if (provided !== undefined) return provided
-  const tokens = positive(completion)
-  const duration = positive(durationMs)
-  if (tokens !== undefined && duration !== undefined) return tokens / (duration / 1000)
-  return undefined
+export function approxTokenCount(blocks: readonly RenderableBlock[]): number | undefined {
+  let chars = 0
+  for (const block of blocks) {
+    if (block.type === 'text' || block.type === 'reasoning') {
+      chars += (block as Extract<ContentBlock, { type: 'text' | 'reasoning' }>).text.length
+    }
+  }
+  const tokens = Math.round(chars / 4)
+  return tokens > 0 ? tokens : undefined
 }

@@ -36,8 +36,9 @@ import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock, RenderableMessage } from './extensions'
-import { createClockGutterDeduper, deriveTokensPerSecond } from './format'
+import { approxTokenCount, createClockGutterDeduper } from './format'
 import { type GroupedItem, groupBlocks } from './grouping'
+import { useLiveTokensPerSecond } from './hooks'
 import { collapseTurnAux } from './minimalGrouping'
 
 /** Props for {@link MessageItem}. */
@@ -134,13 +135,19 @@ export function MessageItem({
   const cn = useChatClassNames()
   // Only the trailing block of an active message is the streaming one.
   const trailingBlock = message.blocks[message.blocks.length - 1]
-  // Prefer a provider tokens/sec, else derive it from usage/duration so the pill
-  // appears for the common metrics shape that omits a precomputed rate.
-  const tokensPerSecond = deriveTokensPerSecond(
-    message.metrics?.tokensPerSecond,
-    message.metrics?.usage?.completion,
-    message.metrics?.durationMs,
-  )
+  // Tokens/sec for the render context. While ACTIVE, a live estimate ticks from
+  // the message's text+reasoning content (≈4 chars/token) over elapsed time
+  // since `createdAt`, min-elapsed-guarded so tiny windows yield nothing. Once
+  // complete, the hook's finalized precedence — provider `tokensPerSecond`,
+  // else `usage.completion` over `durationMs` — reproduces the static
+  // derivation this replaced, so completed rendering is unchanged. (The footer
+  // reads `message.metrics` directly and never sees a live value.)
+  const tokensPerSecond = useLiveTokensPerSecond({
+    startedAt: message.createdAt,
+    isActive,
+    tokenCount: approxTokenCount(message.blocks),
+    metrics: message.metrics,
+  })
   const context: BlockRenderContext = {
     role: message.role,
     isActive,

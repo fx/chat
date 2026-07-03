@@ -279,16 +279,65 @@ describe('MessageItem', () => {
     expect(screen.queryByLabelText('Copy message')).toBeNull()
   })
 
-  it('threads metrics and active state through to live status', () => {
+  it('threads a LIVE tokens/sec estimate into an active status row', () => {
+    // While ACTIVE the context rate is estimated live from the message's
+    // text+reasoning content (chars/4 tokens over elapsed since createdAt) —
+    // 80 chars / 4 = 20 tokens over 2s = 10 tok/s.
+    vi.setSystemTime(2000)
+    const msg = message({
+      blocks: [
+        { type: 'text', id: 't', text: 'a'.repeat(80) },
+        { type: 'status', id: 's' },
+      ],
+      createdAt: 0,
+    })
+    const { container } = render(<MessageItem message={msg} isActive />)
+    const blocks = container.querySelector('.chat-message-blocks') as HTMLElement
+    expect(within(blocks).getByText('Generating…')).toBeInTheDocument()
+    expect(within(blocks).getByText('10.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('shows no live tokens/sec before the 300ms min-elapsed window', () => {
+    vi.setSystemTime(200)
+    const msg = message({
+      blocks: [
+        { type: 'text', id: 't', text: 'a'.repeat(80) },
+        { type: 'status', id: 's' },
+      ],
+      createdAt: 0,
+    })
+    render(<MessageItem message={msg} isActive />)
+    expect(screen.getByText('Generating…')).toBeInTheDocument()
+    expect(screen.queryByText(/tok\/s/)).toBeNull()
+  })
+
+  it('ignores provider metrics for the context rate while ACTIVE (live estimate only)', () => {
+    // A stray provider tokensPerSecond on a still-streaming message must not
+    // leak into the live status row — the finalized precedence applies only
+    // once the message completes.
+    vi.setSystemTime(200)
     const msg = message({
       blocks: [{ type: 'status', id: 's' }],
       createdAt: 0,
       metrics: { tokensPerSecond: 7 },
     })
-    const { container } = render(<MessageItem message={msg} isActive />)
-    const blocks = container.querySelector('.chat-message-blocks') as HTMLElement
-    expect(within(blocks).getByText('Generating…')).toBeInTheDocument()
-    expect(within(blocks).getByText('7.0 tok/s')).toBeInTheDocument()
+    render(<MessageItem message={msg} isActive />)
+    expect(screen.queryByText('7.0 tok/s')).toBeNull()
+  })
+
+  it('threads the provider tokensPerSecond to a completed group header (unchanged)', () => {
+    // Finalized precedence: the provider-reported rate wins, identical to the
+    // static derivation this hook wiring replaced.
+    const msg = message({
+      blocks: [
+        { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1000 },
+        { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1000 },
+      ],
+      metrics: { tokensPerSecond: 7 },
+    })
+    const { container } = render(<MessageItem message={msg} />)
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(within(header).getByText('7.0 tok/s')).toBeInTheDocument()
   })
 
   it('wires footer affordance callbacks', () => {
@@ -335,15 +384,32 @@ describe('MessageItem', () => {
   })
 
   it('derives tokens/sec from usage metrics when no provider rate is given', () => {
+    // Completed message: 20 completion tokens over 2s = 10 tok/s, surfaced on
+    // the collapsed group header — identical to the static derivation.
     const msg = message({
-      blocks: [{ type: 'status', id: 's' }],
-      createdAt: 0,
+      blocks: [
+        { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1000 },
+        { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1000 },
+      ],
       metrics: { usage: { completion: 20 }, durationMs: 2000 },
     })
+    const { container } = render(<MessageItem message={msg} />)
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(within(header).getByText('10.0 tok/s')).toBeInTheDocument()
+  })
+
+  it('renders no footer tokens/sec while the message is active (footer reads metrics only)', () => {
+    // Even with a live context estimate available (>300ms elapsed, content
+    // present), the footer never renders for an active message — no live value
+    // can leak into footer metrics chrome.
+    vi.setSystemTime(2000)
+    const msg = message({
+      blocks: [{ type: 'text', id: 't', text: 'a'.repeat(80) }],
+      createdAt: 0,
+    })
     const { container } = render(<MessageItem message={msg} isActive />)
-    const blocks = container.querySelector('.chat-message-blocks') as HTMLElement
-    // 20 completion tokens over 2s = 10 tok/s.
-    expect(within(blocks).getByText('10.0 tok/s')).toBeInTheDocument()
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
   })
 
   it('threads finalized durationMs through to a completed status row', () => {

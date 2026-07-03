@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import type { ContentBlock } from '../model'
+import type { RenderableBlock } from './extensions'
 import {
+  approxTokenCount,
   createClockGutterDeduper,
-  deriveTokensPerSecond,
   formatClockTime,
   formatDuration,
   formatTokensPerSecond,
@@ -56,23 +58,36 @@ describe('formatTokensPerSecond', () => {
   })
 })
 
-describe('deriveTokensPerSecond', () => {
-  it('prefers a positive provider rate', () => {
-    expect(deriveTokensPerSecond(42, 100, 1000)).toBe(42)
+describe('approxTokenCount', () => {
+  it('returns undefined for an empty block list', () => {
+    expect(approxTokenCount([])).toBeUndefined()
   })
 
-  it('derives from completion over durationMs when no provider rate', () => {
-    expect(deriveTokensPerSecond(undefined, 30, 3000)).toBe(10)
+  it('sums text + reasoning character counts and divides by 4 (rounded)', () => {
+    const blocks: ContentBlock[] = [
+      { type: 'text', id: 't', text: 'a'.repeat(10) },
+      { type: 'reasoning', id: 'r', text: 'b'.repeat(11) },
+    ]
+    // 21 chars / 4 = 5.25 → rounds to 5.
+    expect(approxTokenCount(blocks)).toBe(5)
   })
 
-  it('ignores a non-positive provider rate and derives instead', () => {
-    expect(deriveTokensPerSecond(0, 30, 3000)).toBe(10)
+  it('ignores non-prose blocks (tool_call, status, system, custom)', () => {
+    const blocks: RenderableBlock[] = [
+      { type: 'tool_call', id: 'tc', name: 'search', arguments: {}, status: 'success' },
+      { type: 'status', id: 's' },
+      { type: 'system', id: 'sy', text: 'x'.repeat(400) },
+      { type: 'host_card', id: 'hc' } as unknown as RenderableBlock,
+      { type: 'text', id: 't', text: 'c'.repeat(8) },
+    ]
+    // Only the text block counts: 8 / 4 = 2.
+    expect(approxTokenCount(blocks)).toBe(2)
   })
 
-  it('returns undefined when nothing is derivable', () => {
-    expect(deriveTokensPerSecond(undefined, undefined, undefined)).toBeUndefined()
-    expect(deriveTokensPerSecond(undefined, 30, undefined)).toBeUndefined()
-    expect(deriveTokensPerSecond(undefined, undefined, 3000)).toBeUndefined()
+  it('returns undefined when the estimate rounds to 0 (no zero rates)', () => {
+    const blocks: ContentBlock[] = [{ type: 'text', id: 't', text: 'a' }]
+    // 1 char / 4 = 0.25 → rounds to 0 → undefined, not 0.
+    expect(approxTokenCount(blocks)).toBeUndefined()
   })
 })
 
