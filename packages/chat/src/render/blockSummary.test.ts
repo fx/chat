@@ -4,20 +4,20 @@ import { summarizeBlock } from './blockSummary'
 import type { RenderableBlock } from './extensions'
 
 describe('summarizeBlock', () => {
-  it('reasoning: brain icon + "Thinking…" while active, no timer pill', () => {
+  it('reasoning: brain icon + "Thinking…" while active, WITH a live timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't' }
     expect(summarizeBlock(block, { isActive: true })).toEqual({
       iconName: 'brain',
       label: 'Thinking…',
-      // No timer pill — the bare ReasoningBlockView shows none, and the label
-      // (once completed) embeds the duration, so a pill would duplicate it.
-      showTimer: false,
+      // Live timer pill: the "Thinking…" label carries no duration, so the
+      // ticking pill surfaces the elapsed time while reasoning streams.
+      showTimer: true,
     })
   })
 
   it('reasoning: "Thought for <dur>" carries durationMs but NO timer pill', () => {
     const block: ContentBlock = { type: 'reasoning', id: 'r', text: 't', durationMs: 1300 }
-    expect(summarizeBlock(block)).toEqual({
+    expect(summarizeBlock(block, { isActive: false })).toEqual({
       iconName: 'brain',
       label: 'Thought for 1.3s',
       durationMs: 1300,

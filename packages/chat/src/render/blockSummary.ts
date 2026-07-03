@@ -40,10 +40,11 @@ export interface BlockSummaryContext {
  * renderer's label/icon precedence AND its timer behavior, so the group header
  * stays consistent with the bare block:
  * - reasoning → `brain`; active → "Thinking…", else duration → "Thought for
- *   <dur>", else "Reasoning"; carries `durationMs`, but NO timer pill — the
- *   "Thought for <dur>" label already embeds the duration (the bare
- *   `ReasoningBlockView` likewise renders no timer pill), so a separate pill
- *   would duplicate it. (The tok/s pill is added by `BlockGroup`, not here.)
+ *   <dur>", else "Reasoning"; carries `durationMs`. Timer pill ONLY while
+ *   ACTIVE: the live "Thinking…" label carries no duration, so the ticking
+ *   pill surfaces the elapsed time; once finished, the "Thought for <dur>"
+ *   label already embeds the duration, so a separate pill would duplicate it.
+ *   (The tok/s pill is added by `BlockGroup`, not here.)
  * - tool_call → `wrench`; label is the tool name; carries `durationMs`, but NO
  *   timer pill — the bare `ToolCallBlockView` renders none, so the group header
  *   matches it.
@@ -69,10 +70,11 @@ export function summarizeBlock(
         iconName: 'brain',
         label,
         ...(durationMs !== undefined ? { durationMs } : {}),
-        // No timer pill: the "Thought for <dur>" label already carries the
-        // duration, so a separate pill would duplicate it (matches the bare
-        // ReasoningBlockView, which renders no timer pill).
-        showTimer: false,
+        // Timer pill ONLY while active: "Thinking…" carries no duration, so
+        // the live pill ticks the elapsed time. Once finished, the "Thought
+        // for <dur>" label already carries the duration, so a separate pill
+        // would duplicate it.
+        showTimer: context.isActive === true,
       }
     }
     case 'tool_call': {
