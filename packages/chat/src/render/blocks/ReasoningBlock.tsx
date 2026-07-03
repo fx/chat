@@ -13,6 +13,7 @@ import type { ReasoningBlock } from '../../model'
 import { useChatClassNames, useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
 import { summarizeBlock } from '../blockSummary'
+import { positiveTimestamp } from '../format'
 
 /** Props for {@link ReasoningBlockView}. */
 export interface ReasoningBlockViewProps {
@@ -55,8 +56,10 @@ export function ReasoningBlockView({
       iconName="brain"
       isActive={isActive}
       // Timer anchor: prefer the block's own start (reasoning after earlier
-      // tool activity), falling back to the message-level anchor.
-      startedAt={block.startedAt ?? startedAt}
+      // tool activity) only when it is a USABLE (finite, positive) timestamp,
+      // else fall back to the message-level anchor — a NaN/Infinity/
+      // non-positive block value must never defeat the fallback.
+      startedAt={positiveTimestamp(block.startedAt) ?? startedAt}
       durationMs={block.durationMs}
       showTimer={summary.showTimer}
       defaultOpen={defaultOpen}

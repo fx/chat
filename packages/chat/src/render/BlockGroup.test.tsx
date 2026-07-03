@@ -229,6 +229,25 @@ describe('BlockGroup', () => {
     expect(timer.textContent).toBe('2.0s')
   })
 
+  it('falls back to context.startedAt for an UNUSABLE reasoning summary startedAt', () => {
+    // A garbage block anchor (NaN passes type checks; codec-bypassing hosts
+    // can produce it) must not defeat the valid message-level fallback.
+    vi.setSystemTime(2000)
+    const blocks: ContentBlock[] = [
+      tool('t1'),
+      { type: 'reasoning', id: 'r', text: 'r', startedAt: Number.NaN },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0 })}
+      />,
+    )
+    const timer = container.querySelector('.chat-row-timer') as HTMLElement
+    expect(timer).not.toBeNull()
+    expect(timer.textContent).toBe('2.0s')
+  })
+
   it('hides tok/s on a FINISHED group header while the message is still active', () => {
     // A settled reasoning run inside a still-streaming message must not churn
     // with the live estimate (jitter, stall decay, a snap at finalize) — the

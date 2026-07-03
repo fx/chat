@@ -15,6 +15,7 @@ import { summarizeBlock } from './blockSummary'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock } from './extensions'
+import { positiveTimestamp } from './format'
 import { selectHeaderSummary } from './grouping'
 
 /** Props for {@link BlockGroup}. */
@@ -101,12 +102,16 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
   const durationMs = summaryIsStatus ? context.durationMs : summary.durationMs
   // Timer anchor: a reasoning summary prefers its block-level `startedAt`
   // (reasoning that follows earlier tool activity ticks from when the thinking
-  // began, mirroring the bare ReasoningBlockView), falling back to the
-  // message-level `context.startedAt` when the block carries none.
+  // began, mirroring the bare ReasoningBlockView) — but only when it is a
+  // USABLE (finite, positive) timestamp — falling back to the message-level
+  // `context.startedAt` when the block carries none (or garbage: NaN/Infinity/
+  // non-positive must never defeat the fallback).
   const startedAt =
-    (summaryBlock.type === 'reasoning'
-      ? (summaryBlock as Extract<ContentBlock, { type: 'reasoning' }>).startedAt
-      : undefined) ?? context.startedAt
+    positiveTimestamp(
+      summaryBlock.type === 'reasoning'
+        ? (summaryBlock as Extract<ContentBlock, { type: 'reasoning' }>).startedAt
+        : undefined,
+    ) ?? context.startedAt
   // tok/s: the status summary shows the live rate only while active
   // (unchanged). A reasoning/tool summary shows the message-level rate only
   // when this group is itself active OR the whole message has settled — a

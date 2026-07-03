@@ -36,7 +36,7 @@ import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock, RenderableMessage } from './extensions'
-import { approxTokenCount, createClockGutterDeduper } from './format'
+import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from './format'
 import { type GroupedItem, groupBlocks } from './grouping'
 import { useLiveTokensPerSecond } from './hooks'
 import { collapseTurnAux } from './minimalGrouping'
@@ -85,11 +85,6 @@ export function messageCopyText(message: RenderableMessage): string {
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
     .join('\n\n')
-}
-
-/** A finite, positive number, else `undefined`. */
-function positiveTimestamp(value: number | undefined): number | undefined {
-  return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
 /**

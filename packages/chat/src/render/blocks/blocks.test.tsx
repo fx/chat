@@ -186,6 +186,24 @@ describe('ReasoningBlockView', () => {
     expect(timer.textContent).toBe('2.0s')
   })
 
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -5])(
+    'falls back to the message-level anchor for an unusable block startedAt (%s)',
+    (startedAt) => {
+      // A garbage block anchor (NaN passes type checks) must not defeat the
+      // valid message-level fallback — the pill still renders and ticks.
+      vi.setSystemTime(2000)
+      const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', startedAt }
+      const { container } = render(<ReasoningBlockView block={block} isActive startedAt={0} />)
+      const timer = container.querySelector('.chat-row-timer') as HTMLElement
+      expect(timer).not.toBeNull()
+      expect(timer.textContent).toBe('2.0s')
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      expect(timer.textContent).toBe('2.1s')
+    },
+  )
+
   it('shows NO timer pill once finished (the label embeds the duration)', () => {
     const block: ReasoningBlock = { type: 'reasoning', id: 'r', text: 'think', durationMs: 2500 }
     const { container } = render(<ReasoningBlockView block={block} />)

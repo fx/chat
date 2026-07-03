@@ -94,6 +94,17 @@ export function createClockGutterDeduper(): (value: number | string | null | und
 }
 
 /**
+ * Normalize an epoch-ms timestamp to a USABLE one: a finite, positive number,
+ * else `undefined`. Callers prefer a block-level timestamp (a `tool_call` or
+ * `reasoning` `startedAt`) only when it can actually anchor a clock, falling
+ * back to the message-level value otherwise — a NaN/Infinity/non-positive
+ * anchor (which type checks alone admit) must never defeat that fallback.
+ */
+export function positiveTimestamp(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+/**
  * Approximate a message's generated token count from its content: the summed
  * character length of its `text` and `reasoning` blocks divided by 4 (the
  * common chars-per-token heuristic), rounded to the nearest integer. Other

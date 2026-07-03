@@ -7,7 +7,23 @@ import {
   formatClockTime,
   formatDuration,
   formatTokensPerSecond,
+  positiveTimestamp,
 } from './format'
+
+describe('positiveTimestamp', () => {
+  it('passes through a finite positive timestamp', () => {
+    expect(positiveTimestamp(1)).toBe(1)
+    expect(positiveTimestamp(1_700_000_000_000)).toBe(1_700_000_000_000)
+  })
+
+  it('normalizes undefined, non-finite, zero, and negative values to undefined', () => {
+    expect(positiveTimestamp(undefined)).toBeUndefined()
+    expect(positiveTimestamp(Number.NaN)).toBeUndefined()
+    expect(positiveTimestamp(Number.POSITIVE_INFINITY)).toBeUndefined()
+    expect(positiveTimestamp(0)).toBeUndefined()
+    expect(positiveTimestamp(-5)).toBeUndefined()
+  })
+})
 
 describe('formatDuration', () => {
   it('renders sub-second durations as tenths (no "<1s" floor)', () => {
