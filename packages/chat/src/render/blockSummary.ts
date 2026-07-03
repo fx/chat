@@ -51,7 +51,9 @@ export interface BlockSummaryContext {
  *   timer pill — the bare `ToolCallBlockView` renders none, so the group header
  *   matches it.
  * - system → `gear`; label "System prompt"; no timer.
- * - any other kind (status, custom) → label from its type, no icon, no timer.
+ * - any other kind (status, custom) → label from its type, no icon, no timer. A
+ *   custom kind MAY carry a host-supplied `label` string (see
+ *   `CustomBlock.label`), preferred over the raw `type` when non-empty.
  */
 export function summarizeBlock(
   block: RenderableBlock,
@@ -103,8 +105,15 @@ export function summarizeBlock(
       return { label: 'Status', showTimer: false }
     case 'text':
       return { label: 'Text', showTimer: false }
-    default:
-      // Custom (host-defined) kind: label by its type, no icon, no timer.
-      return { label: block.type, showTimer: false }
+    default: {
+      // Custom (host-defined) kind: prefer the host-supplied `label` duck-field
+      // (see `CustomBlock.label`) when it is a non-empty string, else label by
+      // its type. No icon, no timer.
+      const custom = block as { label?: unknown }
+      return {
+        label: typeof custom.label === 'string' && custom.label !== '' ? custom.label : block.type,
+        showTimer: false,
+      }
+    }
   }
 }

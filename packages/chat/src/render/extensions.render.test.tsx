@@ -442,9 +442,10 @@ describe('grouping interaction for custom blocks (via MessageItem)', () => {
     expect(container.querySelector('.chat-group [data-affordance="active"]')).not.toBeNull()
   })
 
-  it('labels the group header with the custom type when an opted-in custom kind heads it', () => {
+  it('labels the group header with the host-supplied `label` when an opted-in custom kind heads it', () => {
     // host_marker is the trailing, header-eligible block in the run, so it heads
-    // the collapsed summary and the header label is its custom `type`.
+    // the collapsed summary. It carries a host-supplied `label`, which the
+    // header prefers over the raw custom `type` string.
     const trailingMarker: ChatMessage = {
       id: 'a2',
       role: 'assistant',
@@ -458,8 +459,26 @@ describe('grouping interaction for custom blocks (via MessageItem)', () => {
       blockRenderers: { host_marker: HostMarker },
       timelineBehavior: { host_marker: { auxEligible: true, eligibleForHeaderSummary: true } },
     }
+    const { container } = render(<MessageItem message={trailingMarker} extensions={extensions} />)
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('M')
+  })
+
+  it('labels the group header with the custom type when the heading custom kind has no `label`', () => {
+    const trailingMarker: ChatMessage = {
+      id: 'a2',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think', durationMs: 10 },
+        { type: 'host_marker', id: 'hm' },
+      ] as unknown as ChatMessage['blocks'],
+    }
+    const extensions: ChatExtensions = {
+      blockRenderers: { host_marker: HostMarker },
+      timelineBehavior: { host_marker: { auxEligible: true, eligibleForHeaderSummary: true } },
+    }
     render(<MessageItem message={trailingMarker} extensions={extensions} />)
-    // The collapsed header label is the custom kind's `type` string.
+    // No host `label` on the block ⇒ the header falls back to the `type` string.
     expect(screen.getByText('host_marker')).toBeInTheDocument()
   })
 })

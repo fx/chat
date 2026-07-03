@@ -29,6 +29,11 @@ export interface CustomBlock {
   id: string
   /** Custom discriminant — any string that is not a core `ContentBlock` type. */
   type: string
+  /**
+   * Optional human-readable summary label; used by the grouping header when
+   * this block heads a collapsed disclosure (falls back to `type`).
+   */
+  label?: string
   /** Arbitrary host-defined payload. */
   [key: string]: unknown
 }
