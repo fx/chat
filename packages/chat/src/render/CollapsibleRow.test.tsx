@@ -111,6 +111,14 @@ describe('CollapsibleRow pills + icon', () => {
     expect(timer.classList.contains('chat-badge')).toBe(false)
   })
 
+  it('renders NO pill for an active showTimer row without a finite startedAt', () => {
+    // With no usable clock anchor, useElapsedTimer never arms its ticker and
+    // the pill would sit permanently frozen at "0.0s" — render no pill instead.
+    const { container } = row({ label: 'T', isActive: true, showTimer: true })
+    expect(container.querySelector('.chat-row-timer')).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('arms NO elapsed interval for an active row without showTimer', () => {
     // `elapsed` only feeds the timer pill, so `isActive` is gated on `showTimer`
     // before reaching useElapsedTimer — an active row that renders no pill must
