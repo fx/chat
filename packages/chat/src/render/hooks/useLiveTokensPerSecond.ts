@@ -90,14 +90,19 @@ export function useLiveTokensPerSecond({
   // Snapshot of the most recent live estimate, captured while active so the
   // finalized fallback does not drift against an advancing wall clock.
   const lastLive = useRef<number | undefined>(undefined)
-  // Reset the cached estimate when a NEW stream begins (a different `startedAt`),
-  // so a later stream that never produces a derivable rate completes as
-  // `undefined` rather than showing the previous stream's stale rate.
+  // Reset the cached value when a NEW stream begins — a different `startedAt`,
+  // OR an inactive → active transition (a reused hook instance whose streams
+  // all omit `startedAt` would otherwise carry the previous stream's rate into
+  // the next finalized fallback) — so a later stream that never produces a
+  // derivable rate completes as `undefined` rather than showing the previous
+  // stream's stale rate.
   const prevStartedAt = useRef<number | undefined>(startedAt)
-  if (prevStartedAt.current !== startedAt) {
-    prevStartedAt.current = startedAt
+  const prevActive = useRef(isActive)
+  if (prevStartedAt.current !== startedAt || (isActive && !prevActive.current)) {
     lastLive.current = undefined
   }
+  prevStartedAt.current = startedAt
+  prevActive.current = isActive
 
   useEffect(() => {
     // Skip arming the ticker for a non-positive/non-finite interval, which the

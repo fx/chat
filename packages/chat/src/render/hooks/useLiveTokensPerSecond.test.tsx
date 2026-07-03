@@ -62,6 +62,24 @@ describe('useLiveTokensPerSecond', () => {
     expect(value()).toBe('42.00')
   })
 
+  it('resets the cached rate on a new active phase even when startedAt never changes', () => {
+    // A reused hook instance across streams that all OMIT startedAt: the
+    // startedAt-change reset can't fire, so the inactive → active transition
+    // must clear the cache — stream B (no rate) finalizing without metrics
+    // must not resurface stream A's 42.
+    const { rerender } = render(<Probe isActive metrics={{ tokensPerSecond: 42 }} />)
+    expect(value()).toBe('42.00')
+    // Stream A finalizes; the cached provider rate carries the pill.
+    rerender(<Probe isActive={false} metrics={{}} />)
+    expect(value()).toBe('42.00')
+    // Stream B begins (same undefined startedAt) with no rate at all.
+    rerender(<Probe isActive />)
+    expect(value()).toBe('none')
+    // Stream B finalizes without metrics: none — not stream A's stale 42.
+    rerender(<Probe isActive={false} />)
+    expect(value()).toBe('none')
+  })
+
   it('falls through to the estimate for a non-positive provider rate while active', () => {
     vi.setSystemTime(2000)
     const metrics: MessageMetrics = { tokensPerSecond: 0 }
