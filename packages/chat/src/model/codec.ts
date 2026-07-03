@@ -61,6 +61,8 @@ export interface HostMessage {
   role: string
   content?: unknown
   reasoning?: string
+  /** Epoch-ms timestamp the reasoning began (mapped to the block `startedAt`). */
+  reasoningStartedAt?: number
   reasoningDurationMs?: number
   toolCalls?: HostToolCall[]
   /** Back-reference to the originating tool call (tool-role messages). */
@@ -258,6 +260,7 @@ export function normalizeMessage(input: HostMessage, mapping?: NormalizeMapping)
       id: `${messageId}:reasoning`,
       text: input.reasoning,
     }
+    if (input.reasoningStartedAt !== undefined) block.startedAt = input.reasoningStartedAt
     if (input.reasoningDurationMs !== undefined) block.durationMs = input.reasoningDurationMs
     blocks.push(block)
   }
@@ -605,6 +608,7 @@ function assertBlockPayload(block: Record<string, unknown>): void {
       return
     case 'reasoning':
       assertText(block)
+      assertOptionalNumber(block, 'startedAt', 'reasoning block startedAt must be a number')
       assertOptionalNumber(block, 'durationMs', 'reasoning block durationMs must be a number')
       return
     case 'system':

@@ -125,6 +125,7 @@ describe('normalizeMessage — flat-content normalization', () => {
       role: 'assistant',
       content: 'Here is the answer',
       reasoning: 'thinking hard',
+      reasoningStartedAt: 40_000,
       reasoningDurationMs: 120,
       toolCalls: [
         {
@@ -141,7 +142,12 @@ describe('normalizeMessage — flat-content normalization', () => {
     expect(message.blocks.map((b) => b.type)).toEqual(['reasoning', 'text', 'tool_call'])
 
     const [reasoning, text] = message.blocks
-    expect(reasoning).toMatchObject({ type: 'reasoning', text: 'thinking hard', durationMs: 120 })
+    expect(reasoning).toMatchObject({
+      type: 'reasoning',
+      text: 'thinking hard',
+      startedAt: 40_000,
+      durationMs: 120,
+    })
     expect(text).toMatchObject({ type: 'text', text: 'Here is the answer', markdown: true })
 
     const [tool] = toolBlocks(message)
@@ -159,6 +165,14 @@ describe('normalizeMessage — flat-content normalization', () => {
     const message = normalizeMessage({ id: 'u1', role: 'user', content: 'hi' })
     expect(message.blocks).toHaveLength(1)
     expect(message.blocks[0]).toMatchObject({ type: 'text', markdown: false })
+  })
+
+  it('omits reasoning startedAt/durationMs when the host provides neither', () => {
+    const message = normalizeMessage({ id: 'm1', role: 'assistant', reasoning: 'hmm' })
+    const [reasoning] = message.blocks
+    expect(reasoning).toMatchObject({ type: 'reasoning', text: 'hmm' })
+    expect(reasoning).not.toHaveProperty('startedAt')
+    expect(reasoning).not.toHaveProperty('durationMs')
   })
 
   it('omits the reasoning block when reasoning is empty', () => {
@@ -746,6 +760,16 @@ describe('assertChatMessage', () => {
     ).toThrow(/reasoning block durationMs must be a number/)
   })
 
+  it('throws for a malformed optional reasoning startedAt', () => {
+    expect(() =>
+      assertChatMessage({
+        id: 'm',
+        role: 'assistant',
+        blocks: [{ type: 'reasoning', id: 'r', text: 'x', startedAt: 'yesterday' }],
+      }),
+    ).toThrow(/reasoning block startedAt must be a number/)
+  })
+
   it('accepts well-formed optional block fields', () => {
     expect(() =>
       assertChatMessage({
@@ -753,7 +777,7 @@ describe('assertChatMessage', () => {
         role: 'assistant',
         blocks: [
           { type: 'text', id: 't', text: 'x', markdown: true },
-          { type: 'reasoning', id: 'r', text: 'y', durationMs: 3 },
+          { type: 'reasoning', id: 'r', text: 'y', startedAt: 100, durationMs: 3 },
           { type: 'tool_call', id: 'tc', name: 'n', arguments: {}, status: 'success', media: [] },
         ],
       }),
