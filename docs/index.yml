@@ -140,3 +140,17 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0004", "0015"]
+  - id: "0017"
+    name: custom-block-summary-label
+    path: changes/0017-custom-block-summary-label.md
+    description: Custom-block summary label — CustomBlock gains an optional documented label field (typed unknown for host payload compat); summarizeBlock prefers a host-supplied non-blank string label over the raw type when a custom block heads a collapsed header (empty/whitespace-only/non-string/absent fall back to type)
+    spec: message-rendering
+    status: complete
+    depends_on: ["0007"]
+  - id: "0018"
+    name: timeline-item-gutter-timestamps
+    path: changes/0018-timeline-item-gutter-timestamps.md
+    description: Timeline-item gutter timestamps — under timestampGutter, MessageLog wraps host timelineItems (TimelineItemView) in the same .chat-gutter-row as message rows, deriving the clock from the item's at via formatClockTime (no cross-entry de-dupe; non-finite at → blank aria-hidden cell; bare when off); extracts a shared GutterRow presentational primitive that MessageItem and MessageLog both delegate to
+    spec: message-rendering
+    status: complete
+    depends_on: ["0007", "0012"]

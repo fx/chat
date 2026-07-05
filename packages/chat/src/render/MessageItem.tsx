@@ -30,6 +30,7 @@ import type { ReactNode } from 'react'
 import { cx } from '../cx'
 import { useChatClassNames } from '../registry'
 import { BlockGroup } from './BlockGroup'
+import { GutterRow } from './GutterRow'
 import { MessageAttachments } from './MessageAttachments'
 import { MessageFooter, hasFooterContent } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
@@ -217,16 +218,9 @@ export function MessageItem({
     const source = rowTimestamp ?? message.createdAt
     const clock = blankClock ? '' : gutter(source)
     return (
-      <div className={cx('chat-gutter-row', cn.gutterRow)} key={key}>
-        <span
-          className={cx('chat-gutter-time', cn.gutterTime)}
-          data-testid="chat-gutter-time"
-          {...(clock === '' ? { 'aria-hidden': true } : {})}
-        >
-          {clock}
-        </span>
-        <div className={cx('chat-gutter-content', cn.gutterContent)}>{row}</div>
-      </div>
+      <GutterRow key={key} clock={clock}>
+        {row}
+      </GutterRow>
     )
   }
 

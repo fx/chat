@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ContentBlock } from '../model'
 import { BlockGroup } from './BlockGroup'
 import type { BlockRenderContext } from './blocks'
+import type { CustomBlock } from './extensions'
 import { stubMatchMedia } from './test-helpers'
 
 beforeEach(() => {
@@ -392,6 +393,30 @@ describe('BlockGroup', () => {
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
     const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
     expect(summary.textContent).toBe('Reasoning')
+  })
+
+  it('surfaces the host-supplied `label` of a custom summary block on the collapsed header', () => {
+    // Two aux-opted custom blocks collapse under one disclosure; the trailing
+    // block heads the summary. With a host-supplied `label`, the header shows
+    // the human-readable label instead of the raw `type` string.
+    const blocks: CustomBlock[] = [
+      { type: 'job-status', id: 'j1', label: 'Job status' },
+      { type: 'job-status', id: 'j2', label: 'Job status' },
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
+    expect(summary.textContent).toBe('Job status')
+    expect(screen.queryByText('job-status')).toBeNull()
+  })
+
+  it('labels a custom summary block by its raw type when no `label` is supplied', () => {
+    const blocks: CustomBlock[] = [
+      { type: 'job-status', id: 'j1' },
+      { type: 'job-status', id: 'j2' },
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
+    expect(summary.textContent).toBe('job-status')
   })
 
   it('omits the +N badge when nothing is hidden (single-item direct call)', () => {
