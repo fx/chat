@@ -32,3 +32,4 @@
 | 0015 | [Tenth-Second Timers](changes/0015-timer-tenths.md) | [Message Rendering](specs/message-rendering/) | complete | 0004 |
 | 0016 | [Live Reasoning Timer & Tokens/Sec](changes/0016-live-reasoning-timer-and-tokens.md) | [Message Rendering](specs/message-rendering/) | complete | 0004, 0015 |
 | 0017 | [Custom-Block Summary Label](changes/0017-custom-block-summary-label.md) | [Message Rendering](specs/message-rendering/) | complete | 0007 |
+| 0018 | [Timeline-Item Gutter Timestamps](changes/0018-timeline-item-gutter-timestamps.md) | [Message Rendering](specs/message-rendering/) | complete | 0007, 0012 |

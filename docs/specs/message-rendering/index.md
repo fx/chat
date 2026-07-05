@@ -328,6 +328,16 @@ scope** and MUST NOT appear in this package.
 - The row timestamp MUST prefer a block-level timestamp (`startedAt`, carried by `tool_call`
   and `reasoning`; a group uses its FIRST block's) when finite and positive, else fall back to
   the message `createdAt`.
+- Host-supplied top-level TIMELINE ITEMS (`extensions.timelineItems`, see §Render-Layer
+  Extensibility) MUST also render in the gutter when `timestampGutter` is on: `MessageLog` MUST
+  wrap each `TimelineItemView` in the same `.chat-gutter-row` structure with the clock derived
+  from the item's `at` via `formatClockTime`. There is NO cross-entry de-dupe — each item shows
+  its OWN clock (mirroring the per-message "each message's first row shows its own clock" rule),
+  so the item clock is NOT threaded through a message's `createClockGutterDeduper`. An
+  invalid/non-finite `at` MUST yield a blank (`aria-hidden`, width-reserving) cell, same as a
+  message row with no time. When `timestampGutter` is OFF (default), the item MUST render bare
+  (no gutter row), unchanged. The `.chat-gutter-row` markup is shared via the `GutterRow`
+  presentational primitive that both `MessageItem` and `MessageLog` delegate to.
 
 #### Scenario: Gutter de-dupes a same-second run within a message
 
@@ -456,7 +466,9 @@ union and **without** forking the renderers. Extension is registry/prop-driven a
      and a `render` function (or a `kind` resolved through `blockRenderers`). `MessageLog` MUST
      interleave these items into the rendered timeline ordered by `at` relative to messages,
      and MUST wrap each with a stable `data-timeline-item-id` attribute (mirroring the
-     `data-message-id` anchor contract).
+     `data-message-id` anchor contract). When `timestampGutter` is enabled, `MessageLog` MUST
+     ALSO wrap each item in the timestamp-gutter row (see §Timestamp Gutter), rendering the clock
+     from the item's `at` via `formatClockTime`.
 - **Unknown block types MUST NOT crash.** When a block's `type` is neither a core variant nor
   present in `blockRenderers`, the renderer MUST fall back to a safe, inert placeholder (the
   registry `JsonView` of the block in raw/debug mode, an empty render otherwise) and MUST NOT
@@ -508,6 +520,15 @@ union and **without** forking the renderers. Extension is registry/prop-driven a
 - **WHEN** the log renders
 - **THEN** the custom item renders between the two messages, wrapped with
   `data-timeline-item-id="m1"`, ordered by `at`.
+
+#### Scenario: Timeline item renders the gutter clock from its `at`
+
+- **GIVEN** `extensions.timelineItems = [{ id:'m1', at, render }]` and `timestampGutter` is set
+- **WHEN** the log renders
+- **THEN** the item is wrapped in a `.chat-gutter-row` whose `.chat-gutter-time` cell shows
+  `formatClockTime(at)` (its OWN clock — no cross-entry de-dupe); a non-finite `at` yields a
+  blank, `aria-hidden`, width-reserving cell; with `timestampGutter` off the item renders bare
+  (no gutter row).
 
 ### User Attachments
 
@@ -693,3 +714,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-07-03 | Live reasoning timer & tokens/sec: an ACTIVE reasoning block shows a live ticking timer pill on both the collapsed group header and the bare row (`summarizeBlock` `showTimer` is the single source of truth; finished reasoning keeps no pill — the label embeds the duration); `MessageItem` feeds a live context tokens/sec via `useLiveTokensPerSecond` + `approxTokenCount` (text+reasoning chars ÷ 4) with a 300ms min-elapsed guard, finalized precedence unchanged (footer still reads `message.metrics` directly); `deriveTokensPerSecond` removed | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
 | 2026-07-03 | Correctness review fixes: reasoning timers anchor at the block-level `startedAt` (new model field, host `reasoningStartedAt`) with message-level fallback; `summarizeBlock` owns the durationMs finished-gate (stale `isActive` never yields "Thinking…"); non-status group headers show tok/s only when the group is active or the message settled (no live churn on finished groups); provider `metrics.tokensPerSecond` wins over the live estimate while active (usage/durationMs finalized-only); rates rounding to `0.0 tok/s` render nothing; live pills require a finite clock anchor | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
 | 2026-07-03 | Custom-block summary label: `CustomBlock` gains an OPTIONAL documented `label?: unknown` field (declared `unknown` so hosts already carrying a non-string `label` payload keep compiling); when a custom block heads a collapsed header, `summarizeBlock` prefers a host-supplied non-blank string `label` over the raw `type` (empty/whitespace-only/non-string/absent fall back to `type` unchanged) | [0017-custom-block-summary-label](../../changes/0017-custom-block-summary-label.md) |
+| 2026-07-05 | Timeline-item gutter timestamps: under `timestampGutter`, `MessageLog` wraps host `timelineItems` (`TimelineItemView`) in the same `.chat-gutter-row` as message rows, deriving the clock from the item's `at` via `formatClockTime` (no cross-entry de-dupe; non-finite `at` → blank `aria-hidden` cell; bare when off). The gutter-row markup is extracted into a shared `GutterRow` primitive that `MessageItem` and `MessageLog` both delegate to | [0018-timeline-item-gutter-timestamps](../../changes/0018-timeline-item-gutter-timestamps.md) |

@@ -147,3 +147,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0007"]
+  - id: "0018"
+    name: timeline-item-gutter-timestamps
+    path: changes/0018-timeline-item-gutter-timestamps.md
+    description: Timeline-item gutter timestamps — under timestampGutter, MessageLog wraps host timelineItems (TimelineItemView) in the same .chat-gutter-row as message rows, deriving the clock from the item's at via formatClockTime (no cross-entry de-dupe; non-finite at → blank aria-hidden cell; bare when off); extracts a shared GutterRow presentational primitive that MessageItem and MessageLog both delegate to
+    spec: message-rendering
+    status: complete
+    depends_on: ["0007", "0012"]
