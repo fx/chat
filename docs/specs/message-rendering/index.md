@@ -484,7 +484,8 @@ union and **without** forking the renderers. Extension is registry/prop-driven a
   inherit the existing `tool_call` grouping behavior (aux-eligible, header-eligible) unless the
   host overrides those flags for that tool. When a custom block heads a collapsed header, the
   summary label MUST prefer the block's OPTIONAL host-supplied `label` field when it is a
-  non-blank string, and MUST fall back to the raw `type` string otherwise (empty-string,
+  non-blank string, using its TRIMMED value (a padded `'  Job status  '` renders as
+  `'Job status'`), and MUST fall back to the raw `type` string otherwise (empty-string,
   whitespace-only, non-string, or absent `label`).
 - All extension points MUST be SSR-safe and MUST NOT introduce a runtime dependency. The core
   union, the default renderers, and the grouping policy MUST be unchanged for non-extended use.

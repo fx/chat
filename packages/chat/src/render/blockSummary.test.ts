@@ -116,6 +116,15 @@ describe('summarizeBlock', () => {
     expect(summarizeBlock(block)).toEqual({ label: 'Job status', showTimer: false })
   })
 
+  it('custom kind: a PADDED `label` is trimmed before use', () => {
+    const block = {
+      type: 'job-status',
+      id: 'c',
+      label: '  Job status  ',
+    } as unknown as RenderableBlock
+    expect(summarizeBlock(block)).toEqual({ label: 'Job status', showTimer: false })
+  })
+
   it('custom kind: an EMPTY-STRING `label` falls back to the type', () => {
     const block = { type: 'job-status', id: 'c', label: '' } as unknown as RenderableBlock
     expect(summarizeBlock(block)).toEqual({ label: 'job-status', showTimer: false })

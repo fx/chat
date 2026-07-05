@@ -6,8 +6,8 @@ A host can now supply a human-readable summary label for a custom (host-defined)
 `CustomBlock` gains an OPTIONAL documented `label?: unknown` field (a duck-field mirroring
 the `startedAt` convention `MessageItem.blockTimestamp` reads — kept `unknown`, not `string`,
 so a host already carrying a non-string `label` payload keeps compiling), and
-`summarizeBlock`'s custom-kind branch prefers that `label` when it is a non-blank string —
-otherwise the label falls back to the raw `type`, byte-for-byte the previous behavior. So a
+`summarizeBlock`'s custom-kind branch prefers that `label` (trimmed) when it is a non-blank
+string — otherwise the label falls back to the raw `type`, byte-for-byte the previous behavior. So a
 collapsed group whose header summary resolves to e.g. an fx/ai `job-status` block reads
 "Job status (+1)" instead of the raw type string "job-status (+1)". Empty-string,
 whitespace-only, non-string, and missing labels all fall back to `type`; core kinds, icons,
@@ -55,6 +55,11 @@ the minimal seam: no new extension map, no renderer changes, safe fallback to th
   string declaration broke source compatibility for hosts already carrying a non-string
   `label` payload (previously legal via the index signature); the runtime guard in
   `summarizeBlock` narrows it, so behavior is unchanged.
+- **2026-07-05** — Review fix (CodeRabbit): the custom-kind label is now TRIMMED before use —
+  the guard checked `label.trim() !== ''` but returned the ORIGINAL untrimmed value, so a
+  padded `'  Job status  '` rendered with surrounding whitespace. `summarizeBlock` now
+  normalizes once (`const trimmed = ... label.trim() ...`) and returns `trimmed`, falling back
+  to `type` when it is empty.
 
 ## References
 
