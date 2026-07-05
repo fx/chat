@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage } from '../model'
 import { MessageLog } from './MessageLog'
+import type { ChatExtensions } from './extensions'
 import { stubMatchMedia } from './test-helpers'
 
 beforeEach(() => {
@@ -207,5 +208,87 @@ describe('MessageLog', () => {
     expect(cells[0]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
     expect(cells[1]?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/)
     expect(cells[1]).not.toHaveAttribute('aria-hidden')
+  })
+})
+
+describe('MessageLog timeline-item gutter', () => {
+  const itemMessages: ChatMessage[] = [
+    { id: 'u1', role: 'user', blocks: [{ type: 'text', id: 't', text: 'hi' }], createdAt: 0 },
+  ]
+
+  it('gutter-wraps a standalone timeline item with a clock derived from its `at`', () => {
+    // A fixed local time so the derived clock is deterministic regardless of TZ.
+    const at = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const extensions: ChatExtensions = {
+      timelineItems: [{ id: 'ti', at, render: () => <span>marker</span> }],
+    }
+    const { container } = render(
+      <MessageLog messages={itemMessages} extensions={extensions} timestampGutter />,
+    )
+    const anchor = container.querySelector('[data-timeline-item-id="ti"]') as HTMLElement
+    expect(anchor).not.toBeNull()
+    // The item is wrapped in the SAME two-column gutter row as message rows.
+    const row = anchor.closest('.chat-gutter-row') as HTMLElement
+    expect(row).not.toBeNull()
+    const time = row.querySelector('[data-testid="chat-gutter-time"]') as HTMLElement
+    expect(time.textContent).toBe('09:05:07')
+    expect(time).not.toHaveAttribute('aria-hidden')
+    // The content cell holds the rendered item.
+    expect(within(row).getByText('marker')).toBeInTheDocument()
+  })
+
+  it('renders a timeline item BARE (no gutter row) when timestampGutter is off', () => {
+    const extensions: ChatExtensions = {
+      timelineItems: [{ id: 'ti', at: 100, render: () => <span>marker</span> }],
+    }
+    const { container } = render(<MessageLog messages={itemMessages} extensions={extensions} />)
+    const anchor = container.querySelector('[data-timeline-item-id="ti"]') as HTMLElement
+    expect(anchor).not.toBeNull()
+    expect(anchor.closest('.chat-gutter-row')).toBeNull()
+    expect(container.querySelector('.chat-gutter-row')).toBeNull()
+    expect(container.querySelector('[data-testid="chat-gutter-time"]')).toBeNull()
+  })
+
+  it('renders a blank, aria-hidden clock cell for a timeline item with a non-finite `at`', () => {
+    const extensions: ChatExtensions = {
+      timelineItems: [{ id: 'ti', at: Number.NaN, render: () => <span>marker</span> }],
+    }
+    const { container } = render(
+      <MessageLog messages={itemMessages} extensions={extensions} timestampGutter />,
+    )
+    const anchor = container.querySelector('[data-timeline-item-id="ti"]') as HTMLElement
+    // The item still renders, wrapped in a gutter row with a blank (width-reserved) cell.
+    expect(within(anchor).getByText('marker')).toBeInTheDocument()
+    const row = anchor.closest('.chat-gutter-row') as HTMLElement
+    const time = row.querySelector('[data-testid="chat-gutter-time"]') as HTMLElement
+    expect(time.textContent).toBe('')
+    expect(time).toHaveAttribute('aria-hidden')
+  })
+
+  it('shows its own clock on both a message row and a timeline item (no cross-entry dedupe)', () => {
+    // Message and item resolve to the same second; each entry prints its own clock
+    // (mirroring MessageItem's per-message rule — there is no cross-entry dedupe).
+    const at = new Date(2024, 0, 2, 9, 5, 7).getTime()
+    const messages: ChatMessage[] = [
+      { id: 'a', role: 'assistant', blocks: [{ type: 'text', id: 't', text: 'x' }], createdAt: at },
+    ]
+    const extensions: ChatExtensions = {
+      timelineItems: [{ id: 'ti', at: at + 1, render: () => <span>marker</span> }],
+    }
+    const { container } = render(
+      <MessageLog messages={messages} extensions={extensions} timestampGutter />,
+    )
+    const messageCell = container.querySelector(
+      '.chat-message-blocks [data-testid="chat-gutter-time"]',
+    ) as HTMLElement
+    const itemCell = container
+      .querySelector('[data-timeline-item-id="ti"]')
+      ?.closest('.chat-gutter-row')
+      ?.querySelector('[data-testid="chat-gutter-time"]') as HTMLElement
+    // Both print '09:05:07' — the message from its createdAt, the item from its `at`
+    // (a+1ms, same second) — with no suppression between the two entries.
+    expect(messageCell.textContent).toBe('09:05:07')
+    expect(itemCell.textContent).toBe('09:05:07')
+    expect(itemCell).not.toHaveAttribute('aria-hidden')
   })
 })

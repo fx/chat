@@ -12,9 +12,11 @@
 import type { ReactNode } from 'react'
 import { cx } from '../cx'
 import { useChatClassNames } from '../registry'
+import { GutterRow } from './GutterRow'
 import { MessageItem } from './MessageItem'
 import { TimelineItemView } from './TimelineItemView'
 import type { ChatExtensions, RenderableMessage } from './extensions'
+import { formatClockTime } from './format'
 import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
@@ -100,7 +102,21 @@ export function MessageLog({
     if (entry.kind === 'item') {
       // An item entry only exists when `extensions.timelineItems` was non-empty,
       // so `extensions` is guaranteed defined here.
-      return (
+      const view = <TimelineItemView item={entry.item} extensions={extensions as ChatExtensions} />
+      // Under the timestamp gutter, a standalone timeline item is wrapped in the
+      // SAME two-column gutter row as message rows, with its clock derived from
+      // the item's `at` (epoch ms, the same axis as message `createdAt`). There
+      // is NO cross-entry de-dupe — each item shows its own clock (mirroring
+      // MessageItem's "each message's first row shows its own clock" rule) — so
+      // `formatClockTime` is called directly, not through a shared de-duper. An
+      // invalid/non-finite `at` formats to `''`, yielding a blank, aria-hidden,
+      // width-reserving cell. When the gutter is OFF (default), the item renders
+      // bare exactly as before.
+      return timestampGutter ? (
+        <GutterRow key={`item-${entry.item.id}`} clock={formatClockTime(entry.item.at)}>
+          {view}
+        </GutterRow>
+      ) : (
         <TimelineItemView
           key={`item-${entry.item.id}`}
           item={entry.item}

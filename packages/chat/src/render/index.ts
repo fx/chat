@@ -45,6 +45,8 @@ export type {
 } from './extensions'
 export { isCoreBlockType, lookupExtension, NON_AUX_BEHAVIOR } from './extensions'
 export { formatDuration, formatTokensPerSecond } from './format'
+export type { GutterRowProps } from './GutterRow'
+export { GutterRow } from './GutterRow'
 export type {
   BareItem,
   GroupedItem,
