@@ -5,11 +5,13 @@
  * It applies the grouping pass (unless `flat`) to fold consecutive auxiliary
  * blocks into a single `BlockGroup`; non-aux blocks render bare. A `raw` debug
  * mode renders the whole message via the registry `JsonView` instead. The footer
- * affordances render beneath the blocks — only for completed (non-`isActive`),
- * non-empty assistant messages, and only when the footer actually has something
- * to show (`hasFooterContent`) — so a settled tool-call-only turn with no
- * callbacks or metrics emits no footer chrome at all, including no empty
- * timestamp-gutter row.
+ * affordances render beneath the blocks — only for completed (non-`isActive`)
+ * assistant messages that carry at least one CONTENT (non-auxiliary) block, and
+ * only when the footer actually has something to show (`hasFooterContent`). An
+ * auxiliary-only turn (e.g. a tool-call-only step, or reasoning/status with no
+ * answer) is part of the assistant answer that FOLLOWS it, not a standalone
+ * answer, so it emits no footer chrome at all — even when action callbacks or
+ * metrics are present — including no empty timestamp-gutter row.
  *
  * An ACTIVE assistant message with ZERO blocks (the host's optimistic
  * placeholder appended at send time, before the first token arrives) renders a
@@ -38,7 +40,7 @@ import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock, RenderableMessage } from './extensions'
 import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from './format'
-import { type GroupedItem, groupBlocks } from './grouping'
+import { type GroupedItem, getTimelineBehavior, groupBlocks } from './grouping'
 import { useLiveTokensPerSecond } from './hooks'
 import { collapseTurnAux } from './minimalGrouping'
 
@@ -168,6 +170,21 @@ export function MessageItem({
   // core behavior is unchanged.
   const blocks = message.blocks
   const behaviorOverrides = extensions?.timelineBehavior
+
+  // Whether the message carries at least one CONTENT (non-auxiliary) block —
+  // i.e. an actual answer (`text`/`system`), not just auxiliary chrome
+  // (`tool_call`/`reasoning`/`status`). Consults the timeline-behavior registry
+  // by block TYPE (honoring type-level and custom-block host overrides) rather
+  // than branching on block kind — content-worthiness is a per-kind question,
+  // not a per-tool-name one, so it deliberately uses `getTimelineBehavior` and
+  // never the per-tool-name resolution (keeping the flat/raw "no per-name
+  // lookup" guarantee intact). The footer gates on this: an auxiliary-only turn
+  // (e.g. a tool-call-only step) is part of the assistant answer that follows,
+  // not a standalone answer, so it gets no footer — even when action callbacks
+  // or metrics are present.
+  const hasContentBlock = blocks.some(
+    (block) => !getTimelineBehavior(block.type, behaviorOverrides).auxEligible,
+  )
 
   // Minimal (density) mode folds ALL of an assistant turn's auxiliary blocks into
   // one group (via collapseTurnAux) and forces a compact footer. `flat` and `raw`
@@ -322,7 +339,7 @@ export function MessageItem({
               : attachments
           })()
         : null}
-      {showFooter && !raw && message.role === 'assistant' && !isActive && blocks.length > 0
+      {showFooter && !raw && message.role === 'assistant' && !isActive && hasContentBlock
         ? (() => {
             const copyText = messageCopyText(message)
             // Gate the ENTIRE branch — including the gutter-row wrapper below —
