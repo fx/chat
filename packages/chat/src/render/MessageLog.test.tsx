@@ -59,9 +59,18 @@ describe('MessageLog', () => {
     const onRegenerate = vi.fn()
     const onFork = vi.fn()
     const onReset = vi.fn()
+    // A content-bearing assistant message (the footer only renders for a turn
+    // with a content block, not an auxiliary-only one), so the affordances exist
+    // to click and their scoped ids can be asserted.
+    const answered: ChatMessage = {
+      id: 'a1',
+      role: 'assistant',
+      blocks: [{ type: 'text', id: 't', text: 'answer' }],
+      createdAt: 0,
+    }
     render(
       <MessageLog
-        messages={[messages[1] as ChatMessage]}
+        messages={[answered]}
         onRegenerate={onRegenerate}
         onFork={onFork}
         onReset={onReset}

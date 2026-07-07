@@ -159,16 +159,45 @@ describe('MessageItem', () => {
     expect(allRows.length).toBe(blockRows.length)
   })
 
-  it('renders the footer WITHOUT a Copy button for a tool-call-only turn with onRegenerate', () => {
-    // With an action callback the footer renders (there is an affordance to
-    // show), but the empty copy payload still omits the Copy control.
+  it('renders NO footer for a tool-call-only turn even with onRegenerate', () => {
+    // An auxiliary-only turn (tool calls, no content block) is part of the
+    // assistant answer that FOLLOWS it, not a standalone answer — so it gets no
+    // footer even when an action callback is present. The footer belongs on the
+    // content-bearing message, not on the tool-call step.
     const msg = message({
       blocks: [successToolCall],
     })
     const { container } = render(<MessageItem message={msg} onRegenerate={() => {}} />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByLabelText('Regenerate')).toBeNull()
+  })
+
+  it('renders NO footer for a tool-call-only turn even with metrics', () => {
+    // Regression: hosts attach per-message metrics (model · duration · tokens/sec)
+    // to EVERY assistant message, including tool-call-only steps. Metrics alone
+    // must not resurrect a footer on an auxiliary-only turn.
+    const msg = message({
+      blocks: [successToolCall],
+      metrics: { model: 'gpt-4', durationMs: 1200 },
+    })
+    const { container } = render(<MessageItem message={msg} />)
+    expect(container.querySelector('.chat-footer')).toBeNull()
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+  })
+
+  it('renders the footer for a turn that mixes tool calls with a content block', () => {
+    // A message that carries an actual answer (a text block) alongside its tool
+    // calls IS a standalone answer, so the footer renders — with the metrics and
+    // action affordances attached to the content.
+    const msg = message({
+      blocks: [successToolCall, { type: 'text', id: 'ans', text: 'done' }],
+      metrics: { model: 'gpt-4', durationMs: 1200 },
+    })
+    const { container } = render(<MessageItem message={msg} onRegenerate={() => {}} />)
     expect(container.querySelector('.chat-footer')).not.toBeNull()
     expect(screen.getByLabelText('Regenerate')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Copy message')).toBeNull()
+    expect(screen.getByLabelText('Copy message')).toBeInTheDocument()
+    expect(screen.getByTestId('chat-footer-metrics')).toBeInTheDocument()
   })
 
   it('renders NO footer while the message is actively streaming (isActive)', () => {
@@ -578,11 +607,15 @@ describe('MessageItem', () => {
     // Change 0011 (parity fix): flat must win over minimal COMPLETELY — no minimal
     // grouping, no `data-minimal` attribute, and no minimal-forced compact footer.
     const msg = message({
-      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }, successToolCall],
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'think' },
+        successToolCall,
+        // A content block keeps the footer rendered (an auxiliary-only turn
+        // renders no footer at all) so the compact check stays meaningful.
+        { type: 'text', id: 'a', text: 'answer' },
+      ],
     })
-    // onRegenerate keeps the footer rendered (a tool-call-only turn with zero
-    // affordances renders no footer at all) so the compact check stays meaningful.
-    const { container } = render(<MessageItem message={msg} minimal flat onRegenerate={() => {}} />)
+    const { container } = render(<MessageItem message={msg} minimal flat />)
     // Flat: no grouping, so no collapsed group and the tool name shows directly.
     expect(container.querySelector('.chat-group')).toBeNull()
     expect(screen.getByText('search')).toBeInTheDocument()
@@ -645,6 +678,25 @@ describe('MessageItem', () => {
       'grouping ran',
     )
     expect(behaviorSpy).toHaveBeenCalled()
+  })
+
+  it('does not walk blocks for the footer on a path where it cannot render (raw)', () => {
+    // The footer's content-block walk consults the timeline-behavior registry
+    // (by block TYPE) and can fire host override getters, so it is short-
+    // circuited behind footer eligibility — it must not run on paths where the
+    // footer can never render. In raw mode neither grouping nor the footer runs,
+    // so a getter keyed on the present block TYPE (what the footer walk consults)
+    // must never fire. Without the short-circuit the eager walk would fire it.
+    const behaviorSpy = vi.fn(() => {
+      throw new Error('footer content walk ran on the raw path')
+    })
+    const timelineBehavior = {} as Record<string, never>
+    Object.defineProperty(timelineBehavior, 'tool_call', { enumerable: true, get: behaviorSpy })
+    const msg = message({ blocks: [successToolCall] })
+    expect(() =>
+      render(<MessageItem message={msg} raw extensions={{ timelineBehavior }} />),
+    ).not.toThrow()
+    expect(behaviorSpy).not.toHaveBeenCalled()
   })
 
   it('minimal mode renders a trailing custom non-aux block bare after the group', () => {
