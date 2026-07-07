@@ -171,6 +171,9 @@ export function MessageItem({
   const blocks = message.blocks
   const behaviorOverrides = extensions?.timelineBehavior
 
+  // The footer renders only for a completed assistant turn the host asked for a
+  // footer on — a cheap eligibility gate computed BEFORE any block walk.
+  const footerEligible = showFooter && !raw && message.role === 'assistant' && !isActive
   // Whether the message carries at least one CONTENT (non-auxiliary) block —
   // i.e. an actual answer (`text`/`system`), not just auxiliary chrome
   // (`tool_call`/`reasoning`/`status`). Consults the timeline-behavior registry
@@ -178,13 +181,19 @@ export function MessageItem({
   // than branching on block kind — content-worthiness is a per-kind question,
   // not a per-tool-name one, so it deliberately uses `getTimelineBehavior` and
   // never the per-tool-name resolution (keeping the flat/raw "no per-name
-  // lookup" guarantee intact). The footer gates on this: an auxiliary-only turn
-  // (e.g. a tool-call-only step) is part of the assistant answer that follows,
-  // not a standalone answer, so it gets no footer — even when action callbacks
-  // or metrics are present.
-  const hasContentBlock = blocks.some(
-    (block) => !getTimelineBehavior(block.type, behaviorOverrides).auxEligible,
-  )
+  // lookup" guarantee intact).
+  //
+  // Short-circuited behind `footerEligible` so the `.some()` walk — and the
+  // registry lookup it performs — runs ONLY when the footer could actually
+  // render, never on the raw, hidden (`showFooter={false}`), non-assistant, or
+  // active paths, which must avoid timeline-behavior lookups and any host
+  // override getter side effects. An auxiliary-only turn (e.g. a tool-call-only
+  // step) is part of the assistant answer that follows, not a standalone
+  // answer, so it gets no footer even when action callbacks or metrics are
+  // present.
+  const showContentFooter =
+    footerEligible &&
+    blocks.some((block) => !getTimelineBehavior(block.type, behaviorOverrides).auxEligible)
 
   // Minimal (density) mode folds ALL of an assistant turn's auxiliary blocks into
   // one group (via collapseTurnAux) and forces a compact footer. `flat` and `raw`
@@ -339,7 +348,7 @@ export function MessageItem({
               : attachments
           })()
         : null}
-      {showFooter && !raw && message.role === 'assistant' && !isActive && hasContentBlock
+      {showContentFooter
         ? (() => {
             const copyText = messageCopyText(message)
             // Gate the ENTIRE branch — including the gutter-row wrapper below —

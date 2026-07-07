@@ -680,6 +680,25 @@ describe('MessageItem', () => {
     expect(behaviorSpy).toHaveBeenCalled()
   })
 
+  it('does not walk blocks for the footer on a path where it cannot render (raw)', () => {
+    // The footer's content-block walk consults the timeline-behavior registry
+    // (by block TYPE) and can fire host override getters, so it is short-
+    // circuited behind footer eligibility — it must not run on paths where the
+    // footer can never render. In raw mode neither grouping nor the footer runs,
+    // so a getter keyed on the present block TYPE (what the footer walk consults)
+    // must never fire. Without the short-circuit the eager walk would fire it.
+    const behaviorSpy = vi.fn(() => {
+      throw new Error('footer content walk ran on the raw path')
+    })
+    const timelineBehavior = {} as Record<string, never>
+    Object.defineProperty(timelineBehavior, 'tool_call', { enumerable: true, get: behaviorSpy })
+    const msg = message({ blocks: [successToolCall] })
+    expect(() =>
+      render(<MessageItem message={msg} raw extensions={{ timelineBehavior }} />),
+    ).not.toThrow()
+    expect(behaviorSpy).not.toHaveBeenCalled()
+  })
+
   it('minimal mode renders a trailing custom non-aux block bare after the group', () => {
     const msg = message({
       blocks: [
