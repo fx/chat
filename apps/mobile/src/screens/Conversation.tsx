@@ -197,6 +197,7 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
             showFooter
             compactFooter
             activityDisplay="summary"
+            activityPlacement="after-content"
             finishedActivity="footer"
             {...(blocker
               ? {}
