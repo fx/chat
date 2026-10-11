@@ -1,5 +1,9 @@
-import type { ToolId } from '@fx/chat-agent'
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
+import type {
+  ConversationMeta as BaseConversationMeta,
+  ControllerState,
+  PendingApproval,
+  ToolId,
+} from '@fx/chat-agent'
 
 /** An OpenAI-compatible endpoint the user configured. */
 export interface Profile {
@@ -24,34 +28,16 @@ export interface Settings {
   approvals: Record<ToolId, boolean>
 }
 
-export interface ConversationMeta {
-  id: string
-  title: string
-  createdAt: number
-  updatedAt: number
+/** A conversation, bound to the profile (endpoint) it was started on. */
+export interface ConversationMeta extends BaseConversationMeta {
   profileId?: string | undefined
   model?: string | undefined
 }
 
-export interface PendingApproval {
-  id: string
-  conversationId: string
-  call: ToolCallBlock
-  resolve: (approved: boolean) => void
-}
+export type { PendingApproval }
 
-export interface AppState {
-  loaded: boolean
+export interface AppState extends ControllerState<ConversationMeta> {
   settings: Settings
-  /** Ordered by last activity, newest first. */
-  conversations: ConversationMeta[]
-  /** Loaded transcripts by conversation id. */
-  messages: Record<string, ChatMessage[]>
-  /** Active runs by conversation id. */
-  runs: Record<string, { messageId: string }>
-  /** Last run error by conversation id. */
-  errors: Record<string, { message: string; at: number }>
-  approvals: PendingApproval[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {

@@ -1,8 +1,7 @@
-import type { ChatMessage } from '@fx/chat-core'
+import { memoryStore } from '@fx/chat-agent'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { memoryStore } from '../platform/storage'
 import { fakeEndpoint, sseBody } from '../test-helpers'
-import { AppStore, newId, titleFrom } from './store'
+import { AppStore } from './store'
 import type { Profile } from './types'
 
 const profile: Profile = {
@@ -26,19 +25,6 @@ beforeEach(() => {
   vi.setSystemTime(1_000_000)
 })
 afterEach(() => vi.useRealTimers())
-
-describe('helpers', () => {
-  it('titles from the first line of text', () => {
-    expect(titleFrom('  hello\n  world ')).toBe('hello world')
-    expect(titleFrom('   ')).toBe('New chat')
-    expect(titleFrom('x'.repeat(60))).toBe(`${'x'.repeat(47)}…`)
-  })
-
-  it('makes unique-ish ids with a prefix', () => {
-    expect(newId('c')).toMatch(/^c[a-z0-9]+$/)
-    expect(newId()).not.toBe(newId())
-  })
-})
 
 describe('AppStore', () => {
   it('loads defaults and merges stored settings', async () => {
@@ -96,42 +82,6 @@ describe('AppStore', () => {
     expect(kv.data.has(`messages:${meta.id}`)).toBe(false)
   })
 
-  it('opens stored transcripts once, settling interrupted tool calls', async () => {
-    const stored: ChatMessage[] = [
-      {
-        id: 'a',
-        role: 'assistant',
-        blocks: [
-          { type: 'tool_call', id: 't1', name: 'x', arguments: {}, status: 'running' },
-          {
-            type: 'tool_call',
-            id: 't2',
-            name: 'x',
-            arguments: {},
-            status: 'pending',
-            result: 'kept',
-          },
-          { type: 'tool_call', id: 't3', name: 'x', arguments: {}, status: 'success' },
-        ],
-      },
-      { id: 'u', role: 'user', blocks: [{ type: 'text', id: 'x', text: 'hi' }] },
-    ]
-    const { store } = await ready([], { 'messages:c1': stored })
-    await store.openConversation('c1')
-    const [first, second] = store.getState().messages.c1 ?? []
-    expect(first?.blocks.map((b) => (b as { status: string }).status)).toEqual([
-      'error',
-      'error',
-      'success',
-    ])
-    expect((first?.blocks[0] as { result: unknown }).result).toEqual({ error: 'Interrupted.' })
-    expect((first?.blocks[1] as { result: unknown }).result).toBe('kept')
-    expect(second).toBe(stored[1] === second ? second : second)
-    await store.openConversation('c1')
-    await store.openConversation('empty')
-    expect(store.getState().messages.empty).toEqual([])
-  })
-
   it('sends a message, streams the answer, titles the chat and persists it', async () => {
     const { store, kv, endpoint } = await ready(
       [sseBody([{ reasoning_content: 'hmm' }, { content: 'Hello!' }])],
@@ -157,50 +107,24 @@ describe('AppStore', () => {
     expect(body.tools).toHaveLength(2)
   })
 
-  it('ignores sends to unknown conversations and while a run is active', async () => {
-    let finish: (value: unknown) => void = () => {}
-    const run = vi.fn(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve
-        }),
-    )
-    const store = new AppStore({
-      kv: memoryStore({ settings: { profiles: [profile] } }),
-      fetch: vi.fn(),
-      run: run as never,
-    })
-    await store.load()
-    expect(await store.send('missing', 'hi')).toBeUndefined()
-    const meta = await store.createConversation()
-    const first = store.send(meta.id, 'one')
-    await vi.waitFor(() => expect(store.getState().runs[meta.id]).toBeDefined())
-    expect(await store.send(meta.id, 'two')).toBeUndefined()
-    expect(await store.regenerate(meta.id)).toBeUndefined()
-    finish({ outcome: 'complete', message: { id: 'a', role: 'assistant', blocks: [] } })
-    await first
-    expect(store.conversation(meta.id)?.title).toBe('one')
-    expect(store.getState().runs[meta.id]).toBeUndefined()
-  })
-
-  it('keeps run errors on the message outcome, not in the store', async () => {
-    const { store } = await ready([], { settings: { profiles: [profile] } })
-    const meta = await store.createConversation()
-    const result = await store.send(meta.id, 'hi')
-    expect(result?.outcome).toBe('error')
-    expect(store.getState().messages[meta.id]?.at(-1)?.outcome).toEqual({
-      kind: 'error',
-      message: 'HTTP 500: no more',
-      retryable: true,
-    })
-    expect(store.getState().errors[meta.id]).toBeUndefined()
-  })
-
   it('reports a missing profile or model instead of running', async () => {
     const { store } = await ready()
     const meta = await store.createConversation()
     expect(await store.send(meta.id, 'hi')).toBeUndefined()
     expect(store.getState().errors[meta.id]?.message).toMatch(/Set up an endpoint/)
+    await store.saveProfile({ ...profile, model: '' })
+    const unset = await store.createConversation()
+    expect(await store.send(unset.id, 'hi')).toBeUndefined()
+    expect(store.getState().errors[unset.id]?.message).toMatch(/Choose a model/)
+  })
+
+  it('is loaded only once both settings and conversations are read', async () => {
+    const store = new AppStore({ kv: memoryStore(), fetch: vi.fn() })
+    const states: boolean[] = []
+    store.subscribe(() => states.push(store.getState().loaded))
+    await store.load()
+    expect(states.at(0)).toBe(false)
+    expect(states.at(-1)).toBe(true)
   })
 
   it("never sends a conversation to another profile's endpoint", async () => {
@@ -239,154 +163,5 @@ describe('AppStore', () => {
     expect(await store.send('c1', 'hi')).toBeUndefined()
     expect(endpoint.requests).toHaveLength(0)
     expect(store.getState().errors.c1?.message).toMatch(/Choose a profile/)
-  })
-
-  it('regenerates the last turn or a given assistant message', async () => {
-    const { store } = await ready(
-      [
-        sseBody([{ content: 'first' }]),
-        sseBody([{ content: 'second' }]),
-        sseBody([{ content: 'third' }]),
-      ],
-      { settings: { profiles: [profile] } },
-    )
-    const meta = await store.createConversation()
-    await store.send(meta.id, 'q')
-    await store.regenerate(meta.id)
-    let messages = store.getState().messages[meta.id] ?? []
-    expect(messages).toHaveLength(2)
-    expect((messages[1]?.blocks[0] as { text: string }).text).toBe('second')
-    await store.regenerate(meta.id, messages[1]?.id)
-    messages = store.getState().messages[meta.id] ?? []
-    expect((messages[1]?.blocks[0] as { text: string }).text).toBe('third')
-  })
-
-  it('does not regenerate when no user message precedes', async () => {
-    const { store } = await ready([], { settings: { profiles: [profile] } })
-    const meta = await store.createConversation()
-    expect(await store.regenerate(meta.id)).toBeUndefined()
-  })
-
-  it('stops a run and resolves pending approvals as denied', async () => {
-    const { store } = await ready(
-      [
-        sseBody(
-          [
-            {
-              tool_calls: [
-                {
-                  index: 0,
-                  id: 'c1',
-                  function: { name: 'fetch_url', arguments: '{"url":"https://x.test"}' },
-                },
-              ],
-            },
-          ],
-          'tool_calls',
-        ),
-      ],
-      { settings: { profiles: [profile], tools: { fetch_url: true } } },
-    )
-    const meta = await store.createConversation()
-    const running = store.send(meta.id, 'fetch it')
-    await vi.waitFor(() => expect(store.getState().approvals).toHaveLength(1))
-    expect(store.getState().approvals[0]?.call.name).toBe('fetch_url')
-    store.stop(meta.id)
-    const result = await running
-    expect(result?.outcome).toBe('aborted')
-    expect(store.getState().approvals).toEqual([])
-  })
-
-  it('keeps a conversation deleted while its run ends', async () => {
-    const { store, kv } = await ready(
-      [
-        sseBody(
-          [
-            {
-              tool_calls: [
-                {
-                  index: 0,
-                  id: 'c1',
-                  function: { name: 'fetch_url', arguments: '{"url":"https://x.test"}' },
-                },
-              ],
-            },
-          ],
-          'tool_calls',
-        ),
-      ],
-      { settings: { profiles: [profile], tools: { fetch_url: true } } },
-    )
-    const meta = await store.createConversation()
-    const running = store.send(meta.id, 'fetch it')
-    await vi.waitFor(() => expect(store.getState().approvals).toHaveLength(1))
-    await store.deleteConversation(meta.id)
-    expect((await running)?.outcome).toBe('aborted')
-    await vi.runAllTimersAsync()
-    await store.flush(meta.id)
-    await store.openConversation(meta.id)
-    const state = store.getState()
-    expect(state.messages[meta.id]).toBeUndefined()
-    expect(state.runs[meta.id]).toBeUndefined()
-    expect(state.conversations.some((c) => c.id === meta.id)).toBe(false)
-    expect(kv.data.has(`messages:${meta.id}`)).toBe(false)
-    expect((kv.data.get('conversations') as { id: string }[]).some((c) => c.id === meta.id)).toBe(
-      false,
-    )
-  })
-
-  it('does not start a run for a conversation deleted mid-send', async () => {
-    const { store, kv, endpoint } = await ready([sseBody([{ content: 'hi' }])], {
-      settings: { profiles: [profile] },
-    })
-    const meta = await store.createConversation()
-    const sending = store.send(meta.id, 'hi')
-    const deleting = store.deleteConversation(meta.id)
-    expect(await sending).toBeUndefined()
-    await deleting
-    await vi.runAllTimersAsync()
-    expect(endpoint.requests).toHaveLength(0)
-    expect(store.getState().messages[meta.id]).toBeUndefined()
-    expect(kv.data.has(`messages:${meta.id}`)).toBe(false)
-  })
-
-  it('runs an approved tool and continues', async () => {
-    const { store, endpoint } = await ready(
-      [
-        sseBody(
-          [
-            {
-              tool_calls: [
-                {
-                  index: 0,
-                  id: 'c1',
-                  function: { name: 'fetch_url', arguments: '{"url":"https://x.test/"}' },
-                },
-              ],
-            },
-          ],
-          'tool_calls',
-        ),
-        sseBody([{ content: 'done' }]),
-      ],
-      { settings: { profiles: [profile], tools: { fetch_url: true } } },
-    )
-    const meta = await store.createConversation()
-    const running = store.send(meta.id, 'fetch it')
-    await vi.waitFor(() => expect(store.getState().approvals).toHaveLength(1))
-    store.getState().approvals[0]?.resolve(true)
-    expect((await running)?.outcome).toBe('complete')
-    expect(endpoint.requests.some((r) => r.url === 'https://x.test/')).toBe(true)
-  })
-
-  it('debounces transcript writes and flushes on demand', async () => {
-    const { store, kv } = await ready([], { settings: { profiles: [profile] } })
-    const meta = await store.createConversation()
-    await store.send(meta.id, 'hi')
-    kv.data.delete(`messages:${meta.id}`)
-    await store.flush(meta.id)
-    expect(kv.data.has(`messages:${meta.id}`)).toBe(true)
-    await store.flush('unknown')
-    expect(kv.data.has('messages:unknown')).toBe(false)
   })
 })

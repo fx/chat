@@ -1,3 +1,4 @@
+import { newId } from '@fx/chat-agent'
 /**
  * Create or edit an endpoint profile: name, base URL, API key (masked), and
  * default model picked from the endpoint's model list or typed by hand.
@@ -6,7 +7,6 @@ import { Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Field, IconButton, PrimaryButton, SecondaryButton, TextInput } from '../components/ui'
 import { useStore } from '../store/context'
-import { newId } from '../store/store'
 import type { Profile } from '../store/types'
 
 export function validateBaseUrl(value: string): string | undefined {

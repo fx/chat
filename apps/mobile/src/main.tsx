@@ -1,10 +1,10 @@
 import '@fx/chat/structure.css'
 import './index.css'
+import { indexedDbStore, memoryStore } from '@fx/chat-agent'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { appFetch, domHtmlToText, trackVisualViewport } from './platform'
-import { indexedDbStore, memoryStore } from './platform/storage'
 import { StoreProvider } from './store/context'
 import { AppStore } from './store/store'
 
