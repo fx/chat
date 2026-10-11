@@ -67,8 +67,9 @@ export type PlannedRow =
   /** The error an assistant message ended with, shown after its content. */
   | { kind: 'outcome'; outcome: Extract<MessageOutcome, { kind: 'error' }> }
   /**
-   * Live tail: `count` older activity blocks are hidden, `tools` of them tool
-   * calls (the rest reasoning, plans and other activity). See {@link earlierLabel}.
+   * Live tail: `count` activity blocks older than the first shown row are
+   * hidden, `tools` of them tool calls (the rest plans and other activity;
+   * hidden reasoning is not counted). See {@link earlierLabel}.
    */
   | { kind: 'earlier'; key: string; count: number; tools: number }
 
@@ -97,7 +98,9 @@ export interface MessagePlanOptions {
   /**
    * While the message is live, show only the newest N tool calls (plus the
    * latest plan, live status rows, and reasoning while nothing else has
-   * arrived) bare, after an `earlier` row counting what is hidden. Hosts pass
+   * arrived) bare, after an `earlier` row counting the hidden activity older
+   * than the first shown row — reasoning the tail hides is not counted (the
+   * footer's reasoning count covers it). Hosts pass
    * it only while the activity is collapsed.
    */
   liveTail?: number | undefined
@@ -166,7 +169,13 @@ export function planMessage(
   } else if (assistant && isActive && liveTail !== undefined && liveTail > 0) {
     const aux = blocks.filter(isAux)
     const visible = tailVisible(aux, blocks, liveTail)
-    const hidden = aux.filter((block) => !visible.has(block))
+    // Announce only what would have been a row above the tail: hidden blocks
+    // older than its first shown row, never hidden reasoning.
+    const first = aux.findIndex((block) => visible.has(block))
+    const hidden = aux.filter(
+      (block, i) =>
+        !visible.has(block) && block.type !== 'reasoning' && (first === -1 || i < first),
+    )
     const earlier: PlannedRow[] =
       hidden.length > 0
         ? [

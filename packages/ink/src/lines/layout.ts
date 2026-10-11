@@ -250,10 +250,12 @@ interface BodyContext {
   ctx: LayoutContext
 }
 
-function toolGlyph(tool: ToolCallBlock, live: boolean, g: InkGlyphs): Span {
+function toolGlyph(tool: ToolCallBlock, live: boolean, ctx: LayoutContext): Span {
+  const g = ctx.glyphs
   if (tool.status === 'success') return span(g.toolSuccess, { role: 'positive', dim: true })
   if (tool.status === 'error') return span(g.toolError, { role: 'danger' })
-  return span(live ? g.toolRunning : g.toolIdle, { role: 'caution' })
+  // A live call spins on the shared clock like every live row; else it is unfinished.
+  return live ? span(spinnerFrame(ctx), { role: 'marker' }) : span(g.toolIdle, { role: 'caution' })
 }
 
 const APPROVAL: Record<string, [string, InkThemeRole] | undefined> = {
@@ -331,7 +333,7 @@ function toolRow(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
   const approval = tool.approval ? APPROVAL[tool.approval.state] : undefined
   const row = headerRow(
     {
-      affordance: toolGlyph(tool, live, b.ctx.glyphs),
+      affordance: toolGlyph(tool, live, b.ctx),
       label: toolLabel(tool) || 'tool',
       detail: toolDisplayInput(tool),
       qualifier: approval ? span(approval[0], { role: approval[1] }) : undefined,
@@ -353,7 +355,9 @@ function planRows(plan: PlanBlock, b: BodyContext): LineDraft[] {
     const marker = done
       ? span(g.planDone, { role: 'positive', dim: true })
       : active
-        ? span(g.planActive, { role: 'caution', ...(b.live ? {} : { dim: true }) })
+        ? b.live
+          ? span(spinnerFrame(b.ctx), { role: 'marker' })
+          : span(g.planActive, { role: 'caution', dim: true })
         : span(g.planPending, { dim: true })
     const lead = b.ctx.measure(marker.text) + 1
     const rows = wrapLines(entry.content, Math.max(1, b.width - lead), b.ctx.measure)

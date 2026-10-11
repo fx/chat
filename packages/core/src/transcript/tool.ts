@@ -69,6 +69,15 @@ export function toolDisplayInput(block: ToolCallBlock, maxLength = 300): string 
 }
 
 /**
+ * A tool call in one line, as its row reads: the label, then the input when it
+ * adds something (`Running sleep 2 && echo hi`).
+ */
+export function toolHeadline(block: ToolCallBlock): string {
+  const input = toolDisplayInput(block)
+  return input ? `${toolLabel(block)} ${input}` : toolLabel(block)
+}
+
+/**
  * The tool's output as text: a string as is, `''` when absent, otherwise
  * two-space-indented JSON (made JSON-safe first).
  */

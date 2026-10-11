@@ -52,7 +52,13 @@ export {
   shouldShowTimer,
   statusLabel,
 } from './plan'
-export { summarizeToolInput, toolDisplayInput, toolLabel, toolResultText } from './tool'
+export {
+  summarizeToolInput,
+  toolDisplayInput,
+  toolHeadline,
+  toolLabel,
+  toolResultText,
+} from './tool'
 export type {
   ActivityCounts,
   DetailLevel,

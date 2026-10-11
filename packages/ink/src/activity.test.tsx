@@ -38,9 +38,9 @@ describe('agent activity in the terminal', () => {
       ],
     }
     const out = str(<MessageView message={message} expanded />)
-    expect(out).toContain('⚒ Run tests npm test ✗ Error · denied')
+    expect(out).toContain('ƒ Run tests npm test ✗ Error · denied')
     expect(out).toContain('"error": "declined"')
-    expect(out).toContain('⚒ Plain')
+    expect(out).toContain('ƒ Plain')
     expect(out).not.toContain('Plain ·')
   })
 
@@ -60,7 +60,7 @@ describe('agent activity in the terminal', () => {
     }
     const out = str(<Transcript messages={[failed, stopped]} retryHint="/retry" />)
     expect(out).toContain('✗ HTTP 500: down')
-    expect(out).toContain('failed · ⚒ 1 tool · m · /retry')
+    expect(out).toContain('failed · ƒ 1 tool · m · /retry')
     expect(out).toContain('stopped · /retry')
     expect(out).not.toContain('⠋')
     expect(str(<MessageView message={stopped} />)).toBe('• stopped')
@@ -86,11 +86,12 @@ describe('plan in the terminal', () => {
       ],
     }
     const out = str(<MessageView message={message} expanded isActive />)
-    expect(out).toContain('☑ Plan 1/3')
+    expect(out).toContain('☐ Plan 1/3')
     expect(out).toContain('✓ Read')
-    expect(out).toContain('… Write')
+    expect(out).toContain('⠋ Write')
+    expect(str(<MessageView message={message} expanded />)).toContain('… Write')
     expect(out).toContain('· Test')
-    expect(str(<MessageView message={message} />)).toContain('(+1) ☑ Plan')
+    expect(str(<MessageView message={message} />)).toContain('(+1) ☐ Plan')
   })
 })
 
@@ -119,8 +120,8 @@ describe('activity planning in the terminal', () => {
         <Transcript messages={[live]} isStreaming streamingMessageId="l" liveTail={1} liveFooter />
       </InkChatProvider>,
     )
-    expect(view.lastFrame()).toContain('⋮ +2 earlier steps (1 tool call)')
-    expect(view.lastFrame()).toContain('12s · ∴ 3 · ⚒ 2 tools')
+    expect(view.lastFrame()).toContain('⋮ +1 earlier tool call')
+    expect(view.lastFrame()).toContain('12s · ✻ 3 · ƒ 2 tools')
     await vi.advanceTimersByTimeAsync(1000)
     expect(view.lastFrame()).toContain('13s ·')
     view.unmount()
@@ -134,7 +135,7 @@ describe('activity planning in the terminal', () => {
       </InkChatProvider>,
       { columns: 100 },
     )
-    expect(out).toContain('  +2 earlier steps (1 tool call)')
+    expect(out).toContain('  +1 earlier tool call')
   })
 
   it('places activity after content and hides activity facts when expanded', () => {

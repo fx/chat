@@ -129,14 +129,14 @@ describe('parseInline', () => {
 
   it('shows images as glyph, alt and source (a data URL as its type)', () => {
     expect(inline('![cat](https://i/c.png)')).toEqual([
-      { text: '🖼 cat ', role: 'content' },
+      { text: '▣ cat ', role: 'content' },
       { text: '(https://i/c.png)', role: 'muted' },
     ])
     expect(
       inline('![](data:image/png;base64,AAAA)')
         .map((s) => s.text)
         .join(''),
-    ).toBe('🖼 (image/png)')
+    ).toBe('▣ (image/png)')
   })
 })
 
@@ -326,7 +326,7 @@ describe('terminalMarkdown blocks', () => {
       '• two',
       '  • nested',
       '  more',
-      '☑ done',
+      '☒ done',
       '☐ open',
       '',
       '3) three',
@@ -351,9 +351,9 @@ describe('terminalMarkdown blocks', () => {
     const image = (src: string, alt: string, width: number) =>
       src === 'skip' ? undefined : [{ spans: [{ text: `[${alt}:${src}:${width}]` }] }]
     expect(texts(md('![a](x.png "t")', 30, { image }))).toEqual(['[a:x.png:30]'])
-    expect(texts(md('![a](skip)', 30, { image }))).toEqual(['🖼 a (skip)'])
-    expect(texts(md('![a](x) and text', 30, { image }))).toEqual(['🖼 a (x) and text'])
-    expect(texts(md('![a](x)'))).toEqual(['🖼 a (x)'])
+    expect(texts(md('![a](skip)', 30, { image }))).toEqual(['▣ a (skip)'])
+    expect(texts(md('![a](x) and text', 30, { image }))).toEqual(['▣ a (x) and text'])
+    expect(texts(md('![a](x)'))).toEqual(['▣ a (x)'])
   })
 
   it('normalises line endings and tolerates zero width', () => {

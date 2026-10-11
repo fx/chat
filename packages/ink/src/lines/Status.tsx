@@ -8,7 +8,7 @@ import {
   countActivity,
   formatElapsed,
   livePhase,
-  toolLabel,
+  toolHeadline,
 } from '@fx/chat-core'
 /**
  * Fullscreen chrome around the viewport: the status line, queued (pending)
@@ -53,7 +53,7 @@ function defaultPhaseLabel(phase: LivePhase): string {
     case 'writing':
       return 'writing'
     case 'tool':
-      return `running ${truncate(toolLabel(phase.call), 32)}`
+      return `running ${truncate(toolHeadline(phase.call), 32)}`
   }
 }
 

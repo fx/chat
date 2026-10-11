@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ToolCallBlock } from '../model'
 import { summarizeBlock } from './blockSummary'
-import { summarizeToolInput, toolDisplayInput, toolLabel, toolResultText } from './tool'
+import {
+  summarizeToolInput,
+  toolDisplayInput,
+  toolHeadline,
+  toolLabel,
+  toolResultText,
+} from './tool'
 
 const call = (extra: Partial<ToolCallBlock> = {}): ToolCallBlock => ({
   type: 'tool_call',
@@ -30,6 +36,15 @@ describe('tool helpers', () => {
     expect(summarizeToolInput(null)).toBeUndefined()
     expect(summarizeToolInput(5)).toBeUndefined()
     expect(summarizeToolInput('abcdef', 4)).toBe('abc…')
+  })
+
+  it('reads a call in one line: label, then the input when it adds something', () => {
+    expect(toolHeadline(call({ title: 'Running', inputSummary: 'sleep 2 && echo hi' }))).toBe(
+      'Running sleep 2 && echo hi',
+    )
+    expect(toolHeadline(call({ title: 'Run npm test', arguments: { command: 'npm test' } }))).toBe(
+      'Run npm test',
+    )
   })
 
   it('shows input only when it adds something', () => {

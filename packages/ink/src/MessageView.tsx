@@ -31,6 +31,7 @@ import {
  */
 import type { ComponentType } from 'react'
 import { Row, clipLines, toJson } from './Row'
+import { Spinner } from './Spinner'
 import { Styled, useInkComponents } from './registry'
 import { React, hooks, ink } from './runtime'
 import { stripControlsDeep } from './sanitize'
@@ -203,7 +204,11 @@ function PlanEntries({ entries, live }: { entries: PlanEntry[]; live: boolean })
               : 'content'
         return (
           <ink.Box key={entry.id ?? index} gap={1}>
-            <Styled tone={entry.status === 'completed' ? 'positive' : 'marker'}>{marker}</Styled>
+            {entry.status === 'in_progress' && live ? (
+              <Spinner />
+            ) : (
+              <Styled tone={entry.status === 'completed' ? 'positive' : 'marker'}>{marker}</Styled>
+            )}
             <Styled tone={tone}>{entry.content}</Styled>
           </ink.Box>
         )

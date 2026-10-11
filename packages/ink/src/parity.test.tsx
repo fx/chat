@@ -119,8 +119,8 @@ describe('renderer parity', () => {
       </InkChatProvider>,
       { columns: 100 },
     )
-    expect(domLive).toContain('+2 earlier steps (1 tool call)')
-    expect(termLive).toContain('+2 earlier steps (1 tool call)')
+    expect(domLive).toContain('+1 earlier tool call')
+    expect(termLive).toContain('+1 earlier tool call')
 
     const done: ChatMessage = {
       id: 'd',
