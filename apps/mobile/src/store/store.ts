@@ -77,6 +77,12 @@ export class AppStore {
   private listeners = new Set<() => void>()
   private controllers = new Map<string, AbortController>()
   private saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  /**
+   * Conversations deleted this session. A run, load or save still in flight
+   * when its conversation is deleted must not bring it back in memory or in
+   * storage, so every write path checks this set.
+   */
+  private deleted = new Set<string>()
   private readonly now: () => number
   private readonly run: typeof runAgent
 
@@ -122,7 +128,7 @@ export class AppStore {
   async openConversation(id: string): Promise<void> {
     if (this.state.messages[id]) return
     const stored = (await this.deps.kv.get<ChatMessage[]>(messagesKey(id))) ?? []
-    if (this.state.messages[id]) return
+    if (this.state.messages[id] || this.deleted.has(id)) return
     this.set({ messages: { ...this.state.messages, [id]: settleInterrupted(stored) } })
   }
 
@@ -208,6 +214,7 @@ export class AppStore {
   }
 
   async deleteConversation(id: string): Promise<void> {
+    this.deleted.add(id)
     this.stop(id)
     const timer = this.saveTimers.get(id)
     if (timer) clearTimeout(timer)
@@ -222,6 +229,7 @@ export class AppStore {
   // ── transcript persistence ─────────────────────────────────────────────────
 
   private setMessages(id: string, messages: ChatMessage[]): void {
+    if (this.deleted.has(id)) return
     this.set({ messages: { ...this.state.messages, [id]: messages } })
     this.scheduleSave(id)
   }
@@ -240,7 +248,7 @@ export class AppStore {
     if (timer) clearTimeout(timer)
     this.saveTimers.delete(id)
     const messages = this.state.messages[id]
-    if (messages) await this.deps.kv.set(messagesKey(id), messages)
+    if (messages && !this.deleted.has(id)) await this.deps.kv.set(messagesKey(id), messages)
   }
 
   private upsertMessage(id: string, message: ChatMessage): void {
@@ -301,9 +309,11 @@ export class AppStore {
 
   private async startRun(id: string, history: ChatMessage[]): Promise<RunResult | undefined> {
     const meta = this.conversation(id)
+    // Deleted while `send` awaited its own writes.
+    if (!meta) return undefined
     const profile =
-      this.state.settings.profiles.find((p) => p.id === meta?.profileId) ?? this.activeProfile()
-    const model = meta?.model || profile?.model
+      this.state.settings.profiles.find((p) => p.id === meta.profileId) ?? this.activeProfile()
+    const model = meta.model || profile?.model
     const { [id]: _previous, ...errors } = this.state.errors
     if (!profile || !model) {
       this.set({
@@ -344,6 +354,7 @@ export class AppStore {
     // A failed or stopped run is described by the message's own outcome, which
     // the transcript renders (with the footer's regenerate action as retry).
     this.set({ runs })
+    if (this.deleted.has(id)) return result
     await this.updateConversation(id, { updatedAt: this.now() })
     await this.flush(id)
     return result

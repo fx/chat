@@ -259,6 +259,59 @@ describe('AppStore', () => {
     expect(store.getState().approvals).toEqual([])
   })
 
+  it('keeps a conversation deleted while its run ends', async () => {
+    const { store, kv } = await ready(
+      [
+        sseBody(
+          [
+            {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'c1',
+                  function: { name: 'fetch_url', arguments: '{"url":"https://x.test"}' },
+                },
+              ],
+            },
+          ],
+          'tool_calls',
+        ),
+      ],
+      { settings: { profiles: [profile], tools: { fetch_url: true } } },
+    )
+    const meta = await store.createConversation()
+    const running = store.send(meta.id, 'fetch it')
+    await vi.waitFor(() => expect(store.getState().approvals).toHaveLength(1))
+    await store.deleteConversation(meta.id)
+    expect((await running)?.outcome).toBe('aborted')
+    await vi.runAllTimersAsync()
+    await store.flush(meta.id)
+    await store.openConversation(meta.id)
+    const state = store.getState()
+    expect(state.messages[meta.id]).toBeUndefined()
+    expect(state.runs[meta.id]).toBeUndefined()
+    expect(state.conversations.some((c) => c.id === meta.id)).toBe(false)
+    expect(kv.data.has(`messages:${meta.id}`)).toBe(false)
+    expect((kv.data.get('conversations') as { id: string }[]).some((c) => c.id === meta.id)).toBe(
+      false,
+    )
+  })
+
+  it('does not start a run for a conversation deleted mid-send', async () => {
+    const { store, kv, endpoint } = await ready([sseBody([{ content: 'hi' }])], {
+      settings: { profiles: [profile] },
+    })
+    const meta = await store.createConversation()
+    const sending = store.send(meta.id, 'hi')
+    const deleting = store.deleteConversation(meta.id)
+    expect(await sending).toBeUndefined()
+    await deleting
+    await vi.runAllTimersAsync()
+    expect(endpoint.requests).toHaveLength(0)
+    expect(store.getState().messages[meta.id]).toBeUndefined()
+    expect(kv.data.has(`messages:${meta.id}`)).toBe(false)
+  })
+
   it('runs an approved tool and continues', async () => {
     const { store, endpoint } = await ready(
       [
