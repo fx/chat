@@ -8,7 +8,7 @@ import type { FetchLike } from '@fx/chat-agent'
  * exits the app, re-runs setup, and starts a fresh session.
  */
 import { React, ink } from '@fx/chat-ink'
-import { InkChatProvider } from '@fx/chat-ink'
+import { InkChatProvider, TerminalMarkdown } from '@fx/chat-ink'
 import { createKittyProvider, detectKitty } from '@fx/chat-ink/kitty'
 import { createJpegDecoder } from '@fx/chat-ink/kitty-jpeg'
 import type { Config } from '@fx/tx/config'
@@ -16,7 +16,6 @@ import type { Dialogs } from '@fx/tx/dialogs'
 import type { Theming } from '@fx/tx/theme'
 import { App, type ExitReason } from './App'
 import { Fullscreen } from './Fullscreen'
-import { TerminalMarkdown } from './markdown'
 import {
   CONFIG_KEY,
   type ChatFlags,

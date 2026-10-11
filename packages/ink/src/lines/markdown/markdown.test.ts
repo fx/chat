@@ -30,6 +30,15 @@ const inline = (source: string) => parseInline(source, { role: 'content' }, plai
 const find = (spans: Span[], t: string) => spans.find((s) => s.text === t)
 
 describe('parseInline', () => {
+  it('decodes character references outside code, but never into controls', () => {
+    expect(
+      inline('a &amp; b &lt;i&gt; &quot;q&quot; &#65;&#x42; &bogus;').map((s) => s.text),
+    ).toEqual(['a & b <i> "q" AB &bogus;'])
+    expect(inline('`&amp;`')[0]?.text).toBe('&amp;')
+    for (const ref of ['&#27;', '&#x1b;', '&#x9b;', '&#127;', '&#0;', '&#xD800;', '&#1114112;'])
+      expect(inline(ref)[0]?.text).toBe(ref)
+  })
+
   it('styles emphasis, strike and code', () => {
     const spans = inline('a *i* _j_ **b** __c__ ***d*** ~~s~~ `x`')
     expect(find(spans, 'i')).toMatchObject({ italic: true })

@@ -56,6 +56,8 @@ export {
   viewportKeyAction,
 } from './Viewport'
 export * from './markdown'
+export type { TerminalMarkdownProps } from './Markdown'
+export { TerminalMarkdown } from './Markdown'
 export type { CellBox, ImageLayoutOptions, ImageProvider, ImageState } from './images'
 export { THUMBNAIL, layoutImage } from './images'
 export type { MouseEvent, Point } from './mouse'

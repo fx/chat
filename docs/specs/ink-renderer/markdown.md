@@ -6,8 +6,10 @@ The markdown engine is injected, as in `@fx/chat` (see [architecture](../archite
 line viewport takes a **markdown layout** slot — a function from source, width and options
 (streaming, an image hook, the measure) to lines. The package ships a **dependency-free default**,
 the terminal counterpart of the headless DOM markdown, which the line viewport uses unless the host
-passes its own. The element-based
-markdown slot of the inline transcript is unchanged (default plain).
+passes its own. The same layout is exported as an element, `TerminalMarkdown`, for the
+element-based markdown slot of the inline transcript: it lays out to its box's measured width (the
+terminal's width until the first layout pass, or an explicit `width`) and strips controls from the
+source first. That slot's default stays plain; a host opts in by injecting `TerminalMarkdown`.
 
 ## Blocks
 
@@ -36,6 +38,9 @@ markdown slot of the inline transcript is unchanged (default plain).
   written); emphasis and link text nest.
 - `[text](url)`: text in the `link` role, then ` (url)` muted when it differs from the text;
   autolinks in the `link` role.
+- Character references: `&amp; &lt; &gt; &quot; &apos; &nbsp;` and numeric references decode
+  outside code spans; a numeric reference naming a control character, a surrogate or no character
+  stays as written, so decoding never produces a control.
 - Images in running text, or without an image hook: the image glyph, alt, and source — a `data:` URL
   shown as its type, never its payload. A line that is only an image MAY be laid out by the image
   hook (see [images](./images.md)).

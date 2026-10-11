@@ -149,3 +149,4 @@ projection of it.
 | 2026-10-11 | Terminal safety: content never drives the terminal; image size cap enforced while reading; split terminal reports joined | — |
 | 2026-10-11 | `earlier` glyph; activity spacing; footer-only finished activity hides every activity row; bare threaded corner without footer facts | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | One spinner for every live row; tool headline in the live phase; monochrome default glyphs and opt-in `emojiGlyphs` | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | `TerminalMarkdown` element for the inline markdown slot; inline character references | — |

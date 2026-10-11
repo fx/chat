@@ -1,12 +1,16 @@
-import { InkChatProvider, stripControls } from '@fx/chat-ink'
+// @vitest-environment node
 import { renderToString } from 'ink'
 import { describe, expect, it } from 'vitest'
-import { TerminalMarkdown } from './markdown'
+import { InkChatProvider } from '../registry'
+import { React, ink } from '../runtime'
+import { stripControls } from '../sanitize'
+import { renderInk, tick, useFakeClock } from '../test-helpers'
+import { TerminalMarkdown } from './Markdown'
 
 const md = (content: string) =>
   renderToString(
     <InkChatProvider>
-      <TerminalMarkdown content={content} />
+      <TerminalMarkdown content={content} width={60} />
     </InkChatProvider>,
     { columns: 60 },
   )
@@ -26,7 +30,7 @@ describe('TerminalMarkdown', () => {
       '& text',
       'next',
       '• one',
-      '[x] done',
+      '☒ done',
       '3. three',
       '4. four',
       '│ quoted',
@@ -40,6 +44,15 @@ describe('TerminalMarkdown', () => {
     ]) {
       expect(out).toContain(piece)
     }
+  })
+
+  it('lays out a streaming answer, an unclosed fence as code', () => {
+    const out = renderToString(
+      <InkChatProvider>
+        <TerminalMarkdown content={'go:\n\n```sh\nls -la'} streaming width={40} />
+      </InkChatProvider>,
+    )
+    expect(out).toContain('│ ls -la')
   })
 
   it('renders an empty document', () => {
@@ -64,5 +77,24 @@ describe('TerminalMarkdown', () => {
       // The test renderer draws no styling, so any control left is one the content smuggled in.
       expect(stripControls(out)).toBe(out)
     }
+  })
+})
+
+describe('TerminalMarkdown width', () => {
+  useFakeClock()
+
+  it('lays out to the measured box, not the terminal', async () => {
+    const view = renderInk(
+      <ink.Box width={24}>
+        <TerminalMarkdown content={'one two three four five six seven eight\n\n---'} />
+      </ink.Box>,
+    )
+    await tick()
+    const rows = (view.lastFrame() ?? '').split('\n')
+    expect(rows.length).toBeGreaterThan(2)
+    for (const row of rows) expect(row.length).toBeLessThanOrEqual(24)
+    expect(rows.at(-1)).toBe('─'.repeat(24))
+    expect(view.lastFrame()).not.toContain('…')
+    view.unmount()
   })
 })
