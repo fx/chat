@@ -173,4 +173,4 @@ nothing in core depends on them.
 | 2026-10-10 | Footer facts, counts, live phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | `./json` loose-JSON subpath | [0026-loose-json](../../changes/0026-loose-json.md) |
 | 2026-10-10 | Shared clock in `./react` | [0027-shared-clock](../../changes/0027-shared-clock.md) |
-| 2026-10-11 | `finishedActivity` plan option; `earlier` row `tools` and `earlierLabel` | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | `finishedActivity` plan option; `earlier` row `tools` and `earlierLabel`; earlier row counts only older non-reasoning activity; `toolHeadline` | [0034-activity-layout](../../changes/0034-activity-layout.md) |

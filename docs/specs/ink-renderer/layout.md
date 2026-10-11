@@ -69,8 +69,8 @@ remains for the inline transcript.
 ## Block Layouts
 
 - **Reasoning:** wrapped, italic, `muted`.
-- **Tool row:** one line — status glyph (success, error, running when its message is live, idle
-  otherwise, unknown), the label, the input when it adds something, then the approval qualifier.
+- **Tool row:** one line — status glyph (success, error; a pending or running call draws the
+  spinner while its message is live and the idle glyph otherwise), the label, the input when it adds something, then the approval qualifier.
   Whitespace collapsed and truncated to the width; the glyph and qualifier are exempt from
   truncation.
 - **Tool output box** (details and full): the output text, each line prefixed by an indented dotted
@@ -81,7 +81,11 @@ remains for the inline transcript.
   last indent step, its preview and a size label, and targets the toggle. Trailing non-JSON follows
   as text. Open state is per block and path, kept by the viewport or controlled by the host.
 - **Plan:** one row per entry — status glyph (done, active, pending), the content with a hanging
-  indent; completed entries dim; the active glyph bright while live.
+  indent; completed entries dim; an in-progress entry draws the spinner while its message is live,
+  else the active glyph, dim.
+- **One spinner.** Every live affordance in the transcript — live reasoning, the status row, live
+  group headers, running tool rows, in-progress plan entries — MUST draw the same spinner frames,
+  stepped by the same clock.
 - **Outcome:** an error row `✗ <message>` (glyph injected), wrapped, `danger`, after the content.
 - **Earlier row:** the `earlier` glyph (a `marker`, chrome; none when empty), then core's label,
   `muted`.
@@ -132,7 +136,8 @@ Per-member JSON opening is independent of the level and persists while the viewp
 
 - **Status line:** a full-width rule with a label set into it near the left, cut to fit. While a
   message is live: the pulse (frames from the glyph set, one step per clock tick, in the accent),
-  the live phase (`waiting`, `thinking`, `running <tool label, ≤32 cells>`, `writing`, or a host
+  the live phase (`waiting`, `thinking`, `running <tool label and input as its row reads them,
+  ≤32 cells>`, `writing`, or a host
   label per phase), whole elapsed seconds, the tool count, an OPTIONAL slow-phase hint after a
   host-given delay, then host facts. Not live: a host notice (`✓`/`✗` in its tone), else the host's
   own state label and `↓ N more` (either or both), else a plain rule.

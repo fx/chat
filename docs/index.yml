@@ -282,7 +282,7 @@ changes:
   - id: "0034"
     name: activity-layout
     path: changes/0034-activity-layout.md
-    description: "Lone after-content block bare; footer-only finished activity plan option; earlier row breakdown, label and glyph; activity spacing; bare threaded corner"
+    description: "Lone after-content block bare; footer-only finished activity; earlier row count, label and glyph; activity and paragraph spacing; bare threaded corner; tool headline; one spinner; monochrome glyphs + emojiGlyphs"
     spec: ink-renderer
     status: complete
     depends_on: ["0025", "0028", "0033"]

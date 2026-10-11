@@ -61,6 +61,14 @@ projection of it.
   symbols, alongside the default Unicode set; every glyph the renderer draws (tool status, plan
   status, activity facts, the live tail's `earlier` marker, frames, folds, attachment, image,
   pending, pulse, rules, bars) is a named, overridable glyph.
+- Every glyph MUST have an unambiguous terminal width. The default set is monochrome text, one cell
+  per glyph, with no emoji-capable character (Unicode `Emoji=No`): `✻` thinking, `ƒ` tools, `§`
+  system prompt, `☐` plan, `▣` image, `‖` queued, `⊕` attachment, `☐`/`☒` markdown tasks. It
+  sticks to glyphs common monospace fonts carry. The package MUST also export an opt-in colour
+  set (`emojiGlyphs`: `🧠` `🔧` `📜` `📋` `📷` `📎` `⏳` over the default set) using only
+  `Emoji_Presentation=Yes` characters, which terminals draw and the default measure counts as two
+  cells; a host turns it on with `<InkChatProvider components={{ glyphs: emojiGlyphs }}>`. A test
+  holds every shipped set to these rules (ASCII digits, `#` and `*` exempt).
 - The completion flash MUST be switchable off through the registry (default on).
 
 ### Transcript
@@ -137,3 +145,4 @@ projection of it.
 | 2026-10-10 | Fullscreen hosts: line layout, frames, viewport, markdown, composer, mouse, images; roles and glyphs extended | [0028-ink-line-layout](../../changes/0028-ink-line-layout.md) |
 | 2026-10-11 | Terminal safety: content never drives the terminal; image size cap enforced while reading; split terminal reports joined | — |
 | 2026-10-11 | `earlier` glyph; activity spacing; footer-only finished activity hides every activity row; bare threaded corner without footer facts | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | One spinner for every live row; tool headline in the live phase; monochrome default glyphs and opt-in `emojiGlyphs` | [0034-activity-layout](../../changes/0034-activity-layout.md) |

@@ -439,6 +439,9 @@ scope** and MUST NOT appear in this package.
 How every renderer shows an agent's work. The decisions live in the shared render plan in
 `@fx/chat-core`, so the DOM and terminal renderers show the same labels, counts, and gates.
 
+- **Tool headline.** Where a tool call is named in one line outside its row (a live phase label),
+  it MUST read as its row does — the label, then the input when it adds something
+  (`toolHeadline`), so a generic title (`Running`) still says what runs.
 - **Tool label and input.** A tool row's label MUST be the call's non-blank `title` (trimmed), else
   its `name`; a bare row and a group header headed by the call MUST agree. The row MAY add a one-line
   input: the call's `inputSummary`, else a summary derived from `arguments` (a string argument as
@@ -493,9 +496,13 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   as in stream order). Text blocks separated by activity remain separate paragraphs — in either
   placement, and also when that activity is not shown.
 - **Live tail.** A host MAY ask that, while a message is live and its activity collapsed, only the
-  newest N activity blocks show, preceded by an `earlier` row; reasoning shows only while nothing
-  else has arrived. A finished message never shows a tail. The row carries how many blocks it hides
-  and how many of them are tool calls, and reads (`earlierLabel`) `+N earlier tool calls` when all
+  newest N tool calls (plus the latest plan and live status rows) show, preceded by an `earlier`
+  row; reasoning shows only while nothing else has arrived. A finished message never shows a tail.
+  The `earlier` row announces only what would have been a row above the tail: hidden blocks older
+  than the tail's first shown row, never reasoning (which the tail hides anyway and the footer's
+  reasoning count covers), and never a hidden block between shown rows. So there is no row until
+  more than N tool calls exist. The row carries how many blocks it announces and how many of them
+  are tool calls, and reads (`earlierLabel`) `+N earlier tool calls` when all
   are tool calls, `+N earlier steps` when none are, else `+N earlier steps (M tool calls)` (singular
   forms for one). Renderers add only their own marker.
 - **Finished activity.** A host MAY ask that a finished message's activity show only as its
@@ -548,12 +555,13 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **WHEN** its rows are planned
 - **THEN** they are the text, then the reasoning as a bare row (no group).
 
-#### Scenario: Earlier row names what it hides
+#### Scenario: Earlier row counts only older tool calls
 
-- **GIVEN** a live answer `[reasoning, tool, text, tool(running)]` with a live tail of 1
+- **GIVEN** a live answer with reasoning before each of 5 tool calls, then reasoning and text, and
+  a live tail of 3
 - **WHEN** its rows are planned
-- **THEN** the earlier row hides 2 blocks, 1 of them a tool call, and reads
-  `+2 earlier steps (1 tool call)`.
+- **THEN** the earlier row reads `+2 earlier tool calls` above the newest 3 tool calls; with 3 tool
+  calls there is no earlier row.
 
 #### Scenario: Finished activity left to the footer
 
@@ -858,4 +866,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Plan rendering | [0024-plan-block](../../changes/0024-plan-block.md) |
 | 2026-10-10 | Footer facts, opt-in live footer, formats, counts/phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
-| 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label; footer-only finished activity | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
