@@ -55,14 +55,15 @@ export function summarizeToolInput(args: unknown, maxLength = 300): string | und
 
 /**
  * The input a tool row shows beside its label: `inputSummary`, else a summary
- * of `arguments` — or `undefined` when the label already contains it, so a row
- * never says the same thing twice.
+ * of `arguments` — either way one line, cut to `maxLength` with `…` — or
+ * `undefined` when the label already contains it, so a row never says the
+ * same thing twice.
  */
-export function toolDisplayInput(block: ToolCallBlock): string | undefined {
+export function toolDisplayInput(block: ToolCallBlock, maxLength = 300): string | undefined {
   const input =
     typeof block.inputSummary === 'string' && block.inputSummary.trim()
-      ? collapse(block.inputSummary)
-      : summarizeToolInput(block.arguments)
+      ? cut(collapse(block.inputSummary), maxLength)
+      : summarizeToolInput(block.arguments, maxLength)
   if (!input) return undefined
   return toolLabel(block).includes(input) ? undefined : input
 }

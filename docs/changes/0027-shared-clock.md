@@ -36,7 +36,7 @@ The spec owns the behavior. This change owns: no behavior change without a provi
 
 ### Decisions
 
-- The provider keeps one interval, started on the first active subscriber and stopped on the last; `useClock(active)` subscribes through `useSyncExternalStore`.
+- The provider (`createSharedClock`) keeps one interval, started on the first subscriber and stopped on the last. `useTicks(active, fallbackMs)` subscribes from a `useEffect` while `active` and bumps a `useState` counter on each tick; without a provider it runs its own `fallbackMs` interval (none when non-positive or non-finite). `useClock(active, fallbackMs = 1000)` wraps it and returns `Date.now()`; `useSharedClock()` exposes the clock in scope.
 
 ### Non-Goals
 

@@ -43,6 +43,16 @@ describe('tool helpers', () => {
     expect(toolDisplayInput(call({ inputSummary: '  ', arguments: {} }))).toBeUndefined()
   })
 
+  it('cuts a host input summary to one line like a derived one', () => {
+    const long = `run\n${'x'.repeat(400)}`
+    const shown = toolDisplayInput(call({ inputSummary: long }))
+    expect(shown).toHaveLength(300)
+    expect(shown?.startsWith('run x')).toBe(true)
+    expect(shown?.endsWith('…')).toBe(true)
+    expect(toolDisplayInput(call({ inputSummary: 'a\n b c' }), 4)).toBe('a b…')
+    expect(toolDisplayInput(call({ arguments: { command: 'abcdef' } }), 4)).toBe('abc…')
+  })
+
   it('formats tool output text', () => {
     expect(toolResultText('plain')).toBe('plain')
     expect(toolResultText(undefined)).toBe('')
