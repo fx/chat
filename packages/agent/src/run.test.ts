@@ -513,3 +513,112 @@ describe('runAgent abort during host callbacks', () => {
     expect(block.result).toEqual({ error: 'Aborted.' })
   })
 })
+
+describe('runAgent with host values that throw', () => {
+  const throwingToString = {
+    toString: () => {
+      throw new Error('no text')
+    },
+  }
+  const throwingMessage = Object.defineProperty(new Error('x'), 'message', {
+    get: () => {
+      throw new Error('no message')
+    },
+  })
+  const unnamed = Object.assign(new Error(''), { name: '' })
+
+  it.each([
+    ['an object whose toString throws', throwingToString],
+    ['a null-prototype object', Object.create(null)],
+    ['an Error whose message getter throws', throwingMessage],
+    ['an Error with no message or name', unnamed],
+    ['an empty string', ''],
+  ])('records %s thrown by a tool as a failed call', async (_label, thrown) => {
+    const tool: AgentTool = {
+      ...calc,
+      execute: () => {
+        throw thrown
+      },
+    }
+    const { client } = scripted(callEvents('t', 'calc'), [{ type: 'text', text: 'ok' }])
+    const result = await runAgent({ client, model: 'm', history, tools: [tool], now })
+    expect(result.outcome).toBe('complete')
+    expect(result.message.blocks[0]).toMatchObject({
+      status: 'error',
+      result: { error: 'Tool failed.' },
+    })
+  })
+
+  it('resolves error when the transport throws a value with no text', async () => {
+    const { client } = scripted(async function* () {
+      yield* []
+      throw throwingToString
+    })
+    expect(await runAgent({ client, model: 'm', history, now })).toMatchObject({
+      outcome: 'error',
+      error: 'The request failed.',
+    })
+  })
+
+  it('resolves error, not reject, when onUpdate throws', async () => {
+    const { client } = scripted([{ type: 'text', text: 'hi' }])
+    let calls = 0
+    const onUpdate = () => {
+      calls++
+      throw new Error('listener broke')
+    }
+    const result = await runAgent({ client, model: 'm', history, now, onUpdate })
+    expect(result).toMatchObject({ outcome: 'error', error: 'listener broke' })
+    expect(result.message.outcome).toEqual({
+      kind: 'error',
+      message: 'listener broke',
+      retryable: true,
+    })
+    expect(calls).toBe(2)
+  })
+
+  it('resolves error with a fixed text when a host value throws something unreadable', async () => {
+    const { client } = scripted([{ type: 'text', text: 'hi' }])
+    const result = await runAgent({
+      client,
+      model: 'm',
+      history,
+      now,
+      onUpdate: () => {
+        throw throwingToString
+      },
+    })
+    expect(result).toMatchObject({ outcome: 'error', error: 'The run failed unexpectedly.' })
+  })
+
+  it('resolves aborted when a host value throws after the run is aborted', async () => {
+    const controller = new AbortController()
+    const { client } = scripted([{ type: 'text', text: 'hi' }])
+    const result = await runAgent({
+      client,
+      model: 'm',
+      history,
+      now,
+      signal: controller.signal,
+      onUpdate: () => {
+        controller.abort()
+        throw new Error('late')
+      },
+    })
+    expect(result.outcome).toBe('aborted')
+  })
+
+  it('falls back to the real clock when the injected clock throws', async () => {
+    const { client } = scripted([{ type: 'text', text: 'hi' }])
+    const result = await runAgent({
+      client,
+      model: 'm',
+      history,
+      now: () => {
+        throw new Error('no clock')
+      },
+    })
+    expect(result.outcome).toBe('complete')
+    expect(result.message.createdAt).toBeGreaterThan(0)
+  })
+})

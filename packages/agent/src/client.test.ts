@@ -349,3 +349,111 @@ describe('createClient() redirects', () => {
     expect(await createClient({ baseUrl: base, fetch: fn }).listModels()).toEqual([])
   })
 })
+
+describe('createClient() with hostile host and endpoint values', () => {
+  it.each([
+    ['a BigInt body field', { body: { seed: 1n } }],
+    [
+      'a circular body field',
+      {
+        body: (() => {
+          const loop: Record<string, unknown> = {}
+          loop.self = loop
+          return { loop }
+        })(),
+      },
+    ],
+    [
+      'a throwing toJSON',
+      {
+        body: {
+          x: {
+            toJSON: () => {
+              throw new Error('nope')
+            },
+          },
+        },
+      },
+    ],
+    ['a body with no JSON form', { body: { toJSON: () => undefined } }],
+    [
+      'a BigInt in a tool schema',
+      {
+        tools: [
+          {
+            type: 'function' as const,
+            function: { name: 't', description: 'd', parameters: { max: 1n } },
+          },
+        ],
+      },
+    ],
+  ])('reports %s as an AgentError without sending', async (_label, request) => {
+    const { fn, calls } = fakeFetch()
+    const client = createClient({ baseUrl: 'http://x', fetch: fn })
+    const error = await (async () => {
+      for await (const _ of client.streamCompletion({ model: 'm', messages: [], ...request })) {
+        // drain
+      }
+    })().catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(AgentError)
+    expect((error as AgentError).message).toMatch(/^The request could not be serialized as JSON/)
+    expect(calls).toHaveLength(0)
+  })
+
+  it.each([
+    ['a non-JSON body', new Response('nope', { status: 200 })],
+    ['a null body', json(null)],
+  ])('rejects %s from /models as unexpected', async (_label, response) => {
+    const { fn } = fakeFetch(response)
+    await expect(createClient({ baseUrl: 'http://x', fetch: fn }).listModels()).rejects.toThrow(
+      new AgentError('Unexpected models response'),
+    )
+  })
+
+  it('skips null model entries', async () => {
+    const { fn } = fakeFetch(json({ data: [null, { id: 'a' }] }))
+    expect(await createClient({ baseUrl: 'http://x', fetch: fn }).listModels()).toEqual(['a'])
+  })
+
+  it.each(['null', '42', '"text"'])(
+    'rejects the non-object chunk %s as malformed',
+    async (chunk) => {
+      await expect(events(sse([chunk]))).rejects.toThrow(`Malformed stream chunk: ${chunk}`)
+    },
+  )
+
+  it.each([
+    [{ error: { message: { toString: 1 } } }, 'Stream error'],
+    [{ error: { message: '' } }, 'Stream error'],
+    [{ error: 7 }, 'Stream error'],
+  ])('reports a stream error without a usable message (%#)', async (chunk, message) => {
+    await expect(events(sse([chunk]))).rejects.toThrow(new AgentError(message))
+  })
+
+  it('ignores mistyped delta, tool-call, usage and finish fields', async () => {
+    const hostile = { toString: 1 }
+    const out = await events(
+      sse([
+        delta({ tool_calls: { 0: { index: 0 } } }),
+        delta({
+          tool_calls: [
+            null,
+            7,
+            { index: hostile, id: hostile, function: { name: hostile, arguments: '{}' } },
+            { index: 1.5, id: '', function: 'x' },
+          ],
+        }),
+        {
+          choices: [{ delta: {}, finish_reason: hostile }],
+          usage: { prompt_tokens: hostile, completion_tokens: '3', total_tokens: 4, cost: hostile },
+        },
+      ]),
+    )
+    expect(out).toEqual([
+      { type: 'model', model: 'm-1' },
+      { type: 'tool_call', index: 2, arguments: '{}' },
+      { type: 'tool_call', index: 3 },
+      { type: 'usage', usage: { total: 4 } },
+    ])
+  })
+})

@@ -65,10 +65,29 @@ function toWireTools(tools: readonly AgentTool[]): WireTool[] {
   }))
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message || error.name
-  return String(error)
+/**
+ * Human-readable text for a thrown value, which may be anything a host tool or
+ * transport threw. Never throws: a value whose `message`, `name` or string
+ * form cannot be read (a throwing getter or `toString`, a null-prototype
+ * object) yields `fallback`.
+ */
+function errorMessage(error: unknown, fallback: string): string {
+  try {
+    if (error instanceof Error) {
+      const message: unknown = error.message
+      if (typeof message === 'string' && message) return message
+      const name: unknown = error.name
+      return typeof name === 'string' && name ? name : fallback
+    }
+    return String(error) || fallback
+  } catch {
+    return fallback
+  }
 }
+
+const TOOL_FAILED = 'Tool failed.'
+const REQUEST_FAILED = 'The request failed.'
+const RUN_FAILED = 'The run failed unexpectedly.'
 
 function randomId(): string {
   return `msg_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`
@@ -102,14 +121,21 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 const STEP_LIMIT_MESSAGE = (steps: number) => `Stopped after ${steps} tool steps.`
 
 export async function runAgent(options: RunOptions): Promise<RunResult> {
-  const now = options.now ?? Date.now
+  const clock = options.now ?? Date.now
+  // An injected clock that throws must not break finishing the run.
+  const now = () => {
+    try {
+      return clock()
+    } catch {
+      return Date.now()
+    }
+  }
   const signal = options.signal ?? new AbortController().signal
   const tools = options.tools ?? []
   const maxSteps = options.maxSteps ?? 10
   const emit = (state: TurnState) => options.onUpdate?.(state.message)
 
   let state = createTurn(options.messageId ?? randomId(), now(), options.model)
-  emit(state)
 
   const finish = (outcome: AgentOutcome, error?: string): RunResult => {
     const finalized = finalizeTurn(state, now(), outcome === 'aborted' ? 'Aborted.' : 'Not run.')
@@ -127,46 +153,63 @@ export async function runAgent(options: RunOptions): Promise<RunResult> {
                     retryable: true,
                   },
           }
-    options.onUpdate?.(message)
+    try {
+      options.onUpdate?.(message)
+    } catch {
+      // The run is over either way; its result still carries the message.
+    }
     return error === undefined ? { outcome, message } : { outcome, message, error }
   }
 
-  for (let step = 0; step < maxSteps; step++) {
-    if (signal.aborted) return finish('aborted')
-    state = beginStep(state)
-    try {
-      const stream = options.client.streamCompletion({
-        model: options.model,
-        messages: encodeHistory([...options.history, state.message], options.system),
-        tools: toWireTools(tools),
-        thinkTags: options.thinkTags,
-        body: options.body,
-        signal,
-      })
-      for await (const event of stream) {
-        // A transport that ignores the abort signal still stops here.
-        if (signal.aborted) break
-        state = applyEvent(state, event, now())
-        emit(state)
-      }
-    } catch (error) {
-      if (signal.aborted) return finish('aborted')
-      return finish('error', errorMessage(error))
-    }
-    if (signal.aborted) return finish('aborted')
-
-    const ended = endStep(state, now())
-    state = ended.state
+  // Anything a host value throws that is not handled where it happens (an
+  // `onUpdate` that throws, an odd history or tool list) ends the run with an
+  // error outcome: the run never rejects.
+  try {
     emit(state)
-    if (ended.calls.length === 0) return finish('complete')
-
-    for (const call of ended.calls) {
-      if (signal.aborted) return finish('aborted')
-      if (call.status === 'error') continue
-      state = await runTool(state, call, tools, options, signal, now, emit)
-    }
+    return await loop()
+  } catch (error) {
+    if (signal.aborted) return finish('aborted')
+    return finish('error', errorMessage(error, RUN_FAILED))
   }
-  return finish('max_steps')
+
+  async function loop(): Promise<RunResult> {
+    for (let step = 0; step < maxSteps; step++) {
+      if (signal.aborted) return finish('aborted')
+      state = beginStep(state)
+      try {
+        const stream = options.client.streamCompletion({
+          model: options.model,
+          messages: encodeHistory([...options.history, state.message], options.system),
+          tools: toWireTools(tools),
+          thinkTags: options.thinkTags,
+          body: options.body,
+          signal,
+        })
+        for await (const event of stream) {
+          // A transport that ignores the abort signal still stops here.
+          if (signal.aborted) break
+          state = applyEvent(state, event, now())
+          emit(state)
+        }
+      } catch (error) {
+        if (signal.aborted) return finish('aborted')
+        return finish('error', errorMessage(error, REQUEST_FAILED))
+      }
+      if (signal.aborted) return finish('aborted')
+
+      const ended = endStep(state, now())
+      state = ended.state
+      emit(state)
+      if (ended.calls.length === 0) return finish('complete')
+
+      for (const call of ended.calls) {
+        if (signal.aborted) return finish('aborted')
+        if (call.status === 'error') continue
+        state = await runTool(state, call, tools, options, signal, now, emit)
+      }
+    }
+    return finish('max_steps')
+  }
 }
 
 async function runTool(
@@ -229,7 +272,7 @@ async function runTool(
     if (signal.aborted) return state
     state = updateToolCall(state, call.id, {
       status: 'error',
-      result: { error: errorMessage(error) },
+      result: { error: errorMessage(error, TOOL_FAILED) },
       durationMs: Math.max(0, now() - startedAt),
     })
   }

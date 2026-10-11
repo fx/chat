@@ -102,6 +102,19 @@ interface WireChunk {
   }>
 }
 
+const UNSERIALIZABLE_REQUEST =
+  'The request could not be serialized as JSON: the extra request body fields or a tool parameter schema contain a value JSON cannot represent (such as a BigInt or a circular reference).'
+
+/** `value` when it is a number, else `undefined` (stream fields are endpoint-controlled). */
+function numberOr(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined
+}
+
+/** `value` when it is a non-empty string, else `undefined`. */
+function textOr(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined
+}
+
 const REASONING_FIELDS: ReasoningField[] = ['reasoning_content', 'reasoning']
 
 export function createClient(options: ClientOptions): Client {
@@ -141,10 +154,14 @@ export function createClient(options: ClientOptions): Client {
       ...(signal ? { signal } : {}),
     })
     if (!response.ok) throw await errorFrom(response)
-    const body = (await response.json()) as { data?: Array<{ id?: unknown }> }
-    if (!Array.isArray(body.data)) throw new AgentError('Unexpected models response')
+    // The body is the endpoint's: anything but `{ data: [...] }` is unexpected.
+    const body = (await response.json().catch(() => undefined)) as
+      | { data?: Array<{ id?: unknown } | null> }
+      | null
+      | undefined
+    if (!Array.isArray(body?.data)) throw new AgentError('Unexpected models response')
     return body.data
-      .map((model) => model.id)
+      .map((model) => model?.id)
       .filter((id): id is string => typeof id === 'string')
       .sort((a, b) => a.localeCompare(b))
   }
@@ -158,10 +175,20 @@ export function createClient(options: ClientOptions): Client {
       ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       ...request.body,
     }
+    // `request.body` and the tool schemas are host values: one with no JSON
+    // form (a BigInt, a cycle, a throwing or empty `toJSON`) is reported as an
+    // error rather than thrown raw or sent rewritten.
+    let payload: string | undefined
+    try {
+      payload = JSON.stringify(body)
+    } catch {
+      payload = undefined
+    }
+    if (typeof payload !== 'string') throw new AgentError(UNSERIALIZABLE_REQUEST)
     return send(`${base}/chat/completions`, {
       method: 'POST',
       headers: headers(true),
-      body: JSON.stringify(body),
+      body: payload,
       ...(request.signal ? { signal: request.signal } : {}),
     })
   }
@@ -181,15 +208,19 @@ export function createClient(options: ClientOptions): Client {
     let announcedModel = false
     for await (const data of parseSSE(response.body)) {
       if (data === '[DONE]') break
-      let chunk: WireChunk
+      // Every field below is endpoint-controlled: types are checked, never trusted.
+      let chunk: WireChunk | null = null
       try {
-        chunk = JSON.parse(data) as WireChunk
+        chunk = JSON.parse(data) as WireChunk | null
       } catch {
+        // Reported below.
+      }
+      if (chunk === null || typeof chunk !== 'object') {
         throw new AgentError(`Malformed stream chunk: ${data.slice(0, 100)}`)
       }
       if (chunk.error) {
-        const message = typeof chunk.error === 'string' ? chunk.error : chunk.error.message
-        throw new AgentError(message ?? 'Stream error')
+        const message = typeof chunk.error === 'string' ? chunk.error : textOr(chunk.error.message)
+        throw new AgentError(message || 'Stream error')
       }
       if (!announcedModel && typeof chunk.model === 'string' && chunk.model) {
         announcedModel = true
@@ -209,12 +240,16 @@ export function createClient(options: ClientOptions): Client {
             yield { type: 'text', text: delta.content }
           }
         }
-        for (const [position, call] of (delta.tool_calls ?? []).entries()) {
+        const calls = Array.isArray(delta.tool_calls) ? delta.tool_calls : []
+        for (const [position, call] of calls.entries()) {
+          if (call === null || typeof call !== 'object') continue
+          const id = textOr(call.id)
+          const name = textOr(call.function?.name)
           yield {
             type: 'tool_call',
-            index: call.index ?? position,
-            ...(call.id ? { id: call.id } : {}),
-            ...(call.function?.name ? { name: call.function.name } : {}),
+            index: Number.isInteger(call.index) ? (call.index as number) : position,
+            ...(id ? { id } : {}),
+            ...(name ? { name } : {}),
             ...(typeof call.function?.arguments === 'string'
               ? { arguments: call.function.arguments }
               : {}),
@@ -222,21 +257,22 @@ export function createClient(options: ClientOptions): Client {
         }
       }
       if (chunk.usage) {
+        const prompt = numberOr(chunk.usage.prompt_tokens)
+        const completion = numberOr(chunk.usage.completion_tokens)
+        const total = numberOr(chunk.usage.total_tokens)
+        const cost = numberOr(chunk.usage.cost)
         yield {
           type: 'usage',
           usage: {
-            ...(chunk.usage.prompt_tokens !== undefined
-              ? { prompt: chunk.usage.prompt_tokens }
-              : {}),
-            ...(chunk.usage.completion_tokens !== undefined
-              ? { completion: chunk.usage.completion_tokens }
-              : {}),
-            ...(chunk.usage.total_tokens !== undefined ? { total: chunk.usage.total_tokens } : {}),
-            ...(typeof chunk.usage.cost === 'number' ? { cost: chunk.usage.cost } : {}),
+            ...(prompt !== undefined ? { prompt } : {}),
+            ...(completion !== undefined ? { completion } : {}),
+            ...(total !== undefined ? { total } : {}),
+            ...(cost !== undefined ? { cost } : {}),
           },
         }
       }
-      if (choice?.finish_reason) yield { type: 'finish', reason: choice.finish_reason }
+      const reason = textOr(choice?.finish_reason)
+      if (reason) yield { type: 'finish', reason }
     }
     if (splitter) for (const piece of splitter.flush()) yield toEvent(piece)
   }
