@@ -7,6 +7,7 @@ describe('@fx/chat-agent public surface', () => {
     expect(Object.keys(agent).sort()).toEqual([
       'AGENT_META_KEY',
       'AgentError',
+      'ChatController',
       'FETCH_TEXT_LIMIT',
       'TOOL_INFO',
       'ThinkSplitter',
@@ -19,11 +20,15 @@ describe('@fx/chat-agent public surface', () => {
       'endStep',
       'evaluateArithmetic',
       'finalizeTurn',
+      'indexedDbStore',
+      'memoryStore',
+      'newId',
       'parseSSE',
       'readAgentMeta',
       'runAgent',
       'splitSteps',
       'stripHtml',
+      'titleFrom',
       'toolResultContent',
       'updateToolCall',
     ])
