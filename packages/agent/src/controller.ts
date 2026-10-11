@@ -354,9 +354,13 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     text: string,
     attachments?: ChatMessage['attachments'],
   ): Promise<RunResult | undefined> {
-    await this.openConversation(id)
+    // Synchronous up to the run when the transcript is loaded, so a caller
+    // sees the user message (and the run) in place as soon as this returns.
+    if (!this.state.messages[id]) await this.openConversation(id)
     const meta = this.conversation(id)
-    if (!meta) return undefined
+    // Opening leaves no transcript only for a conversation deleted meanwhile.
+    const messages = this.state.messages[id]
+    if (!meta || !messages) return undefined
     if (this.state.runs[id]) {
       if (this.options.queue) {
         const item: QueuedMessage = attachments?.length ? { text, attachments } : { text }
@@ -375,14 +379,14 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
       createdAt: this.now(),
       ...(attachments && attachments.length > 0 ? { attachments } : {}),
     }
-    const history = [...(this.state.messages[id] ?? []), user]
+    const history = [...messages, user]
     this.setMessages(id, history)
     const isFirst = !history.some((m) => m.role === 'user' && m !== user)
-    await this.updateConversation(id, {
+    const saved = this.updateConversation(id, {
       updatedAt: this.now(),
       ...(isFirst ? { title: titleFrom(text) } : {}),
     } as Partial<Omit<M, 'id'>>)
-    return this.startRun(id, history)
+    return this.startRun(id, history, config, saved)
   }
 
   /**
@@ -390,11 +394,13 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    * turn (everything after the last user message is replaced).
    */
   async regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
-    await this.openConversation(id)
+    if (!this.state.messages[id]) await this.openConversation(id)
     const meta = this.conversation(id)
+    const messages = this.state.messages[id]
+    if (!meta || !messages || this.state.runs[id]) return undefined
     // Resolved before cutting the transcript, so a blocked regenerate keeps it.
-    if (!meta || this.state.runs[id] || !this.resolve(id, meta)) return undefined
-    const messages = this.state.messages[id] ?? []
+    const config = this.resolve(id, meta)
+    if (!config) return undefined
     let cut = messageId ? messages.findIndex((m) => m.id === messageId) : -1
     if (cut === -1) {
       cut = messages.length
@@ -403,7 +409,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     const history = messages.slice(0, cut)
     if (history.at(-1)?.role !== 'user') return undefined
     this.setMessages(id, history)
-    return this.startRun(id, history)
+    return this.startRun(id, history, config)
   }
 
   /** Stop a conversation's run; true when a running turn was told to stop. */
@@ -432,12 +438,17 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     this.updateTimer = undefined
   }
 
-  private async startRun(id: string, history: ChatMessage[]): Promise<RunResult | undefined> {
-    const meta = this.conversation(id)
-    // Deleted while `send` awaited its own writes.
-    if (!meta) return undefined
-    const config = this.resolve(id, meta)
-    if (!config) return undefined
+  /**
+   * Run a turn. The run is recorded synchronously; the agent starts once
+   * `before` (the caller's pending writes) settles, unless the run was
+   * stopped or its conversation deleted meanwhile.
+   */
+  private async startRun(
+    id: string,
+    history: ChatMessage[],
+    config: RunConfig,
+    before?: Promise<void>,
+  ): Promise<RunResult | undefined> {
     const abort = new AbortController()
     const messageId = this.newId('a')
     this.aborts.set(id, abort)
@@ -446,6 +457,9 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
       errors: without(this.state.errors, id),
     })
 
+    await before
+    // Stopped (or deleted) while the caller's writes settled.
+    if (abort.signal.aborted) return this.endRun(id, undefined)
     const { fetch, htmlToText } = this.options
     let result: RunResult | undefined
     try {
@@ -475,7 +489,10 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
         },
       })
     }
+    return this.endRun(id, result)
+  }
 
+  private async endRun(id: string, result: RunResult | undefined): Promise<RunResult | undefined> {
     this.applyUpdates()
     this.aborts.delete(id)
     // A failed or stopped run is described by the message's own outcome.

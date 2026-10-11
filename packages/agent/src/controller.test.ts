@@ -196,7 +196,7 @@ describe('ChatController conversations', () => {
     const { chat } = setup([], {}, { run: held.run, queue: true })
     const meta = await chat.createConversation({ endpoint: 'ok' })
     const running = chat.send(meta.id, 'one')
-    await vi.waitFor(() => expect(chat.getState().runs[meta.id]).toBeDefined())
+    await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
     await chat.send(meta.id, 'two')
     expect(chat.clear(meta.id)).toBe(false)
     chat.unqueue(meta.id)
@@ -247,22 +247,31 @@ describe('ChatController runs', () => {
     expect((endpoint.requests.at(-1)?.body as { tools?: unknown }).tools).toBeUndefined()
   })
 
-  it('runs in memory with an injected clock, re-resolving the config at run start', async () => {
+  it('runs in memory with an injected clock, the run in place as send returns', async () => {
     const endpoint = fakeEndpoint([sseBody([{ content: 'a' }])])
-    const resolve = vi
-      .fn<(meta: ConversationMeta) => ReturnType<typeof resolveRun>>()
-      .mockReturnValueOnce(config)
-      .mockReturnValueOnce({ blocked: 'Gone.' })
-      .mockReturnValue(config)
-    const chat = new ChatController({ fetch: endpoint.fetch, resolveRun: resolve, now: () => 42 })
+    const chat = new ChatController({
+      fetch: endpoint.fetch,
+      resolveRun: () => config,
+      now: () => 42,
+    })
     const meta = await chat.createConversation()
     expect(meta.createdAt).toBe(42)
-    // The endpoint went away while the user message was being stored.
-    expect(await chat.send(meta.id, 'q')).toBeUndefined()
-    expect(chat.getState().errors[meta.id]).toEqual({ message: 'Gone.', at: 42 })
+    const sending = chat.send(meta.id, 'q')
+    expect(chat.getState().messages[meta.id]).toHaveLength(1)
+    expect(chat.getState().runs[meta.id]?.startedAt).toBe(42)
+    expect((await sending)?.outcome).toBe('complete')
+    expect(chat.getState().messages[meta.id]?.at(-1)?.createdAt).toBe(42)
+  })
+
+  it('does not start a run stopped before it began, but keeps the message', async () => {
+    const { chat, endpoint } = setup([sseBody([{ content: 'a' }])])
+    const meta = await chat.createConversation({ endpoint: 'ok' })
+    const sending = chat.send(meta.id, 'q')
+    expect(chat.stop(meta.id)).toBe(true)
+    expect(await sending).toBeUndefined()
     expect(endpoint.requests).toHaveLength(0)
-    expect((await chat.regenerate(meta.id))?.outcome).toBe('complete')
-    expect(chat.getState().errors[meta.id]).toBeUndefined()
+    expect(chat.getState().runs[meta.id]).toBeUndefined()
+    expect(chat.getState().messages[meta.id]?.map((m) => m.role)).toEqual(['user'])
   })
 
   it('offers app-defined tools after the built-ins', async () => {
@@ -296,7 +305,7 @@ describe('ChatController runs', () => {
     expect(await chat.send('missing', 'hi')).toBeUndefined()
     const meta = await chat.createConversation({ endpoint: 'ok' })
     const first = chat.send(meta.id, 'one')
-    await vi.waitFor(() => expect(chat.getState().runs[meta.id]).toBeDefined())
+    await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
     expect(chat.getState().runs[meta.id]).toMatchObject({
       messageId: held.calls[0]?.messageId,
       startedAt: expect.any(Number),
@@ -440,6 +449,25 @@ describe('ChatController runs', () => {
     expect(endpoint.requests).toHaveLength(0)
     expect(chat.getState().messages[meta.id]).toBeUndefined()
     expect(kv.data.has(`messages:${meta.id}`)).toBe(false)
+  })
+
+  it('does not run a conversation deleted while its transcript loads', async () => {
+    const kv = memoryStore({
+      conversations: [{ id: 'c1', title: 'C', createdAt: 1, updatedAt: 1, endpoint: 'ok' }],
+      'messages:c1': [{ id: 'u', role: 'user', blocks: [{ type: 'text', id: 't', text: 'q' }] }],
+    })
+    // The delete's storage write stays pending, so the list still has it.
+    kv.delete = () => new Promise(() => {})
+    const run = vi.fn()
+    const chat = new ChatController<Meta>({ kv, fetch: vi.fn(), resolveRun, run })
+    await chat.load()
+    const sending = chat.send('c1', 'hi')
+    const regenerating = chat.regenerate('c1')
+    void chat.deleteConversation('c1')
+    expect(await sending).toBeUndefined()
+    expect(await regenerating).toBeUndefined()
+    expect(run).not.toHaveBeenCalled()
+    expect(chat.conversation('c1')).toBeDefined()
   })
 
   it('does not regenerate a conversation deleted mid-regenerate', async () => {
