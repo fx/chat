@@ -30,9 +30,13 @@ protocol, on its own subpath so hosts that do not use it never load it.
   placement sized to its cell box, and drawn by printing the placeholder character per cell, the
   image id in a 256-colour foreground and row/column in combining diacritics. The image is ordinary
   text the renderer lays out, scrolls and clips; the escapes are written through the host's writer
-  before the frame that shows the placeholders.
+  before the frame that shows the placeholders. Diacritics number rows and columns from a table of
+  297, so the cell box is capped to 297 × 297 before fitting, and the placeholder grid and the
+  placement always agree on that capped size. Once transmitted, the provider releases the image's
+  bytes.
 - **Ids** are 1–255; when a new image needs an id, the image holding the oldest is forgotten and
-  fetched again if it returns to view.
+  fetched again if it returns to view. Forgetting bumps the version (after the layout pass that
+  caused it), so no cached layout keeps drawing the reused id.
 - **Formats:** PNG is sent as is. Other formats need a decoder that returns PNG bytes; without one
   they stay captions. The main entries bundle no image codecs; an OPTIONAL subpath ships a JPEG
   decoder that downscales to a bound (1600 × 1600 by default) before encoding, with its codecs as
@@ -53,3 +57,12 @@ protocol, on its own subpath so hosts that do not use it never load it.
   A percent-encoded body decodes to raw bytes. A decoder's PNG is held to the same cap and fails
   as too large past it, so nothing larger is ever transmitted. The JPEG decoder refuses an image above a
   megapixel bound (default 50) before allocating its pixels.
+- **Pixel bounds (security).** The terminal inflates what it is sent, so bytes alone do not bound
+  an image. Every PNG, sent as is or returned by a decoder, MUST carry a well-formed IHDR with
+  non-zero dimensions — otherwise it fails as `malformed image` — and MUST stay within a megapixel
+  bound (default 50) and 10 000 pixels a side (the terminals' own limit) — otherwise it fails as
+  `too large`. Nothing failing either check is transmitted.
+- **Options** that set a bound (timeout, byte cap, megapixel bounds, the decoder's size bound) MUST
+  be positive finite numbers, the timeout at most 2³¹ − 1 ms; anything else throws a `RangeError`
+  rather than silently disabling the bound. A body refused for its status or declared length is
+  cancelled, not left open.

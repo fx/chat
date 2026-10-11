@@ -39,4 +39,15 @@ describe('JPEG decoder', () => {
     expect(downscale(data, 2, 1, 1, 1)).toEqual(new Uint8Array([50, 50, 50, 255]))
     expect(downscale(data, 2, 1, 2, 1)).toBe(data)
   })
+
+  it('refuses a JPEG above the megapixel bound and bad options', async () => {
+    const decode = createJpegDecoder({ maxMegapixels: 0.001 })
+    expect(await decode(jpeg(40, 40), 'image/jpeg')).toBeUndefined()
+    expect(await decode(jpeg(20, 20), 'image/jpeg')).toBeDefined()
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => createJpegDecoder({ maxWidth: bad })).toThrow(RangeError)
+      expect(() => createJpegDecoder({ maxHeight: bad })).toThrow(RangeError)
+      expect(() => createJpegDecoder({ maxMegapixels: bad })).toThrow(RangeError)
+    }
+  })
 })

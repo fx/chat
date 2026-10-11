@@ -74,6 +74,9 @@ export function downscale(
  */
 export function createJpegDecoder(options: JpegDecoderOptions = {}) {
   const { maxWidth = 1600, maxHeight = 1600, maxMegapixels = 50 } = options
+  for (const [name, value] of Object.entries({ maxWidth, maxHeight, maxMegapixels }))
+    if (!(value > 0 && Number.isFinite(value)))
+      throw new RangeError(`${name} must be a positive finite number, got ${value}`)
   return async (bytes: Uint8Array, _mediaType: string): Promise<Uint8Array | undefined> => {
     if (!isJpeg(bytes)) return undefined
     let image: { width: number; height: number; data: Uint8Array }

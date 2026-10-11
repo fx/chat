@@ -23,6 +23,15 @@ const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 /** Ids available to images (the 256-colour foreground carries the id). */
 export const MAX_IMAGES = 255
 
+/** The largest width or height in pixels a terminal accepts (kitty's and ghostty's limit). */
+export const MAX_IMAGE_SIDE = 10_000
+
+/** The largest grid in cells: one combining diacritic per row and per column number. */
+export const MAX_CELLS = DIACRITICS.length
+
+/** The longest timer `setTimeout` keeps; longer ones fire at once. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
 /** Whether the terminal speaks the kitty graphics protocol (and is not behind a multiplexer). */
 export function detectKitty(env: Record<string, string | undefined> = process.env): boolean {
   if (env.TMUX || env.STY || /^(screen|tmux)/.test(env.TERM ?? '')) return false
@@ -40,19 +49,36 @@ export function isPng(bytes: Uint8Array): boolean {
   return PNG_SIGNATURE.every((b, i) => bytes[i] === b)
 }
 
-/** A PNG's pixel size from its header. */
+/**
+ * A PNG's pixel size from its header: undefined unless the signature is
+ * followed by a well-formed IHDR chunk with non-zero dimensions.
+ */
 export function pngSize(bytes: Uint8Array): { width: number; height: number } | undefined {
   if (!isPng(bytes) || bytes.length < 24) return undefined
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  return { width: view.getUint32(16), height: view.getUint32(20) }
+  const ihdr = view.getUint32(8) === 13 && view.getUint32(12) === 0x49484452
+  const width = view.getUint32(16)
+  const height = view.getUint32(20)
+  // The PNG spec bounds each side to 2^31 - 1.
+  if (!ihdr || width === 0 || height === 0 || width > 2 ** 31 - 1 || height > 2 ** 31 - 1)
+    return undefined
+  return { width, height }
 }
 
-/** The cells an image of `px` pixels takes in `box`, keeping its aspect and never upscaling. */
+/**
+ * The cells an image of `px` pixels takes in `box`, keeping its aspect and
+ * never upscaling. The box is first capped to `MAX_CELLS` each way, the most
+ * rows and columns placeholders can number.
+ */
 export function fitCells(
   px: { width: number; height: number },
-  box: CellBox,
+  within: CellBox,
   cell: { width: number; height: number },
 ): CellBox {
+  const box = {
+    columns: Math.min(within.columns, MAX_CELLS),
+    rows: Math.min(within.rows, MAX_CELLS),
+  }
   const scale = Math.min(
     (box.columns * cell.width) / px.width,
     (box.rows * cell.height) / px.height,
@@ -64,11 +90,14 @@ export function fitCells(
   }
 }
 
-/** Placeholder text for an image: one string per cell row. */
+/** Placeholder text for an image: one string per cell row, at most `MAX_CELLS` each way. */
 export function placeholderRows(columns: number, rows: number): string[] {
   const mark = (n: number) => String.fromCodePoint(DIACRITICS[n] as number)
-  return Array.from({ length: rows }, (_, r) =>
-    Array.from({ length: columns }, (_, c) => `${PLACEHOLDER}${mark(r)}${mark(c)}`).join(''),
+  return Array.from({ length: Math.min(rows, MAX_CELLS) }, (_, r) =>
+    Array.from(
+      { length: Math.min(columns, MAX_CELLS) },
+      (_, c) => `${PLACEHOLDER}${mark(r)}${mark(c)}`,
+    ).join(''),
   )
 }
 
@@ -113,6 +142,12 @@ export interface KittyOptions {
   timeoutMs?: number
   /** Largest image in bytes, fetched or decoded (default 20 MB). */
   maxBytes?: number
+  /**
+   * Largest image in megapixels, PNG or decoded (default 50); each side is
+   * also held to `MAX_IMAGE_SIDE`. The terminal inflates what it is sent, so
+   * a small, highly compressed PNG is bounded by its pixels, not its bytes.
+   */
+  maxMegapixels?: number
 }
 
 export interface KittyProvider extends ImageProvider {
@@ -127,7 +162,7 @@ export interface KittyProvider extends ImageProvider {
 interface Entry {
   state: 'ask' | 'loading' | 'failed' | 'ready' | 'declined'
   error?: string
-  png?: Uint8Array
+  png?: Uint8Array | undefined
   px?: { width: number; height: number }
   id?: number
   sent?: boolean
@@ -238,6 +273,12 @@ async function readCapped(response: Response, maxBytes: number): Promise<Uint8Ar
   return bytes
 }
 
+/** Refuse an option that is not a finite number in (0, `max`]. */
+function positive(name: string, value: number, max = Number.MAX_VALUE) {
+  if (!(value > 0 && value <= max))
+    throw new RangeError(`${name} must be a positive number up to ${max}, got ${value}`)
+}
+
 export function createKittyProvider(options: KittyOptions): KittyProvider {
   const {
     write,
@@ -245,7 +286,11 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
     autoFetch = (src: string) => src.startsWith('data:'),
     timeoutMs = 15_000,
     maxBytes = 20 * 1024 * 1024,
+    maxMegapixels = 50,
   } = options
+  positive('timeoutMs', timeoutMs, MAX_TIMEOUT_MS)
+  positive('maxBytes', maxBytes)
+  positive('maxMegapixels', maxMegapixels)
   const fetcher = options.fetch ?? globalThis.fetch
   const entries = new Map<string, Entry>()
   const allowed = new Set<string>()
@@ -274,9 +319,13 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
         redirect: clicked ? 'follow' : 'error',
         signal: controller.signal,
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      if (Number(response.headers.get('content-length') ?? 0) > maxBytes)
-        throw new Error('too large')
+      // A refused body is cancelled, not left holding its connection.
+      const refuse = (message: string) => {
+        void response.body?.cancel().catch(() => {})
+        return new Error(message)
+      }
+      if (!response.ok) throw refuse(`HTTP ${response.status}`)
+      if (Number(response.headers.get('content-length') ?? 0) > maxBytes) throw refuse('too large')
       // A declared length over the cap fails at once; an undeclared one is read only up to it.
       const bytes = await readCapped(response, maxBytes)
       clearTimeout(timer)
@@ -295,9 +344,20 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
       const png = isPng(bytes) ? bytes : await decode?.(bytes, mediaType)
       // A decoder's PNG is held to the cap too: it is what gets transmitted.
       if (png && png.byteLength > maxBytes) throw new Error('too large')
-      const px = png && pngSize(png)
-      if (!png || !px) entry.state = 'declined'
-      else Object.assign(entry, { state: 'ready', png, px })
+      if (!png) {
+        entry.state = 'declined'
+      } else {
+        // Whatever is transmitted is a well-formed PNG within the pixel bounds.
+        const px = pngSize(png)
+        if (!px) throw new Error('malformed image')
+        if (
+          px.width > MAX_IMAGE_SIDE ||
+          px.height > MAX_IMAGE_SIDE ||
+          px.width * px.height > maxMegapixels * 1_000_000
+        )
+          throw new Error('too large')
+        Object.assign(entry, { state: 'ready', png, px })
+      }
     } catch (error) {
       fail(entry, error instanceof Error ? error.message : String(error))
     }
@@ -325,6 +385,9 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
       write(forget(oldest.id))
       entries.delete(oldest.src)
       id = oldest.id
+      // Layouts cached with the forgotten image now name another's id: redraw
+      // them, after the layout pass that is calling.
+      queueMicrotask(changed)
     }
     ids.push({ id, src })
     entry.id = id
@@ -348,6 +411,8 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
       if (!entry.sent) {
         write(transmit(id, entry.png as Uint8Array))
         entry.sent = true
+        // The terminal holds the image now; it is never transmitted again.
+        entry.png = undefined
       }
       const cells = fitCells(entry.px as { width: number; height: number }, box, cell)
       const key = `${cells.columns}x${cells.rows}`

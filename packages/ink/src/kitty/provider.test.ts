@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CELL_SIZE_QUERY,
   DIACRITICS,
+  MAX_CELLS,
   MAX_IMAGES,
+  MAX_IMAGE_SIDE,
   createKittyProvider,
   detectKitty,
   fitCells,
@@ -26,6 +28,8 @@ function png(width: number, height: number, extra = 0): Uint8Array {
   const bytes = new Uint8Array(24 + extra)
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
   const view = new DataView(bytes.buffer)
+  view.setUint32(8, 13)
+  view.setUint32(12, 0x49484452) // IHDR
   view.setUint32(16, width)
   view.setUint32(20, height)
   return bytes
@@ -61,6 +65,40 @@ describe('protocol pieces', () => {
     expect(pngSize(png(640, 480))).toEqual({ width: 640, height: 480 })
     expect(pngSize(png(1, 1).slice(0, 12))).toBeUndefined()
     expect(pngSize(new Uint8Array(30))).toBeUndefined()
+  })
+
+  it('refuses a PNG header without an IHDR or with impossible dimensions', () => {
+    const noIhdr = png(10, 10)
+    noIhdr[12] = 0x78
+    expect(pngSize(noIhdr)).toBeUndefined()
+    const badLength = png(10, 10)
+    badLength[11] = 12
+    expect(pngSize(badLength)).toBeUndefined()
+    expect(pngSize(png(0, 10))).toBeUndefined()
+    expect(pngSize(png(10, 0))).toBeUndefined()
+    expect(pngSize(png(2 ** 31, 1))).toBeUndefined()
+    expect(pngSize(png(1, 2 ** 31))).toBeUndefined()
+    expect(pngSize(png(2 ** 31 - 1, 1))).toEqual({ width: 2 ** 31 - 1, height: 1 })
+  })
+
+  it('never fits more cells than there are diacritics', () => {
+    expect(MAX_CELLS).toBe(DIACRITICS.length)
+    const cell = { width: 1, height: 1 }
+    expect(fitCells({ width: 1000, height: 1000 }, { columns: 400, rows: 500 }, cell)).toEqual({
+      columns: MAX_CELLS,
+      rows: MAX_CELLS,
+    })
+    // The aspect is kept within the capped box.
+    expect(fitCells({ width: 1000, height: 500 }, { columns: 1000, rows: 1000 }, cell)).toEqual({
+      columns: MAX_CELLS,
+      rows: Math.ceil(MAX_CELLS / 2),
+    })
+    const rows = placeholderRows(400, 300)
+    expect(rows).toHaveLength(MAX_CELLS)
+    const last = Array.from(rows.at(-1) as string).map((c) => c.codePointAt(0))
+    expect(last).toHaveLength(MAX_CELLS * 3)
+    expect(last.slice(-3)).toEqual([0x10eeee, DIACRITICS.at(-1), DIACRITICS.at(-1)])
+    expect(last).not.toContain(0)
   })
 
   it('fits images into a box keeping aspect, never upscaling', () => {
@@ -378,13 +416,91 @@ describe('createKittyProvider', () => {
   it('reuses the oldest id past 255 images, forgetting that image', async () => {
     const write = vi.fn()
     const provider = createKittyProvider({ write })
+    const listener = vi.fn()
+    provider.subscribe(listener)
     const srcs = Array.from({ length: MAX_IMAGES + 1 }, (_, i) => dataUrl(png(9 + i, 18)))
     for (const src of srcs) provider.get(src, box)
     await flush()
+    const before = provider.version
+    listener.mockClear()
     for (const src of srcs) provider.get(src, box)
     expect(write).toHaveBeenCalledWith(forget(1))
+    // Layouts cached with the forgotten image are redrawn, after the calling pass.
+    expect(provider.version).toBe(before)
+    await flush()
+    expect(provider.version).toBe(before + 1)
+    expect(listener).toHaveBeenCalledTimes(1)
     expect(provider.get(srcs.at(-1) as string, box)).toMatchObject({ color: 'ansi256(1)' })
     // The forgotten image loads again when it returns to view.
     expect(provider.get(srcs[0] as string, box)).toEqual({ kind: 'loading' })
+  })
+
+  it('bounds a PNG by its pixels, not only its bytes, and never transmits past them', async () => {
+    const write = vi.fn()
+    const provider = createKittyProvider({ write, maxMegapixels: 0.01 })
+    const wide = dataUrl(png(MAX_IMAGE_SIDE + 1, 1))
+    const tall = dataUrl(png(1, MAX_IMAGE_SIDE + 1))
+    const many = dataUrl(png(101, 100)) // 10 100 px: past 0.01 MP
+    const at = dataUrl(png(100, 100))
+    const malformed = dataUrl(png(0, 10))
+    for (const src of [wide, tall, many, at, malformed]) provider.get(src, box)
+    await flush()
+    for (const src of [wide, tall, many])
+      expect(provider.get(src, box)).toEqual({ kind: 'failed', error: 'too large' })
+    expect(provider.get(malformed, box)).toEqual({ kind: 'failed', error: 'malformed image' })
+    expect(provider.get(at, box)?.kind).toBe('ready')
+    const transmitted = write.mock.calls.filter(([d]) => (d as string).startsWith('\u001b_Ga=t'))
+    expect(transmitted).toEqual([[transmit(1, png(100, 100))]])
+  })
+
+  it('defaults to 50 megapixels and holds a decoder’s PNG to the same bounds', async () => {
+    const sizes: Record<number, Uint8Array> = {
+      1: png(8000, 6250), // 50 MP: at the bound
+      2: png(8000, 6251),
+      3: new Uint8Array([1, 2, 3]),
+    }
+    const decode = vi.fn(async (bytes: Uint8Array) => sizes[bytes[0] as number])
+    const provider = createKittyProvider({ write: vi.fn(), decode })
+    const srcs = [1, 2, 3].map((n) => dataUrl(new Uint8Array([n]), 'image/jpeg'))
+    for (const src of srcs) provider.get(src, box)
+    await flush()
+    expect(srcs.map((src) => provider.get(src, box))).toEqual([
+      expect.objectContaining({ kind: 'ready' }),
+      { kind: 'failed', error: 'too large' },
+      { kind: 'failed', error: 'malformed image' },
+    ])
+  })
+
+  it('cancels a refused response body instead of leaving it open', async () => {
+    const cancelled: string[] = []
+    const body = (name: string) =>
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          cancelled.push(name)
+        },
+      })
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith('404')
+        ? new Response(body('404'), { status: 404 })
+        : new Response(body('declared'), { headers: { 'content-length': '999' } }),
+    )
+    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 50 })
+    provider.allow('https://x/404')
+    provider.allow('https://x/declared')
+    await vi.waitFor(() => expect(cancelled.sort()).toEqual(['404', 'declared']))
+    expect(provider.get('https://x/404', box)).toEqual({ kind: 'failed', error: 'HTTP 404' })
+    expect(provider.get('https://x/declared', box)).toEqual({ kind: 'failed', error: 'too large' })
+  })
+
+  it('refuses option values that would disable a bound', () => {
+    const write = vi.fn()
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => createKittyProvider({ write, maxBytes: bad })).toThrow(RangeError)
+      expect(() => createKittyProvider({ write, maxMegapixels: bad })).toThrow(RangeError)
+      expect(() => createKittyProvider({ write, timeoutMs: bad })).toThrow(RangeError)
+    }
+    // Past the longest timer, setTimeout fires at once: every fetch would time out.
+    expect(() => createKittyProvider({ write, timeoutMs: 2 ** 31 })).toThrow(/timeoutMs/)
+    expect(() => createKittyProvider({ write, timeoutMs: 2 ** 31 - 1 })).not.toThrow()
   })
 })
