@@ -76,6 +76,12 @@ in Background):
 The `./react` subpath MUST export the elapsed-timer, live tokens-per-second, flash-on-complete, and
 reduced-motion hooks, and the shared clock (a provider and a hook reading it).
 
+A `./hooks` subpath MUST export a factory that takes a React instance and returns the same hooks as
+`./react`, plus the shared clock provider, bound to that instance. It MUST NOT import a `react`
+value (types only), so a host that must render with an injected React instance, such as a plugin
+host, can use the hooks without loading a second copy of React. `./react` MUST be that factory
+applied to the `react` package. Each call MUST create a separate clock context.
+
 A `./json` subpath MUST export the loose-JSON helpers, kept out of the root entry so hosts that do
 not lay out tool output do not load them:
 
@@ -130,7 +136,9 @@ each renderer package MUST specialize it.
 @fx/chat-core (packages/core)
 ├── .          model + codec, grouping, minimal grouping, mergeTimeline, blockSummary,
 │              format, url, mentions, extension data types, completion contract + reference
-└── ./react    useElapsedTimer, useLiveTokensPerSecond, useFlashComplete, usePrefersReducedMotion
+├── ./react    useElapsedTimer, useLiveTokensPerSecond, useFlashComplete, usePrefersReducedMotion
+├── ./hooks    createCoreHooks factory: the same hooks over an injected React instance
+└── ./json     loose-JSON detection, parsing, layout
         ▲
 @fx/chat (DOM renderers; re-exports core)
 ```
