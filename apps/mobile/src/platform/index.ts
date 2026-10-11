@@ -23,7 +23,21 @@ export const appFetch: FetchLike = async (input, init) => {
   // webview's origin otherwise.
   const headers = new Headers(init?.headers)
   headers.set('Origin', '')
-  return fetch(input, { ...init, headers })
+  return fetch(input, tauriFetchInit(init, headers))
+}
+
+/**
+ * The Tauri fetch options for a request. The native client follows redirects
+ * itself, so a caller's `redirect: 'manual'` also caps the native redirect
+ * count at zero; the redirect response then reaches the caller unfollowed.
+ */
+export function tauriFetchInit(
+  init: RequestInit | undefined,
+  headers: Headers,
+): RequestInit & { maxRedirections?: number } {
+  return init?.redirect === 'manual'
+    ? { ...init, headers, maxRedirections: 0 }
+    : { ...init, headers }
 }
 
 /** A handle that stops listening. */

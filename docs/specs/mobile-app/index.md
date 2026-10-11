@@ -136,6 +136,9 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 
 - No analytics, crash reporting, or any outbound request other than the user's endpoint and tools the
   user enabled.
+- Rendering an answer MUST NOT make any network request. Remote images in answers MUST NOT be loaded;
+  each MUST be shown as a link to the image instead (inline `data:` images MAY be drawn). Raw HTML in
+  answers MUST NOT be rendered. Links MUST open only when the user taps them.
 - The app ships no endpoint defaults that point at a real service.
 
 ## Open Questions
