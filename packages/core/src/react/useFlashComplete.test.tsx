@@ -135,24 +135,36 @@ describe('useFlashComplete', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('keeps the original end when the duration changes mid-flash', () => {
+  it.each([
+    ['shortened', 500],
+    ['lengthened', 2000],
+  ])('keeps the original deadline when the duration is %s mid-flash', (_, next) => {
     const { rerender } = render(<Probe isActive duration={1000} />)
     rerender(<Probe isActive={false} duration={1000} />)
     act(() => {
       vi.advanceTimersByTime(400)
     })
-    rerender(<Probe isActive={false} duration={500} />)
+    rerender(<Probe isActive={false} duration={next} />)
     expect(state()).toBe('on')
     act(() => {
-      vi.advanceTimersByTime(100)
+      vi.advanceTimersByTime(499)
+    })
+    expect(state()).toBe('on')
+    act(() => {
+      vi.advanceTimersByTime(101)
     })
     expect(state()).toBe('off')
   })
 
   describe('inside a shared clock', () => {
-    function Clocked(props: { isActive: boolean; enabled?: boolean }) {
+    function Clocked(props: {
+      isActive: boolean
+      enabled?: boolean
+      duration?: number
+      tickMs?: number
+    }) {
       return (
-        <ClockProvider tickMs={500}>
+        <ClockProvider tickMs={props.tickMs ?? 500}>
           <Probe duration={1200} {...props} />
         </ClockProvider>
       )
@@ -181,6 +193,26 @@ describe('useFlashComplete', () => {
       unmount()
       setTimeoutSpy.mockRestore()
       setIntervalSpy.mockRestore()
+    })
+
+    it.each([
+      ['shortened', 500],
+      ['lengthened', 2000],
+    ])('keeps the original deadline when the duration is %s mid-flash', (_, next) => {
+      const { rerender } = render(<Clocked isActive duration={1000} tickMs={100} />)
+      rerender(<Clocked isActive={false} duration={1000} tickMs={100} />)
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+      rerender(<Clocked isActive={false} duration={next} tickMs={100} />)
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(state()).toBe('on')
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      expect(state()).toBe('off')
     })
 
     it('unsubscribes when switched off mid-flash and stays off when re-enabled', () => {
