@@ -20,8 +20,9 @@ if [ ! -x "$SDKMANAGER" ]; then
   rm -rf "$tmp"
 fi
 
+# compileSdk 37 and AGP 9.3.1 default build-tools 36.0.0 (see gen/android/app/build.gradle.kts)
 yes | "$SDKMANAGER" --licenses >/dev/null || true
-"$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+"$SDKMANAGER" "platform-tools" "platforms;android-37.0" "build-tools;36.0.0" "ndk;27.2.12479018"
 if [ "$WITH_EMULATOR" = 0 ]; then
   echo "Android SDK ready in $ANDROID_HOME (no emulator)"
   exit 0
