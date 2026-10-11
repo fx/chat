@@ -48,6 +48,13 @@ Related: [ink-renderer](../ink-renderer/), [chat-agent](../chat-agent/),
 - **WHEN** the user switches model with `/model`
 - **THEN** the stored profile holds the base URL and new model, and no API key.
 
+#### Scenario: Setup does not store a key from a flag or the environment
+
+- **GIVEN** `OPENAI_API_KEY` set (or `--api-key` given)
+- **WHEN** the user runs `tx chat --setup` and leaves the key field empty
+- **THEN** the field was not pre-filled with that key, the session uses it, and the stored profile
+  keeps only a key already stored or typed in setup.
+
 ### Fullscreen and Inline Modes
 
 - `tx chat` MUST run **fullscreen** by default: it takes the alternate screen and shows the scrolling

@@ -69,6 +69,24 @@ export function resolveSettings(
   }
 }
 
+/** Where the resolved API key came from, if anywhere. */
+export type ApiKeySource = 'flag' | 'env' | 'stored'
+
+/**
+ * The source `resolveSettings` takes the API key from. A key from a flag or
+ * the environment MUST never be written to the config document.
+ */
+export function apiKeySource(
+  flags: ChatFlags,
+  env: Record<string, string | undefined>,
+  stored: ChatSettings | undefined,
+): ApiKeySource | undefined {
+  if (flags.apiKey) return 'flag'
+  if (env.OPENAI_API_KEY) return 'env'
+  if (stored?.apiKey) return 'stored'
+  return undefined
+}
+
 /** Whether a resolved profile can start a chat. */
 export function isComplete(settings: Partial<ChatSettings>): settings is ChatSettings {
   return Boolean(settings.baseUrl && settings.model)

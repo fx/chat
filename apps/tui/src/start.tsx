@@ -21,6 +21,7 @@ import {
   CONFIG_KEY,
   type ChatFlags,
   type ChatSettings,
+  apiKeySource,
   isChatSettings,
   isComplete,
   resolveSettings,
@@ -63,11 +64,22 @@ export async function startChat(options: StartOptions): Promise<void> {
     let settings = resolveSettings(flags, context.env, stored)
     if (setup || !isComplete(settings)) {
       if (!dialogs || !context.stdin.isTTY) throw new Error(NOT_CONFIGURED)
-      const configured = await runSetup(dialogs, fetch, settings)
+      // A key from a flag or the environment is used, never stored: setup
+      // returns only a typed (or kept stored) key, and an empty answer keeps
+      // whatever key is already stored.
+      const source = apiKeySource(flags, context.env, stored)
+      const provided =
+        settings.apiKey && (source === 'flag' || source === 'env')
+          ? { apiKey: settings.apiKey, source }
+          : undefined
+      const configured = await runSetup(dialogs, fetch, settings, provided)
       if (!configured) return
-      await config.write(CONFIG_KEY, configured)
-      stored = configured
-      settings = configured
+      const keep = configured.apiKey === undefined ? stored?.apiKey : undefined
+      stored = { ...configured, ...(keep ? { apiKey: keep } : {}) }
+      await config.write(CONFIG_KEY, stored)
+      const { apiKey: _typed, ...endpoint } = configured
+      const sessionKey = configured.apiKey || provided?.apiKey
+      settings = { ...endpoint, ...(sessionKey ? { apiKey: sessionKey } : {}) }
     }
     if (!isComplete(settings)) throw new Error(NOT_CONFIGURED)
     if (!context.stdin.isTTY || !context.stdout.isTTY) {

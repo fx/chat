@@ -2,18 +2,30 @@
  * First-run and `/setup` endpoint configuration through tx's dialogs:
  * base URL, optional API key, then a model picked from the endpoint's list (or
  * typed when listing fails).
+ *
+ * A key provided by a flag or the environment is never pre-filled or
+ * returned: the result is what may be stored, so it holds only a key the user
+ * typed (or a stored key they kept).
  */
 import { type FetchLike, createClient } from '@fx/chat-agent'
 import type { Dialogs } from '@fx/tx/dialogs'
 import type { ChatSettings } from './settings'
+
+/** An API key that came from a flag or the environment, never stored. */
+export interface ProvidedKey {
+  apiKey: string
+  source: 'flag' | 'env'
+}
 
 const TYPE_MODEL = Symbol('type-model')
 
 export async function runSetup(
   dialogs: Dialogs,
   fetch: FetchLike,
-  current: Partial<ChatSettings>,
+  resolved: Partial<ChatSettings>,
+  provided?: ProvidedKey,
 ): Promise<ChatSettings | undefined> {
+  const { apiKey: resolvedKey, ...current } = resolved
   const baseUrl = (
     await dialogs.input({
       message: 'OpenAI-compatible base URL (e.g. https://api.example.com/v1)',
@@ -22,15 +34,18 @@ export async function runSetup(
   )?.trim()
   if (!baseUrl) return undefined
   const apiKey = await dialogs.input({
-    message: 'API key (leave empty for local servers)',
-    initialValue: current.apiKey ?? '',
+    message: provided
+      ? `API key (leave empty to use the one from ${provided.source === 'flag' ? '--api-key' : 'OPENAI_API_KEY'}, which is not saved)`
+      : 'API key (leave empty for local servers)',
+    initialValue: provided ? '' : (resolvedKey ?? ''),
   })
   if (apiKey === undefined) return undefined
+  const sessionKey = apiKey || provided?.apiKey
 
   let models: string[] = []
   let failure = ''
   try {
-    models = await createClient({ baseUrl, apiKey: apiKey || undefined, fetch }).listModels()
+    models = await createClient({ baseUrl, apiKey: sessionKey || undefined, fetch }).listModels()
   } catch (error) {
     failure = error instanceof Error ? error.message : String(error)
   }
@@ -59,7 +74,8 @@ export async function runSetup(
   return {
     ...current,
     baseUrl: baseUrl.replace(/\/+$/, ''),
-    ...(apiKey ? { apiKey } : { apiKey: '' }),
+    // Empty with a provided key: say nothing, so a stored key stays as is.
+    ...(apiKey ? { apiKey } : provided ? {} : { apiKey: '' }),
     model,
   }
 }

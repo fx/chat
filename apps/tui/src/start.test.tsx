@@ -191,6 +191,90 @@ describe('startChat', () => {
     expect(renderApp).toHaveBeenCalledTimes(1)
   })
 
+  describe('keys from flags or the environment never reach disk', () => {
+    /** Setup dialogs whose key prompt accepts what is pre-filled, or types `typed`. */
+    function acceptingDialogs(typed?: string) {
+      const input = vi.fn(async (request: { message: string; initialValue?: string }) =>
+        request.message.startsWith('API key')
+          ? (typed ?? request.initialValue ?? '')
+          : (request.initialValue ?? ''),
+      )
+      return {
+        input,
+        select: vi.fn(async () => ({ value: 'fake-1', values: {} })) as Dialogs['select'],
+      } as Dialogs & { input: typeof input }
+    }
+
+    async function run(options: {
+      env?: Record<string, string>
+      flags?: StartOptions['flags']
+      stored?: unknown
+      typed?: string
+    }) {
+      const config = fakeConfig(options.stored)
+      const d = acceptingDialogs(options.typed)
+      const { renderApp, rendered } = fakeRender(['quit'], { baseUrl: 'x', model: 'm9' })
+      await startChat({
+        context: context({ OPENAI_BASE_URL: 'https://e.test/v1', ...options.env }),
+        config,
+        theming,
+        dialogs: d,
+        flags: options.flags ?? {},
+        setup: true,
+        inline: true,
+        renderApp,
+        fetch: fakeEndpoint([]).fetch,
+      })
+      const app = (rendered[0]?.props as { children: ReactElement<{ settings: unknown }> }).children
+      const keyPrompt = d.input.mock.calls.find(([r]) => r.message.startsWith('API key'))?.[0]
+      return { stored: config.data.get(CONFIG_KEY), session: app.props.settings, keyPrompt }
+    }
+
+    it('does not pre-fill or store an environment key accepted in setup', async () => {
+      const { stored, session, keyPrompt } = await run({ env: { OPENAI_API_KEY: 'env-secret' } })
+      expect(keyPrompt?.initialValue).toBe('')
+      expect(keyPrompt?.message).toContain('OPENAI_API_KEY')
+      expect(stored).not.toHaveProperty('apiKey')
+      expect(JSON.stringify(stored)).not.toContain('env-secret')
+      expect(session).toMatchObject({ apiKey: 'env-secret', model: 'fake-1' })
+    })
+
+    it('does not pre-fill or store a flag key accepted in setup', async () => {
+      const { stored, session, keyPrompt } = await run({ flags: { apiKey: 'flag-secret' } })
+      expect(keyPrompt?.initialValue).toBe('')
+      expect(keyPrompt?.message).toContain('--api-key')
+      expect(JSON.stringify(stored)).not.toContain('flag-secret')
+      expect(session).toMatchObject({ apiKey: 'flag-secret' })
+    })
+
+    it('stores a key typed in setup', async () => {
+      const { stored, session } = await run({
+        env: { OPENAI_API_KEY: 'env-secret' },
+        typed: 'typed-key',
+      })
+      expect(stored).toMatchObject({ apiKey: 'typed-key', model: 'm9' })
+      expect(session).toMatchObject({ apiKey: 'typed-key' })
+    })
+
+    it('keeps a stored key unchanged when an environment key overrides it', async () => {
+      const { stored, session } = await run({
+        env: { OPENAI_API_KEY: 'env-secret' },
+        stored: { baseUrl: 'https://s.test', model: 'm', apiKey: 'stored-key' },
+      })
+      expect(stored).toMatchObject({ apiKey: 'stored-key' })
+      expect(session).toMatchObject({ apiKey: 'env-secret' })
+    })
+
+    it('pre-fills and keeps a stored key when nothing overrides it', async () => {
+      const { stored, session, keyPrompt } = await run({
+        stored: { baseUrl: 'https://s.test', model: 'm', apiKey: 'stored-key' },
+      })
+      expect(keyPrompt?.initialValue).toBe('stored-key')
+      expect(stored).toMatchObject({ apiKey: 'stored-key' })
+      expect(session).toMatchObject({ apiKey: 'stored-key' })
+    })
+  })
+
   it('defaults fetch to the global one', async () => {
     const spy = vi
       .spyOn(globalThis, 'fetch')

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_TOOLS, hostOf, isChatSettings, isComplete, resolveSettings } from './settings'
+import {
+  DEFAULT_TOOLS,
+  apiKeySource,
+  hostOf,
+  isChatSettings,
+  isComplete,
+  resolveSettings,
+} from './settings'
 
 describe('settings', () => {
   it('validates stored values', () => {
@@ -44,6 +51,14 @@ describe('settings', () => {
       model: 'em',
       system: 'x',
     })
+  })
+
+  it('reports where the API key comes from', () => {
+    const stored = { baseUrl: 'b', model: 'm', apiKey: 'sk' }
+    expect(apiKeySource({ apiKey: 'f' }, { OPENAI_API_KEY: 'e' }, stored)).toBe('flag')
+    expect(apiKeySource({}, { OPENAI_API_KEY: 'e' }, stored)).toBe('env')
+    expect(apiKeySource({ apiKey: '' }, { OPENAI_API_KEY: '' }, stored)).toBe('stored')
+    expect(apiKeySource({}, {}, undefined)).toBeUndefined()
   })
 
   it('knows when a profile is usable and extracts the host', () => {
