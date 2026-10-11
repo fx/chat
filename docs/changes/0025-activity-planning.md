@@ -41,7 +41,7 @@ The spec owns the facts, formats, the live-footer opt-in, counts, phase, placeme
 
 - **Decision (review fix):** after-content placement folds activity into one `group` row placed after the content rows — the same row kind minimal mode uses — rather than a new `activity` row.
 - **Decision (review fix):** the live footer is a `planFooter` option (`live: true`) and a renderer prop; `MessagePlan.showFooter` keeps change 0014's gate.
-- **Decision (review fix):** durations — finished values via `formatDuration` (tenths), live whole seconds via `formatElapsed(ms, { live: true })`; sub-second finished footer values in ms.
+- **Decision (review fix):** durations — finished values via `formatDuration` (tenths), live whole seconds via `formatElapsed(ms, { live: true })`; a sub-second finished `elapsed` fact in ms (the DOM metrics line keeps `formatDuration`).
 
 ### Non-Goals
 

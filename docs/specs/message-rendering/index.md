@@ -446,8 +446,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   `query`, `prompt`, `description`; else compact JSON of a non-empty object), whitespace collapsed
   and cut with `…` — and none when the label already contains it.
 - **Tool output text.** A tool's output text MUST be the result itself when it is a string, empty
-  when absent, and two-space-indented JSON otherwise; it is what renderers lay out and what a copy
-  of the output copies.
+  when absent, and two-space-indented JSON otherwise (`toolResultText`); a renderer that lays out
+  output as text MUST use it. The DOM renderer shows the result in its registry `JsonView` instead.
 - **Approval qualifier.** A call with `approval.state` of `denied` or `unavailable` MUST show a
   `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`.
 - **Tool liveness.** A `pending`/`running` tool call MUST count as live only while its message is
@@ -456,24 +456,28 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **Plan.** A plan block is auxiliary (it folds into a turn's activity like reasoning and tool
   calls, and alone does not open the footer gate). Its summary is `Plan d/t` (completed / total),
   or `Plan` with no entries, with the `checklist` icon and no timer. Renderers MUST render it as a
-  checklist with one row per entry and a per-status marker; completed entries de-emphasized.
+  checklist with one row per entry. The DOM renderer exposes each entry's status as `data-status`
+  (and in its accessible name) and leaves per-status markers and de-emphasis to host styling.
 - **Outcome.** An assistant message with an `error` outcome MUST show the error inside the message,
   after its content, as an error-toned row; a `stopped` outcome adds no row. A settled message with
-  an outcome MUST show its footer even with no content; the footer facts include `stopped` /
-  `failed` and a host-labelled retry hint slot.
-- **Footer facts.** The footer's content MUST be planned as ordered facts — `elapsed`, `outcome`,
-  `reasoning` (characters), `plan` (`d/t`), `tools` (`N tools[, M failed]`), `cost`, `context`
-  (`ctx used/size`), `model`, `rate` — that each renderer draws with its own (injected) glyphs and
-  separators. Activity facts (`reasoning`, `plan`, `tools`) appear only when the activity itself is
-  collapsed; `context` only when it is shown in detail. The existing single-line metrics text stays
-  available unchanged.
+  an outcome MUST show its footer even with no content, marked `stopped` / `failed` (the planned
+  `outcome` fact; the DOM renderer's `Stopped` / `Failed` marker). A renderer MAY also show a
+  host-labelled retry hint there; the DOM renderer has none.
+- **Footer facts.** Core MUST plan the footer's content as ordered facts (`planFooter`) —
+  `elapsed`, `outcome`, `reasoning` (characters), `plan` (`d/t`), `tools` (`N tools[, M failed]`),
+  `cost`, `context` (`ctx used/size`), `model`, `rate`. Activity facts (`reasoning`, `plan`,
+  `tools`) appear only when the activity itself is collapsed; `context` only when it is shown in
+  detail. A renderer MAY draw the planned facts with its own (injected) glyphs and
+  separators. The DOM renderer does not: its footer keeps the existing single-line metrics text
+  (`formatFooterMetrics`, unchanged: model · duration · rate) with the cost appended when reported,
+  beside the `Stopped` / `Failed` outcome marker.
 - **Live footer.** A footer on a live message is OPT-IN for the host (the default footer gate above
   is unchanged). When enabled, it shows from the first thing that arrives, and its elapsed fact
   counts whole seconds from the message's creation, so it changes at most once a second.
 - **Durations.** Finished durations everywhere (row timers, footer `elapsed`) use the
   tenths-of-a-second format above. Live elapsed values outside rows (the live footer, a status
-  line) use whole seconds (`12s`, `2m 05s`) so they change once a second. Sub-second finished
-  footer values read in milliseconds (`640ms`).
+  line) use whole seconds (`12s`, `2m 05s`) so they change once a second. A sub-second finished
+  `elapsed` fact reads in milliseconds (`640ms`); the DOM metrics line keeps tenths (`0.6s`).
 - **Formats.** Cost: `$` and the amount with four decimals below 0.01, else two; a non-USD currency
   is suffixed with its code instead. Token and character counts: exact below 1000, then `2.4k`,
   `12k`, and `1.2M` from a million.
