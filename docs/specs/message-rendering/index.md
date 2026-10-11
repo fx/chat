@@ -527,7 +527,10 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   progress, and tools (total / failed / denied / running), where denied includes `unavailable` and
   failed includes denied; and the live phase of a message — `waiting` (nothing back), `thinking`
   (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text),
-  `approval` (that call awaits the user's approval), or `writing`.
+  `approval` (that call awaits the user's approval), or `writing`. A call awaiting approval is
+  not live, so a host tool renderer gets `isStreaming` false for it (an approval UI reads
+  `block.approval`), and with a running call and a newer one awaiting approval the phase is
+  `approval` while a group header names the running call.
 - **Activity placement.** A host MAY ask for activity after content: content blocks (and the
   outcome row) first in their order, then the turn's activity folded as one group in its order —
   or, when there is a single activity block, that block as a bare row (no group around one block,
