@@ -7,3 +7,6 @@ coverage/
 **/.vite/
 *.log
 .DS_Store
+
+# Workspace-local Android/Tauri toolchain (see .toolchain/env.sh)
+.toolchain/

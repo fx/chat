@@ -1,0 +1,7 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.fx_chat" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Matches the web UI background so system-bar areas blend in. -->
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
+</resources>

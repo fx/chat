@@ -11,7 +11,12 @@ export default defineConfig({
     fakeTimers: {
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     },
-    include: ['packages/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs', 'demos/**/*.test.{ts,tsx}'],
+    include: [
+      'packages/**/*.test.{ts,tsx}',
+      'scripts/**/*.test.mjs',
+      'demos/**/*.test.{ts,tsx}',
+      'apps/*/src/**/*.test.{ts,tsx}',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary'],

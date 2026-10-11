@@ -18,6 +18,7 @@ conversation can render through any design system with no change to the package.
 packages/core/   @fx/chat-core — renderer-agnostic model, transcript logic, DOM-free hooks
 packages/chat/   @fx/chat — the published React-DOM renderers (re-exports core)
 packages/agent/  @fx/chat-agent — UI-free OpenAI-compatible agent runtime + built-in tools (optional)
+apps/mobile/     Android reference app (Tauri v2)
 demos/chat-demo/  static Vite + React demo (deployed to GitHub Pages under /chat/)
 docs/             specs and change documents
 scripts/          repository checks (no internal references)

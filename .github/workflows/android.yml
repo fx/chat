@@ -1,0 +1,39 @@
+# Build the reference app's debug APK (apps/mobile, Tauri v2).
+#
+# Heavy toolchain (Rust + Android SDK/NDK), so it runs on pushes to main and on
+# demand rather than on every pull request; CI builds the web UI on every PR.
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # mise-first: bun, node, Java and Rust (+ Android targets) from mise.toml.
+      - uses: jdx/mise-action@v2
+
+      - name: Install Android SDK and NDK
+        run: mise run android:setup --no-emulator
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build debug APK
+        run: mise run android:build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fx-chat-debug-apk
+          path: apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk

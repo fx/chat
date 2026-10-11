@@ -34,6 +34,10 @@ specs:
     path: specs/chat-agent/
     description: UI-free OpenAI-compatible agent runtime — streaming into ChatMessages, tool loop, approval, cancellation
     status: active
+  - name: mobile-app
+    path: specs/mobile-app/
+    description: Android reference app (Tauri v2) — endpoint profiles, persisted conversations, agent chat, tools, injected theme
+    status: active
 
 changes:
   - id: "0001"
@@ -176,6 +180,13 @@ changes:
     spec: chat-agent
     status: complete
     depends_on: ["0019"]
+  - id: "0021"
+    name: mobile-app
+    path: changes/0021-mobile-app.md
+    description: Android reference app in apps/mobile — Vite/React UI, Tauri v2 shell, IndexedDB store, tools, injected theme
+    spec: mobile-app
+    status: complete
+    depends_on: ["0019", "0020"]
   - id: "0023"
     name: agent-activity-model
     path: changes/0023-agent-activity-model.md

@@ -89,4 +89,5 @@ implementing them requires of this change:
 ## References
 
 - Spec: [chat-agent](../specs/chat-agent/)
-- Related changes: [0019-core-extraction](./0019-core-extraction.md)
+- Related changes: [0019-core-extraction](./0019-core-extraction.md),
+  [0021-mobile-app](./0021-mobile-app.md)

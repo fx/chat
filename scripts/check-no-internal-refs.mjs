@@ -18,10 +18,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
  * Directories (relative to repo root) scanned for forbidden tokens. Covers the
- * publishable source, the demo source, and the CI/CD workflows that ship in the
+ * publishable source, the demo and reference-app sources, and the CI/CD workflows that ship in the
  * open-source repository.
  */
-export const SCAN_DIRS = ['packages', 'demos', '.github']
+export const SCAN_DIRS = ['packages', 'demos', 'apps', '.github']
 
 /**
  * Repo-root files are scanned too (non-recursively): every scannable top-level
@@ -48,7 +48,15 @@ export const SCAN_EXTENSIONS = new Set([
 ])
 
 /** Directory names skipped entirely while walking. */
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.vite'])
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'coverage',
+  '.vite',
+  'target',
+  'build',
+  '.gradle',
+])
 
 /**
  * Forbidden token patterns. Each entry is a label + RegExp. The patterns target

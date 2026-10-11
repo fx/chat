@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.14",
-  "workspaces": ["packages/*", "demos/*"],
+  "workspaces": ["packages/*", "demos/*", "apps/*"],
   "scripts": {
     "build": "bun run --filter '@fx/chat-core' build && bun run --filter '@fx/chat' --filter '@fx/chat-agent' build",
     "prebuild:demo": "bun run build",
@@ -18,7 +18,10 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "check:no-internal-refs": "bun scripts/check-no-internal-refs.mjs",
-    "check:registry-imports": "bun scripts/check-registry-imports.mjs"
+    "check:registry-imports": "bun scripts/check-registry-imports.mjs",
+    "build:mobile": "bun run --filter 'chat-mobile' build",
+    "prebuild:mobile": "bun run build",
+    "android:build": "bun run --filter 'chat-mobile' android:build"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

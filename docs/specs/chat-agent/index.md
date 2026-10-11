@@ -11,8 +11,8 @@ client (browser, webview, Node).
 
 ## Background
 
-Agent hosts such as a mobile app or a terminal CLI are fully client-side and talk directly to a
-user-configured endpoint. They share the same hard part — turning a server-sent-event
+The reference apps ([mobile-app](../mobile-app/), a later terminal CLI) are fully client-side and talk
+directly to a user-configured endpoint. They share the same hard part — turning a server-sent-event
 stream of deltas into a growing, well-formed message, and running the tool loop — so it lives in one
 package rather than being re-implemented per app. Keeping it separate from the renderers preserves the
 renderers' purity: hosts with their own backend never install it.
@@ -199,7 +199,7 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 ## References
 
 - OpenAI Chat Completions streaming reference (`stream: true`, `stream_options.include_usage`).
-- [chat-core](../chat-core/), [message-model](../message-model/)
+- [chat-core](../chat-core/), [message-model](../message-model/), [mobile-app](../mobile-app/)
 
 ## Changelog
 
