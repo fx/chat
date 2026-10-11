@@ -66,7 +66,11 @@ describe('buildTools', () => {
       truncated: false,
       text: 'T\n\nHi',
     })
-    expect(fetchImpl).toHaveBeenCalledWith('https://a.test/', { method: 'GET', signal: ctx.signal })
+    expect(fetchImpl).toHaveBeenCalledWith('https://a.test/', {
+      method: 'GET',
+      redirect: 'manual',
+      signal: ctx.signal,
+    })
     const long = (await fetchTool?.execute({ url: 'http://b.test' }, ctx)) as {
       truncated: boolean
       text: string
@@ -75,6 +79,88 @@ describe('buildTools', () => {
     expect(long.truncated).toBe(true)
     expect(long.text).toHaveLength(FETCH_TEXT_LIMIT)
     expect(long.contentType).toBe('text/plain;charset=UTF-8')
+  })
+
+  it('never follows a redirect, naming the absolute target instead', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('secret', { status: 302, headers: { location: '/next?q=1' } }),
+      )
+    const [fetchTool] = buildTools({ fetch_url: true }, {}, { fetch: fetchImpl })
+    const result = await fetchTool?.execute({ url: 'https://a.test/start' }, ctx)
+    expect(result).toBe(
+      'The page redirects to https://a.test/next?q=1. The redirect was not followed; call fetch_url again with that URL to load it (it needs its own approval).',
+    )
+    expect(result).not.toContain('secret')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(fetchImpl).toHaveBeenCalledWith('https://a.test/start', {
+      method: 'GET',
+      redirect: 'manual',
+      signal: ctx.signal,
+    })
+  })
+
+  it('reports an opaque redirect without a location', async () => {
+    const opaque = {
+      type: 'opaqueredirect',
+      status: 0,
+      redirected: false,
+      url: 'https://a.test/',
+      headers: new Headers(),
+      text: vi.fn(),
+    }
+    const [fetchTool] = buildTools(
+      { fetch_url: true },
+      {},
+      { fetch: vi.fn().mockResolvedValue(opaque) },
+    )
+    expect(await fetchTool?.execute({ url: 'https://a.test/' }, ctx)).toMatch(
+      /^The page redirects to an unknown location\./,
+    )
+    expect(opaque.text).not.toHaveBeenCalled()
+  })
+
+  it('withholds the body when the injected fetch followed a redirect anyway', async () => {
+    const followed = (init: { redirected: boolean; url: string }) => ({
+      type: 'basic',
+      status: 200,
+      ...init,
+      headers: new Headers({ 'content-type': 'text/plain' }),
+      text: vi.fn().mockResolvedValue('internal secret'),
+    })
+    const moved = followed({ redirected: false, url: 'http://10.0.0.1/admin' })
+    const flagged = followed({ redirected: true, url: '' })
+    const fetchImpl = vi.fn().mockResolvedValueOnce(moved).mockResolvedValueOnce(flagged)
+    const [fetchTool] = buildTools({ fetch_url: true }, {}, { fetch: fetchImpl })
+    expect(await fetchTool?.execute({ url: 'https://a.test/' }, ctx)).toMatch(
+      /^The page redirects to http:\/\/10\.0\.0\.1\/admin\./,
+    )
+    expect(await fetchTool?.execute({ url: 'https://a.test/' }, ctx)).toMatch(
+      /^The page redirects to an unknown location\./,
+    )
+    expect(moved.text).not.toHaveBeenCalled()
+    expect(flagged.text).not.toHaveBeenCalled()
+  })
+
+  it('returns the body when the response URL matches the request apart from normalization', async () => {
+    const response = {
+      type: 'basic',
+      status: 200,
+      redirected: false,
+      url: 'https://a.test/',
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue('ok'),
+    }
+    const [fetchTool] = buildTools(
+      { fetch_url: true },
+      {},
+      { fetch: vi.fn().mockResolvedValue(response) },
+    )
+    expect(await fetchTool?.execute({ url: 'https://A.test#top' }, ctx)).toMatchObject({
+      status: 200,
+      text: 'ok',
+    })
   })
 
   it('rejects non-http URLs', async () => {

@@ -107,10 +107,14 @@ receives an immutable snapshot after every applied delta.
 
 ### Built-in Tools
 
-- The package MUST offer the built-in tools agent hosts commonly share — current date/time, an exact
-  arithmetic calculator (never evaluating code), and an HTTP GET page fetcher returning text,
-  truncated to a fixed limit — each enabled per host, with network tools requiring approval by
-  default.
+- The package MUST offer the built-in tools agent hosts commonly share — current date/time, a
+  deterministic arithmetic calculator (a parser, never evaluating code; IEEE-754 double precision),
+  and an HTTP GET page fetcher returning text, truncated to a fixed limit — each enabled per host,
+  with network tools requiring approval by default.
+- The page fetcher MUST NOT follow redirects: it MUST request with manual redirect handling, and when
+  the response is a redirect, or the transport followed one anyway, it MUST NOT return the body and
+  MUST instead tell the model the target URL (or that it is unknown) and that loading it takes
+  another, separately approved call.
 - Platform services the tools use (transport, HTML-to-text, clock) MUST be injectable, with defaults
   that need no DOM.
 

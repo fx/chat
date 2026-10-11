@@ -1,6 +1,7 @@
 /**
- * Built-in tools shared by the reference apps: current date/time, an exact
- * arithmetic calculator, and an HTTP GET page fetcher. Hosts choose which are
+ * Built-in tools shared by the reference apps: current date/time, a
+ * deterministic arithmetic calculator (a parser, never evaluating code; IEEE-754
+ * double precision), and an HTTP GET page fetcher that never follows redirects. Hosts choose which are
  * enabled and which need approval; tools that reach the network require
  * approval by default. Platform needs are injected (fetch, HTML-to-text,
  * clock), so the tools run in a webview and in Node/Bun alike.
@@ -29,7 +30,7 @@ export const TOOL_INFO: readonly ToolInfo[] = [
   {
     id: 'calculator',
     label: 'Calculator',
-    description: 'Evaluates arithmetic expressions exactly.',
+    description: 'Evaluates arithmetic expressions (double precision).',
     network: false,
   },
   {
@@ -91,6 +92,21 @@ export interface BuiltinToolOptions {
   now?: () => Date
 }
 
+/** The URL without its fragment, normalized, for comparing request and response URLs. */
+function comparable(url: string): string {
+  const parsed = new URL(url)
+  parsed.hash = ''
+  return parsed.href
+}
+
+/**
+ * Text telling the model a page redirects instead of returning the target's
+ * body: each URL the tool loads needs its own approval.
+ */
+function redirectNotice(target: string | undefined): string {
+  return `The page redirects to ${target ?? 'an unknown location'}. The redirect was not followed; call fetch_url again with that URL to load it (it needs its own approval).`
+}
+
 function argsObject(args: unknown): Record<string, unknown> {
   return args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
 }
@@ -147,7 +163,19 @@ export function buildTools(
         if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
           throw new Error('"url" must be an absolute http(s) URL')
         }
-        const response = await fetchImpl(url, { method: 'GET', signal })
+        // Never follow redirects: an approved URL must not load an unapproved target.
+        const response = await fetchImpl(url, { method: 'GET', redirect: 'manual', signal })
+        if (
+          response.type === 'opaqueredirect' ||
+          (response.status >= 300 && response.status < 400)
+        ) {
+          const location = response.headers.get('location')
+          return redirectNotice(location ? new URL(location, url).href : undefined)
+        }
+        // Some platform fetches follow redirects despite `redirect: 'manual'`.
+        if (response.redirected || (response.url && comparable(response.url) !== comparable(url))) {
+          return redirectNotice(response.url || undefined)
+        }
         const contentType = response.headers.get('content-type') ?? ''
         const raw = await response.text()
         const text = /html/i.test(contentType) ? htmlToText(raw) : raw
