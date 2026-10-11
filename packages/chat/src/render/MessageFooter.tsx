@@ -32,7 +32,7 @@ import { useElapsedTimer } from '@fx/chat-core/react'
  *
  * Every visual atom and icon comes from `useChatComponents()`.
  */
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { cx } from '../cx'
 import {
   type ActivityFact,
@@ -72,6 +72,11 @@ export interface MessageFooterProps {
   activityShown?: boolean
   /** Show or hide that activity; makes each fact a button. */
   onToggleActivity?: () => void
+  /**
+   * The shown activity, when it belongs in the footer (summaries): rendered
+   * right after the facts in `.chat-footer-activity-items`.
+   */
+  activityItems?: ReactNode
 }
 
 /** The message actions a `MessageDetails` presenter offers, in footer order. */
@@ -269,6 +274,7 @@ export function MessageFooter({
   activity,
   activityShown,
   onToggleActivity,
+  activityItems,
 }: MessageFooterProps) {
   const { Button, CopyButton, MessageDetails, icons } = useChatComponents()
   const cn = useChatClassNames()
@@ -324,6 +330,11 @@ export function MessageFooter({
       ) : null}
       {activity && activity.length > 0 ? (
         <ActivityFacts facts={activity} shown={activityShown} onToggle={onToggleActivity} />
+      ) : null}
+      {activityItems ? (
+        <span className={cx('chat-footer-activity-items', cn.footerActivityItems)}>
+          {activityItems}
+        </span>
       ) : null}
       {compact && hasRevealable ? (
         <Button

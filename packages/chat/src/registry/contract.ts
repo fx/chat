@@ -181,6 +181,8 @@ export interface ChatClassNames {
   footerFact?: string
   /** A fact's icon and text (`.chat-footer-fact-body`): a button when it toggles the activity. */
   footerFactBody?: string
+  /** The shown activity's summaries inside the footer (`.chat-footer-activity-items`). */
+  footerActivityItems?: string
   footerFactIcon?: string
   footerFactText?: string
   /** The activity handed to a `MessageDetails` presenter (`.chat-details-activity`). */

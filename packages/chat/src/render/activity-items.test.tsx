@@ -333,6 +333,37 @@ describe('MessageItem finishedActivity="footer"', () => {
     expect(last.details).toEqual([{ key: 'model', label: 'Model', value: 'gpt-x' }])
   })
 
+  it('shows summarized activity inside the footer, beside the facts', () => {
+    const rec = recording()
+    render(
+      <ChatProvider components={rec.components}>
+        <MessageItem
+          finishedActivity="footer"
+          activityDisplay="summary"
+          compactFooter
+          message={finished}
+        />
+      </ChatProvider>,
+    )
+    expect(screen.queryByTestId('summary')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show activity: 1 tool call, 1 failed' }))
+    const summary = screen.getByTestId('summary')
+    // In the footer, right after the facts, not back among the blocks.
+    expect(summary.closest('.chat-footer-activity-items')).not.toBeNull()
+    expect(summary.closest('.chat-message-blocks')).toBeNull()
+    expect(
+      (document.querySelector('.chat-footer-activity') as Element).nextElementSibling,
+    ).toHaveClass('chat-footer-activity-items')
+    expect(rec.summaries.at(-1)?.live).toBe(false)
+    expect(
+      within(summary)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Thinking:done', 'fetch_url:error'])
+    fireEvent.click(screen.getByRole('button', { name: 'Hide activity: 1 tool call, 1 failed' }))
+    expect(screen.queryByTestId('summary')).toBeNull()
+  })
+
   it('shows the facts as plain text when nothing toggles them', () => {
     render(
       <MessageFooter

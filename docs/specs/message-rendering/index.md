@@ -557,8 +557,10 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   collapsed. `MessageLog`/`MessageItem` take it as `finishedActivity`; the footer then shows the
   activity as facts — tool calls (and failures), thinking time (or size when untimed), plan
   progress — each an icon and short text with a readable label. Each fact is a button that shows the
-  message's activity again where it was (as rows, or summaries), and hides it on the next press;
-  the facts' wrapper says whether it is shown (`data-expanded`).
+  message's activity again, and hides it on the next press: as rows back where they were, or — with
+  summary display — as summaries inside the footer right after the facts
+  (`.chat-footer-activity-items`), so the footer stays one run of controls. The facts' wrapper says
+  whether it is shown (`data-expanded`).
 - **Activity summary.** With `activityDisplay="summary"` and a registry `ActivitySummary`
   presenter, each run of activity rows (groups and bare activity blocks, including the pending
   placeholder; a live tail's `earlier` row folds away) renders as one summary of plain items
@@ -930,3 +932,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | — |
 | 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | — |
 | 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | — |
+| 2026-10-11 | Summarized activity shown from the footer renders inside it, after the facts | — |
