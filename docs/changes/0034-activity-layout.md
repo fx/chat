@@ -2,7 +2,7 @@
 
 ## Summary
 
-Make chronological (`inline`) activity a comfortable default for line-layout hosts and keep `after-content` and footer-only finished activity clean: no double header for a lone activity block after content, footer-only finished activity that hides every activity row, a truthful and neutrally marked live-tail `earlier` row, a blank line between content and activity, and a threaded footer corner with no dangling space when there are no footer facts.
+Make chronological (`inline`) activity a comfortable default for line-layout hosts and keep `after-content` and footer-only finished activity clean: no double header for a lone activity block after content, footer-only finished activity that hides every activity row, a truthful and neutrally marked live-tail `earlier` row, a blank line between content and activity, adjacent text blocks kept as separate paragraphs in either placement, and a threaded footer corner with no dangling space when there are no footer facts.
 
 **Spec:** [message-rendering](../specs/message-rendering/), [chat-core](../specs/chat-core/), [ink-renderer](../specs/ink-renderer/), [layout](../specs/ink-renderer/layout.md)
 **Status:** complete
@@ -17,6 +17,7 @@ A host that shows activity in stream order, with an option to leave a finished a
 3. The live tail's `earlier` row was drawn with the tool glyph and counted hidden reasoning and plans too, so one hidden thought read as a hidden tool.
 4. Activity rows sat directly against the answer text before and after them.
 5. The threaded frame drew the footer corner and a trailing space even when the answer had no footer facts.
+6. Two text blocks were separated by a blank line only with `after-content`; in stream order — notably when the activity between them is hidden — the paragraphs ran together.
 
 ## Requirements
 
@@ -34,6 +35,7 @@ The specs own the behavior. This change owns:
 - The `earlier` row carries `tools` (hidden tool calls) beside `count`; `earlierLabel(row)` gives its plain text. Both renderers use it.
 - `@fx/chat-ink`: new glyph `earlier` (`⋮` / ASCII `^`; empty draws no marker); `glyphs.tool` is no longer drawn and is deprecated.
 - `@fx/chat-ink`: `LayoutContext.activitySpacing` / `TranscriptViewport` `activitySpacing` (default `true`) — one blank decoration line between content and adjacent activity.
+- `@fx/chat-ink`: adjacent text rows get one blank line between them in both placements, including text rows made adjacent by hidden activity.
 - The threaded frame closes an answer without footer facts with the bare corner glyph right after the body.
 
 ## Design
@@ -43,6 +45,7 @@ The specs own the behavior. This change owns:
 - **Footer-only activity is a core plan option.** It is a row decision, so it lives with the rest of row planning; the terminal line layout passes it while collapsed. It applies only when the footer shows, so an activity-only turn (no footer) never disappears. The DOM renderer does not expose it: its footer carries no activity counts.
 - **The earlier row's breakdown is tool calls vs. everything else.** The live tail keeps the newest tool calls, so tool calls are what a reader expects to be hidden; the rest (reasoning, older plans, other activity kinds) reads as steps. Labels: `+2 earlier tool calls`, `+1 earlier step`, `+3 earlier steps (2 tool calls)`.
 - **Spacing is decoration on the body boundary.** A `frame` line (never copied), drawn by whichever frame wraps the body, so the threaded gutter continues through it. Consecutive activity rows and the outcome row's side (content) are not split.
+- **Paragraph breaks are copied.** The blank line between adjacent text blocks is content (a paragraph break a copy keeps), unlike the activity-spacing decoration; the two never stack, since text rows made adjacent have no activity row between them.
 - **Bare corner without facts.** The threaded answer ends `│ body` → `╰` — no blank gutter line and no trailing space — instead of an empty footer line.
 
 ### Non-Goals
@@ -53,5 +56,6 @@ Spacing in the element-based inline transcript (`MessageView`); a DOM `finishedA
 
 - [x] Core: lone after-content activity block bare; `finishedActivity` plan option; `earlier` row `tools` and `earlierLabel`
 - [x] DOM: earlier row label from core, `data-tools`
+- [x] Ink: adjacent text blocks separated in both placements
 - [x] Ink: `earlier` glyph; line layout drops the group-only skip and uses the plan option; activity spacing option (layout context, viewport, cache key); threaded bare corner
 - [x] Tests (core, line layout, frames, cross-renderer parity); specs and indexes

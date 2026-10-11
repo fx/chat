@@ -506,6 +506,52 @@ describe('finished activity', () => {
   })
 })
 
+describe('adjacent paragraphs', () => {
+  const message = answer(
+    [
+      { type: 'reasoning', id: 'r1', text: 'first', durationMs: 1000 },
+      { type: 'text', id: 'a', text: 'one' },
+      tool('t', { result: 'out' }),
+      { type: 'reasoning', id: 'r2', text: 'second', durationMs: 2000 },
+      { type: 'text', id: 'b', text: 'two' },
+    ],
+    { metrics: { durationMs: 4000 } },
+  )
+
+  it('keeps two paragraphs apart when the activity between them is hidden', () => {
+    const body = layoutBody(message, 40, ctx({ finishedActivity: 'footer' }))
+    expect(text(body)).toEqual(['one', '', 'two'])
+    expect(body[1]?.frame).toBeUndefined()
+  })
+
+  it('shows chronological rows in details, spaced at the content/activity boundaries', () => {
+    expect(
+      text(layoutBody(message, 40, ctx({ finishedActivity: 'footer', detail: 'details' }))),
+    ).toEqual([
+      '▾ ∴ Thought for 1.0s',
+      '  first',
+      '',
+      'one',
+      '',
+      '▾ (+1) ∴ Thought for 2.0s',
+      '  ✓ t',
+      '    ┊ out',
+      '  ▾ ∴ Thought for 2.0s',
+      '    second',
+      '',
+      'two',
+    ])
+  })
+
+  it('separates adjacent text blocks in stream order too', () => {
+    const two = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      { type: 'text', id: 'b', text: 'two' },
+    ])
+    expect(text(layoutBody(two, 40, ctx()))).toEqual(['one', '', 'two'])
+  })
+})
+
 describe('activity spacing', () => {
   const message = answer([
     { type: 'text', id: 'a', text: 'one' },

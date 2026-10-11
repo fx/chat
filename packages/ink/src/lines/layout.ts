@@ -538,14 +538,9 @@ export function layoutBody(
   let lastWasText = false
   let lastSide: 'content' | 'activity' | undefined
   for (const row of plan.rows) {
-    if (
-      row.kind === 'bare' &&
-      row.block.type === 'text' &&
-      lastWasText &&
-      ctx.placement === 'after-content'
-    ) {
-      out.push({ spans: [] })
-    }
+    // Adjacent text blocks stay separate paragraphs (a copied blank line),
+    // whether they were adjacent or the activity between them is not shown.
+    if (row.kind === 'bare' && row.block.type === 'text' && lastWasText) out.push({ spans: [] })
     lastWasText = row.kind === 'bare' && row.block.type === 'text'
     const side = rowSide(row)
     // Content and activity are set apart by a blank decoration line.

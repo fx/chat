@@ -490,7 +490,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **Activity placement.** A host MAY ask for activity after content: content blocks (and the
   outcome row) first in their order, then the turn's activity folded as one group in its order —
   or, when there is a single activity block, that block as a bare row (no group around one block,
-  as in stream order). Text blocks separated by activity remain separate paragraphs.
+  as in stream order). Text blocks separated by activity remain separate paragraphs — in either
+  placement, and also when that activity is not shown.
 - **Live tail.** A host MAY ask that, while a message is live and its activity collapsed, only the
   newest N activity blocks show, preceded by an `earlier` row; reasoning shows only while nothing
   else has arrived. A finished message never shows a tail. The row carries how many blocks it hides
