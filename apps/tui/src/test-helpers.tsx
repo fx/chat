@@ -1,5 +1,6 @@
 /** Test helpers: a fake OpenAI-compatible endpoint and ink-testing-library keys. */
 import type { FetchLike } from '@fx/chat-agent'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 const encoder = new TextEncoder()
 
@@ -88,7 +89,29 @@ export function fakeEndpoint(
   return { fetch, requests }
 }
 
-export const tick = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms))
+/**
+ * Drive the file's tests on fake timers: Ink's input flush and render
+ * throttle, slow fake streams and every app timer advance only when a test
+ * says so, so no test waits on the wall clock. Call once per test file.
+ */
+export function useFakeClock() {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+}
+
+/**
+ * Let work settle: advance the fake clock `ms` (running due timers and the
+ * promises they resolve), then yield one event-loop turn for React's work.
+ * Needs fake timers (`useFakeClock`).
+ */
+export async function tick(ms = 20) {
+  await vi.advanceTimersByTimeAsync(ms)
+  await new Promise<void>((resolve) => setImmediate(resolve))
+}
 
 export const KEYS = {
   enter: '\r',

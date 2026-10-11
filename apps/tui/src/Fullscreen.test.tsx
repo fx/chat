@@ -2,8 +2,17 @@ import { InkChatProvider } from '@fx/chat-ink'
 import { cleanup, render } from 'ink-testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Fullscreen, type FullscreenProps } from './Fullscreen'
-import { KEYS, fakeEndpoint, fetchCall, sseBody, stuckBody, tick } from './test-helpers'
+import {
+  KEYS,
+  fakeEndpoint,
+  fetchCall,
+  sseBody,
+  stuckBody,
+  tick,
+  useFakeClock,
+} from './test-helpers'
 
+useFakeClock()
 afterEach(() => cleanup())
 
 const settings = { baseUrl: 'https://fake.test/v1', model: 'fake-1' }
@@ -62,7 +71,9 @@ describe('Fullscreen', () => {
     await type('two', KEYS.enter)
     expect(frame()).toContain('⏸')
     expect(frame()).toContain('two')
+    // The slow first answer finishes, then the queued message is sent.
     await tick(400)
+    await tick()
     expect(frame()).toContain('second')
     expect(frame()).not.toContain('⏸')
     const chats = endpoint.requests.filter((r) => r.url.endsWith('/chat/completions'))

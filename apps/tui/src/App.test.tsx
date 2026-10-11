@@ -2,8 +2,17 @@ import { InkChatProvider } from '@fx/chat-ink'
 import { cleanup, render } from 'ink-testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App, type AppProps } from './App'
-import { KEYS, fakeEndpoint, fetchCall, sseBody, stuckBody, tick } from './test-helpers'
+import {
+  KEYS,
+  fakeEndpoint,
+  fetchCall,
+  sseBody,
+  stuckBody,
+  tick,
+  useFakeClock,
+} from './test-helpers'
 
+useFakeClock()
 afterEach(() => cleanup())
 
 const settings = { baseUrl: 'https://fake.test/v1', model: 'fake-1' }
