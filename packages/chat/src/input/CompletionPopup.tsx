@@ -392,7 +392,7 @@ function CompletionPopupImpl(
     const textarea = textareaRef.current
     if (!el || !textarea) return
     const width = el.getBoundingClientRect().width
-    if (width > 0) setPopupWidth((prev) => (prev === width ? prev : width))
+    if (width > 0) setPopupWidth(width)
     setThemeVars(resolveThemedTokens(textarea))
   }, [open, hasVisibleContent, coords, value, textareaRef])
 

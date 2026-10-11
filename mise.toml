@@ -1,0 +1,6 @@
+# Development toolchain. mise-first: install everything mise can manage with
+# `mise install`.
+
+[tools]
+bun = "1.3.14"
+node = "22"
