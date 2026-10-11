@@ -521,7 +521,10 @@ describe('adjacent paragraphs', () => {
   it('keeps two paragraphs apart when the activity between them is hidden', () => {
     const body = layoutBody(message, 40, ctx({ finishedActivity: 'footer' }))
     expect(text(body)).toEqual(['one', '', 'two'])
-    expect(body[1]?.frame).toBeUndefined()
+    expect(body[1]?.frame).toBe(true)
+    expect(
+      text(layoutBody(message, 40, ctx({ finishedActivity: 'footer', activitySpacing: false }))),
+    ).toEqual(['one', '', 'two'])
   })
 
   it('shows chronological rows in details, spaced at the content/activity boundaries', () => {

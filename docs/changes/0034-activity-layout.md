@@ -35,7 +35,7 @@ The specs own the behavior. This change owns:
 - The `earlier` row carries `tools` (hidden tool calls) beside `count`; `earlierLabel(row)` gives its plain text. Both renderers use it.
 - `@fx/chat-ink`: new glyph `earlier` (`⋮` / ASCII `^`; empty draws no marker); `glyphs.tool` is no longer drawn and is deprecated.
 - `@fx/chat-ink`: `LayoutContext.activitySpacing` / `TranscriptViewport` `activitySpacing` (default `true`) — one blank decoration line between content and adjacent activity.
-- `@fx/chat-ink`: adjacent text rows get one blank line between them in both placements, including text rows made adjacent by hidden activity.
+- `@fx/chat-ink`: adjacent text rows get one blank decoration line between them in both placements, including text rows made adjacent by hidden activity; always on.
 - The threaded frame closes an answer without footer facts with the bare corner glyph right after the body.
 
 ## Design
@@ -45,7 +45,7 @@ The specs own the behavior. This change owns:
 - **Footer-only activity is a core plan option.** It is a row decision, so it lives with the rest of row planning; the terminal line layout passes it while collapsed. It applies only when the footer shows, so an activity-only turn (no footer) never disappears. The DOM renderer does not expose it: its footer carries no activity counts.
 - **The earlier row's breakdown is tool calls vs. everything else.** The live tail keeps the newest tool calls, so tool calls are what a reader expects to be hidden; the rest (reasoning, older plans, other activity kinds) reads as steps. Labels: `+2 earlier tool calls`, `+1 earlier step`, `+3 earlier steps (2 tool calls)`.
 - **Spacing is decoration on the body boundary.** A `frame` line (never copied), drawn by whichever frame wraps the body, so the threaded gutter continues through it. Consecutive activity rows and the outcome row's side (content) are not split.
-- **Paragraph breaks are copied.** The blank line between adjacent text blocks is content (a paragraph break a copy keeps), unlike the activity-spacing decoration; the two never stack, since text rows made adjacent have no activity row between them.
+- **Paragraph separation is decoration and always on.** The blank line between adjacent text blocks is the same kind as activity spacing (`frame`, not copied), so a copy across two text blocks reads like one across a hidden tool call. It does not follow `activitySpacing`: turning activity spacing off is about density around activity, while two paragraphs with no line between them read as one. The two never stack, since text rows made adjacent have no activity row between them. (With `after-content`, the line between text blocks was previously copied; it no longer is.)
 - **Bare corner without facts.** The threaded answer ends `│ body` → `╰` — no blank gutter line and no trailing space — instead of an empty footer line.
 
 ### Non-Goals
