@@ -23,6 +23,7 @@ export { cn } from './cn'
 export { CodeBlock, JsonView } from './code'
 export { lucideIcons } from './icons'
 export { MarkdownView } from './markdown'
+export { MessageDetailsSheet } from './message-details'
 export {
   type ShadcnComponentsOptions,
   createShadcnComponents,
@@ -32,5 +33,15 @@ export { Avatar, AvatarFallback } from './ui/avatar'
 export { Badge, type BadgeProps, badgeVariants } from './ui/badge'
 export { Button, type ButtonProps, buttonVariants } from './ui/button'
 export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
+export {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerPortal,
+  DrawerTitle,
+} from './ui/drawer'
 export { ScrollArea } from './ui/scroll-area'
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'

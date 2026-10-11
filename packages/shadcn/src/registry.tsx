@@ -19,6 +19,7 @@ import { cn } from './cn'
 import { CodeBlock, JsonView } from './code'
 import { lucideIcons } from './icons'
 import { MarkdownView } from './markdown'
+import { MessageDetailsSheet } from './message-details'
 import { Avatar, AvatarFallback } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -37,8 +38,9 @@ export interface ShadcnComponentsOptions {
   /**
    * Touch-first tuning: disclosure triggers drop their hover tint (touch has
    * no hover); row height comes from the classNames theme
-   * (`createShadcnClassNames({ touch: true })`). Icon-only buttons always get
-   * a 44×44 target. Default false.
+   * (`createShadcnClassNames({ touch: true })`); a compact footer's "…" opens
+   * the message's details and actions in a bottom sheet instead of revealing
+   * them inline. Icon-only buttons always get a 44×44 target. Default false.
    */
   touch?: boolean
 }
@@ -172,6 +174,7 @@ export function createShadcnComponents({
     },
 
     Markdown: MarkdownView,
+    ...(touch ? { MessageDetails: MessageDetailsSheet } : {}),
     icons: lucideIcons,
   }
 }
