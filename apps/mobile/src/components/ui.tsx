@@ -1,3 +1,4 @@
+import { cn } from '@fx/chat-shadcn'
 /**
  * App-shell primitives (headers, buttons, sheets, form fields). These are the
  * app's own chrome — the transcript itself is styled only through the
@@ -10,7 +11,6 @@ import type {
   TextareaHTMLAttributes,
 } from 'react'
 import { useEffect, useId } from 'react'
-import { cn } from '../chat/cn'
 
 export function Header({
   title,

@@ -25,12 +25,14 @@ export default defineConfig({
         'packages/chat/src/**',
         'packages/agent/src/**',
         'packages/ink/src/**',
+        'packages/shadcn/src/**',
         'scripts/**/*.mjs',
       ],
       // Only meaningful source contributes to the threshold; CSS has no
       // executable lines and test files are not production source.
       exclude: [
         'packages/chat/src/**/*.css',
+        'packages/shadcn/src/**/*.css',
         'packages/*/src/**/*.test.{ts,tsx}',
         'packages/*/src/**/test-helpers.{ts,tsx}',
         'packages/chat/src/exports.snapshot.json',

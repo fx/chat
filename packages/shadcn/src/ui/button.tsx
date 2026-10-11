@@ -2,11 +2,11 @@
  * Vendored shadcn/ui `Button`.
  *
  * Standard shadcn Button: a `cva` variant table over Tailwind tokens. Kept to
- * the variants this demo uses (default + ghost, default + icon sizes).
+ * the variants the chat registry and a typical app shell use.
  */
 import { type VariantProps, cva } from 'class-variance-authority'
 import type { ButtonHTMLAttributes } from 'react'
-import { cn } from '../lib/cn'
+import { cn } from '../cn'
 
 export const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',

@@ -16,20 +16,12 @@
     "@fx/chat": "workspace:*",
     "@fx/chat-agent": "workspace:*",
     "@fx/chat-core": "workspace:*",
-    "@radix-ui/react-avatar": "1.1.2",
-    "@radix-ui/react-collapsible": "1.1.2",
-    "@radix-ui/react-scroll-area": "1.2.2",
-    "@radix-ui/react-tooltip": "1.1.6",
+    "@fx/chat-shadcn": "workspace:*",
     "@tauri-apps/api": "2.12.2",
     "@tauri-apps/plugin-http": "2.8.1",
-    "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
     "lucide-react": "0.469.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "9.0.3",
-    "remark-gfm": "4.0.0",
-    "tailwind-merge": "2.6.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.11",

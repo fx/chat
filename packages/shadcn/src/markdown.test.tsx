@@ -48,4 +48,16 @@ describe('MarkdownView', () => {
       expect(a.getAttribute('rel')).toBe('noopener noreferrer')
     }
   })
+
+  it('names the raw source when an image URL has no host', () => {
+    const root = view('![m](mailto:a@example.com)')
+    expect(root.querySelector('[data-image-placeholder]')?.textContent).toContain(
+      'mailto:a@example.com',
+    )
+  })
+
+  it('marks a streaming answer', () => {
+    const { container } = render(<MarkdownView content="x" streaming />)
+    expect(container.firstElementChild).toHaveAttribute('data-streaming', 'true')
+  })
 })

@@ -1,12 +1,12 @@
 /**
  * Vendored shadcn/ui `Badge`.
  *
- * A `cva` variant table over Tailwind tokens, with the destructive + secondary
- * variants this demo maps the chat `tone` onto.
+ * A `cva` variant table over Tailwind tokens, with the variants the registry
+ * maps the chat `tone` onto.
  */
 import { type VariantProps, cva } from 'class-variance-authority'
 import type { HTMLAttributes } from 'react'
-import { cn } from '../lib/cn'
+import { cn } from '../cn'
 
 export const badgeVariants = cva(
   'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',

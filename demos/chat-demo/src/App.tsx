@@ -11,7 +11,7 @@
 import './index.css'
 // The package's structural mechanics (keyframes, mention-overlay alignment,
 // lightbox + completion positioning). All VISUAL styling is supplied per-pane
-// via the `classNames` theme (see registries/shared/class-names.ts).
+// via the `classNames` theme (`@fx/chat-shadcn`'s).
 import '@fx/chat/structure.css'
 import { useMemo, useState } from 'react'
 import { Pane } from './Pane'
