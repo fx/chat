@@ -26,6 +26,10 @@ specs:
     path: specs/message-rendering/
     description: Message log, block renderers, streaming/timing hooks, auxiliary-block grouping, affordances
     status: active
+  - name: chat-core
+    path: specs/chat-core/
+    description: Renderer-agnostic core package — model, transcript logic, completion contract, DOM-free hooks
+    status: active
 
 changes:
   - id: "0001"
@@ -154,3 +158,52 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0007", "0012"]
+  - id: "0019"
+    name: core-extraction
+    path: changes/0019-core-extraction.md
+    description: Extract renderer-agnostic model, transcript logic, completion contract and DOM-free hooks into @fx/chat-core; @fx/chat re-exports
+    spec: chat-core
+    status: complete
+    depends_on: []
+  - id: "0023"
+    name: agent-activity-model
+    path: changes/0023-agent-activity-model.md
+    description: "Tool title/kind/input/approval, message outcome, cost/context, attachment description; liveness gating; agent producer"
+    spec: message-model
+    status: draft
+    depends_on: []
+  - id: "0024"
+    name: plan-block
+    path: changes/0024-plan-block.md
+    description: "Plan content block, checklist icon (optional, headless fallback), DOM and ink plan rendering"
+    spec: message-model
+    status: draft
+    depends_on: ["0023"]
+  - id: "0025"
+    name: activity-planning
+    path: changes/0025-activity-planning.md
+    description: "Footer facts + formatters, opt-in live footer, activity counts, live phase, after-content placement, live tail"
+    spec: message-rendering
+    status: draft
+    depends_on: ["0023", "0024"]
+  - id: "0026"
+    name: loose-json
+    path: changes/0026-loose-json.md
+    description: "@fx/chat-core/json: tolerant JSON detection, parsing, folding layout, pretty text"
+    spec: chat-core
+    status: complete
+    depends_on: []
+  - id: "0027"
+    name: shared-clock
+    path: changes/0027-shared-clock.md
+    description: "ClockProvider/useClock; timers/spinners on one clock; flash switch"
+    spec: message-rendering
+    status: draft
+    depends_on: []
+  - id: "0033"
+    name: host-instances
+    path: changes/0033-host-instances.md
+    description: "Render with the host's React and Ink (createChatInk, core hooks factory); tx chat on tx's instances; embedding gaps"
+    spec: chat-core
+    status: draft
+    depends_on: []

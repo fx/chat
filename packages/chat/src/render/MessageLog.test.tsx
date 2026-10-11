@@ -1,6 +1,6 @@
+import type { ChatMessage } from '@fx/chat-core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChatMessage } from '../model'
 import { MessageLog } from './MessageLog'
 import type { ChatExtensions } from './extensions'
 import { stubMatchMedia } from './test-helpers'

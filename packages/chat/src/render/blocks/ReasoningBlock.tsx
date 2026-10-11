@@ -1,3 +1,6 @@
+import type { ReasoningBlock } from '@fx/chat-core'
+import { summarizeBlock } from '@fx/chat-core'
+import { positiveTimestamp } from '@fx/chat-core'
 /**
  * `ReasoningBlockView` — a collapsible "thinking" block.
  *
@@ -9,11 +12,8 @@
  * so it gets the same Markdown treatment as assistant answers).
  */
 import { cx } from '../../cx'
-import type { ReasoningBlock } from '../../model'
 import { useChatClassNames, useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
-import { summarizeBlock } from '../blockSummary'
-import { positiveTimestamp } from '../format'
 
 /** Props for {@link ReasoningBlockView}. */
 export interface ReasoningBlockViewProps {

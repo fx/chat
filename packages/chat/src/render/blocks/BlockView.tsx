@@ -13,10 +13,11 @@
  * The renderer NEVER parses content strings to discover structure; it switches on
  * the discriminant only.
  */
-import type { ContentBlock } from '../../model'
+import { type ContentBlock, type MessageOutcome, isBlockActive } from '@fx/chat-core'
 import type { ChatExtensions, CustomBlock, RenderableBlock, RenderableMessage } from '../extensions'
 import { isCoreBlockType, lookupExtension } from '../extensions'
 import { InertBlockView } from './InertBlock'
+import { PlanBlockView } from './PlanBlock'
 import { ReasoningBlockView } from './ReasoningBlock'
 import { StatusBlockView } from './StatusBlock'
 import { SystemBlockView } from './SystemBlock'
@@ -35,6 +36,8 @@ export interface BlockRenderContext {
    * earlier blocks — even a durationless completed reasoning — render idle.
    */
   activeBlockId?: string
+  /** How the owning message ended, when it did not simply complete. */
+  outcome?: MessageOutcome
   /** Epoch-ms start of the active generation. */
   startedAt?: number
   /** Finalized message duration in ms. */
@@ -85,7 +88,13 @@ function CoreBlockView({
         />
       )
     case 'tool_call':
-      return <ToolCallBlockView block={block} defaultOpen={defaultOpen} />
+      return (
+        <ToolCallBlockView
+          block={block}
+          defaultOpen={defaultOpen}
+          isActive={isBlockActive(block, context)}
+        />
+      )
     case 'status':
       return (
         <StatusBlockView
@@ -98,6 +107,8 @@ function CoreBlockView({
       )
     case 'system':
       return <SystemBlockView block={block} defaultOpen={defaultOpen} />
+    case 'plan':
+      return <PlanBlockView block={block} defaultOpen={defaultOpen} />
     /* c8 ignore start -- compile-time exhaustiveness guard; unreachable at runtime */
     default: {
       // A new core `ContentBlock` variant without a branch fails to type-check.
@@ -122,7 +133,7 @@ export function BlockView({ block, context, extensions }: BlockViewProps) {
       // A tool carries its OWN lifecycle: a pending/running call is in-flight
       // regardless of trailing position — matching the default ToolCallBlockView
       // and the group spinner — so derive `isStreaming` from its status.
-      const toolStreaming = toolBlock.status === 'running' || toolBlock.status === 'pending'
+      const toolStreaming = isBlockActive(toolBlock, context)
       return (
         <ToolRenderer block={toolBlock} message={context.message} isStreaming={toolStreaming} />
       )

@@ -1,10 +1,11 @@
 import { render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { IconName } from '../contract'
+import type { IconComponent, IconName, OptionalIconName } from '../contract'
 import { HEADLESS_ICON_NAMES, headlessIcons } from './icons'
 
-const ALL_NAMES: IconName[] = [
+const ALL_NAMES: Array<IconName | OptionalIconName> = [
+  'checklist',
   'spinner',
   'check',
   'caretRight',
@@ -38,7 +39,7 @@ describe('headlessIcons', () => {
   })
 
   it.each(ALL_NAMES)('renders %s as an inline SVG with default size 16', (name) => {
-    const Icon = headlessIcons[name]
+    const Icon = headlessIcons[name] as IconComponent
     const { container } = render(<Icon />)
     const svg = container.querySelector('svg') as SVGElement
     expect(svg).toBeTruthy()
@@ -58,7 +59,7 @@ describe('headlessIcons', () => {
 
   it('renders every icon SSR-safe to static markup', () => {
     for (const name of ALL_NAMES) {
-      const Icon = headlessIcons[name]
+      const Icon = headlessIcons[name] as IconComponent
       const markup = renderToStaticMarkup(<Icon />)
       expect(markup).toContain('<svg')
     }

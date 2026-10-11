@@ -1,3 +1,5 @@
+import { mentionsToSegments } from '@fx/chat-core'
+import type { TextBlock } from '@fx/chat-core'
 /**
  * `TextBlockView` — renders a `text` content block.
  *
@@ -7,8 +9,6 @@
  * hint when set, otherwise the message role.
  */
 import { cx } from '../../cx'
-import { mentionsToSegments } from '../../mentions'
-import type { TextBlock } from '../../model'
 import { useChatClassNames, useChatComponents } from '../../registry'
 
 /** Props for {@link TextBlockView}. */

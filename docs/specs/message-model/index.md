@@ -58,6 +58,12 @@ Related: [message-rendering](../message-rendering/) consumes this model;
   - `status` — a generation-lifecycle marker. Carries an OPTIONAL `phase` of
     `'pre-stream' | 'streaming' | 'complete'`.
   - `system` — system-prompt content. Carries `text: string`.
+  - `plan` — an agent's checklist. Carries `entries`, each with `content: string`, a `status` of
+    `'pending' | 'in_progress' | 'completed'`, an OPTIONAL `priority` of `'high' | 'medium' | 'low'`
+    and an OPTIONAL stable `id`. A plan is a generic agent concept (reported in the same shape by
+    agent protocols and coding agents), not an application-specific kind.
+- A plan update MUST replace the whole entry list: a producer updates the existing plan block (same
+  `id`) in place rather than appending a second one, so the latest plan wins.
 - Each block MUST carry a stable `id` (unique within its message) usable as a render key.
 - The union MUST be open to extension by the host **only** through the registry's renderer
   slots, not by mutating the core union. The core union MUST NOT include app-specific kinds.
@@ -81,6 +87,23 @@ Related: [message-rendering](../message-rendering/) consumes this model;
 - The model MUST support OPTIONAL extracted media on a result (e.g. `media?: { kind:
   'image'|'audio'; url: string }[]`) so renderers can show generated images/audio without
   parsing the raw result.
+- A `tool_call` MAY carry descriptive fields a host maps from its agent events:
+  - `title` — a human title for the invocation ("Read config.yaml"), preferred over `name` for
+    display;
+  - `kind` — what the tool does, an open string with well-known values `read`, `edit`, `delete`,
+    `move`, `search`, `execute`, `think`, `fetch`, `other` (renderers MAY choose a glyph by it; any
+    other value is treated as `other`);
+  - `inputSummary` — one line saying what the call acts on (a command, a path, a query);
+  - `approval` — the outcome of asking permission: `state` of `'pending' | 'approved' | 'denied' |
+    'unavailable'` (no way to allow it was offered) and an OPTIONAL display `label` ("allow once").
+- `approval` explains `status`, never replaces it: a denied or unavailable call MUST still carry
+  `status: 'error'`, and renderers MUST NOT infer approval from the result payload.
+
+#### Scenario: Denied call keeps an error status
+
+- **GIVEN** a call the user declined
+- **WHEN** the host maps it
+- **THEN** the block has `status: 'error'` and `approval: { state: 'denied' }`.
 
 #### Scenario: Explicit error status
 
@@ -94,14 +117,28 @@ Related: [message-rendering](../message-rendering/) consumes this model;
 - A `user` message MUST be able to carry attachments distinct from text: images and generic
   files.
 - An attachment MUST carry at least a `url`, a `mediaType`, and a derived `kind` of
-  `'image' | 'video' | 'audio' | 'file'`. It MAY carry `name`.
+  `'image' | 'video' | 'audio' | 'file'`. It MAY carry `name`, a display `description`
+  ("screenshot.png · 1280×720 · 240 KB", preferred over `name` when present) and a `size` in bytes.
+- `url` MAY be any string the host can resolve (a `data:` or `https:` URL, a `file:` reference, an
+  app-local id). Renderers that fetch MUST still apply the attachment-URL safety check or a host
+  policy; renderers that only display it need not.
 - The model MUST keep attachments separate from text blocks (attachments are message-level),
   matching how composers and renderers treat them.
+
+### Message Outcome
+
+- A message MAY carry an `outcome` saying how its generation ended when it did not simply complete:
+  `{ kind: 'stopped' }` (stopped by the user or host; partial content kept) or `{ kind: 'error';
+  message: string; retryable?: boolean }`.
+- Whether a message is live stays a render-time input, never part of the model. A host restoring a
+  message persisted mid-stream marks it stopped; that is host policy.
 
 ### Metrics
 
 - A message MAY carry `metrics` with OPTIONAL `durationMs`, `tokensPerSecond`, token `usage`
-  (`prompt`, `completion`, `total`), and `model` identifier(s).
+  (`prompt`, `completion`, `total`), `model` identifier(s), `cost` (`amount`, OPTIONAL `currency`;
+  absent currency means USD) as the endpoint reported it, and `context` window use after the turn
+  (`used` tokens, OPTIONAL window `size`).
 - Renderers MUST treat all metrics as OPTIONAL and degrade gracefully when absent.
 
 ### Codec
@@ -120,6 +157,11 @@ Related: [message-rendering](../message-rendering/) consumes this model;
   - a guard/validator that asserts a value conforms to `ChatMessage` at runtime in dev.
 - The codec MUST unwrap multiply-encoded JSON strings for tool `arguments`/`result` during
   normalization, so downstream consumers receive parsed values.
+- The codec MUST carry the OPTIONAL tool-call fields (`title`, `kind`, `inputSummary`, `approval`),
+  the message `outcome`, attachment `description`/`size`, and `plan` content from host messages
+  through unchanged, and the validator MUST accept them when well-formed (`title` and
+  `inputSummary` strings, `approval.state` one of its four values, plan entries with string
+  `content` and a known `status`, outcome kinds as listed).
 - The codec MUST be pure and synchronous and MUST NOT touch the DOM.
 
 #### Scenario: Folding separate tool-role messages
@@ -236,3 +278,5 @@ interface ChatMessage {
 |------|--------|----------|
 | 2026-06-25 | Initial spec created | [0002-message-model](../../changes/0002-message-model.md) |
 | 2026-07-03 | `ReasoningBlock` gains an OPTIONAL epoch-ms `startedAt` (mirroring `tool_call`), mapped by the codec from the optional host field `reasoningStartedAt` and validated by `assertChatMessage` — anchors the render layer's live thinking timer | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
+| 2026-10-10 | Agent-activity fields: tool title/kind/inputSummary/approval, message outcome, cost/context metrics, attachment description/size | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
+| 2026-10-10 | `plan` content block | [0024-plan-block](../../changes/0024-plan-block.md) |

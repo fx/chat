@@ -8,7 +8,7 @@
  * so a host can render `@fx/chat` with no configuration or cherry-pick any slot
  * as a base for an adapter.
  */
-export type { ChatComponents, IconName, IconRegistry } from './registry/contract'
+export type { ChatComponents, IconName, IconRegistry, OptionalIconName } from './registry/contract'
 export {
   Avatar,
   Badge,

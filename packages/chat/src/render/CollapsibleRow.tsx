@@ -1,3 +1,10 @@
+import {
+  type SummaryIconName,
+  formatDuration,
+  formatTokensPerSecond,
+  shouldShowTimer,
+} from '@fx/chat-core'
+import { useElapsedTimer, useFlashComplete } from '@fx/chat-core/react'
 /**
  * `CollapsibleRow` — the shared substrate over the registry `Collapsible` used
  * by every collapsible block (reasoning, tool_call, system, grouped runs).
@@ -26,8 +33,6 @@ import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { cx } from '../cx'
 import { useChatClassNames, useChatComponents } from '../registry'
-import { formatDuration, formatTokensPerSecond } from './format'
-import { useElapsedTimer, useFlashComplete } from './hooks'
 
 /** Props for {@link CollapsibleRow}. */
 export interface CollapsibleRowProps {
@@ -56,7 +61,7 @@ export interface CollapsibleRowProps {
   /** Error styling hook (sets `data-tone="error"`). */
   error?: boolean
   /** Optional leading icon name (e.g. `wrench`, `brain`, `gear`). */
-  iconName?: 'wrench' | 'brain' | 'gear'
+  iconName?: SummaryIconName
   /**
    * Optional content rendered in the header AFTER the affordance (when present)
    * and BEFORE the leading kind icon — used by `BlockGroup` for the `(+N)`
@@ -125,8 +130,7 @@ export function CollapsibleRow({
   // with no finite `startedAt` would render a permanently frozen "0.0s"
   // (useElapsedTimer never arms its ticker for a non-finite anchor), so such a
   // row renders no pill instead. A finalized `durationMs` always renders.
-  const timerPill =
-    showTimer && (durationMs !== undefined || (isActive && Number.isFinite(startedAt)))
+  const timerPill = shouldShowTimer({ showTimer, isActive, startedAt, durationMs })
   // Auto-hide: nothing to show and not forced.
   if (!alwaysShow && !isActive && !flash && !timerPill && !hasBody) return null
 

@@ -5,7 +5,7 @@
  * live timer and a tokens/sec pill while active. It is never collapsible: it has
  * no body, so the substrate renders it as a static row.
  */
-import type { StatusBlock } from '../../model'
+import { type StatusBlock, statusLabel } from '@fx/chat-core'
 import { CollapsibleRow } from '../CollapsibleRow'
 
 /** Props for {@link StatusBlockView}. */
@@ -19,12 +19,6 @@ export interface StatusBlockViewProps {
   durationMs?: number | undefined
   /** Live/finalized tokens-per-second to surface as a pill. */
   tokensPerSecond?: number | undefined
-}
-
-/** Human label for a lifecycle phase / active state. */
-function statusLabel(phase: StatusBlock['phase'], isActive: boolean): string {
-  if (isActive) return phase === 'pre-stream' ? 'Starting…' : 'Generating…'
-  return 'Generated'
 }
 
 /** Renders the status row (always shown; live timer + tokens/sec while active). */

@@ -15,7 +15,8 @@ conversation can render through any design system with no change to the package.
 ## Repository layout
 
 ```
-packages/chat/   @fx/chat — the published, ESM + .d.ts library
+packages/core/   @fx/chat-core — renderer-agnostic model, transcript logic, DOM-free hooks
+packages/chat/   @fx/chat — the published React-DOM renderers (re-exports core)
 demos/chat-demo/  static Vite + React demo (deployed to GitHub Pages under /chat/)
 docs/             specs and change documents
 scripts/          repository checks (no internal references)

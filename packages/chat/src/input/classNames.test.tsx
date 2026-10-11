@@ -1,3 +1,5 @@
+import type { Attachment } from '@fx/chat-core'
+import { referenceProvider } from '@fx/chat-core'
 /**
  * Threading tests for the `classNames` injection API across the input layer
  * (`ChatInput` + `CompletionPopup`).
@@ -9,11 +11,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { type RefObject, useImperativeHandle, useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Attachment } from '../model'
 import { ChatProvider } from '../registry'
 import { ChatInput } from './ChatInput'
 import { CompletionPopup, type CompletionPopupHandle, LOADING_DELAY } from './CompletionPopup'
-import { referenceProvider } from './completion/reference'
 import type { CompletionItem, CompletionProvider } from './completion/types'
 
 describe('ChatInput classNames threading', () => {

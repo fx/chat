@@ -1,12 +1,12 @@
-import { act, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ReasoningBlock,
   StatusBlock,
   SystemBlock,
   TextBlock,
   ToolCallBlock,
-} from '../../model'
+} from '@fx/chat-core'
+import { act, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../../registry'
 import { stubMatchMedia } from '../test-helpers'
 import { BlockView } from './BlockView'

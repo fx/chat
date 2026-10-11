@@ -1,6 +1,6 @@
+import type { ChatMessage } from '@fx/chat-core'
 import { render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChatMessage } from '../model'
 import { MessageItem, messageCopyText } from './MessageItem'
 import { stubMatchMedia } from './test-helpers'
 
@@ -651,7 +651,9 @@ describe('MessageItem', () => {
     // timelineBehavior override lookup it performs — must not run on the flat or
     // raw render paths, which render their own way. A `timelineBehavior` override
     // is consulted via `overrides[name]`, so a throwing getter keyed by the tool
-    // name fires iff grouping runs. A spy lets us also assert how often.
+    // name fires iff grouping runs. A spy lets us also assert how often. The
+    // leading text block settles the footer gate (which honors the same per-tool
+    // rule) before it reaches the tool, so only grouping can reach the getter.
     const behaviorSpy = vi.fn(() => {
       throw new Error('grouping ran: timeline-behavior must not be consulted in flat/raw')
     })
@@ -659,7 +661,11 @@ describe('MessageItem', () => {
     const timelineBehavior = {} as Record<string, never>
     Object.defineProperty(timelineBehavior, 'search', { enumerable: true, get: behaviorSpy })
     const msg = message({
-      blocks: [{ type: 'reasoning', id: 'r', text: 'think' }, successToolCall],
+      blocks: [
+        { type: 'text', id: 'a', text: 'answer' },
+        { type: 'reasoning', id: 'r', text: 'think' },
+        successToolCall,
+      ],
     })
 
     // flat: renders without throwing → grouping (and the override lookup) skipped.
@@ -682,7 +688,8 @@ describe('MessageItem', () => {
 
   it('does not walk blocks for the footer on a path where it cannot render (raw)', () => {
     // The footer's content-block walk consults the timeline-behavior registry
-    // (by block TYPE) and can fire host override getters, so it is short-
+    // (per block: tool name, then TYPE) and can fire host override getters, so
+    // it is short-
     // circuited behind footer eligibility — it must not run on paths where the
     // footer can never render. In raw mode neither grouping nor the footer runs,
     // so a getter keyed on the present block TYPE (what the footer walk consults)

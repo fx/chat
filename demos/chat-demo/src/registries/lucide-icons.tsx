@@ -7,7 +7,7 @@
  * the icon set is host-injected: the library references icons only by semantic
  * name and never depends on an icon package.
  */
-import type { IconName, IconProps, IconRegistry } from '@fx/chat'
+import type { IconName, IconProps, IconRegistry, OptionalIconName } from '@fx/chat'
 import {
   AudioLines,
   Brain,
@@ -18,6 +18,7 @@ import {
   Download,
   FileText,
   GitFork,
+  ListChecks,
   Loader2,
   type LucideIcon,
   Maximize2,
@@ -40,7 +41,8 @@ function wrap(Icon: LucideIcon) {
   }
 }
 
-const MAP: Record<IconName, LucideIcon> = {
+const MAP: Record<IconName | OptionalIconName, LucideIcon> = {
+  checklist: ListChecks,
   spinner: Loader2,
   check: Check,
   caretRight: ChevronRight,

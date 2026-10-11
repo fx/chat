@@ -7,7 +7,7 @@
  * surrounding text color drives the icon color; hosts can restyle via CSS.
  */
 import type { ReactNode } from 'react'
-import type { IconName, IconProps, IconRegistry } from '../contract'
+import type { IconName, IconProps, IconRegistry, OptionalIconName } from '../contract'
 
 const DEFAULT_SIZE = 16
 
@@ -40,6 +40,12 @@ function Svg({ className, size, children }: IconProps & { children: ReactNode })
 const Spinner = (props: IconProps) => (
   <Svg {...props}>
     <path d="M8 1.5a6.5 6.5 0 1 0 6.5 6.5" opacity={0.9} />
+  </Svg>
+)
+
+const Checklist = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M2 4l1.5 1.5L6 3M2 10l1.5 1.5L6 9M8 4.5h6M8 10.5h6" />
   </Svg>
 )
 
@@ -204,7 +210,8 @@ export const headlessIcons: IconRegistry = Object.freeze({
   close: Close,
   download: Download,
   expand: Expand,
+  checklist: Checklist,
 }) as IconRegistry
 
 /** Ordered list of every icon name the headless set ships. */
-export const HEADLESS_ICON_NAMES = Object.keys(headlessIcons) as IconName[]
+export const HEADLESS_ICON_NAMES = Object.keys(headlessIcons) as Array<IconName | OptionalIconName>

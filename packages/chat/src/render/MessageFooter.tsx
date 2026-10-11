@@ -1,3 +1,6 @@
+import type { MessageMetrics, MessageOutcome } from '@fx/chat-core'
+import { formatCost, formatElapsed, formatFooterMetrics } from '@fx/chat-core'
+import { useElapsedTimer } from '@fx/chat-core/react'
 /**
  * `MessageFooter` — per-message affordances and metrics.
  *
@@ -22,9 +25,7 @@
  */
 import { useState } from 'react'
 import { cx } from '../cx'
-import type { MessageMetrics } from '../model'
 import { useChatClassNames, useChatComponents } from '../registry'
-import { formatDuration, formatTokensPerSecond } from './format'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
@@ -40,6 +41,8 @@ export interface MessageFooterProps {
   metrics?: MessageMetrics
   /** Compact (icon-only behind a reveal toggle) mode. */
   compact?: boolean
+  /** How the message ended, when it did not simply complete (shown as a marker). */
+  outcome?: MessageOutcome
 }
 
 /**
@@ -49,12 +52,14 @@ export interface MessageFooterProps {
  * no content and reveals nothing.
  */
 function hasMetricsContent(metrics?: MessageMetrics): boolean {
-  if (!metrics) return false
-  return Boolean(
-    metrics.model ||
-      metrics.durationMs !== undefined ||
-      formatTokensPerSecond(metrics.tokensPerSecond),
-  )
+  return metricsText(metrics) !== undefined
+}
+
+/** The metrics line: model · duration · rate, then the cost when reported. */
+function metricsText(metrics?: MessageMetrics): string | undefined {
+  const parts = [formatFooterMetrics(metrics), metrics?.cost ? formatCost(metrics.cost) : undefined]
+  const text = parts.filter(Boolean).join(' · ')
+  return text || undefined
 }
 
 /**
@@ -72,12 +77,13 @@ function hasMetricsContent(metrics?: MessageMetrics): boolean {
  * `exactOptionalPropertyTypes`.
  */
 export function hasFooterContent(
-  props: {
+  props: { outcome?: MessageOutcome | undefined } & {
     [K in 'copyText' | 'onRegenerate' | 'onFork' | 'onReset' | 'metrics']: MessageFooterProps[K]
   },
 ): boolean {
   return Boolean(
-    props.copyText.trim().length > 0 ||
+    props.outcome ||
+      props.copyText.trim().length > 0 ||
       props.onRegenerate ||
       props.onFork ||
       props.onReset ||
@@ -93,14 +99,9 @@ export function hasFooterContent(
  */
 function Metrics({ metrics }: { metrics: MessageMetrics }) {
   const cn = useChatClassNames()
-  const parts: string[] = []
-  if (metrics.model) parts.push(metrics.model)
-  if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
-  const tps = formatTokensPerSecond(metrics.tokensPerSecond)
-  if (tps) parts.push(tps)
   return (
     <span className={cx('chat-footer-metrics', cn.footerMetrics)} data-testid="chat-footer-metrics">
-      {parts.join(' · ')}
+      {metricsText(metrics)}
     </span>
   )
 }
@@ -112,6 +113,7 @@ export function MessageFooter({
   onFork,
   onReset,
   metrics,
+  outcome,
   compact = false,
 }: MessageFooterProps) {
   const { Button, CopyButton, icons } = useChatComponents()
@@ -130,7 +132,7 @@ export function MessageFooter({
   // renderable metrics — so render no footer chrome whatsoever. `MessageItem`
   // gates its footer branch (and its gutter-row wrapper) on the same predicate;
   // this early return remains as the safety net for direct consumers.
-  if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics })) {
+  if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics, outcome })) {
     return null
   }
 
@@ -155,6 +157,11 @@ export function MessageFooter({
 
   return (
     <div className={cx('chat-footer', cn.footer)} data-compact={compact ? 'true' : undefined}>
+      {outcome ? (
+        <span className={cx('chat-footer-outcome', cn.footerOutcome)} data-outcome={outcome.kind}>
+          {outcome.kind === 'stopped' ? 'Stopped' : 'Failed'}
+        </span>
+      ) : null}
       {compact && hasRevealable ? (
         <Button
           className={cx('chat-footer-reveal', cn.footerReveal)}
@@ -202,6 +209,30 @@ export function MessageFooter({
         </Button>
       ) : null}
       {metrics && showMetrics && hasMetrics ? <Metrics metrics={metrics} /> : null}
+    </div>
+  )
+}
+
+/** Props for {@link LiveFooter}. */
+export interface LiveFooterProps {
+  /** Epoch-ms creation time of the live message. */
+  startedAt?: number | undefined
+}
+
+/**
+ * The opt-in footer of a LIVE message: whole-second elapsed time since the
+ * message began, re-rendering at most once a second (the completion footer's
+ * gate is unchanged; this is a separate, host-enabled row).
+ */
+export function LiveFooter({ startedAt }: LiveFooterProps) {
+  const cn = useChatClassNames()
+  const elapsed = useElapsedTimer({ startedAt, isActive: true, intervalMs: 1000 })
+  if (startedAt === undefined || !Number.isFinite(startedAt)) return null
+  return (
+    <div className={cx('chat-footer', cn.footer)} data-live="true">
+      <span className={cx('chat-footer-elapsed', cn.footerElapsed)}>
+        {formatElapsed(elapsed, { live: true })}
+      </span>
     </div>
   )
 }

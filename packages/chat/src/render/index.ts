@@ -12,6 +12,7 @@ export type {
   BlockRenderContext,
   BlockViewProps,
   InertBlockViewProps,
+  PlanBlockViewProps,
   RawJsonBlockViewProps,
   ReasoningBlockViewProps,
   StatusBlockViewProps,
@@ -22,6 +23,7 @@ export type {
 export {
   BlockView,
   InertBlockView,
+  PlanBlockView,
   RawJsonBlockView,
   ReasoningBlockView,
   StatusBlockView,
@@ -44,7 +46,7 @@ export type {
   ToolRenderer,
 } from './extensions'
 export { isCoreBlockType, lookupExtension, NON_AUX_BEHAVIOR } from './extensions'
-export { formatDuration, formatTokensPerSecond } from './format'
+export { formatDuration, formatTokensPerSecond } from '@fx/chat-core'
 export type { GutterRowProps } from './GutterRow'
 export { GutterRow } from './GutterRow'
 export type {
@@ -53,30 +55,30 @@ export type {
   GroupItem,
   HeaderSummary,
   TimelineBehavior,
-} from './grouping'
+} from '@fx/chat-core'
 export {
   getBlockTimelineBehavior,
   getTimelineBehavior,
   groupBlocks,
   selectHeaderSummary,
-} from './grouping'
-export type { ElapsedTimerInput, LiveTokensInput } from './hooks'
+} from '@fx/chat-core'
+export type { ElapsedTimerInput, LiveTokensInput } from '@fx/chat-core/react'
 export {
   useElapsedTimer,
   useFlashComplete,
   useLiveTokensPerSecond,
   usePrefersReducedMotion,
-} from './hooks'
+} from '@fx/chat-core/react'
 export type { MessageAttachmentsProps } from './MessageAttachments'
 export { deriveAttachmentLabel, MessageAttachments } from './MessageAttachments'
 export type { MessageFooterProps } from './MessageFooter'
 export { hasFooterContent, MessageFooter } from './MessageFooter'
-export type { MergedEntry, MergedItemEntry, MergedMessageEntry } from './mergeTimeline'
-export { mergeTimeline } from './mergeTimeline'
-export { collapseTurnAux } from './minimalGrouping'
+export type { MergedEntry, MergedItemEntry, MergedMessageEntry } from '@fx/chat-core'
+export { mergeTimeline } from '@fx/chat-core'
+export { collapseTurnAux } from '@fx/chat-core'
 export type { MessageItemProps } from './MessageItem'
 export { MessageItem, messageCopyText } from './MessageItem'
-export { isSafeAttachmentUrl } from './url'
+export { isSafeAttachmentUrl } from '@fx/chat-core'
 export type { MessageCallbacks, MessageLogProps } from './MessageLog'
 export { MessageLog } from './MessageLog'
 export { prefersReducedMotion, scrollToMessage } from './scroll'

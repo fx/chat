@@ -1,4 +1,4 @@
-# Publish `@fx/chat` to GitHub Packages.
+# Publish `@fx/chat-core` and `@fx/chat` to GitHub Packages, in lockstep.
 #
 # Every push to `main` publishes a commit-pinned prerelease version
 # (`0.0.0-<short-sha>`), so consumers can pin an exact main commit the same way
@@ -34,18 +34,30 @@ jobs:
       - name: Build library
         run: bun run build
 
-      - name: Set commit-pinned version
-        working-directory: packages/chat
+      - name: Set commit-pinned versions
         # Plain file edit — `npm version` resolves the whole dependency tree and
-        # rejects the monorepo root's `workspace:*` protocol.
+        # rejects the monorepo root's `workspace:*` protocol. `npm publish` does
+        # not rewrite `workspace:*` either, so the internal dependency is pinned
+        # to the same commit version here.
         run: |
-          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='0.0.0-'+process.argv[1];fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')" "$(git rev-parse --short HEAD)"
+          node -e "
+            const fs = require('fs')
+            const version = '0.0.0-' + process.argv[1]
+            for (const dir of ['packages/core', 'packages/chat']) {
+              const file = dir + '/package.json'
+              const p = JSON.parse(fs.readFileSync(file, 'utf8'))
+              p.version = version
+              for (const name of Object.keys(p.dependencies ?? {})) {
+                if (name.startsWith('@fx/chat')) p.dependencies[name] = version
+              }
+              fs.writeFileSync(file, JSON.stringify(p, null, 2) + '\\n')
+            }
+          " "$(git rev-parse --short HEAD)"
 
       - name: Publish to GitHub Packages
-        working-directory: packages/chat
         run: |
-          printf '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' > .npmrc
-          npm publish
-          rm -f .npmrc
+          for dir in packages/core packages/chat; do
+            (cd "$dir" && printf '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' > .npmrc && npm publish && rm -f .npmrc)
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

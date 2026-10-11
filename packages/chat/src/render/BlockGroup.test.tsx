@@ -1,6 +1,6 @@
+import type { ContentBlock } from '@fx/chat-core'
 import { act, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ContentBlock } from '../model'
 import { BlockGroup } from './BlockGroup'
 import type { BlockRenderContext } from './blocks'
 import type { CustomBlock } from './extensions'
@@ -311,7 +311,7 @@ describe('BlockGroup', () => {
       reasoning('r'),
       { type: 'tool_call', id: 't', name: 'run', arguments: {}, status: 'running', startedAt: 0 },
     ]
-    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx({ isActive: true })} />)
     expect(container.querySelector('[data-affordance="active"]')).not.toBeNull()
   })
 
@@ -337,8 +337,22 @@ describe('BlockGroup', () => {
       { type: 'tool_call', id: 't1', name: 'run', arguments: {}, status: 'running', startedAt: 0 },
       tool('t2'),
     ]
-    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx({ isActive: true })} />)
     expect(container.querySelector('[data-affordance="active"]')).not.toBeNull()
+  })
+
+  it('is idle for a running tool once its message is not live (stopped or settled)', () => {
+    const blocks: ContentBlock[] = [
+      { type: 'reasoning', id: 'r', text: 't', durationMs: 5 },
+      { type: 'tool_call', id: 't', name: 'x', arguments: {}, status: 'running' },
+    ]
+    const { container } = render(
+      <BlockGroup
+        blocks={blocks}
+        context={ctx({ isActive: true, outcome: { kind: 'stopped' } })}
+      />,
+    )
+    expect(container.querySelector('[data-affordance="active"]')).toBeNull()
   })
 
   it('stays active for a pending tool anywhere in the run', () => {
@@ -346,7 +360,7 @@ describe('BlockGroup', () => {
       { type: 'tool_call', id: 't1', name: 'q', arguments: {}, status: 'pending' },
       tool('t2'),
     ]
-    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx({ isActive: true })} />)
     expect(container.querySelector('[data-affordance="active"]')).not.toBeNull()
   })
 

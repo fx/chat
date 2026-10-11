@@ -1,3 +1,5 @@
+import type { Attachment } from '@fx/chat-core'
+import { isSafeAttachmentUrl } from '@fx/chat-core'
 /**
  * `MessageAttachments` — renders a message's `attachments` region.
  *
@@ -20,10 +22,8 @@
  */
 import { useCallback, useState } from 'react'
 import { cx } from '../cx'
-import type { Attachment } from '../model'
 import { useChatClassNames, useChatComponents } from '../registry'
 import type { IconName } from '../registry'
-import { isSafeAttachmentUrl } from './url'
 
 /** Props for {@link MessageAttachments}. */
 export interface MessageAttachmentsProps {
@@ -60,6 +60,8 @@ const CHIP_ICON: Record<'video' | 'audio' | 'file', IconName> = {
  * throws on malformed URLs.
  */
 export function deriveAttachmentLabel(attachment: Attachment): string {
+  const description = attachment.description?.trim()
+  if (description) return description
   const name = attachment.name?.trim()
   if (name) return name
   // Strip any query/hash, then take the last path segment.

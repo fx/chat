@@ -15,6 +15,7 @@ export type {
   CopyButtonProps,
   IconComponent,
   IconName,
+  OptionalIconName,
   IconProps,
   IconRegistry,
   JsonViewProps,
