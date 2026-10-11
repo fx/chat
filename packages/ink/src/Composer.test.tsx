@@ -3,7 +3,9 @@ import type { CompletionItem, CompletionProvider } from '@fx/chat-core'
 import { referenceProvider } from '@fx/chat-core'
 import { describe, expect, it, vi } from 'vitest'
 import { Composer } from './Composer'
-import { KEYS, renderInk, tick } from './test-helpers'
+import { KEYS, renderInk, tick, useFakeClock } from './test-helpers'
+
+useFakeClock()
 
 const setup = (props: Partial<Parameters<typeof Composer>[0]> = {}) => {
   const onSubmit = vi.fn()

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { Buffer } from 'node:buffer'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CELL_SIZE_QUERY,
   DIACRITICS,
@@ -19,6 +19,10 @@ import {
 } from '../kitty'
 import { defaultMeasure } from '../lines/measure'
 
+// Fake timers: a fetch's timeout fires only when a test advances the clock.
+beforeEach(() => {
+  vi.useFakeTimers()
+})
 afterEach(() => {
   vi.useRealTimers()
 })
@@ -46,7 +50,10 @@ function crc(data: Uint8Array): number {
 }
 const dataUrl = (bytes: Uint8Array, type = 'image/png') =>
   `data:${type};base64,${Buffer.from(bytes).toString('base64')}`
-const flush = () => new Promise((r) => setTimeout(r, 0))
+/** Let pending loads settle: `turns` event-loop turns, no clock involved. */
+const flush = async (turns = 1) => {
+  for (let i = 0; i < turns; i++) await new Promise((r) => setImmediate(r))
+}
 const response = (
   body: Uint8Array,
   init: { status?: number; headers?: Record<string, string> } = {},
@@ -288,7 +295,6 @@ describe('createKittyProvider', () => {
   })
 
   it('fails on HTTP errors, oversize images and timeouts', async () => {
-    vi.useFakeTimers()
     const fetch = vi.fn(async (url: string, init?: RequestInit) => {
       if (url.endsWith('404')) return response(new Uint8Array(), { status: 404 })
       if (url.endsWith('declared'))
@@ -333,12 +339,8 @@ describe('createKittyProvider', () => {
     const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 59 })
     provider.allow('https://x/endless')
     provider.allow('https://x/empty')
-    await vi.waitFor(() =>
-      expect(provider.get('https://x/endless', box)).toEqual({
-        kind: 'failed',
-        error: 'too large',
-      }),
-    )
+    await flush(10)
+    expect(provider.get('https://x/endless', box)).toEqual({ kind: 'failed', error: 'too large' })
     expect(cancelled).toBe(true)
     expect(pulled).toBeLessThan(8)
     // No body at all is no image.
@@ -359,7 +361,8 @@ describe('createKittyProvider', () => {
       maxBytes: 73,
     })
     provider.allow('https://x/chunked')
-    await vi.waitFor(() => expect(provider.get('https://x/chunked', box)?.kind).toBe('ready'))
+    await flush(10)
+    expect(provider.get('https://x/chunked', box)?.kind).toBe('ready')
   })
 
   it('refuses an oversize data URL before decoding it', async () => {
@@ -542,7 +545,8 @@ describe('createKittyProvider', () => {
     const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 59 })
     provider.allow('https://x/404')
     provider.allow('https://x/declared')
-    await vi.waitFor(() => expect(cancelled.sort()).toEqual(['404', 'declared']))
+    await flush(10)
+    expect(cancelled.sort()).toEqual(['404', 'declared'])
     expect(provider.get('https://x/404', box)).toEqual({ kind: 'failed', error: 'HTTP 404' })
     expect(provider.get('https://x/declared', box)).toEqual({ kind: 'failed', error: 'too large' })
   })

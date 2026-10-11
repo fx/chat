@@ -2,7 +2,7 @@
 import type { ChatMessage, ContentBlock, CustomBlock, RenderableMessage } from '@fx/chat-core'
 import { Text, renderToString } from 'ink'
 import type { ReactElement } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MessageView } from './MessageView'
 import { Row, clipLines, toJson } from './Row'
 import { Transcript } from './Transcript'
@@ -14,7 +14,9 @@ import {
   mergeInkComponents,
   plainComponents,
 } from './registry'
-import { renderInk, tick } from './test-helpers'
+import { renderInk, tick, useFakeClock } from './test-helpers'
+
+useFakeClock()
 
 const str = (node: ReactElement, components = {}) =>
   renderToString(<InkChatProvider components={components}>{node}</InkChatProvider>, {
@@ -40,8 +42,6 @@ const finished: ChatMessage = {
     { type: 'text', id: 'x', text: 'Answer' },
   ],
 }
-
-afterEach(() => vi.useRealTimers())
 
 describe('registry', () => {
   it('merges partial registries and maps appearances', () => {

@@ -24,6 +24,7 @@ import { span } from './model'
 
 const actEnv = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 beforeEach(() => {
+  vi.useFakeTimers()
   actEnv.IS_REACT_ACT_ENVIRONMENT = true
 })
 afterEach(() => {
@@ -232,7 +233,7 @@ describe('TranscriptViewport', () => {
     const press = async (k: string) => {
       await act(async () => {
         view.stdin.write(k)
-        await new Promise((r) => setTimeout(r, 20))
+        await vi.advanceTimersByTimeAsync(20)
       })
     }
     await press('\u001b[5~')
@@ -268,7 +269,7 @@ describe('TranscriptViewport', () => {
     onScroll.mockClear()
     await act(async () => {
       off.stdin.write('\u001b[5~')
-      await new Promise((r) => setTimeout(r, 20))
+      await vi.advanceTimersByTimeAsync(20)
     })
     expect(onScroll).not.toHaveBeenCalled()
   })

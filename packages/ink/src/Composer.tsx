@@ -26,6 +26,7 @@ import type { Ref } from 'react'
 import {
   type EditorState,
   backspace,
+  caretBoundary,
   caretRow,
   createHistory,
   deleteForward,
@@ -38,6 +39,7 @@ import {
   moveBy,
   moveVisual,
   pushHistory,
+  splitAtCaret,
   stepHistory,
   visualRows,
   withEntries,
@@ -479,7 +481,9 @@ export function Composer({
   ink.useInput(handleKey, { isActive: listening })
 
   const rows = rowsOf(current.text)
-  const row = caretRow(rows, current.caret)
+  // A host's caret inside a grapheme is drawn at that grapheme's start.
+  const at = caretBoundary(current.text, current.caret)
+  const row = caretRow(rows, at)
   const top = React.useRef(0)
   top.current =
     maxRows === undefined ? 0 : scrollTop(top.current, row, rows.length, Math.max(1, maxRows))
@@ -500,7 +504,8 @@ export function Composer({
   ) : (
     shown.map((r, i) => {
       const text = current.text.slice(r.start, r.end)
-      const caret = focused && top.current + i === row ? current.caret - r.start : undefined
+      const caret =
+        focused && top.current + i === row ? splitAtCaret(text, at - r.start) : undefined
       return (
         // biome-ignore lint/suspicious/noArrayIndexKey: rows have no identity beyond position
         <Text key={i} wrap={inner === undefined ? 'wrap' : 'truncate'}>
@@ -508,9 +513,9 @@ export function Composer({
             text || ' '
           ) : (
             <>
-              {text.slice(0, caret)}
-              <Text {...appearanceProps(theme.cursor)}>{text[caret] ?? ' '}</Text>
-              {text.slice(caret + 1)}
+              {caret[0]}
+              <Text {...appearanceProps(theme.cursor)}>{caret[1] || ' '}</Text>
+              {caret[2]}
             </>
           )}
         </Text>

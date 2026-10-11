@@ -43,6 +43,12 @@ export function graphemes(text: string): string[] {
   return Array.from(segmenter.segment(text), (s) => s.segment)
 }
 
+/** The first grapheme cluster of `text` ('' when empty), segmenting no further. */
+export function firstGrapheme(text: string): string {
+  for (const { segment } of segmenter.segment(text)) return segment
+  return ''
+}
+
 /** Cut `text` to at most `cells`, ending with `…` when cut. */
 export function truncate(text: string, cells: number, measure: Measure = defaultMeasure): string {
   if (measure(text) <= cells) return text

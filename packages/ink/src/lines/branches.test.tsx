@@ -3,6 +3,7 @@ import type { ChatMessage, ContentBlock } from '@fx/chat-core'
 import { Text, renderToString } from 'ink'
 import { describe, expect, it } from 'vitest'
 import { InkChatProvider } from '../registry'
+import { useFakeClock } from '../test-helpers'
 import { plainGlyphs, plainTheme } from '../theme'
 import { Lines } from './Lines'
 import { StatusLine } from './Status'
@@ -18,6 +19,9 @@ import {
 import { defaultMeasure } from './measure'
 import { span } from './model'
 import { createLayoutCache } from './transcript'
+
+// A frozen clock: live rows measure elapsed time against it, not the wall clock.
+useFakeClock()
 
 const ctx = (extra: Partial<LayoutContext> = {}): LayoutContext => ({
   width: 40,

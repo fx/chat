@@ -18,7 +18,9 @@ import { layoutTranscript } from './lines/transcript'
 import { InkChatProvider, PlainMarkdown, Styled } from './registry'
 import { React } from './runtime'
 import { stripControls, stripControlsDeep } from './sanitize'
-import { renderInk, tick } from './test-helpers'
+import { renderInk, tick, useFakeClock } from './test-helpers'
+
+useFakeClock()
 import { Text } from './text'
 import { plainGlyphs, plainTheme } from './theme'
 

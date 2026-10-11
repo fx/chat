@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   backspace,
+  caretBoundary,
   caretLines,
   caretRow,
   createHistory,
@@ -16,6 +17,7 @@ import {
   moveLine,
   moveVisual,
   pushHistory,
+  splitAtCaret,
   stepHistory,
   visualRows,
   withEntries,
@@ -161,5 +163,101 @@ describe('editor', () => {
     })
     expect(withEntries(browsing, ['x'])).toMatchObject({ index: 1 })
     expect(withEntries(h, ['a', 'b', 'c', 'd'])).toMatchObject({ index: 4 })
+  })
+
+  describe('by grapheme', () => {
+    const emoji = '😀' // a surrogate pair
+    const family = '👨‍👩‍👧' // ZWJ sequence
+    const flag = '🇵🇱' // regional-indicator pair
+    const accent = 'é' // e + combining acute
+    const cjk = '界'
+    const clusters = [emoji, family, flag, accent, cjk]
+    const text = clusters.join('')
+    /** Offsets of every grapheme boundary of `text`. */
+    const stops = [0]
+    for (const g of clusters) stops.push((stops.at(-1) as number) + g.length)
+
+    it('steps left and right one whole grapheme at a time', () => {
+      let state = at(text, 0)
+      for (const stop of stops.slice(1)) {
+        state = moveBy(state, 1)
+        expect(state.caret).toBe(stop)
+      }
+      expect(moveBy(state, 1).caret).toBe(text.length)
+      for (const stop of stops.slice(0, -1).reverse()) {
+        state = moveBy(state, -1)
+        expect(state.caret).toBe(stop)
+      }
+      expect(moveBy(at(text, 0), 3).caret).toBe(stops[3])
+      expect(moveBy(at(text), -2).caret).toBe(stops[3])
+      expect(moveBy(at(`a\n${emoji}`, 2), -1).caret).toBe(1)
+      expect(moveBy(at(`${emoji}\nb`, 2), 1).caret).toBe(3)
+    })
+
+    it('backspaces and deletes whole graphemes', () => {
+      for (const [i, g] of clusters.entries()) {
+        const rest = clusters.filter((_, j) => j !== i).join('')
+        expect(backspace(at(text, stops[i + 1]))).toEqual(at(rest, stops[i]))
+        expect(deleteForward(at(text, stops[i]))).toEqual(at(rest, stops[i]))
+        expect(backspace(at(g))).toEqual(at(''))
+      }
+      expect(backspace(at(`a\n${emoji}`, 2))).toEqual(at(`a${emoji}`, 1))
+      expect(deleteForward(at(`${emoji}\nb`, 2))).toEqual(at(`${emoji}b`, 2))
+    })
+
+    it('treats a caret inside a grapheme as at its start', () => {
+      expect(caretBoundary(text, 1)).toBe(0)
+      expect(caretBoundary(text, stops[1] + 3)).toBe(stops[1])
+      expect(caretBoundary(text, -4)).toBe(0)
+      expect(caretBoundary(text, 999)).toBe(text.length)
+      expect(moveBy(at(emoji, 1), 1).caret).toBe(2)
+      expect(moveBy(at(emoji, 1), 0).caret).toBe(0)
+      expect(backspace(at(`a${emoji}`, 2))).toEqual(at(emoji, 0))
+      expect(backspace(at(emoji, 1))).toEqual(at(emoji, 0))
+      expect(deleteForward(at(`${emoji}b`, 1))).toEqual(at('b', 0))
+      expect(insert(at(emoji, 1), 'x')).toEqual(at(`x${emoji}`, 1))
+      expect(killToLineStart(at(`a${emoji}`, 2))).toEqual(at(emoji, 0))
+      expect(killToLineEnd(at(`a${emoji}`, 2))).toEqual(at('a', 1))
+      expect(caretLines(at(`a${emoji}`, 2))).toEqual([{ text: `a${emoji}`, caret: 1 }])
+      expect(wordLeft(at(`ab ${emoji}`, 4)).caret).toBe(0)
+      expect(wordRight(at(`${emoji} b`, 1)).caret).toBe(2)
+      expect(deleteWordBack(at(`ab ${emoji}`, 4))).toEqual(at(emoji, 0))
+    })
+
+    it('splits a row for drawing around the whole grapheme under the caret', () => {
+      expect(splitAtCaret(`a${family}b`, 1)).toEqual(['a', family, 'b'])
+      expect(splitAtCaret(`a${family}b`, 3)).toEqual(['a', family, 'b'])
+      expect(splitAtCaret(`${cjk}${accent}`, 1)).toEqual([cjk, accent, ''])
+      expect(splitAtCaret(flag, 4)).toEqual([flag, '', ''])
+      expect(splitAtCaret('', 0)).toEqual(['', '', ''])
+    })
+
+    it('leaves the caret after a grapheme that inserted text joins', () => {
+      expect(insert(at('́', 0), 'e')).toEqual(at(accent, 2))
+      expect(insert(at('🇱', 0), '🇵')).toEqual(at(flag, 4))
+      expect(insert(at('ab', 1), emoji)).toEqual(at(`a${emoji}b`, 3))
+    })
+
+    it('jumps and deletes words without splitting graphemes', () => {
+      const value = `${family} ${flag}${accent}  `
+      expect(wordLeft(at(value)).caret).toBe(family.length + 1)
+      expect(wordLeft(at(value, family.length + 1)).caret).toBe(0)
+      expect(wordRight(at(value, 0)).caret).toBe(family.length)
+      expect(wordRight(at(value, family.length)).caret).toBe(value.length - 2)
+      expect(deleteWordBack(at(value))).toEqual(at(`${family} `))
+      // A combining mark on a space makes it part of a word.
+      expect(wordLeft(at('a ́b')).caret).toBe(0)
+    })
+
+    it('keeps the cell column on line moves, landing between graphemes', () => {
+      const value = `${cjk}${cjk}\n${emoji}ab\n${accent}${accent}${accent}`
+      const second = 2 + 1
+      const third = second + emoji.length + 2 + 1
+      expect(moveLine(at(value, 1), 1)?.caret).toBe(second + emoji.length)
+      expect(moveLine(at(value, second + emoji.length + 1), 1)?.caret).toBe(third + 6)
+      expect(moveLine(at(value, third + 2), -1)?.caret).toBe(second)
+      expect(moveLine(at(value, third + 4), -1)?.caret).toBe(second + emoji.length)
+      expect(moveLine(at(value, third), 1)).toBeUndefined()
+    })
   })
 })

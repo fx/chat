@@ -11,7 +11,9 @@ import {
 } from './Composer'
 import { InkChatProvider } from './registry'
 import { KITTY_POP, KITTY_PUSH } from './terminal'
-import { KEYS, renderInk, tick } from './test-helpers'
+import { KEYS, renderInk, tick, useFakeClock } from './test-helpers'
+
+useFakeClock()
 
 const shot: Attachment = {
   url: 'data:image/png;base64,AA',
@@ -344,5 +346,30 @@ describe('composerRows', () => {
       }),
     ).toBe(3)
     expect(composerRows({ text: 'a', attachments: [] }, 40, { maxRows: 0 })).toBe(3)
+  })
+})
+
+describe('Composer graphemes', () => {
+  const emoji = '😀'
+  const family = '👨‍👩‍👧'
+
+  it('moves and deletes whole graphemes, never leaving half a character', async () => {
+    const onChange = vi.fn()
+    const { lastFrame, press, onSubmit } = plain({ onChange })
+    await press('a', emoji, family, 'b', KEYS.left, KEYS.left, KEYS.backspace)
+    expect(lines(lastFrame())).toEqual([`› a${family}b`])
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ text: `a${family}b`, caret: 1 })
+    await press(KEYS.delete, KEYS.right, 'c', KEYS.enter)
+    expect(onSubmit).toHaveBeenCalledWith('abc')
+  })
+
+  it('draws a host caret inside a grapheme at its start, with the grapheme whole under it', async () => {
+    const onChange = vi.fn()
+    const value: ComposerValue = { text: `${emoji}x`, caret: 1, attachments: [] }
+    const { lastFrame, press } = plain({ value, onChange })
+    await tick()
+    expect(lines(lastFrame())).toEqual([`› ${emoji}x`])
+    await press('y')
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ text: `y${emoji}x`, caret: 1 })
   })
 })

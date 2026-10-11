@@ -22,10 +22,12 @@ import {
 
 const actEnv = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 beforeEach(() => {
+  vi.useFakeTimers()
   actEnv.IS_REACT_ACT_ENVIRONMENT = true
 })
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   actEnv.IS_REACT_ACT_ENVIRONMENT = false
 })
 
@@ -228,7 +230,7 @@ describe('screenOrigin', () => {
     }
     await act(async () => {
       render(<Probe />)
-      await new Promise((r) => setTimeout(r, 10))
+      await vi.advanceTimersByTimeAsync(10)
     })
     expect(found).toEqual({ x: 4, y: 3 })
     expect(screenOrigin(null)).toEqual({ x: 0, y: 0 })

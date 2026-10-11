@@ -4,42 +4,21 @@
  * from state to state, so it is tested without a terminal.
  */
 import type { Attachment } from '@fx/chat-core'
-import { type Measure, defaultMeasure, graphemes } from './lines/measure'
+import { type Measure, defaultMeasure, firstGrapheme, graphemes } from './lines/measure'
 
 export interface EditorState {
   value: string
-  /** Caret offset into `value` (0…length). */
+  /**
+   * Caret offset into `value` (0…length). Every operation leaves it on a
+   * grapheme boundary, so an emoji, flag or combining sequence is never split;
+   * an offset inside a grapheme is first moved back to that grapheme's start.
+   */
   caret: number
 }
 
 export const emptyEditor: EditorState = { value: '', caret: 0 }
 
 const clamp = (n: number, max: number) => Math.max(0, Math.min(n, max))
-
-export function insert(state: EditorState, text: string): EditorState {
-  const value = state.value.slice(0, state.caret) + text + state.value.slice(state.caret)
-  return { value, caret: state.caret + text.length }
-}
-
-export function backspace(state: EditorState): EditorState {
-  if (state.caret === 0) return state
-  return {
-    value: state.value.slice(0, state.caret - 1) + state.value.slice(state.caret),
-    caret: state.caret - 1,
-  }
-}
-
-export function deleteForward(state: EditorState): EditorState {
-  if (state.caret >= state.value.length) return state
-  return {
-    value: state.value.slice(0, state.caret) + state.value.slice(state.caret + 1),
-    caret: state.caret,
-  }
-}
-
-export function moveBy(state: EditorState, delta: number): EditorState {
-  return { ...state, caret: clamp(state.caret + delta, state.value.length) }
-}
 
 /** Start and end offsets of the line containing `caret`. */
 function lineBounds(value: string, caret: number): [number, number] {
@@ -48,63 +27,168 @@ function lineBounds(value: string, caret: number): [number, number] {
   return [start, nl === -1 ? value.length : nl]
 }
 
+/**
+ * The grapheme boundaries of the line holding `at`, both line ends included.
+ * A newline always separates graphemes, so only the one line is segmented.
+ */
+function boundaries(value: string, at: number): number[] {
+  const [start, end] = lineBounds(value, at)
+  const out = [start]
+  let offset = start
+  for (const g of graphemes(value.slice(start, end))) {
+    offset += g.length
+    out.push(offset)
+  }
+  return out
+}
+
+/** `caret` clamped to the value and moved back to the start of the grapheme it is inside. */
+export function caretBoundary(value: string, caret: number): number {
+  const at = clamp(caret, value.length)
+  return lastBelow(boundaries(value, at), at + 1)
+}
+
+/** The last of ascending `list` (which starts below `limit`) that is below `limit`. */
+function lastBelow(list: number[], limit: number): number {
+  let found = list[0] as number
+  for (const b of list) if (b < limit) found = b
+  return found
+}
+
+/** The boundary one grapheme before `caret` (a boundary), or 0. */
+function before(value: string, caret: number): number {
+  if (caret === 0) return 0
+  if (value[caret - 1] === '\n') return caret - 1
+  return lastBelow(boundaries(value, caret), caret)
+}
+
+/** The boundary one grapheme after `caret` (a boundary), or the end. */
+function after(value: string, caret: number): number {
+  if (caret >= value.length) return value.length
+  if (value[caret] === '\n') return caret + 1
+  return boundaries(value, caret).find((b) => b > caret) as number
+}
+
+/**
+ * Split `text` at a caret for drawing: before it, the grapheme under it ('' at
+ * the end) and after it. The grapheme is whole, so the caret cell covers all
+ * of it (two cells for a wide one) and no character is split around it.
+ */
+export function splitAtCaret(text: string, caret: number): [string, string, string] {
+  const at = caretBoundary(text, caret)
+  const under = firstGrapheme(text.slice(at))
+  return [text.slice(0, at), under, text.slice(at + under.length)]
+}
+
+const snapped = (state: EditorState): EditorState => {
+  const caret = caretBoundary(state.value, state.caret)
+  return caret === state.caret ? state : { ...state, caret }
+}
+
+/**
+ * Insert at the caret. Text that joins the grapheme after it (a combining
+ * mark's base, half a flag) leaves the caret after the joined grapheme.
+ */
+export function insert(state: EditorState, text: string): EditorState {
+  const { caret } = snapped(state)
+  const value = state.value.slice(0, caret) + text + state.value.slice(caret)
+  const end = caret + text.length
+  const at = caretBoundary(value, end)
+  return { value, caret: at === end ? end : after(value, at) }
+}
+
+export function backspace(state: EditorState): EditorState {
+  const { caret } = snapped(state)
+  if (caret === 0) return { ...state, caret }
+  const start = before(state.value, caret)
+  return { value: state.value.slice(0, start) + state.value.slice(caret), caret: start }
+}
+
+export function deleteForward(state: EditorState): EditorState {
+  const { caret } = snapped(state)
+  const end = after(state.value, caret)
+  return { value: state.value.slice(0, caret) + state.value.slice(end), caret }
+}
+
+/** Move the caret `delta` graphemes (negative: left), stopping at the ends. */
+export function moveBy(state: EditorState, delta: number): EditorState {
+  let { caret } = snapped(state)
+  const step = delta < 0 ? before : after
+  for (let n = Math.abs(delta); n > 0; n--) {
+    const next = step(state.value, caret)
+    if (next === caret) break
+    caret = next
+  }
+  return { ...state, caret }
+}
+
 export function lineStart(state: EditorState): EditorState {
-  return { ...state, caret: lineBounds(state.value, state.caret)[0] }
+  return { ...state, caret: lineBounds(state.value, clamp(state.caret, state.value.length))[0] }
 }
 
 export function lineEnd(state: EditorState): EditorState {
-  return { ...state, caret: lineBounds(state.value, state.caret)[1] }
+  return { ...state, caret: lineBounds(state.value, clamp(state.caret, state.value.length))[1] }
 }
 
 /** Delete from the line start to the caret. */
 export function killToLineStart(state: EditorState): EditorState {
-  const [start] = lineBounds(state.value, state.caret)
-  return { value: state.value.slice(0, start) + state.value.slice(state.caret), caret: start }
+  const { caret } = snapped(state)
+  const [start] = lineBounds(state.value, caret)
+  return { value: state.value.slice(0, start) + state.value.slice(caret), caret: start }
 }
 
 /** Delete from the caret to the line end. */
 export function killToLineEnd(state: EditorState): EditorState {
-  const [, end] = lineBounds(state.value, state.caret)
-  return { value: state.value.slice(0, state.caret) + state.value.slice(end), caret: state.caret }
+  const { caret } = snapped(state)
+  const [, end] = lineBounds(state.value, caret)
+  return { value: state.value.slice(0, caret) + state.value.slice(end), caret }
+}
+
+const blank = (g: string) => /^\s+$/.test(g)
+
+/** The start of the whitespace-separated word before `caret` (skipping whitespace first). */
+function wordStart(value: string, caret: number): number {
+  let i = caret
+  const skip = (word: boolean) => {
+    while (i > 0) {
+      const prev = before(value, i)
+      if (blank(value.slice(prev, i)) === word) return
+      i = prev
+    }
+  }
+  skip(false)
+  skip(true)
+  return i
 }
 
 /** Delete the word before the caret (and the whitespace after it). */
 export function deleteWordBack(state: EditorState): EditorState {
-  let i = state.caret
-  while (i > 0 && /\s/.test(state.value[i - 1] as string)) i--
-  while (i > 0 && !/\s/.test(state.value[i - 1] as string)) i--
-  return { value: state.value.slice(0, i) + state.value.slice(state.caret), caret: i }
+  const { caret } = snapped(state)
+  const i = wordStart(state.value, caret)
+  return { value: state.value.slice(0, i) + state.value.slice(caret), caret: i }
 }
 
 /**
- * Move the caret one line up (`-1`) or down (`+1`), keeping its column where
- * the target line is long enough. Returns `undefined` at the first/last line,
- * so the caller can fall through to history navigation.
+ * Move the caret one line up (`-1`) or down (`+1`), keeping its cell column
+ * where the target line is long enough. Returns `undefined` at the first/last
+ * line, so the caller can fall through to history navigation.
  */
-export function moveLine(state: EditorState, direction: -1 | 1): EditorState | undefined {
-  const [start, end] = lineBounds(state.value, state.caret)
-  const column = state.caret - start
-  if (direction === -1) {
-    if (start === 0) return undefined
-    const [prevStart, prevEnd] = lineBounds(state.value, start - 1)
-    return { ...state, caret: Math.min(prevStart + column, prevEnd) }
-  }
-  if (end === state.value.length) return undefined
-  const [nextStart, nextEnd] = lineBounds(state.value, end + 1)
-  return { ...state, caret: Math.min(nextStart + column, nextEnd) }
+export function moveLine(
+  state: EditorState,
+  direction: -1 | 1,
+  measure: Measure = defaultMeasure,
+): EditorState | undefined {
+  return moveVisual(state, visualRows(state.value), direction, measure)
 }
 
-/** Split into lines, each with the caret column when the caret is on it. */
+/** Split into lines, each with the caret column (an offset into the line) when the caret is on it. */
 export function caretLines(state: EditorState): Array<{ text: string; caret?: number }> {
+  const { caret } = snapped(state)
   const out: Array<{ text: string; caret?: number }> = []
   let offset = 0
   for (const text of state.value.split('\n')) {
     const end = offset + text.length
-    out.push(
-      state.caret >= offset && state.caret <= end
-        ? { text, caret: state.caret - offset }
-        : { text },
-    )
+    out.push(caret >= offset && caret <= end ? { text, caret: caret - offset } : { text })
     offset = end + 1
   }
   return out
@@ -112,18 +196,22 @@ export function caretLines(state: EditorState): Array<{ text: string; caret?: nu
 
 /** Jump to the start of the previous whitespace-separated word. */
 export function wordLeft(state: EditorState): EditorState {
-  let i = state.caret
-  while (i > 0 && /\s/.test(state.value[i - 1] as string)) i--
-  while (i > 0 && !/\s/.test(state.value[i - 1] as string)) i--
-  return { ...state, caret: i }
+  return { ...state, caret: wordStart(state.value, snapped(state).caret) }
 }
 
 /** Jump past the end of the next whitespace-separated word. */
 export function wordRight(state: EditorState): EditorState {
-  let i = state.caret
-  const n = state.value.length
-  while (i < n && /\s/.test(state.value[i] as string)) i++
-  while (i < n && !/\s/.test(state.value[i] as string)) i++
+  const { value } = state
+  let i = snapped(state).caret
+  const skip = (word: boolean) => {
+    while (i < value.length) {
+      const next = after(value, i)
+      if (blank(value.slice(i, next)) === word) return
+      i = next
+    }
+  }
+  skip(false)
+  skip(true)
   return { ...state, caret: i }
 }
 
@@ -188,11 +276,12 @@ export function moveVisual(
   direction: -1 | 1,
   measure: Measure = defaultMeasure,
 ): EditorState | undefined {
-  const from = caretRow(rows, state.caret)
+  const at = caretBoundary(state.value, state.caret)
+  const from = caretRow(rows, at)
   const target = rows[from + direction]
   if (!target) return undefined
   const row = rows[from] as VisualRow
-  const column = measure(state.value.slice(row.start, state.caret))
+  const column = measure(state.value.slice(row.start, at))
   let caret = target.start
   let cells = 0
   for (const g of graphemes(state.value.slice(target.start, target.end))) {

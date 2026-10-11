@@ -15,10 +15,12 @@ import { osc52 } from './mouse'
 
 const actEnv = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 beforeEach(() => {
+  vi.useFakeTimers()
   actEnv.IS_REACT_ACT_ENVIRONMENT = true
 })
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   actEnv.IS_REACT_ACT_ENVIRONMENT = false
 })
 
@@ -78,7 +80,7 @@ function setup(
   const send = async (...events: string[]) => {
     await act(async () => {
       for (const e of events) view.stdin.write(e)
-      await new Promise((r) => setTimeout(r, 20))
+      await vi.advanceTimersByTimeAsync(20)
     })
   }
   const clickAt = (x: number, y: number, code = 0) => [sgr(code, x, y), sgr(code, x, y, true)]
@@ -282,7 +284,7 @@ describe('TranscriptViewport split reports', () => {
       await act(async () => {
         view.stdin.write(reply.slice(0, 4))
         // Past Ink's wait for the rest of an escape sequence: it flushes what it has.
-        await new Promise((r) => setTimeout(r, 40))
+        await vi.advanceTimersByTimeAsync(40)
       })
       await send(rest)
     }

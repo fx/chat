@@ -17,6 +17,7 @@ export { Composer, composerInnerWidth, composerRows, emptyComposerValue } from '
 export type { EditorState, History, HistoryEntry, VisualRow } from './editor'
 export {
   backspace,
+  caretBoundary,
   caretLines,
   caretRow,
   createHistory,
@@ -32,6 +33,7 @@ export {
   moveLine,
   moveVisual,
   pushHistory,
+  splitAtCaret,
   stepHistory,
   visualRows,
   withEntries,
