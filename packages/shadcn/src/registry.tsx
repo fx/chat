@@ -11,10 +11,12 @@ import type {
   ChatComponents,
   CollapsibleProps,
   CopyButtonProps,
+  IconComponent,
   ScrollAreaProps,
   TooltipProps,
 } from '@fx/chat'
 import { useState } from 'react'
+import { createActivityTiles } from './activity-tiles'
 import { cn } from './cn'
 import { CodeBlock, JsonView } from './code'
 import { lucideIcons } from './icons'
@@ -40,9 +42,12 @@ export interface ShadcnComponentsOptions {
    * no hover); row height comes from the classNames theme
    * (`createShadcnClassNames({ touch: true })`); a compact footer's "…" opens
    * the message's details and actions in a bottom sheet instead of revealing
-   * them inline. Icon-only buttons always get a 44×44 target. Default false.
+   * them inline, and activity shown as a summary renders as tiles. Icon-only
+   * buttons always get a 44×44 target. Default false.
    */
   touch?: boolean
+  /** Icons for tool calls by tool name (activity tiles); others get the wrench. */
+  toolIcons?: Record<string, IconComponent>
 }
 
 function toneVariant(tone: BadgeProps['tone']): 'default' | 'destructive' | 'success' {
@@ -69,6 +74,7 @@ export function createShadcnComponents({
   tooltipDelay = 150,
   copyResetMs = 1500,
   touch = false,
+  toolIcons,
 }: ShadcnComponentsOptions = {}): ChatComponents {
   const triggerClass = cn(
     'flex w-full cursor-pointer items-center gap-1.5 text-left text-sm',
@@ -174,7 +180,9 @@ export function createShadcnComponents({
     },
 
     Markdown: MarkdownView,
-    ...(touch ? { MessageDetails: MessageDetailsSheet } : {}),
+    ...(touch
+      ? { MessageDetails: MessageDetailsSheet, ActivitySummary: createActivityTiles(toolIcons) }
+      : {}),
     icons: lucideIcons,
   }
 }

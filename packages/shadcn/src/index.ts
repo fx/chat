@@ -23,6 +23,7 @@ export { cn } from './cn'
 export { CodeBlock, JsonView } from './code'
 export { lucideIcons } from './icons'
 export { MarkdownView } from './markdown'
+export { createActivityTiles, tileText } from './activity-tiles'
 export { MessageDetailsSheet } from './message-details'
 export {
   type ShadcnComponentsOptions,

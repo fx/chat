@@ -124,6 +124,37 @@ describe('MessageDetailsSheet', () => {
   })
 })
 
+describe('MessageDetailsSheet activity', () => {
+  it('shows the activity and scrolls to the item it was opened for', () => {
+    const scrolled: string[] = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this.getAttribute('data-block-id') ?? '')
+    }
+    try {
+      sheet({
+        focusId: 'b2',
+        activity: (
+          <div>
+            <div data-block-id="b1">one</div>
+            <div data-block-id="b2">two</div>
+          </div>
+        ),
+      })
+      const section = screen.getByRole('region', { name: 'Activity' })
+      expect(within(section).getByText('two')).toBeInTheDocument()
+      expect(scrolled).toEqual(['b2'])
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it('has no activity section without activity, and scrolls nowhere for an unknown focus', () => {
+    sheet({ focusId: 'nope' })
+    expect(screen.queryByRole('region', { name: 'Activity' })).toBeNull()
+  })
+})
+
 describe('registry MessageDetails', () => {
   it('is provided for touch only', () => {
     expect(createShadcnComponents({ touch: true }).MessageDetails).toBe(MessageDetailsSheet)

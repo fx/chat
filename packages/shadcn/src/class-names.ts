@@ -118,6 +118,14 @@ export function createShadcnClassNames({
     // On touch the metrics take their own line under the actions.
     footerMetrics: cn('min-w-0 [overflow-wrap:anywhere]', touch && 'basis-full'),
     footerIcon: 'size-2.5',
+    // A finished message's activity facts: on touch, small tiles with the
+    // count or time inside (a failure in the destructive tone).
+    footerActivity: cn('gap-1.5', touch && 'px-0'),
+    footerFact: touch
+      ? 'inline-flex size-11 flex-col items-center justify-center gap-1 rounded-lg bg-muted text-[0.625rem] leading-none tabular-nums text-muted-foreground data-[failed]:text-destructive'
+      : 'inline-flex items-center gap-1 tabular-nums data-[failed]:text-destructive',
+    footerFactIcon: touch ? 'size-4' : 'size-3',
+    detailsActivity: 'flex flex-col',
 
     // ── User attachments ──────────────────────────────────────────────────────
     attachments: 'mt-2 flex flex-col gap-2',
