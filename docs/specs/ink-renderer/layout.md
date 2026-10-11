@@ -55,8 +55,8 @@ remains for the inline transcript.
   threaded gutter continues through it). A host MAY turn it off (on by default).
 - **Adjacent paragraphs.** Two text blocks whose rows are adjacent — in either placement, including
   when the activity between them is not shown (footer-only finished activity) — MUST be separated
-  by one blank line — not before a text block with no visible content yet (a stream's empty
-  start). It is a paragraph break, so a copy keeps it (unlike activity spacing, which is
+  by one blank line. A text block with no visible content (a stream's empty start) draws nothing
+  and does not count as a paragraph. It is a paragraph break, so a copy keeps it (unlike activity spacing, which is
   decoration). It is always on — it does not follow the activity-spacing option, since without it
   two paragraphs run together.
 - An answer **shows** once it has content, reasoning, an outcome, a tool call or a plan. Before that,
@@ -75,7 +75,7 @@ remains for the inline transcript.
   spinner while its message is live and the idle glyph otherwise), the label, the input when it
   adds something, the approval qualifier, then its time (duration, or live elapsed while it runs).
   Whitespace collapsed and truncated to the width; the glyph, qualifier and time are exempt from
-  truncation. A call awaiting approval draws the idle glyph, not the spinner.
+  truncation. A call awaiting approval is not live: the idle glyph, no spinner, no ticking time.
 - **Tool output box** (details and full): the output text, each line prefixed by an indented dotted
   bar (chrome), every line targeted at the block. Plain text is wrapped and dim and never cut (the
   inline transcript keeps its line clip). JSON is laid out with core's loose-JSON layout — folded in
@@ -97,7 +97,8 @@ remains for the inline transcript.
   label (`Thought ×N · <total>`). Others: `(+N)`, icon, label, timer and rate as before.
 - **One header row ≤ width.** A header is one line no wider than its width: the label (and detail)
   is cut first, but once the label would drop below 16 cells (or its whole width, if shorter) the
-  time or rate goes, then the tool counts.
+  time or rate goes, then the tool counts — and when the counts carried a failure, the label is
+  drawn in the danger role instead.
 - **Earlier row:** the `earlier` glyph (a `marker`, chrome; none when empty), then core's label,
   `muted`.
 - **Footer:** the planned facts joined by a separator, with fact glyphs (reasoning, plan, tools) from
@@ -148,7 +149,7 @@ Per-member JSON opening is independent of the level and persists while the viewp
 - **Status line:** a full-width rule with a label set into it near the left, cut to fit. While a
   message is live: the pulse (frames from the glyph set, one step per clock tick, in the accent),
   the live phase (`waiting`, `thinking`, `running <tool label and input as its row reads them,
-  ≤32 cells>`, `writing`, or a host
+  ≤32 cells>`, `awaiting approval <the same>`, `writing`, or a host
   label per phase), whole elapsed seconds, the tool count, an OPTIONAL slow-phase hint after a
   host-given delay, then host facts. Not live: a host notice (`✓`/`✗` in its tone), else the host's
   own state label and `↓ N more` (either or both), else a plain rule.

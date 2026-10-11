@@ -489,8 +489,10 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`, and
   such a call MUST NOT show a spinner — it is blocked on the user, not working.
 - **Tool liveness.** A `pending`/`running` tool call MUST count as live only while its message is
-  live and has no `outcome`; on a settled or stopped message it shows as unfinished, without a
-  spinner. (Previously it counted as live regardless of its message.)
+  live and has no `outcome`, and not while it awaits approval (`approval.state` `pending`: it is
+  blocked on the user) — no spinner and no ticking timer, on its row or on a group header it
+  heads; on a settled or stopped message it shows as unfinished, without a spinner. (Previously
+  it counted as live regardless of its message.)
 - **Plan.** A plan block is auxiliary (it folds into a turn's activity like reasoning and tool
   calls, and alone does not open the footer gate). Its summary is `Plan d/t` (completed / total),
   or `Plan` with no entries, with the `checklist` icon and no timer. Renderers MUST render it as a
@@ -523,8 +525,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **Activity counts and live phase** MUST be shared helpers: counts of reasoning characters, plan
   progress, and tools (total / failed / denied / running), where denied includes `unavailable` and
   failed includes denied; and the live phase of a message — `waiting` (nothing back), `thinking`
-  (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text), or
-  `writing`.
+  (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text),
+  `approval` (that call awaits the user's approval), or `writing`.
 - **Activity placement.** A host MAY ask for activity after content: content blocks (and the
   outcome row) first in their order, then the turn's activity folded as one group in its order —
   or, when there is a single activity block, that block as a bare row (no group around one block,
