@@ -16,6 +16,7 @@
  */
 import type { ChatClassNames } from '@fx/chat'
 import { cn } from './cn'
+import { TILE, TILE_ICON } from './tile'
 
 /** Options for {@link createShadcnClassNames}. */
 export interface ShadcnClassNamesOptions {
@@ -122,9 +123,9 @@ export function createShadcnClassNames({
     // count or time inside (a failure in the destructive tone).
     footerActivity: cn('gap-1.5', touch && 'px-0'),
     footerFact: touch
-      ? 'inline-flex size-11 flex-col items-center justify-center gap-1 rounded-lg bg-muted text-[0.625rem] leading-none tabular-nums text-muted-foreground data-[failed]:text-destructive'
+      ? cn(TILE, 'data-[failed]:text-destructive')
       : 'inline-flex items-center gap-1 tabular-nums data-[failed]:text-destructive',
-    footerFactIcon: touch ? 'size-4' : 'size-3',
+    footerFactIcon: touch ? TILE_ICON : 'size-3',
     detailsActivity: 'flex flex-col',
 
     // ── User attachments ──────────────────────────────────────────────────────

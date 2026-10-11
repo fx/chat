@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from 'react'
 import { cn } from './cn'
 import { lucideIcons } from './icons'
+import { TILE, TILE_ICON } from './tile'
 
 /** How often a live tile's time advances, in ms. */
 export const TILE_TICK_MS = 250
@@ -72,7 +73,8 @@ function Tile({
   const spinning = item.status === 'running' || item.status === 'awaiting'
   const label = [item.label, STATUS_WORDS[item.status], text].filter(Boolean).join(', ')
   const className = cn(
-    'chat-tile relative flex size-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-muted text-muted-foreground',
+    'chat-tile relative',
+    TILE,
     item.status === 'done' && 'text-foreground/80',
     item.status === 'error' && 'bg-destructive/10 text-destructive',
     item.status === 'awaiting' && 'text-amber-600',
@@ -80,12 +82,9 @@ function Tile({
   )
   const body = [
     spinning ? <span key="ring" aria-hidden className="chat-tile-ring" /> : null,
-    <Icon key="icon" className="size-5 shrink-0" />,
+    <Icon key="icon" className={TILE_ICON} />,
     text ? (
-      <span
-        key="text"
-        className="max-w-full truncate px-1 text-[0.625rem] leading-none tabular-nums"
-      >
+      <span key="text" className="max-w-full truncate px-1">
         {text}
       </span>
     ) : null,

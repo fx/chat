@@ -64,7 +64,7 @@ describe('public export surface', () => {
     expect(root.shadcnClassNames.footerMetrics).not.toContain('basis-full')
     expect(touch.footerFact).toContain('size-11')
     expect(root.shadcnClassNames.footerFact).not.toContain('size-11')
-    expect(touch.footerFactIcon).toBe('size-4')
+    expect(touch.footerFactIcon).toBe('size-4 shrink-0')
     expect(root.shadcnClassNames.footerFactIcon).toBe('size-3')
     expect(touch.footerActivity).toContain('px-0')
     expect(touch.rowIcon).toContain('[.chat-row-affordance+&]:hidden')

@@ -2,6 +2,7 @@ import type { ActivityItem, IconProps } from '@fx/chat'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TILE_TICK_MS, createActivityTiles, tileText } from './activity-tiles'
+import { createShadcnClassNames } from './class-names'
 import { createShadcnComponents, shadcnComponents } from './registry'
 
 beforeEach(() => {
@@ -67,6 +68,9 @@ describe('ActivityTiles', () => {
       false,
     ])
     expect(tiles[2]).toHaveAttribute('data-status', 'error')
+    // One tile size everywhere: the footer's fact tiles use the same classes.
+    expect(tiles[0]).toHaveClass('size-11')
+    expect(createShadcnClassNames({ touch: true }).footerFact).toContain('size-11')
     // A running tile's time advances.
     act(() => vi.advanceTimersByTime(TILE_TICK_MS * 4))
     expect(tiles[1]).toHaveAttribute('aria-label', 'other, running, 2.0s')
