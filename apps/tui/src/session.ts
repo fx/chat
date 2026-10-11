@@ -5,7 +5,7 @@ import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
  * the conversation, the running turn, tool approvals, slash commands and the
  * queue of messages typed while an answer streams.
  */
-import { React, ink } from '@fx/chat-ink'
+import { React, ink, stripControls } from '@fx/chat-ink'
 import { COMMANDS, commandProvider, modelProvider, parseCommand } from './commands'
 import { type ChatSettings, DEFAULT_TOOLS } from './settings'
 
@@ -15,7 +15,7 @@ export interface SessionOptions {
   settings: ChatSettings
   fetch: FetchLike
   /** Persist settings changed in-session (/model, /system, /tools). */
-  onSettingsChange?: ((settings: ChatSettings) => void) | undefined
+  onSettingsChange?: ((settings: ChatSettings) => void | Promise<void>) | undefined
   /** Called once with why the app is exiting. */
   onExit?: ((reason: ExitReason) => void) | undefined
   /** Clear the terminal (used by /new and /retry in the inline view). */
@@ -106,9 +106,21 @@ export function useChatSession({
     [client],
   )
 
+  const failure = (error: unknown) =>
+    stripControls(error instanceof Error ? error.message : String(error))
+
+  /** Persisting is best effort: a failed save is a notice, never a crash. */
+  const save = async (next: ChatSettings) => {
+    try {
+      await onSettingsChange?.(next)
+    } catch (error) {
+      setNotice([`Could not save settings: ${failure(error)}`])
+    }
+  }
+
   const update = (next: ChatSettings) => {
     setSettings(next)
-    onSettingsChange?.(next)
+    void save(next)
   }
 
   const quit = (reason: ExitReason) => {
@@ -143,28 +155,32 @@ export function useChatSession({
       controller.current = abort
       const messageId = newId('a')
       setRun({ messageId, startedAt: now() })
-      const tools: AgentTool[] = buildTools(settings.tools ?? DEFAULT_TOOLS, {}, { fetch })
-      await runAgent({
-        client,
-        model: settings.model,
-        history: turnHistory,
-        system: settings.system,
-        tools,
-        signal: abort.signal,
-        messageId,
-        now,
-        approve: (call, signal) =>
-          new Promise<boolean>((resolve) => {
-            flush()
-            const settle = (approved: boolean) => {
-              setApproval(undefined)
-              resolve(approved)
-            }
-            signal.addEventListener('abort', () => settle(false), { once: true })
-            setApproval({ call, resolve: settle })
-          }),
-        onUpdate: queueUpdate,
-      })
+      try {
+        const tools: AgentTool[] = buildTools(settings.tools ?? DEFAULT_TOOLS, {}, { fetch })
+        await runAgent({
+          client,
+          model: settings.model,
+          history: turnHistory,
+          system: settings.system,
+          tools,
+          signal: abort.signal,
+          messageId,
+          now,
+          approve: (call, signal) =>
+            new Promise<boolean>((resolve) => {
+              flush()
+              const settle = (approved: boolean) => {
+                setApproval(undefined)
+                resolve(approved)
+              }
+              signal.addEventListener('abort', () => settle(false), { once: true })
+              setApproval({ call, resolve: settle })
+            }),
+          onUpdate: queueUpdate,
+        })
+      } catch (error) {
+        setNotice([`Could not start the answer: ${failure(error)}`])
+      }
       flush()
       controller.current = null
       setRun(undefined)

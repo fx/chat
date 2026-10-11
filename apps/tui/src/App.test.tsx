@@ -225,6 +225,28 @@ describe('App', () => {
     expect(clearScreen).toHaveBeenCalled()
   })
 
+  it('reports settings that fail to save and keeps the session going', async () => {
+    const onSettingsChange = vi.fn(async () => {
+      throw new Error('disk\u001b[31m full')
+    })
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    try {
+      const { type, lastFrame } = setup([], { onSettingsChange })
+      await type('/model other', KEYS.enter)
+      await tick()
+      expect(onSettingsChange).toHaveBeenCalledTimes(1)
+      expect(lastFrame()).toContain('Could not save settings: disk')
+      expect(lastFrame()).not.toContain('\u001b[31m')
+      await type('/help', KEYS.enter)
+      expect(lastFrame()).toContain('/model')
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      expect(unhandled).not.toHaveBeenCalled()
+    } finally {
+      process.off('unhandledRejection', unhandled)
+    }
+  })
+
   it('runs slash commands', async () => {
     const { type, lastFrame, onSettingsChange, onExit, clearScreen } = setup([])
     await type('/model', KEYS.enter)

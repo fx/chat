@@ -88,7 +88,7 @@ export async function startChat(options: StartOptions): Promise<void> {
 
     const exit: { reason: ExitReason } = { reason: 'quit' }
     const theme = inkThemeFrom(theming.theme(context.stdout))
-    const persist = (next: ChatSettings) => {
+    const persist = (next: ChatSettings): Promise<void> => {
       // Only what the user changed in-session is written over the stored
       // profile. Without one, the session's endpoint is saved WITHOUT its key:
       // a key that came from a flag or the environment never lands on disk.
@@ -99,7 +99,7 @@ export async function startChat(options: StartOptions): Promise<void> {
         ...(next.tools ? { tools: next.tools } : {}),
         ...(next.system ? { system: next.system } : {}),
       }
-      void config.write(CONFIG_KEY, stored)
+      return config.write(CONFIG_KEY, stored)
     }
     const onExit = (why: ExitReason) => {
       exit.reason = why

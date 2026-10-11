@@ -94,6 +94,32 @@ describe('startChat', () => {
     expect(tty.write).toHaveBeenCalledWith('\u001b[2J\u001b[3J\u001b[H')
   })
 
+  it('hands the session a save that rejects, so a failed write cannot go unhandled', async () => {
+    const config = fakeConfig({ baseUrl: 'https://s.test', model: 'm' })
+    config.write = vi.fn(async () => {
+      throw new Error('read-only')
+    })
+    let saved: unknown
+    const renderApp = vi.fn((element: ReactElement) => {
+      const app = (
+        element.props as { children: ReactElement<Record<string, (...a: unknown[]) => unknown>> }
+      ).children
+      saved = app.props.onSettingsChange?.({ baseUrl: 'https://s.test', model: 'n' })
+      app.props.onExit?.('quit')
+      return { waitUntilExit: async () => {} } as unknown as ReturnType<typeof ink.render>
+    })
+    await startChat({
+      context: context(),
+      config,
+      theming,
+      flags: {},
+      setup: false,
+      inline: true,
+      renderApp,
+    })
+    await expect(saved).rejects.toThrow('read-only')
+  })
+
   it('runs fullscreen on the alternate screen by default, with kitty images when supported', async () => {
     const write = vi.fn()
     const kittyContext = {
