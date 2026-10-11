@@ -34,7 +34,15 @@ import { useElapsedTimer } from '@fx/chat-core/react'
  */
 import { useState } from 'react'
 import { cx } from '../cx'
-import { type MessageDetail, useChatClassNames, useChatComponents } from '../registry'
+import {
+  type ActivityFact,
+  type IconComponent,
+  type IconRegistry,
+  type MessageDetail,
+  type MessageDetailsAction,
+  useChatClassNames,
+  useChatComponents,
+} from '../registry'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
@@ -52,6 +60,36 @@ export interface MessageFooterProps {
   compact?: boolean
   /** How the message ended, when it did not simply complete (shown as a marker). */
   outcome?: MessageOutcome
+  /**
+   * Opens the message's `MessageDetails` presenter, owned by the caller (the
+   * message). When set, a compact footer's kebab calls it and the footer
+   * renders no presenter of its own.
+   */
+  onOpenDetails?: () => void
+  /** A finished message's activity facts, shown as icons (opening details when it can). */
+  activity?: ActivityFact[]
+}
+
+/** The message actions a `MessageDetails` presenter offers, in footer order. */
+export function detailsActions(
+  icons: IconRegistry,
+  {
+    onRegenerate,
+    onFork,
+    onReset,
+  }: Pick<MessageFooterProps, 'onRegenerate' | 'onFork' | 'onReset'>,
+): MessageDetailsAction[] {
+  const actions: MessageDetailsAction[] = []
+  if (onRegenerate)
+    actions.push({
+      id: 'regenerate',
+      label: 'Regenerate',
+      icon: icons.regenerate,
+      onSelect: onRegenerate,
+    })
+  if (onFork) actions.push({ id: 'fork', label: 'Fork', icon: icons.fork, onSelect: onFork })
+  if (onReset) actions.push({ id: 'reset', label: 'Reset', icon: icons.reset, onSelect: onReset })
+  return actions
 }
 
 /**
@@ -155,6 +193,49 @@ function Metrics({ metrics }: { metrics: MessageMetrics }) {
   )
 }
 
+/** A finished message's activity facts as icons with their text; a button when they open details. */
+function ActivityFacts({
+  facts,
+  onOpen,
+}: { facts: ActivityFact[]; onOpen?: (() => void) | undefined }) {
+  const { Button, icons } = useChatComponents()
+  const cn = useChatClassNames()
+  const iconFor = {
+    tools: icons.wrench,
+    reasoning: icons.brain,
+    // Optional in a registry, but the provider's merge always supplies it.
+    plan: icons.checklist as IconComponent,
+  }
+  const chips = facts.map((fact) => {
+    const Icon = iconFor[fact.key]
+    return (
+      <span
+        key={fact.key}
+        className={cx('chat-footer-fact', cn.footerFact)}
+        data-fact={fact.key}
+        {...(fact.failed ? { 'data-failed': String(fact.failed) } : {})}
+      >
+        <Icon className={cx('chat-footer-fact-icon', cn.footerFactIcon)} />
+        <span className={cx('chat-footer-fact-text', cn.footerFactText)}>{fact.text}</span>
+      </span>
+    )
+  })
+  const label = facts.map((fact) => fact.label).join(' · ')
+  return onOpen ? (
+    <Button
+      className={cx('chat-footer-activity', cn.footerActivity)}
+      aria-label={label}
+      onClick={onOpen}
+    >
+      {chips}
+    </Button>
+  ) : (
+    <span className={cx('chat-footer-activity', cn.footerActivity)} title={label}>
+      {chips}
+    </span>
+  )
+}
+
 /** Renders the message footer affordances + metrics. */
 export function MessageFooter({
   copyText,
@@ -164,6 +245,8 @@ export function MessageFooter({
   metrics,
   outcome,
   compact = false,
+  onOpenDetails,
+  activity,
 }: MessageFooterProps) {
   const { Button, CopyButton, MessageDetails, icons } = useChatComponents()
   const cn = useChatClassNames()
@@ -190,9 +273,11 @@ export function MessageFooter({
   // its gate holds (Copy needs non-whitespace `copyText`; regenerate/fork/reset
   // need their callback), but a rendered button's icon is visible in both modes —
   // compact mode only hides the labels, never the buttons.
-  // A host presenter takes over what the compact kebab reveals.
-  const Presenter = compact ? MessageDetails : undefined
-  const showLabels = !compact || (revealed && !Presenter)
+  // A presenter takes over what the compact kebab reveals: the caller's (the
+  // message's, via `onOpenDetails`) or, standalone, the footer's own.
+  const delegated = compact && onOpenDetails ? onOpenDetails : undefined
+  const Presenter = compact && !delegated ? MessageDetails : undefined
+  const showLabels = !compact || (revealed && !Presenter && !delegated)
   // The metrics line is always shown in the default layout, but in compact mode
   // it is part of what the kebab reveals.
   const showMetrics = showLabels
@@ -213,11 +298,16 @@ export function MessageFooter({
           {outcome.kind === 'stopped' ? 'Stopped' : 'Failed'}
         </span>
       ) : null}
+      {activity && activity.length > 0 ? (
+        <ActivityFacts facts={activity} onOpen={onOpenDetails} />
+      ) : null}
       {compact && hasRevealable ? (
         <Button
           className={cx('chat-footer-reveal', cn.footerReveal)}
-          aria-label={Presenter ? 'Message details' : revealed ? 'Hide actions' : 'Show actions'}
-          onClick={() => setRevealed((v) => !v)}
+          aria-label={
+            Presenter || delegated ? 'Message details' : revealed ? 'Hide actions' : 'Show actions'
+          }
+          onClick={delegated ?? (() => setRevealed((v) => !v))}
         >
           <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
         </Button>
@@ -269,24 +359,11 @@ export function MessageFooter({
             outcome?.kind === 'error' ? { kind: 'error', message: outcome.message } : outcome
           }
           copyText={showCopy ? copyText : ''}
-          actions={[
-            ...(onRegenerate
-              ? [
-                  {
-                    id: 'regenerate' as const,
-                    label: 'Regenerate',
-                    icon: RegenerateIcon,
-                    onSelect: onRegenerate,
-                  },
-                ]
-              : []),
-            ...(onFork
-              ? [{ id: 'fork' as const, label: 'Fork', icon: ForkIcon, onSelect: onFork }]
-              : []),
-            ...(onReset
-              ? [{ id: 'reset' as const, label: 'Reset', icon: ResetIcon, onSelect: onReset }]
-              : []),
-          ]}
+          actions={detailsActions(icons, {
+            ...(onRegenerate ? { onRegenerate } : {}),
+            ...(onFork ? { onFork } : {}),
+            ...(onReset ? { onReset } : {}),
+          })}
         />
       ) : null}
     </div>

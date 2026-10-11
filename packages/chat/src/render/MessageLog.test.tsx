@@ -301,3 +301,23 @@ describe('MessageLog timeline-item gutter', () => {
     expect(itemCell).not.toHaveAttribute('aria-hidden')
   })
 })
+
+describe('MessageLog activity options', () => {
+  it('forwards finishedActivity and activityDisplay to each message', () => {
+    const blocks: ChatMessage['blocks'] = [
+      { type: 'tool_call', id: 'c', name: 'search', arguments: {}, status: 'success' },
+      { type: 'text', id: 't', text: 'answer' },
+    ]
+    const { rerender } = render(
+      <MessageLog messages={[{ id: 'm', role: 'assistant', blocks }]} finishedActivity="footer" />,
+    )
+    // The finished message's activity is left to the footer's facts.
+    expect(document.querySelector('.chat-row')).toBeNull()
+    expect(document.querySelector('[data-fact=tools]')).not.toBeNull()
+    // Without an ActivitySummary in the registry, summary display keeps the rows.
+    rerender(
+      <MessageLog messages={[{ id: 'm', role: 'assistant', blocks }]} activityDisplay="summary" />,
+    )
+    expect(document.querySelector('.chat-row')).not.toBeNull()
+  })
+})

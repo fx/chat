@@ -60,6 +60,10 @@ export interface MessageLogProps extends MessageCallbacks {
   compactFooter?: boolean
   /** Activity after content instead of in stream order (see core `planMessage`). */
   activityPlacement?: 'inline' | 'after-content'
+  /** A finished message's activity: rows (default) or only footer facts (see `MessageItem`). */
+  finishedActivity?: 'row' | 'footer'
+  /** `summary`: activity through the registry's `ActivitySummary` presenter (see `MessageItem`). */
+  activityDisplay?: 'rows' | 'summary'
   /** While a message is live, show only its newest N activity blocks after an `N earlier` row. */
   liveTail?: number
   /** Show a whole-second elapsed footer on the live message (opt-in; off by default). */
@@ -88,6 +92,8 @@ export function MessageLog({
   minimal,
   activityPlacement,
   liveTail,
+  finishedActivity,
+  activityDisplay,
   liveFooter,
   defaultOpen,
   showFooter,
@@ -147,6 +153,8 @@ export function MessageLog({
         {...(minimal !== undefined ? { minimal } : {})}
         {...(activityPlacement ? { activityPlacement } : {})}
         {...(liveTail !== undefined ? { liveTail } : {})}
+        {...(finishedActivity ? { finishedActivity } : {})}
+        {...(activityDisplay ? { activityDisplay } : {})}
         {...(liveFooter !== undefined ? { liveFooter } : {})}
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}

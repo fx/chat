@@ -83,7 +83,17 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
     `details` are labelled, formatted metric facts (`Model`, `Duration`, `Speed`, `Tokens`,
     `Cost`, `Context`, present ones only), `actions` the message's Regenerate/Fork/Reset with
     label, icon and handler. Its props reference no `@fx/chat-core` type. There is no headless
-    default: when it is absent the footer reveals inline (see message-rendering).
+    default: when it is absent the footer reveals inline (see message-rendering). The message
+    owns it (so live activity can open it too) and also passes `activity` — the message's
+    activity as the package's rows, each in `.chat-details-activity-item[data-block-id]` — and
+    `focusId`, the item it was opened for.
+  - `ActivitySummary` — OPTIONAL compact presenter for a run of a message's activity (e.g. icon
+    tiles), used only when the host asks for `activityDisplay="summary"`. It receives
+    `{ items; live; onActivate? }`: each item is plain data (`id`, `kind` reasoning / tool / plan /
+    waiting / other, `label`, tool `name`, `status` running / done / error / awaiting,
+    `startedAt`, `durationMs`, live `tokensPerSecond`, `detail`); `onActivate(id)` opens the
+    message's details at that item and is absent without a `MessageDetails` presenter. No
+    headless default: absent, activity renders as rows.
   - `Lightbox` (a.k.a. `ImageOverlay`) — OPTIONAL overlay slot that displays an enlarged image
     over the conversation for the attachment image grid (see
     [message-rendering › User Attachments](../message-rendering/)). It MUST receive at least
@@ -238,6 +248,7 @@ interface ChatComponents {
   // attachment `name` (or a generic label when unnamed) so the overlay is accessible.
   Markdown: ComponentType<{ content: string; streaming?: boolean }>
   MessageDetails?: ComponentType<MessageDetailsProps>   // compact footer presenter
+  ActivitySummary?: ComponentType<ActivitySummaryProps> // activityDisplay="summary"
   icons: Record<IconName, ComponentType<{ className?: string; size?: number }>>
 }
 
@@ -293,3 +304,4 @@ type IconName =
 | 2026-06-29 | Package goes fully headless: the styling mechanism is the `classNames` injection map onto the stable `.chat-*` hooks (not shipped CSS-var theme tokens). The default theme (font, role bubbles, density, focus rings) is removed; visual styling — including focus rings — is host-supplied via `classNames` | [0013-headless-styling](../../changes/0013-headless-styling.md) |
 | 2026-10-10 | Optional icons with headless fallback; `checklist` | [0024-plan-block](../../changes/0024-plan-block.md) |
 | 2026-10-11 | OPTIONAL `MessageDetails` presenter slot for the compact footer | — |
+| 2026-10-11 | OPTIONAL `ActivitySummary` presenter; `MessageDetails` gets the activity and a focus | — |
