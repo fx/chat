@@ -521,7 +521,8 @@ describe('adjacent paragraphs', () => {
   it('keeps two paragraphs apart when the activity between them is hidden', () => {
     const body = layoutBody(message, 40, ctx({ finishedActivity: 'footer' }))
     expect(text(body)).toEqual(['one', '', 'two'])
-    expect(body[1]?.frame).toBe(true)
+    // A paragraph break: copied, unlike the activity spacing.
+    expect(body[1]?.frame).toBeUndefined()
     expect(
       text(layoutBody(message, 40, ctx({ finishedActivity: 'footer', activitySpacing: false }))),
     ).toEqual(['one', '', 'two'])

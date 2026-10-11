@@ -55,8 +55,9 @@ remains for the inline transcript.
   threaded gutter continues through it). A host MAY turn it off (on by default).
 - **Adjacent paragraphs.** Two text blocks whose rows are adjacent — in either placement, including
   when the activity between them is not shown (footer-only finished activity) — MUST be separated
-  by one blank decoration line (`frame`, never copied, like activity spacing). It is always on —
-  it does not follow the activity-spacing option, since without it two paragraphs run together.
+  by one blank line. It is a paragraph break, so a copy keeps it (unlike activity spacing, which is
+  decoration). It is always on — it does not follow the activity-spacing option, since without it
+  two paragraphs run together.
 - An answer **shows** once it has content, reasoning, an outcome, a tool call or a plan. Before that,
   a live answer in the threaded frame draws nothing (the status line reports waiting); the compact
   frame keeps the pending row.
