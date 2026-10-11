@@ -19,6 +19,7 @@ packages/core/   @fx/chat-core — renderer-agnostic model, transcript logic, DO
 packages/chat/   @fx/chat — the published React-DOM renderers (re-exports core)
 packages/agent/  @fx/chat-agent — UI-free OpenAI-compatible agent runtime + built-in tools (optional)
 packages/ink/    @fx/chat-ink — terminal (Ink) renderer
+packages/shadcn/ @fx/chat-shadcn — optional ready-made shadcn/ui look (registry + classNames + tokens)
 apps/mobile/     Android reference app (Tauri v2)
 apps/tui/        `tx chat` terminal reference app (tx plugin; .tx/config.json)
 demos/chat-demo/  static Vite + React demo (deployed to GitHub Pages under /chat/)
@@ -57,6 +58,30 @@ radius, density, the whole transcript look — is supplied by the host through t
 prop on `<ChatProvider>`, applied onto the stable `.chat-*` DOM hooks. React (`react`,
 `react-dom`) is a peer dependency; the package supports React 18 and 19 and bundles no UI kit,
 icon set, or markdown engine.
+
+### A ready-made look: `@fx/chat-shadcn`
+
+For a sensible default instead of a custom design system, `@fx/chat-shadcn` supplies one host
+layer whole — the shadcn/ui component registry (Radix primitives, lucide icons, react-markdown
+with GFM and network-inert images), the `classNames` theme (Tailwind v4), and the design tokens.
+It is just another host: `@fx/chat` itself stays headless.
+
+```tsx
+import '@fx/chat/structure.css'
+import { ChatProvider } from '@fx/chat'
+import { shadcnClassNames, shadcnComponents } from '@fx/chat-shadcn'
+
+<ChatProvider components={shadcnComponents} classNames={shadcnClassNames}>…</ChatProvider>
+```
+
+```css
+@import "tailwindcss";
+@import "@fx/chat-shadcn/theme.css"; /* tokens + @source for the package's classes */
+```
+
+Dark mode follows the system; a `.dark`/`.light` class on any element forces a scheme for its
+subtree. `createShadcnComponents({ touch, tooltipDelay, copyResetMs })` tunes the registry (the
+Android app uses `touch: true`); spread your own keys over `shadcnClassNames` to override.
 
 ## License
 
