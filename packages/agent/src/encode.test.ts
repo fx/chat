@@ -2,7 +2,7 @@
 import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
 import { describe, expect, it } from 'vitest'
 import { AGENT_META_KEY } from './accumulate'
-import { encodeHistory, splitSteps, toolResultContent } from './encode'
+import { encodeHistory, splitSteps, stringifyValue, toolResultContent } from './encode'
 
 const user = (text: string, attachments?: ChatMessage['attachments']): ChatMessage => ({
   id: `u-${text}`,
@@ -31,6 +31,55 @@ describe('toolResultContent', () => {
     expect(toolResultContent(call('c', { result: undefined, status: 'pending' }))).toBe(
       '{"error":"No result."}',
     )
+  })
+
+  it('serializes results JSON cannot, instead of throwing', () => {
+    const circular: Record<string, unknown> = { ok: true }
+    circular.self = circular
+    expect(toolResultContent(call('c', { result: { n: 1n } }))).toBe('{"n":"1"}')
+    expect(toolResultContent(call('c', { result: circular }))).toBe(
+      '{"ok":true,"self":"[Circular]"}',
+    )
+    expect(toolResultContent(call('c', { result: Symbol('r') }))).toBe('Symbol(r)')
+  })
+})
+
+describe('stringifyValue', () => {
+  it('writes a BigInt as its decimal string', () => {
+    expect(stringifyValue({ n: 12345678901234567890n })).toBe('{"n":"12345678901234567890"}')
+    expect(stringifyValue(7n)).toBe('"7"')
+  })
+
+  it('marks circular references but keeps repeated non-circular ones', () => {
+    const shared = { v: 1 }
+    const loop: Record<string, unknown> = { a: shared, b: shared, list: [shared] }
+    loop.self = loop
+    ;(loop.list as unknown[]).push(loop)
+    expect(stringifyValue(loop)).toBe(
+      '{"a":{"v":1},"b":{"v":1},"list":[{"v":1},"[Circular]"],"self":"[Circular]"}',
+    )
+  })
+
+  it('falls back to the text form for values without JSON', () => {
+    expect(stringifyValue(Symbol('s'))).toBe('Symbol(s)')
+    expect(stringifyValue(undefined)).toBe('undefined')
+    const fn = () => 1
+    expect(stringifyValue(fn)).toBe(String(fn))
+    const throwing = {
+      toJSON: () => {
+        throw new Error('no')
+      },
+      toString: () => 'throwing',
+    }
+    expect(stringifyValue(throwing)).toBe('throwing')
+  })
+
+  it('never throws, even when the value has no text form', () => {
+    const bare = Object.create(null) as Record<string, unknown>
+    bare.toJSON = () => {
+      throw new Error('no')
+    }
+    expect(stringifyValue(bare)).toBe('[unserializable]')
   })
 })
 
@@ -123,6 +172,32 @@ describe('encodeHistory', () => {
       { role: 'tool', tool_call_id: 'c2', content: '{"value":2}' },
       { role: 'assistant', content: 'Answer' },
       { role: 'user', content: 'thanks' },
+    ])
+  })
+
+  it('encodes every call when a result or arguments are not JSON-serializable', () => {
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    const assistant: ChatMessage = {
+      id: 'a',
+      role: 'assistant',
+      blocks: [
+        call('c1', { arguments: { big: 2n }, result: circular }),
+        call('c2', { result: { n: 3n } }),
+      ],
+    }
+    const out = encodeHistory([assistant])
+    expect(out).toEqual([
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          { id: 'c1', type: 'function', function: { name: 'calc', arguments: '{"big":"2"}' } },
+          { id: 'c2', type: 'function', function: { name: 'calc', arguments: '{"a":1}' } },
+        ],
+      },
+      { role: 'tool', tool_call_id: 'c1', content: '{"self":"[Circular]"}' },
+      { role: 'tool', tool_call_id: 'c2', content: '{"n":"3"}' },
     ])
   })
 

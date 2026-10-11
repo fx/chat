@@ -101,6 +101,36 @@ describe('buildTools', () => {
     })
   })
 
+  it('reports a malformed location as an unknown target', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response('secret', { status: 301, headers: { location: 'http://[' } }))
+    const [fetchTool] = buildTools({ fetch_url: true }, {}, { fetch: fetchImpl })
+    const result = await fetchTool?.execute({ url: 'https://a.test/start' }, ctx)
+    expect(result).toMatch(/^The page redirects to an unknown location\./)
+    expect(result).not.toContain('secret')
+  })
+
+  it('compares an unparseable requested URL as is instead of throwing', async () => {
+    const response = (url: string) => ({
+      type: 'basic',
+      status: 200,
+      redirected: false,
+      url,
+      headers: new Headers(),
+      text: vi.fn().mockResolvedValue('ok'),
+    })
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response('http://['))
+      .mockResolvedValueOnce(response('https://a.test/'))
+    const [fetchTool] = buildTools({ fetch_url: true }, {}, { fetch: fetchImpl })
+    expect(await fetchTool?.execute({ url: 'http://[' }, ctx)).toMatchObject({ text: 'ok' })
+    expect(await fetchTool?.execute({ url: 'http://[' }, ctx)).toMatch(
+      /^The page redirects to https:\/\/a\.test\/\./,
+    )
+  })
+
   it('reports an opaque redirect without a location', async () => {
     const opaque = {
       type: 'opaqueredirect',

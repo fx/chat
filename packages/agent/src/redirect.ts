@@ -4,9 +4,19 @@
  * and the fetch tool (where every loaded URL needs its own approval).
  */
 
+/** `url` (resolved against `base`) parsed, or `undefined` when it does not parse. */
+function parseUrl(url: string, base?: string): URL | undefined {
+  try {
+    return new URL(url, base)
+  } catch {
+    return undefined
+  }
+}
+
 /** The URL without its fragment, normalized, for comparing request and response URLs. */
 function comparable(url: string): string {
-  const parsed = new URL(url)
+  const parsed = parseUrl(url)
+  if (!parsed) return url
   parsed.hash = ''
   return parsed.href
 }
@@ -15,8 +25,9 @@ function comparable(url: string): string {
  * Whether `response` (to a request for `requested`) is a redirect, and where
  * it points. Returns `undefined` for a normal response; otherwise `target` is
  * the absolute redirect target, or `undefined` when it is not known (an opaque
- * redirect). Also catches transports that followed the redirect anyway despite
- * `redirect: 'manual'`. Never reads the body.
+ * redirect, or a `Location` that does not parse as a URL). Also catches
+ * transports that followed the redirect anyway despite `redirect: 'manual'`.
+ * A URL that does not parse never throws. Never reads the body.
  */
 export function redirectOf(
   response: Response,
@@ -24,7 +35,8 @@ export function redirectOf(
 ): { target: string | undefined } | undefined {
   if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) {
     const location = response.headers.get('location')
-    return { target: location ? new URL(location, requested).href : undefined }
+    // A malformed `Location` (or base) is an unknown target, never a throw.
+    return { target: (location && parseUrl(location, requested)?.href) || undefined }
   }
   if (response.redirected || (response.url && comparable(response.url) !== comparable(requested))) {
     return { target: response.url || undefined }

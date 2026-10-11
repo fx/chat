@@ -294,6 +294,12 @@ describe('createClient() redirects', () => {
       307,
     ],
     [
+      '3xx with a malformed location',
+      () => fake({ status: 302, ok: false, headers: new Headers({ location: 'http://[' }) }),
+      'an unknown location',
+      302,
+    ],
+    [
       'opaque redirect',
       () => fake({ type: 'opaqueredirect', status: 0, ok: false }),
       'an unknown location',

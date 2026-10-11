@@ -10,12 +10,43 @@ import type { ChatMessage, ContentBlock, ToolCallBlock } from '@fx/chat-core'
 import { type StepMeta, readAgentMeta } from './accumulate'
 import type { ReasoningField, WireContentPart, WireMessage } from './types'
 
+/**
+ * Serialize a host-provided value (tool result or arguments) as text for the
+ * model. Never throws, so one odd value cannot abort encoding the history:
+ * JSON where possible, with a BigInt as its decimal string and a circular
+ * reference as `"[Circular]"`; a value with no JSON form (a function, symbol
+ * or one whose `toJSON` throws) falls back to `String(value)`, and finally to
+ * `[unserializable]`.
+ */
+export function stringifyValue(value: unknown): string {
+  const ancestors: unknown[] = []
+  try {
+    const json = JSON.stringify(value, function (this: unknown, _key, v: unknown) {
+      if (typeof v === 'bigint') return v.toString()
+      if (typeof v !== 'object' || v === null) return v
+      // `this` is the holder of `v`: keep only the ancestors on its path.
+      while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) ancestors.pop()
+      if (ancestors.includes(v)) return '[Circular]'
+      ancestors.push(v)
+      return v
+    })
+    if (typeof json === 'string') return json
+  } catch {
+    // Fall back to the value's own text form below.
+  }
+  try {
+    return String(value)
+  } catch {
+    return '[unserializable]'
+  }
+}
+
 /** Serialize a tool result for the `tool` message content. */
 export function toolResultContent(block: ToolCallBlock): string {
   if (block.result === undefined) {
     return JSON.stringify({ error: block.status === 'error' ? 'Tool failed.' : 'No result.' })
   }
-  return typeof block.result === 'string' ? block.result : JSON.stringify(block.result)
+  return typeof block.result === 'string' ? block.result : stringifyValue(block.result)
 }
 
 function textOf(blocks: readonly ContentBlock[], type: 'text' | 'system' | 'reasoning'): string {
@@ -108,7 +139,7 @@ function encodeAssistant(message: ChatMessage): WireMessage[] {
           arguments:
             typeof call.arguments === 'string'
               ? call.arguments
-              : JSON.stringify(call.arguments ?? {}),
+              : stringifyValue(call.arguments ?? {}),
         },
       }))
     }
