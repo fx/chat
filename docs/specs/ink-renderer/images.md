@@ -58,8 +58,11 @@ protocol, on its own subpath so hosts that do not use it never load it.
   as too large past it, so nothing larger is ever transmitted. The JPEG decoder refuses an image above a
   megapixel bound (default 50) before allocating its pixels.
 - **Pixel bounds (security).** The terminal inflates what it is sent, so bytes alone do not bound
-  an image. Every PNG, sent as is or returned by a decoder, MUST carry a well-formed IHDR with
-  non-zero dimensions — otherwise it fails as `malformed image` — and MUST stay within a megapixel
+  an image. Every PNG, sent as is or returned by a decoder, MUST carry the PNG signature and a complete IHDR
+  chunk (at least 33 bytes: length 13, type, 13 data bytes, CRC) whose CRC-32 matches and whose
+  fields are legal — non-zero width and height of at most 2³¹ − 1, a bit depth valid for the colour
+  type, compression 0, filter 0, interlace 0 or 1 — otherwise it fails as `malformed image`. This
+  is header validation only: the provider does not decode the image data (the terminal does). Each PNG MUST also stay within a megapixel
   bound (default 50) and 10 000 pixels a side (the terminals' own limit) — otherwise it fails as
   `too large`. Nothing failing either check is transmitted.
 - **Options** that set a bound (timeout, byte cap, megapixel bounds, the decoder's size bound) MUST

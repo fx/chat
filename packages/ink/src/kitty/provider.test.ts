@@ -23,16 +23,26 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-/** A PNG header for `width`×`height` (enough for sizing; the terminal decodes the rest). */
-function png(width: number, height: number, extra = 0): Uint8Array {
-  const bytes = new Uint8Array(24 + extra)
+/** A PNG with a valid IHDR and CRC for `width`×`height`; `fields` overrides depth, colour, compression, filter, interlace. */
+function png(width: number, height: number, extra = 0, fields = [8, 6, 0, 0, 0]): Uint8Array {
+  const bytes = new Uint8Array(33 + extra)
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
   const view = new DataView(bytes.buffer)
   view.setUint32(8, 13)
   view.setUint32(12, 0x49484452) // IHDR
   view.setUint32(16, width)
   view.setUint32(20, height)
+  bytes.set(fields, 24)
+  view.setUint32(29, crc(bytes.subarray(12, 29)))
   return bytes
+}
+function crc(data: Uint8Array): number {
+  let c = ~0
+  for (const b of data) {
+    c ^= b
+    for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1
+  }
+  return ~c >>> 0
 }
 const dataUrl = (bytes: Uint8Array, type = 'image/png') =>
   `data:${type};base64,${Buffer.from(bytes).toString('base64')}`
@@ -74,11 +84,56 @@ describe('protocol pieces', () => {
     const badLength = png(10, 10)
     badLength[11] = 12
     expect(pngSize(badLength)).toBeUndefined()
+    const badCrc = png(10, 10)
+    badCrc[32] ^= 1
+    expect(pngSize(badCrc)).toBeUndefined()
+    const flipped = png(10, 10)
+    flipped[19] ^= 1 // a data byte changed without fixing the CRC
+    expect(pngSize(flipped)).toBeUndefined()
+    for (const n of [24, 32]) expect(pngSize(png(10, 10).slice(0, n))).toBeUndefined()
+    expect(pngSize(png(10, 10))).toEqual({ width: 10, height: 10 })
     expect(pngSize(png(0, 10))).toBeUndefined()
     expect(pngSize(png(10, 0))).toBeUndefined()
     expect(pngSize(png(2 ** 31, 1))).toBeUndefined()
     expect(pngSize(png(1, 2 ** 31))).toBeUndefined()
     expect(pngSize(png(2 ** 31 - 1, 1))).toEqual({ width: 2 ** 31 - 1, height: 1 })
+  })
+
+  it('checks each IHDR field against the PNG spec', () => {
+    const ok: [number, number][] = [
+      [1, 0],
+      [2, 0],
+      [4, 0],
+      [8, 0],
+      [16, 0],
+      [8, 2],
+      [16, 2],
+      [1, 3],
+      [2, 3],
+      [4, 3],
+      [8, 3],
+      [8, 4],
+      [16, 4],
+      [8, 6],
+      [16, 6],
+    ]
+    for (const [depth, color] of ok)
+      expect(pngSize(png(3, 4, 0, [depth, color, 0, 0, 0]))).toEqual({ width: 3, height: 4 })
+    expect(pngSize(png(3, 4, 0, [8, 6, 0, 0, 1]))).toEqual({ width: 3, height: 4 })
+    const bad: number[][] = [
+      [3, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0],
+      [4, 2, 0, 0, 0],
+      [16, 3, 0, 0, 0],
+      [4, 4, 0, 0, 0],
+      [1, 6, 0, 0, 0],
+      [8, 1, 0, 0, 0],
+      [8, 5, 0, 0, 0],
+      [8, 6, 1, 0, 0],
+      [8, 6, 0, 1, 0],
+      [8, 6, 0, 0, 2],
+    ]
+    for (const fields of bad) expect(pngSize(png(3, 4, 0, fields))).toBeUndefined()
   })
 
   it('never fits more cells than there are diacritics', () => {
@@ -244,7 +299,7 @@ describe('createKittyProvider', () => {
         init?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
       })
     })
-    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 50, timeoutMs: 1000 })
+    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 59, timeoutMs: 1000 })
     for (const src of ['404', 'declared', 'big', 'throws', 'slow'])
       provider.allow(`https://x/${src}`)
     await vi.advanceTimersByTimeAsync(1000)
@@ -275,7 +330,7 @@ describe('createKittyProvider', () => {
     const fetch = vi.fn(async (url: string) =>
       url.endsWith('empty') ? new Response(null) : new Response(endless),
     )
-    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 50 })
+    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 59 })
     provider.allow('https://x/endless')
     provider.allow('https://x/empty')
     await vi.waitFor(() =>
@@ -301,7 +356,7 @@ describe('createKittyProvider', () => {
     const provider = createKittyProvider({
       write: vi.fn(),
       fetch: vi.fn(async () => new Response(chunked)),
-      maxBytes: 64,
+      maxBytes: 73,
     })
     provider.allow('https://x/chunked')
     await vi.waitFor(() => expect(provider.get('https://x/chunked', box)?.kind).toBe('ready'))
@@ -309,10 +364,10 @@ describe('createKittyProvider', () => {
 
   it('refuses an oversize data URL before decoding it', async () => {
     const from = vi.spyOn(Buffer, 'from')
-    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 30 })
-    const big = dataUrl(png(1, 1, 100)) // 124 bytes: two pads
-    const padded = dataUrl(png(1, 1, 8)) // 32 bytes: one pad
-    const exact = dataUrl(png(9, 18, 6)) // 30 bytes: no pad, at the cap
+    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 39 })
+    const big = dataUrl(png(1, 1, 100)) // 133 bytes: two pads
+    const padded = dataUrl(png(1, 1, 8)) // 41 bytes: one pad
+    const exact = dataUrl(png(9, 18, 6)) // 39 bytes: no pad, at the cap
     const text = `data:,${'x'.repeat(91)}`
     for (const src of [big, padded, exact, text]) provider.get(src, box)
     await flush()
@@ -331,12 +386,12 @@ describe('createKittyProvider', () => {
     const encodeInto = vi.spyOn(TextEncoder.prototype, 'encodeInto')
     const percent = (bytes: Uint8Array) =>
       `data:image/png,${Array.from(bytes, (b) => `%${b.toString(16).padStart(2, '0')}`).join('')}`
-    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 30 })
-    // 31 escapes: 93 encoded characters, past the cap by one decoded byte.
+    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 39 })
+    // 40 escapes: 120 encoded characters, past the cap by one decoded byte.
     const over = percent(png(1, 1, 7))
-    // 31 decoded bytes from 3-byte characters: under the old floor of a third, still over.
-    const wide = `data:,${'你'.repeat(10)}x`
-    const pair = `data:,${'🙂'.repeat(7)}xxx`
+    // 40 decoded bytes from 3-byte characters: under the old floor of a third, still over.
+    const wide = `data:,${'你'.repeat(13)}x`
+    const pair = `data:,${'🙂'.repeat(9)}xxxx`
     for (const src of [over, wide, pair]) provider.get(src, box)
     await flush()
     for (const src of [over, wide, pair])
@@ -349,7 +404,7 @@ describe('createKittyProvider', () => {
 
   it('percent-decodes to raw bytes, at the cap', async () => {
     const decode = vi.fn(async () => undefined)
-    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 30, decode })
+    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 39, decode })
     // A PNG at the cap, its non-ASCII bytes escaped and its ASCII ones literal.
     const bytes = png(9, 18, 6)
     const body = Array.from(bytes, (b) =>
@@ -372,7 +427,7 @@ describe('createKittyProvider', () => {
   it('holds a decoder’s PNG to the cap and never transmits one past it', async () => {
     const write = vi.fn()
     const decode = vi.fn(async (bytes: Uint8Array) => png(4, 4, bytes[0] as number))
-    const provider = createKittyProvider({ write, maxBytes: 30, decode })
+    const provider = createKittyProvider({ write, maxBytes: 39, decode })
     const over = dataUrl(new Uint8Array([7]), 'image/jpeg')
     const at = dataUrl(new Uint8Array([6]), 'image/jpeg')
     provider.get(over, box)
@@ -484,7 +539,7 @@ describe('createKittyProvider', () => {
         ? new Response(body('404'), { status: 404 })
         : new Response(body('declared'), { headers: { 'content-length': '999' } }),
     )
-    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 50 })
+    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 59 })
     provider.allow('https://x/404')
     provider.allow('https://x/declared')
     await vi.waitFor(() => expect(cancelled.sort()).toEqual(['404', 'declared']))

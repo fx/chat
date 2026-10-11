@@ -49,19 +49,43 @@ export function isPng(bytes: Uint8Array): boolean {
   return PNG_SIGNATURE.every((b, i) => bytes[i] === b)
 }
 
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+  return c >>> 0
+})
+
+function crc32(bytes: Uint8Array): number {
+  let c = 0xffffffff
+  for (const b of bytes) c = (CRC_TABLE[(c ^ b) & 0xff] as number) ^ (c >>> 8)
+  return (c ^ 0xffffffff) >>> 0
+}
+
+/** Legal PNG bit depths per colour type. */
+const BIT_DEPTHS: Record<number, number[]> = {
+  0: [1, 2, 4, 8, 16],
+  2: [8, 16],
+  3: [1, 2, 4, 8],
+  4: [8, 16],
+  6: [8, 16],
+}
+
 /**
  * A PNG's pixel size from its header: undefined unless the signature is
- * followed by a well-formed IHDR chunk with non-zero dimensions.
+ * followed by a complete IHDR chunk (length, type, data, CRC) whose CRC
+ * matches and whose fields are legal. The image data is not decoded here.
  */
 export function pngSize(bytes: Uint8Array): { width: number; height: number } | undefined {
-  if (!isPng(bytes) || bytes.length < 24) return undefined
+  if (!isPng(bytes) || bytes.length < 33) return undefined
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  const ihdr = view.getUint32(8) === 13 && view.getUint32(12) === 0x49484452
+  if (view.getUint32(8) !== 13 || view.getUint32(12) !== 0x49484452) return undefined
+  if (crc32(bytes.subarray(12, 29)) !== view.getUint32(29)) return undefined
   const width = view.getUint32(16)
   const height = view.getUint32(20)
   // The PNG spec bounds each side to 2^31 - 1.
-  if (!ihdr || width === 0 || height === 0 || width > 2 ** 31 - 1 || height > 2 ** 31 - 1)
-    return undefined
+  if (width === 0 || height === 0 || width > 2 ** 31 - 1 || height > 2 ** 31 - 1) return undefined
+  if (!BIT_DEPTHS[bytes[25] as number]?.includes(bytes[24] as number)) return undefined
+  if (bytes[26] !== 0 || bytes[27] !== 0 || (bytes[28] as number) > 1) return undefined
   return { width, height }
 }
 
