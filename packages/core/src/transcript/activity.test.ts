@@ -8,7 +8,7 @@ import {
   livePhase,
   planFooter,
 } from './activity'
-import { planMessage } from './plan'
+import { earlierLabel, planMessage } from './plan'
 
 const tool = (
   id: string,
@@ -196,6 +196,13 @@ describe('planMessage placement and live tail', () => {
     )
   })
 
+  it('keeps a single activity block bare after content, as a run of one is inline', () => {
+    const plan = planMessage(msg([reasoning('r'), text('a')]), {
+      activityPlacement: 'after-content',
+    })
+    expect(plan.rows.map((r) => (r.kind === 'bare' ? r.block.id : r.kind))).toEqual(['a', 'r'])
+  })
+
   it('shows only the newest tool calls while live, after an earlier row', () => {
     const plan = planMessage(msg(blocks), { isActive: true, liveTail: 2 })
     expect(
@@ -213,6 +220,16 @@ describe('planMessage placement and live tail', () => {
         r.kind === 'bare' ? r.block.id : r.kind === 'earlier' ? `+${r.count}` : r.kind,
       ),
     ).toEqual(['a', 'b', 'outcome', '+3', 't3'])
+    expect(after.rows.find((r) => r.kind === 'earlier')).toMatchObject({ count: 3, tools: 2 })
+  })
+
+  it('labels the earlier row by what it hides', () => {
+    expect(earlierLabel({ count: 1, tools: 1 })).toBe('+1 earlier tool call')
+    expect(earlierLabel({ count: 2, tools: 2 })).toBe('+2 earlier tool calls')
+    expect(earlierLabel({ count: 1, tools: 0 })).toBe('+1 earlier step')
+    expect(earlierLabel({ count: 3, tools: 0 })).toBe('+3 earlier steps')
+    expect(earlierLabel({ count: 2, tools: 1 })).toBe('+2 earlier steps (1 tool call)')
+    expect(earlierLabel({ count: 4, tools: 2 })).toBe('+4 earlier steps (2 tool calls)')
   })
 
   it('keeps reasoning only while nothing else arrived, plus the latest plan and status rows', () => {
@@ -250,5 +267,65 @@ describe('planMessage placement and live tail', () => {
         (r) => r.kind === 'earlier',
       ),
     ).toBe(false)
+  })
+})
+
+describe('planMessage finished activity', () => {
+  const ids = (plan: ReturnType<typeof planMessage>) =>
+    plan.rows.map((r) => (r.kind === 'bare' ? r.block.id : r.kind))
+  const blocks: ContentBlock[] = [
+    reasoning('r', 10, 5),
+    text('a'),
+    tool('t1'),
+    tool('t2'),
+    text('b'),
+  ]
+
+  it('keeps activity rows by default', () => {
+    expect(ids(planMessage(msg(blocks)))).toEqual(['r', 'a', 'group', 'b'])
+  })
+
+  it('drops every activity row of a finished answer in either placement', () => {
+    expect(ids(planMessage(msg(blocks), { finishedActivity: 'footer' }))).toEqual(['a', 'b'])
+    expect(
+      ids(
+        planMessage(msg(blocks, { outcome: { kind: 'error', message: 'x' } }), {
+          finishedActivity: 'footer',
+          activityPlacement: 'after-content',
+        }),
+      ),
+    ).toEqual(['a', 'b', 'outcome'])
+    expect(
+      ids(
+        planMessage(msg([text('a'), tool('t')]), {
+          finishedActivity: 'footer',
+          activityPlacement: 'after-content',
+        }),
+      ),
+    ).toEqual(['a'])
+    expect(ids(planMessage(msg(blocks), { finishedActivity: 'footer', minimal: true }))).toEqual([
+      'a',
+      'b',
+    ])
+  })
+
+  it('keeps activity while live, without a footer to carry it, and when flat', () => {
+    expect(ids(planMessage(msg(blocks), { finishedActivity: 'footer', isActive: true }))).toEqual([
+      'r',
+      'a',
+      'group',
+      'b',
+    ])
+    expect(ids(planMessage(msg([tool('t')]), { finishedActivity: 'footer' }))).toEqual(['t'])
+    expect(
+      ids(planMessage(msg(blocks), { finishedActivity: 'footer', showFooter: false })),
+    ).toEqual(['r', 'a', 'group', 'b'])
+    expect(ids(planMessage(msg(blocks), { finishedActivity: 'footer', flat: true }))).toEqual([
+      'r',
+      'a',
+      't1',
+      't2',
+      'b',
+    ])
   })
 })

@@ -1,5 +1,5 @@
 import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from '@fx/chat-core'
-import { type PlannedRow, planMessage } from '@fx/chat-core'
+import { type PlannedRow, earlierLabel, planMessage } from '@fx/chat-core'
 import { useLiveTokensPerSecond } from '@fx/chat-core/react'
 /**
  * `MessageItem` — renders one `ChatMessage`, wrapped with the `data-message-id`
@@ -335,8 +335,9 @@ export function MessageItem({
                           key={item.key}
                           className={cx('chat-earlier', cn.earlier)}
                           data-count={item.count}
+                          data-tools={item.tools}
                         >
-                          +{item.count} earlier
+                          {earlierLabel(item)}
                         </div>
                       ),
                     }

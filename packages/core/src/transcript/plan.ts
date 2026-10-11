@@ -66,8 +66,11 @@ export type PlannedRow =
   | { kind: 'group'; key: string; blocks: RenderableBlock[] }
   /** The error an assistant message ended with, shown after its content. */
   | { kind: 'outcome'; outcome: Extract<MessageOutcome, { kind: 'error' }> }
-  /** Live tail: `count` older activity blocks are hidden. */
-  | { kind: 'earlier'; key: string; count: number }
+  /**
+   * Live tail: `count` older activity blocks are hidden, `tools` of them tool
+   * calls (the rest reasoning, plans and other activity). See {@link earlierLabel}.
+   */
+  | { kind: 'earlier'; key: string; count: number; tools: number }
 
 export interface MessagePlanOptions {
   isActive?: boolean | undefined
@@ -80,9 +83,17 @@ export interface MessagePlanOptions {
   /**
    * `inline` (default): blocks in stream order, auxiliary runs folded into
    * groups. `after-content`: content blocks (and the outcome row) first, then
-   * the turn's auxiliary blocks as one group.
+   * the turn's auxiliary blocks as one group (a single block stays bare, as a
+   * run of one does inline).
    */
   activityPlacement?: 'inline' | 'after-content' | undefined
+  /**
+   * A finished message's activity: its own rows (`row`, default), or only the
+   * footer's counts (`footer`) — every auxiliary row (bare blocks and groups)
+   * is dropped from a non-live assistant message whose footer shows. Hosts
+   * pass it only while the activity is collapsed. Flat planning ignores it.
+   */
+  finishedActivity?: 'row' | 'footer' | undefined
   /**
    * While the message is live, show only the newest N tool calls (plus the
    * latest plan, live status rows, and reasoning while nothing else has
@@ -134,6 +145,7 @@ export function planMessage(
     flat = false,
     showFooter = true,
     activityPlacement = 'inline',
+    finishedActivity = 'row',
     liveTail,
     overrides,
   } = options
@@ -154,9 +166,18 @@ export function planMessage(
   } else if (assistant && isActive && liveTail !== undefined && liveTail > 0) {
     const aux = blocks.filter(isAux)
     const visible = tailVisible(aux, blocks, liveTail)
-    const hidden = aux.length - visible.size
+    const hidden = aux.filter((block) => !visible.has(block))
     const earlier: PlannedRow[] =
-      hidden > 0 ? [{ kind: 'earlier', key: `earlier-${message.id}`, count: hidden }] : []
+      hidden.length > 0
+        ? [
+            {
+              kind: 'earlier',
+              key: `earlier-${message.id}`,
+              count: hidden.length,
+              tools: hidden.filter((block) => block.type === 'tool_call').length,
+            },
+          ]
+        : []
     const shown = (block: RenderableBlock) => !isAux(block) || visible.has(block)
     if (activityPlacement === 'after-content') {
       rows = [
@@ -190,7 +211,7 @@ export function planMessage(
         .filter((block) => !isAux(block))
         .map((block): PlannedRow => ({ kind: 'bare', block })),
       ...outcomeRow,
-      ...(aux.length > 0
+      ...(aux.length > 1
         ? [
             {
               kind: 'group' as const,
@@ -198,7 +219,7 @@ export function planMessage(
               blocks: aux,
             },
           ]
-        : []),
+        : aux.map((block): PlannedRow => ({ kind: 'bare', block }))),
     ]
   } else {
     const grouped =
@@ -224,7 +245,25 @@ export function planMessage(
     !isActive &&
     (outcome !== undefined || blocks.some((block) => !isAux(block)))
 
+  // A finished answer may leave its activity to the footer's counts — only
+  // when there is a footer to carry them.
+  if (finishedActivity === 'footer' && footer && !flat) {
+    rows = rows.filter((row) => row.kind !== 'group' && !(row.kind === 'bare' && isAux(row.block)))
+  }
+
   return { rows, ...(activeBlockId ? { activeBlockId } : {}), showFooter: footer }
+}
+
+/**
+ * The live tail's `earlier` row as plain text: `+2 earlier tool calls`,
+ * `+1 earlier step`, or `+3 earlier steps (2 tool calls)` when both kinds are
+ * hidden. Renderers add their own marker.
+ */
+export function earlierLabel(row: { count: number; tools: number }): string {
+  const s = (n: number) => (n === 1 ? '' : 's')
+  if (row.tools === row.count) return `+${row.count} earlier tool call${s(row.count)}`
+  if (row.tools === 0) return `+${row.count} earlier step${s(row.count)}`
+  return `+${row.count} earlier steps (${row.tools} tool call${s(row.tools)})`
 }
 
 /** Context for planning a collapsed group's header. */

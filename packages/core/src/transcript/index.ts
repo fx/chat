@@ -44,6 +44,7 @@ export type {
   PlannedRow,
 } from './plan'
 export {
+  earlierLabel,
   formatFooterMetrics,
   isBlockActive,
   planGroupHeader,
