@@ -279,3 +279,10 @@ changes:
     spec: ink-renderer
     status: complete
     depends_on: ["0028", "0029", "0030", "0031", "0032"]
+  - id: "0034"
+    name: activity-layout
+    path: changes/0034-activity-layout.md
+    description: "Lone after-content block bare; footer-only finished activity plan option; earlier row breakdown, label and glyph; activity spacing; bare threaded corner"
+    spec: ink-renderer
+    status: complete
+    depends_on: ["0025", "0028", "0033"]

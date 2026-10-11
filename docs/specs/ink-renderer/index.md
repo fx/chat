@@ -59,8 +59,8 @@ projection of it.
   inverse. Defaults: `accent`, `code` plain; `link` underlined; `selection` inverse.
 - The package MUST export a plain ASCII glyph set for terminals without box-drawing or emoji
   symbols, alongside the default Unicode set; every glyph the renderer draws (tool status, plan
-  status, activity facts, frames, folds, attachment, image, pending, pulse, rules, bars) is a named,
-  overridable glyph.
+  status, activity facts, the live tail's `earlier` marker, frames, folds, attachment, image,
+  pending, pulse, rules, bars) is a named, overridable glyph.
 - The completion flash MUST be switchable off through the registry (default on).
 
 ### Transcript
@@ -136,3 +136,4 @@ projection of it.
 | 2026-10-10 | Implemented; registry roles, composer keys and chunked input specified | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Fullscreen hosts: line layout, frames, viewport, markdown, composer, mouse, images; roles and glyphs extended | [0028-ink-line-layout](../../changes/0028-ink-line-layout.md) |
 | 2026-10-11 | Terminal safety: content never drives the terminal; image size cap enforced while reading; split terminal reports joined | — |
+| 2026-10-11 | `earlier` glyph; activity spacing; footer-only finished activity hides every activity row; bare threaded corner without footer facts | [0034-activity-layout](../../changes/0034-activity-layout.md) |

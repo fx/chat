@@ -488,11 +488,20 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text), or
   `writing`.
 - **Activity placement.** A host MAY ask for activity after content: content blocks (and the
-  outcome row) first in their order, then the turn's activity folded as one group in its order.
-  Text blocks separated by activity remain separate paragraphs.
+  outcome row) first in their order, then the turn's activity folded as one group in its order —
+  or, when there is a single activity block, that block as a bare row (no group around one block,
+  as in stream order). Text blocks separated by activity remain separate paragraphs.
 - **Live tail.** A host MAY ask that, while a message is live and its activity collapsed, only the
-  newest N activity blocks show, preceded by an `N earlier` row; reasoning shows only while nothing
-  else has arrived. A finished message never shows a tail.
+  newest N activity blocks show, preceded by an `earlier` row; reasoning shows only while nothing
+  else has arrived. A finished message never shows a tail. The row carries how many blocks it hides
+  and how many of them are tool calls, and reads (`earlierLabel`) `+N earlier tool calls` when all
+  are tool calls, `+N earlier steps` when none are, else `+N earlier steps (M tool calls)` (singular
+  forms for one). Renderers add only their own marker.
+- **Finished activity.** A host MAY ask that a finished message's activity show only as its
+  footer's counts: for a non-live assistant message whose footer shows, the plan then holds no
+  activity rows — neither bare activity blocks nor groups, by the timeline behaviour of each block —
+  in either placement. Without a footer the rows stay. Hosts ask for it only while activity is
+  collapsed.
 
 #### Scenario: Title wins over name
 
@@ -531,6 +540,25 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **GIVEN** a group whose latest header-eligible block is a plan with 2 of 5 entries completed
 - **WHEN** the group header is planned
 - **THEN** its label is `Plan 2/5` with the `checklist` icon.
+
+#### Scenario: One activity block after content
+
+- **GIVEN** a finished answer `[reasoning, text]` planned with activity after content
+- **WHEN** its rows are planned
+- **THEN** they are the text, then the reasoning as a bare row (no group).
+
+#### Scenario: Earlier row names what it hides
+
+- **GIVEN** a live answer `[reasoning, tool, text, tool(running)]` with a live tail of 1
+- **WHEN** its rows are planned
+- **THEN** the earlier row hides 2 blocks, 1 of them a tool call, and reads
+  `+2 earlier steps (1 tool call)`.
+
+#### Scenario: Finished activity left to the footer
+
+- **GIVEN** a finished answer `[reasoning, text, tool]` with a footer, finished activity `footer`
+- **WHEN** its rows are planned in stream order
+- **THEN** only the text row remains.
 
 #### Scenario: Tool after text
 
@@ -829,3 +857,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Plan rendering | [0024-plan-block](../../changes/0024-plan-block.md) |
 | 2026-10-10 | Footer facts, opt-in live footer, formats, counts/phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
+| 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label; footer-only finished activity | [0034-activity-layout](../../changes/0034-activity-layout.md) |
