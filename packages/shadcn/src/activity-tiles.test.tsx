@@ -70,7 +70,7 @@ describe('ActivityTiles', () => {
     expect(tiles[2]).toHaveAttribute('data-status', 'error')
     // One tile size everywhere: the footer's fact tiles use the same classes.
     expect(tiles[0]).toHaveClass('size-11')
-    expect(createShadcnClassNames({ touch: true }).footerFact).toContain('size-11')
+    expect(createShadcnClassNames({ touch: true }).footerFactBody).toContain('size-11')
     // A running tile's time advances.
     act(() => vi.advanceTimersByTime(TILE_TICK_MS * 4))
     expect(tiles[1]).toHaveAttribute('aria-label', 'other, running, 2.0s')
@@ -83,12 +83,13 @@ describe('ActivityTiles', () => {
     expect(screen.getByRole('img').querySelector('svg')).not.toBeNull()
   })
 
-  it('opens the item on tap when it can, and does not tick when nothing runs', () => {
+  it('is status only even when items could open details, and does not tick when idle', () => {
     const onActivate = vi.fn()
     const Tiles = shadcnComponentsTouchTiles()
     render(<Tiles live={false} items={[item({ id: 'x' })]} onActivate={onActivate} />)
-    fireEvent.click(screen.getByRole('button', { name: 'fetch_url, done' }))
-    expect(onActivate).toHaveBeenCalledWith('x')
+    expect(screen.queryByRole('button')).toBeNull()
+    fireEvent.click(screen.getByRole('img', { name: 'fetch_url, done' }))
+    expect(onActivate).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
   })
 })

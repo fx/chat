@@ -112,19 +112,35 @@ export function createShadcnClassNames({
     mdCodeInline: 'rounded bg-muted px-1 py-0.5 text-[0.85em]',
 
     // ── Footer (metrics + action buttons) ─────────────────────────────────────
+    // On touch every footer control is a tile, and the footer wraps them.
     footer: cn(
-      'mt-1 flex flex-wrap items-center gap-1.5 data-[compact=true]:gap-[3px] min-w-0 text-muted-foreground',
-      touch ? 'text-xs' : 'text-[0.625rem]',
+      'mt-1 flex flex-wrap items-center gap-1.5 min-w-0 text-muted-foreground',
+      touch ? 'text-xs' : 'data-[compact=true]:gap-[3px] text-[0.625rem]',
     ),
     // On touch the metrics take their own line under the actions.
     footerMetrics: cn('min-w-0 [overflow-wrap:anywhere]', touch && 'basis-full'),
-    footerIcon: 'size-2.5',
-    // A finished message's activity facts: on touch, small tiles with the
-    // count or time inside (a failure in the destructive tone).
-    footerActivity: cn('gap-1.5', touch && 'px-0'),
-    footerFact: touch
-      ? cn(TILE, 'data-[failed]:text-destructive')
-      : 'inline-flex items-center gap-1 tabular-nums data-[failed]:text-destructive',
+    footerIcon: touch ? TILE_ICON : 'size-2.5',
+    ...(touch
+      ? {
+          footerReveal: TILE,
+          footerCopy: TILE,
+          footerRegenerate: TILE,
+          footerFork: TILE,
+          footerReset: TILE,
+        }
+      : {}),
+    // A finished message's activity facts: on touch each is its own tile with
+    // the count or time inside (the wrappers step aside so the tiles wrap), a
+    // failure in the destructive tone, highlighted while the activity shows.
+    footerActivity: touch ? 'contents' : 'inline-flex items-center gap-1.5',
+    footerFact: touch ? 'contents' : 'inline-flex',
+    footerFactBody: touch
+      ? cn(
+          TILE,
+          '[[data-failed]>&]:text-destructive',
+          '[[data-expanded=true]_&]:bg-primary/15 [[data-expanded=true]_&]:text-foreground',
+        )
+      : 'inline-flex items-center gap-1 tabular-nums [[data-failed]>&]:text-destructive',
     footerFactIcon: touch ? TILE_ICON : 'size-3',
     detailsActivity: 'flex flex-col',
 
