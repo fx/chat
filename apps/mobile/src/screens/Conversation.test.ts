@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { footerStyle, selectionAfterTap } from './Conversation'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { conversationStyle, selectionAfterTap, useFinishTransition } from './Conversation'
 
 function transcript() {
   const log = document.createElement('div')
@@ -45,13 +46,64 @@ describe('selectionAfterTap', () => {
   })
 })
 
-describe('footerStyle', () => {
-  it('hides every footer but the selected message’s', () => {
-    expect(footerStyle(undefined)).toBe(
+describe('conversationStyle', () => {
+  it('hides every footer but the selected and the last answer’s, and names the last one’s morph', () => {
+    expect(conversationStyle(undefined, undefined)).toBe(
       '.conversation-log .chat-message .chat-footer { display: none; }',
     )
-    expect(footerStyle('a"1')).toBe(
-      '.conversation-log .chat-message:not([data-message-id="a\\"1"]) .chat-footer { display: none; }',
+    const [hide, morph] = conversationStyle('a"1', 'a2').split('\n')
+    expect(hide).toBe(
+      '.conversation-log .chat-message:not([data-message-id="a\\"1"]):not([data-message-id="a2"]) .chat-footer { display: none; }',
     )
+    expect(morph).toBe(
+      '.conversation-log .chat-message[data-message-id="a2"] :is(.chat-tiles, .chat-footer) { view-transition-name: answer-activity; }',
+    )
+  })
+})
+
+describe('useFinishTransition', () => {
+  const run = { messageId: 'a1' }
+  const restore = { start: document.startViewTransition, media: window.matchMedia }
+  afterEach(() => {
+    document.startViewTransition = restore.start
+    window.matchMedia = restore.media
+  })
+  const motion = (reduce: boolean) => {
+    window.matchMedia = ((query: string) => ({ matches: reduce, media: query })) as never
+  }
+
+  it('shows a start at once, and an end inside a view transition', () => {
+    motion(false)
+    const start = vi.fn((update: () => void) => {
+      update()
+      return {} as ViewTransition
+    })
+    document.startViewTransition = start as never
+    const { result, rerender } = renderHook(({ r }) => useFinishTransition(r), {
+      initialProps: { r: undefined as typeof run | undefined },
+    })
+    rerender({ r: run })
+    expect(result.current).toBe(run)
+    expect(start).not.toHaveBeenCalled()
+    rerender({ r: undefined })
+    expect(start).toHaveBeenCalledOnce()
+    expect(result.current).toBeUndefined()
+  })
+
+  it('ends at once without view transitions, or when motion is reduced', () => {
+    for (const [supported, reduce] of [
+      [false, false],
+      [true, true],
+    ] as const) {
+      motion(reduce)
+      const start = vi.fn()
+      document.startViewTransition = (supported ? start : undefined) as never
+      const { result, rerender } = renderHook(({ r }) => useFinishTransition(r), {
+        initialProps: { r: run as typeof run | undefined },
+      })
+      rerender({ r: undefined })
+      expect(result.current).toBeUndefined()
+      expect(start).not.toHaveBeenCalled()
+    }
   })
 })

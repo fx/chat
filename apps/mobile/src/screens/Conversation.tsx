@@ -5,6 +5,7 @@
 import { type Attachment, type ChatExtensions, ChatInput, MessageLog } from '@fx/chat'
 import { ArrowLeft, ChevronDown, RotateCcw, ShieldQuestion } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Header, IconButton, PrimaryButton, SecondaryButton, Sheet } from '../components/ui'
 import { useAppState, useStore } from '../store/context'
 import type { PendingApproval } from '../store/types'
@@ -62,6 +63,10 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const meta = state.conversations.find((c) => c.id === id)
   const messages = state.messages[id]
   const run = state.runs[id]
+  // The transcript sees a finished run one render late, inside a view
+  // transition, so the live activity tiles morph into the footer.
+  const shownRun = useFinishTransition(run)
+  const lastAnswer = messages?.filter((message) => message.role === 'assistant').at(-1)?.id
   const error = state.errors[id]
   // A conversation runs only against its own profile; when that is gone,
   // every run-starting action is withheld until the user re-binds it.
@@ -172,7 +177,7 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
         }
       />
 
-      <style>{footerStyle(selected)}</style>
+      <style>{conversationStyle(selected, lastAnswer)}</style>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: tapping shows the message's footer; its actions stay reachable from the keyboard */}
       <div
         ref={scrollRef}
@@ -192,8 +197,8 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
         {messages ? (
           <MessageLog
             messages={messages}
-            isStreaming={Boolean(run)}
-            {...(run ? { streamingMessageId: run.messageId } : {})}
+            isStreaming={Boolean(shownRun)}
+            {...(shownRun ? { streamingMessageId: shownRun.messageId } : {})}
             showFooter
             compactFooter
             activityDisplay="summary"
@@ -360,12 +365,43 @@ function ModelSheet({
 }
 
 /**
- * Footers are hidden except the selected message's. The selection is a
- * message id, so the rule is generated (escaped) rather than a static class.
+ * Footers are hidden except the last answer's and the selected message's,
+ * and the last answer's activity tiles and footer share a view-transition
+ * name, so finishing morphs one into the other. Message ids go into the rules
+ * (escaped), so they are generated rather than static classes.
  */
-export function footerStyle(selected: string | undefined): string {
-  const keep = selected ? `:not([data-message-id="${CSS.escape(selected)}"])` : ''
-  return `.conversation-log .chat-message${keep} .chat-footer { display: none; }`
+export function conversationStyle(selected: string | undefined, last: string | undefined): string {
+  const is = (id: string) => `[data-message-id="${CSS.escape(id)}"]`
+  const kept = [selected, last]
+    .filter((id): id is string => id !== undefined)
+    .map((id) => `:not(${is(id)})`)
+    .join('')
+  const hide = `.conversation-log .chat-message${kept} .chat-footer { display: none; }`
+  if (last === undefined) return hide
+  const morph = `.conversation-log .chat-message${is(last)} :is(.chat-tiles, .chat-footer) { view-transition-name: answer-activity; }`
+  return `${hide}\n${morph}`
+}
+
+/**
+ * `run`, except that its end reaches the transcript inside a view transition
+ * (where supported and motion is welcome): the transcript still shows the
+ * live tiles in the snapshot taken before, and the footer after.
+ */
+export function useFinishTransition<T>(run: T | undefined): T | undefined {
+  const [shown, setShown] = useState(run)
+  useEffect(() => {
+    if (run !== undefined || shown === undefined) {
+      setShown(run)
+      return
+    }
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (!document.startViewTransition || still) {
+      setShown(undefined)
+      return
+    }
+    document.startViewTransition(() => flushSync(() => setShown(undefined)))
+  }, [run, shown])
+  return shown
 }
 
 /**

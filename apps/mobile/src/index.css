@@ -73,3 +73,9 @@ body {
     animation: none;
   }
 }
+
+/* Finishing an answer morphs its activity tiles into its footer (see Conversation). */
+::view-transition-group(answer-activity) {
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}

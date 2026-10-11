@@ -65,9 +65,7 @@ describe('App', () => {
     // action retries the turn.
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('HTTP 500: no more')
-    // Footers stay hidden until the message is tapped.
-    expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
-    await user.click(alert)
+    // The last answer's footer always shows.
     await user.click(screen.getByRole('button', { name: 'Regenerate' }))
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('HTTP 500'))
   })
