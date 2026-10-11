@@ -183,6 +183,8 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
             {...(run ? { streamingMessageId: run.messageId } : {})}
             showFooter
             compactFooter
+            activityDisplay="summary"
+            finishedActivity="footer"
             {...(blocker
               ? {}
               : { onRegenerate: (messageId: string) => void store.regenerate(id, messageId) })}
