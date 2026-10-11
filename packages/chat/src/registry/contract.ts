@@ -187,7 +187,7 @@ export interface ChatClassNames {
   footerFactText?: string
   /** The activity handed to a `MessageDetails` presenter (`.chat-details-activity`). */
   detailsActivity?: string
-  /** One activity block in it (`.chat-details-activity-item`, `data-block-id`). */
+  /** One activity block in it (`.chat-details-activity-item`, `data-block-id`, `data-focused` for the item opened). */
   detailsActivityItem?: string
   attachments?: string
   attachmentGrid?: string
@@ -296,8 +296,9 @@ export interface MessageDetailsProps {
   actions: MessageDetailsAction[]
   /**
    * The message's activity (reasoning, tool calls, plans) as the package's own
-   * rows, each in a `.chat-details-activity-item` carrying `data-block-id`;
-   * absent when the message has none.
+   * rows, each in a `.chat-details-activity-item` carrying `data-block-id` (and
+   * `data-focused` on the `focusId` item, whose row is open); absent when the
+   * message has none.
    */
   activity?: ReactNode
   /** The activity item the presenter was opened for, to bring into view. */

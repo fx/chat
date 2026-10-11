@@ -570,7 +570,7 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   control (an `info` glyph, labelled "Message details") and summary items open it, an item at its
   own block. It carries the message's
   details, outcome, actions and copy text — none while the message is live — and its activity as
-  rows, the focused item's row open.
+  rows, the focused item's row open and marked `data-focused`.
 
 #### Scenario: Title wins over name
 

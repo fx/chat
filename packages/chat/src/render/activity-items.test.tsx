@@ -242,6 +242,7 @@ describe('MessageItem activityDisplay="summary"', () => {
     expect(last.actions).toEqual([])
     const items = sheet.querySelectorAll('.chat-details-activity-item')
     expect([...items].map((i) => i.getAttribute('data-block-id'))).toEqual(['c1', 'c2'])
+    expect([...items].map((i) => i.getAttribute('data-focused'))).toEqual(['true', null])
     act(() => last.onOpenChange(false))
     expect(screen.queryByTestId('details')).toBeNull()
   })

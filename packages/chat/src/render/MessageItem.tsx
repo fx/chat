@@ -543,6 +543,7 @@ export function MessageItem({
                         key={block.id}
                         className={cx('chat-details-activity-item', cn.detailsActivityItem)}
                         data-block-id={block.id}
+                        {...(block.id === details.focusId ? { 'data-focused': 'true' } : {})}
                       >
                         <BlockView
                           block={block}
