@@ -217,20 +217,37 @@ scope** and MUST NOT appear in this package.
   a single disclosure, **across consecutive internal assistant steps**, while non-aux items
   (user text, assistant answer text, system) render bare and break runs.
 - A single-item run MUST render bare (no pointless one-item disclosure).
-- The collapsed header MUST select its summary chip as: the trailing active-but-header-
-  ineligible item (the live status row, to keep the timer visible) if present; otherwise the
-  latest header-eligible item; otherwise the trailing item. A `+N` badge MUST count hidden
-  items.
+- The collapsed header (planned in core, `planGroupHeader`) MUST say what the group holds:
+  - **Tool calls.** A group with tool calls is about them only — its reasoning and status rows
+    are not mentioned. One call reads as its row does (label, then input when it adds
+    something). Two or more read `N tool calls`, then the outcome split when any failed
+    (core returns the counts — total, succeeded, failed, where denied and unavailable count
+    as failed; the DOM renderer and the plain-text helper `toolGroupLabel` read
+    `4 ok · 1 failed`, the terminal draws `4 ✓ 1 ✗` with its glyphs and roles), then, while
+    live, the running call's headline. The time is the calls' wall-clock span (earliest
+    `startedAt` to latest `startedAt + durationMs`, so parallel calls overlap), else the sum
+    of their durations when a start is missing, else none; while live, a timer from the
+    earliest call's start (else the message start). A tool group shows no tokens/sec.
+  - **Reasoning.** A group of reasoning (and finished status rows) with one thought reads as
+    that thought's row; with two or more, `Thought ×N · <total>` (`Reasoning ×N` with no
+    durations; `Thinking… ×N` with a live timer while one streams).
+  - **Otherwise** the latest plan heads it (unless a live status row trails), else the summary
+    chip the policy selects: the trailing active-but-header-ineligible item (the live status
+    row, to keep the timer visible) if present; otherwise the latest header-eligible item;
+    otherwise the trailing item.
+  - A `+N` badge counts hidden items only where the label does not already state what the group
+    holds — never on a tool or reasoning header.
 - Collapsed-header timer/tok-s pills: a STATUS summary MUST surface the message-level timer
   pill (its label embeds no duration) plus the live tokens/sec while active. An ACTIVE
   REASONING summary MUST likewise surface a LIVE ticking timer pill (the "Thinking…" label
   carries no duration; the block's `durationMs` is undefined while active, so the pill ticks
   live) alongside the context tokens/sec pill; the pill MUST anchor at the reasoning block's
   own `startedAt` when present, else the message `startedAt` — mirroring the bare row. A
-  FINISHED reasoning or tool summary MUST show NO timer pill — the reasoning "Thought for
-  <dur>" label already embeds the duration, and their bare renderers show none. This timer
-  rule is the shared `summarizeBlock` helper's `showTimer` (single source of truth, including
-  the durationMs finished-gate), so the bare reasoning row and the group header cannot drift.
+  FINISHED reasoning summary MUST show NO timer pill — the "Thought for <dur>" label already
+  embeds the duration. A tool row (bare or in a group body) MUST show its time: its
+  `durationMs`, or a live timer from its `startedAt` while it runs. This timer rule is the
+  shared `summarizeBlock` helper's `showTimer` (single source of truth, including the
+  durationMs finished-gate), so the bare rows and the group header cannot drift.
 - Collapsed-header tokens/sec MUST NOT churn on settled groups: a non-status summary shows the
   context rate only when the group is itself ACTIVE or the whole message has SETTLED
   (`!context.isActive`). A finished group inside a still-streaming message shows no tok/s pill
@@ -254,8 +271,21 @@ scope** and MUST NOT appear in this package.
 - **GIVEN** an assistant turn whose blocks are `[reasoning, tool_call, tool_call, status]`
   followed by the answer `text`
 - **WHEN** the log renders in grouped mode
-- **THEN** the four metadata blocks collapse under one disclosure with a header summary chip
-  and a `+N` badge, and the answer text renders bare beneath it.
+- **THEN** the four metadata blocks collapse under one disclosure headed `2 tool calls` (no
+  `+N`), and the answer text renders bare beneath it.
+
+#### Scenario: Tool group header with a failure
+
+- **GIVEN** a finished group of five tool calls, each preceded by reasoning, one failed, started
+  2 s apart and lasting 1.2 s each
+- **WHEN** its header is planned
+- **THEN** it is about the tool calls only: `5 tool calls`, 4 succeeded and 1 failed, 9.2 s.
+
+#### Scenario: Several thoughts
+
+- **GIVEN** a finished group of two reasoning blocks of 1.0 s and 2.1 s
+- **WHEN** its header is planned
+- **THEN** it reads `Thought ×2 · 3.1s` with no `+N`.
 
 ### Minimal / Density Mode
 
@@ -288,8 +318,8 @@ scope** and MUST NOT appear in this package.
 
 - **GIVEN** an assistant turn `[reasoning, tool_call, status, text]` and `minimal` set
 - **WHEN** the log renders
-- **THEN** the three metadata blocks collapse under ONE disclosure (with a header summary and `+N`
-  badge), the answer `text` renders bare beneath it, the footer is compact, and the log/message
+- **THEN** the three metadata blocks collapse under ONE disclosure (headed by the tool call), the
+  answer `text` renders bare beneath it, the footer is compact, and the log/message
   wrappers carry `data-minimal="true"`.
 
 #### Scenario: Minimal folds non-adjacent aux into the same group
@@ -867,3 +897,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Footer facts, opt-in live footer, formats, counts/phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
 | 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |

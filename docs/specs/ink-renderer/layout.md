@@ -71,8 +71,9 @@ remains for the inline transcript.
 
 - **Reasoning:** wrapped, italic, `muted`.
 - **Tool row:** one line — status glyph (success, error; a pending or running call draws the
-  spinner while its message is live and the idle glyph otherwise), the label, the input when it adds something, then the approval qualifier.
-  Whitespace collapsed and truncated to the width; the glyph and qualifier are exempt from
+  spinner while its message is live and the idle glyph otherwise), the label, the input when it
+  adds something, the approval qualifier, then its time (duration, or live elapsed while it runs).
+  Whitespace collapsed and truncated to the width; the glyph, qualifier and time are exempt from
   truncation.
 - **Tool output box** (details and full): the output text, each line prefixed by an indented dotted
   bar (chrome), every line targeted at the block. Plain text is wrapped and dim and never cut (the
@@ -88,6 +89,11 @@ remains for the inline transcript.
   group headers, running tool rows, in-progress plan entries — MUST draw the same spinner frames,
   stepped by the same clock.
 - **Outcome:** an error row `✗ <message>` (glyph injected), wrapped, `danger`, after the content.
+- **Group header:** core's plan, drawn with glyphs. A tool group: the tools glyph, one call as its
+  row reads (label, input, qualifier), else `N tool calls`, then — when any failed — the counts as
+  `<ok> <success glyph> <failed> <error glyph>` in the positive and danger roles, then the running
+  call's headline while live, then the time, each joined by the separator. A reasoning group: core's
+  label (`Thought ×N · <total>`). Others: `(+N)`, icon, label, timer and rate as before.
 - **Earlier row:** the `earlier` glyph (a `marker`, chrome; none when empty), then core's label,
   `muted`.
 - **Footer:** the planned facts joined by a separator, with fact glyphs (reasoning, plan, tools) from
