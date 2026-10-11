@@ -219,15 +219,19 @@ scope** and MUST NOT appear in this package.
 - A single-item run MUST render bare (no pointless one-item disclosure).
 - The collapsed header (planned in core, `planGroupHeader`) MUST say what the group holds:
   - **Tool calls.** A group with tool calls is about them only — its reasoning and status rows
-    are not mentioned. One call reads as its row does (label, then input when it adds
-    something). Two or more read `N tool calls`, then the outcome split when any failed
+    are not mentioned. That includes a trailing live status row: without a live tail, a tool
+    group shows its calls rather than `Generating…` and the message timer (a host shows the
+    live phase elsewhere, e.g. a status line). One call reads as its row does (label, then
+    input when it adds something, its approval qualifier, and its error state). Two or more read `N tool calls`, then the outcome split when any failed
     (core returns the counts — total, succeeded, failed, where denied and unavailable count
     as failed; the DOM renderer and the plain-text helper `toolGroupLabel` read
     `4 ok · 1 failed`, the terminal draws `4 ✓ 1 ✗` with its glyphs and roles), then, while
     live, the running call's headline. The time is the calls' wall-clock span (earliest
     `startedAt` to latest `startedAt + durationMs`, so parallel calls overlap), else the sum
-    of their durations when a start is missing, else none; while live, a timer from the
-    earliest call's start (else the message start). A tool group shows no tokens/sec.
+    of their durations when a start is missing, else none (non-finite or negative durations
+    are ignored; the span is never negative). The timer ticks — from the earliest call's
+    start, else the message start — only while a call in the group runs; while only other
+    blocks in the group are live, it shows the calls' span. A tool group shows no tokens/sec.
   - **Reasoning.** A group of reasoning (and finished status rows) with one thought reads as
     that thought's row; with two or more, `Thought ×N · <total>` (`Reasoning ×N` with no
     durations; `Thinking… ×N` with a live timer while one streams).
@@ -482,7 +486,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   when absent, and two-space-indented JSON otherwise (`toolResultText`). The terminal renderer lays
   out and copies this text; the DOM renderer shows the result in its registry `JsonView` instead.
 - **Approval qualifier.** A call with `approval.state` of `denied` or `unavailable` MUST show a
-  `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`.
+  `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`, and
+  such a call MUST NOT show a spinner — it is blocked on the user, not working.
 - **Tool liveness.** A `pending`/`running` tool call MUST count as live only while its message is
   live and has no `outcome`; on a settled or stopped message it shows as unfinished, without a
   spinner. (Previously it counted as live regardless of its message.)
@@ -529,7 +534,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   newest N tool calls (plus the latest plan and live status rows) show, preceded by an `earlier`
   row; reasoning shows only while nothing else has arrived. A finished message never shows a tail.
   The `earlier` row announces only what would have been a row above the tail: hidden blocks older
-  than the tail's first shown row, never reasoning (which the tail hides anyway and the footer's
+  than the tail's first shown tool call (the latest plan and status rows show however old they
+  are, so they never anchor it), never reasoning (which the tail hides anyway and the footer's
   reasoning count covers), and never a hidden block between shown rows. So there is no row until
   more than N tool calls exist. The row carries how many blocks it announces and how many of them
   are tool calls, and reads (`earlierLabel`) `+N earlier tool calls` when all

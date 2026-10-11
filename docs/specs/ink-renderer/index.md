@@ -61,14 +61,17 @@ projection of it.
   symbols, alongside the default Unicode set; every glyph the renderer draws (tool status, plan
   status, activity facts, the live tail's `earlier` marker, frames, folds, attachment, image,
   pending, pulse, rules, bars) is a named, overridable glyph.
-- Every glyph MUST have an unambiguous terminal width. The default set is monochrome text, one cell
-  per glyph, with no emoji-capable character (Unicode `Emoji=No`): `✻` thinking, `ƒ` tools, `§`
-  system prompt, `☐` plan, `▣` image, `‖` queued, `⊕` attachment, `☐`/`☒` markdown tasks. It
-  sticks to glyphs common monospace fonts carry. The package MUST also export an opt-in colour
-  set (`emojiGlyphs`: `🧠` `🔧` `📜` `📋` `📷` `📎` `⏳` over the default set) using only
-  `Emoji_Presentation=Yes` characters, which terminals draw and the default measure counts as two
-  cells; a host turns it on with `<InkChatProvider components={{ glyphs: emojiGlyphs }}>`. A test
-  holds every shipped set to these rules (ASCII digits, `#` and `*` exempt).
+- No default glyph may be emoji-capable. The default set is monochrome text with no
+  emoji-capable character (Unicode `Emoji=No`), so it draws one cell in non-CJK terminals: `✻`
+  thinking, `ƒ` tools, `§` system prompt, `☐` plan, `▣` image, `‖` queued, `⊕` attachment,
+  `☐`/`☒` markdown tasks. It sticks to glyphs common monospace fonts carry. Several (`§ ▣ ‖ ⊕`,
+  `… ·` and the box drawing) are East Asian Width *Ambiguous*: a terminal set to treat ambiguous
+  characters as wide (common with CJK locales) draws them two cells, which a host there can avoid
+  with the ASCII set. The package MUST also export an opt-in colour set (`emojiGlyphs`: `🧠` `🔧`
+  `📜` `📋` `📷` `📎` `⏳` over the default set) using only `Emoji_Presentation=Yes` characters,
+  which terminals draw and the default measure counts as two cells; a host turns it on with
+  `<InkChatProvider components={{ glyphs: emojiGlyphs }}>`. A test holds every shipped set to these
+  rules (ASCII digits, `#` and `*` exempt).
 - The completion flash MUST be switchable off through the registry (default on).
 
 ### Transcript

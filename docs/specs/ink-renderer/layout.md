@@ -55,7 +55,8 @@ remains for the inline transcript.
   threaded gutter continues through it). A host MAY turn it off (on by default).
 - **Adjacent paragraphs.** Two text blocks whose rows are adjacent — in either placement, including
   when the activity between them is not shown (footer-only finished activity) — MUST be separated
-  by one blank line. It is a paragraph break, so a copy keeps it (unlike activity spacing, which is
+  by one blank line — not before a text block with no visible content yet (a stream's empty
+  start). It is a paragraph break, so a copy keeps it (unlike activity spacing, which is
   decoration). It is always on — it does not follow the activity-spacing option, since without it
   two paragraphs run together.
 - An answer **shows** once it has content, reasoning, an outcome, a tool call or a plan. Before that,
@@ -74,7 +75,7 @@ remains for the inline transcript.
   spinner while its message is live and the idle glyph otherwise), the label, the input when it
   adds something, the approval qualifier, then its time (duration, or live elapsed while it runs).
   Whitespace collapsed and truncated to the width; the glyph, qualifier and time are exempt from
-  truncation.
+  truncation. A call awaiting approval draws the idle glyph, not the spinner.
 - **Tool output box** (details and full): the output text, each line prefixed by an indented dotted
   bar (chrome), every line targeted at the block. Plain text is wrapped and dim and never cut (the
   inline transcript keeps its line clip). JSON is laid out with core's loose-JSON layout — folded in
@@ -94,6 +95,9 @@ remains for the inline transcript.
   `<ok> <success glyph> <failed> <error glyph>` in the positive and danger roles, then the running
   call's headline while live, then the time, each joined by the separator. A reasoning group: core's
   label (`Thought ×N · <total>`). Others: `(+N)`, icon, label, timer and rate as before.
+- **One header row ≤ width.** A header is one line no wider than its width: the label (and detail)
+  is cut first, but once the label would drop below 16 cells (or its whole width, if shorter) the
+  time or rate goes, then the tool counts.
 - **Earlier row:** the `earlier` glyph (a `marker`, chrome; none when empty), then core's label,
   `muted`.
 - **Footer:** the planned facts joined by a separator, with fact glyphs (reasoning, plan, tools) from
