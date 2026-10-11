@@ -10,6 +10,7 @@
 | [Input Composer](specs/input-composer/) | Headless message composer, completion-provider contract, completion popup, mentions | active |
 | [Message Model](specs/message-model/) | Normalized transport-agnostic message/content-block model and codec | active |
 | [Chat Core](specs/chat-core/) | Renderer-agnostic core package — model, transcript logic, completion contract, DOM-free hooks | active |
+| [Chat Agent](specs/chat-agent/) | UI-free OpenAI-compatible agent runtime — streaming into ChatMessages, tool loop, approval, cancellation | active |
 | [Message Rendering](specs/message-rendering/) | Message log, block renderers, streaming/timing hooks, auxiliary-block grouping, affordances | active |
 
 ## Changes
@@ -35,6 +36,7 @@
 | 0017 | [Custom-Block Summary Label](changes/0017-custom-block-summary-label.md) | [Message Rendering](specs/message-rendering/) | complete | 0007 |
 | 0018 | [Timeline-Item Gutter Timestamps](changes/0018-timeline-item-gutter-timestamps.md) | [Message Rendering](specs/message-rendering/) | complete | 0007, 0012 |
 | 0019 | [Core Extraction](changes/0019-core-extraction.md) | [Chat Core](specs/chat-core/) | complete | — |
+| 0020 | [Agent Runtime](changes/0020-agent-runtime.md) | [Chat Agent](specs/chat-agent/) | complete | 0019 |
 | 0023 | [Agent Activity Model](changes/0023-agent-activity-model.md) | [Message Model](specs/message-model/) | draft | — |
 | 0024 | [Plan Block](changes/0024-plan-block.md) | [Message Model](specs/message-model/) | draft | 0023 |
 | 0025 | [Activity Planning](changes/0025-activity-planning.md) | [Message Rendering](specs/message-rendering/) | draft | 0023, 0024 |

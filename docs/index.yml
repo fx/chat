@@ -30,6 +30,10 @@ specs:
     path: specs/chat-core/
     description: Renderer-agnostic core package — model, transcript logic, completion contract, DOM-free hooks
     status: active
+  - name: chat-agent
+    path: specs/chat-agent/
+    description: UI-free OpenAI-compatible agent runtime — streaming into ChatMessages, tool loop, approval, cancellation
+    status: active
 
 changes:
   - id: "0001"
@@ -165,6 +169,13 @@ changes:
     spec: chat-core
     status: complete
     depends_on: []
+  - id: "0020"
+    name: agent-runtime
+    path: changes/0020-agent-runtime.md
+    description: "@fx/chat-agent — SSE client, delta accumulator, history encoder, tool loop with approval and abort"
+    spec: chat-agent
+    status: complete
+    depends_on: ["0019"]
   - id: "0023"
     name: agent-activity-model
     path: changes/0023-agent-activity-model.md

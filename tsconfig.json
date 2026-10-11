@@ -8,6 +8,9 @@
       "path": "./packages/chat"
     },
     {
+      "path": "./packages/agent"
+    },
+    {
       "path": "./demos/chat-demo"
     }
   ]
