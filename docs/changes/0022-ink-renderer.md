@@ -6,8 +6,8 @@ Add `@fx/chat-ink`, a terminal renderer for core conversations with an injected 
 plain-text default and a keyboard composer, plus the terminal reference app — delivered as a plugin
 of the `tx` toolbox (`tx chat`) rather than a standalone CLI.
 
-**Spec:** [ink-renderer](../specs/ink-renderer/)
-**Status:** draft
+**Spec:** [ink-renderer](../specs/ink-renderer/), [terminal-app](../specs/terminal-app/)
+**Status:** complete
 **Depends On:** 0019, 0020
 
 ## Motivation
@@ -77,10 +77,10 @@ them requires of this change:
 - [x] Transcript: static finalized messages, live active turn, grouping/summaries/timers from core
 - [x] Composer: multi-line, history, completion providers, chunked input
 - [x] Cross-renderer parity test
-- [ ] Terminal app as a tx plugin (`apps/tui`, `tx chat`) on `@fx/chat-agent`; shared built-in tools
-- [ ] Verified in a real terminal (tmux): setup dialogs, streaming, approval, Esc/Ctrl+C stop,
+- [x] Terminal app as a tx plugin (`apps/tui`, `tx chat`) on `@fx/chat-agent`; shared built-in tools
+- [x] Verified in a real terminal (tmux): setup dialogs, streaming, approval, Esc/Ctrl+C stop,
       `/model` completion, `/new`, quit
-- [ ] Docs: specs, indexes
+- [x] Docs: specs, indexes
 
 ## References
 

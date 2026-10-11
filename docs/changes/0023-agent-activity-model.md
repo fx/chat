@@ -5,7 +5,7 @@
 Give the model a place for what agent hosts show: tool title, kind, input summary and approval; a message outcome (stopped / error); cost and context metrics; attachment description and size. Add the shared tool label/input/output helpers, gate tool liveness on the message, render outcome rows in both renderers, and have `@fx/chat-agent` produce the new fields.
 
 **Spec:** [message-model](../specs/message-model/), [message-rendering § Agent Activity](../specs/message-rendering/index.md#agent-activity), [chat-agent](../specs/chat-agent/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0022
 
 ## Motivation
@@ -58,7 +58,7 @@ Plan blocks (0024), footer facts (0025), any change to existing footer gating be
 - [x] `@fx/chat`: tool label/input/approval qualifier, outcome row, classNames hooks; tests
 - [x] `@fx/chat-ink`: same in rows and message view; parity test
 - [x] `@fx/chat-agent`: approval, outcome, cost/context; tests
-- [ ] Apps: mobile and TUI use the outcome; tests
+- [x] Apps: mobile and TUI use the outcome; tests
 - [x] Specs/indexes
 
 ## References
