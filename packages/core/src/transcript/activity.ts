@@ -49,11 +49,14 @@ export type LivePhase =
   | { kind: 'waiting' }
   | { kind: 'thinking' }
   | { kind: 'tool'; call: ToolCallBlock }
+  /** The latest unfinished call is blocked on the user's approval. */
+  | { kind: 'approval'; call: ToolCallBlock }
   | { kind: 'writing' }
 
 /**
  * The live phase: a pending/running tool call (the latest such) outranks
- * everything — text that streamed before it is not "writing" any more; else
+ * everything — text that streamed before it is not "writing" any more — and
+ * reads `approval` when it awaits the user's approval; else
  * trailing open reasoning is `thinking`, trailing text `writing`, and anything
  * else (nothing yet, a finished tool) `waiting`.
  */
@@ -63,7 +66,11 @@ export function livePhase(message: RenderableMessage): LivePhase {
     const block = blocks[i] as RenderableBlock
     if (block.type !== 'tool_call') continue
     const tool = block as ToolCallBlock
-    if (tool.status === 'running' || tool.status === 'pending') return { kind: 'tool', call: tool }
+    if (tool.status === 'running' || tool.status === 'pending') {
+      return tool.approval?.state === 'pending'
+        ? { kind: 'approval', call: tool }
+        : { kind: 'tool', call: tool }
+    }
   }
   const trailing = blocks[blocks.length - 1]
   if (

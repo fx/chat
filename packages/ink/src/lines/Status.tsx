@@ -54,6 +54,8 @@ function defaultPhaseLabel(phase: LivePhase, headline: string | undefined): stri
       return 'writing'
     case 'tool':
       return `running ${headline}`
+    case 'approval':
+      return `awaiting approval ${headline}`
   }
 }
 
@@ -74,7 +76,7 @@ export function StatusLine({
   const now = hooks.useClock(false)
   const rule = glyphs.boxHorizontal
   const phase = live ? livePhase(live.message) : undefined
-  const call = phase?.kind === 'tool' ? phase.call : undefined
+  const call = phase?.kind === 'tool' || phase?.kind === 'approval' ? phase.call : undefined
   // The running call's headline, computed once per call and input (it may
   // serialise the arguments), not on every tick.
   const headline = React.useMemo(

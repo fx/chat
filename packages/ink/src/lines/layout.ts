@@ -199,6 +199,8 @@ interface HeaderParts {
   qualifier?: Span | undefined
   trailing?: string | undefined
   error?: boolean
+  /** Draw the label as an error when the `after` spans had to be dropped (they carried the cue). */
+  errorWithoutAfter?: boolean
   target?: LineTarget
 }
 
@@ -236,7 +238,8 @@ function headerRow(parts: HeaderParts, w: number, ctx: LayoutContext): LineDraft
   const cut = truncate(full, budget, ctx.measure)
   const labelPart = cut.slice(0, Math.min(label.length, cut.length))
   const detailPart = cut.slice(labelPart.length)
-  const middle: Span[] = [span(labelPart, { role: parts.error ? 'danger' : 'strong' }), ...after]
+  const error = parts.error || (parts.errorWithoutAfter && after.length === 0)
+  const middle: Span[] = [span(labelPart, { role: error ? 'danger' : 'strong' }), ...after]
   if (detailPart) middle.push(span(detailPart, { role: 'muted' }))
   return {
     spans: [...fixed, ...middle, ...tail],
@@ -276,11 +279,9 @@ function toolGlyph(tool: ToolCallBlock, live: boolean, ctx: LayoutContext): Span
   const g = ctx.glyphs
   if (tool.status === 'success') return span(g.toolSuccess, { role: 'positive', dim: true })
   if (tool.status === 'error') return span(g.toolError, { role: 'danger' })
-  // A live call spins on the shared clock like every live row; one awaiting
-  // approval is blocked on the user, and an unfinished one is idle.
-  return live && tool.approval?.state !== 'pending'
-    ? span(spinnerFrame(ctx), { role: 'marker' })
-    : span(g.toolIdle, { role: 'caution' })
+  // A live call spins on the shared clock like every live row; an unfinished
+  // one (or one awaiting approval, which is not live) is idle.
+  return live ? span(spinnerFrame(ctx), { role: 'marker' }) : span(g.toolIdle, { role: 'caution' })
 }
 
 const APPROVAL: Record<string, [string, InkThemeRole] | undefined> = {
@@ -550,6 +551,8 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
         qualifier: approvalQualifier(t.only),
         trailing: timer ? `${sep.trimStart()}${timer}` : undefined,
         error: t.only !== undefined && t.failed > 0,
+        // Too narrow for the counts: the label alone carries the failure.
+        errorWithoutAfter: t.failed > 0,
         target,
       },
       b.width,
@@ -613,17 +616,19 @@ export function layoutBody(
   let lastWasText = false
   let lastSide: 'content' | 'activity' | undefined
   for (const row of plan.rows) {
-    // Adjacent text blocks stay separate paragraphs (a copied blank line,
-    // always on), whether they were adjacent or the activity between them is
-    // not shown — but not before a text block with nothing to show yet.
+    // A text block with nothing visible (a stream's empty start) draws nothing
+    // and does not count as a paragraph.
     if (
       row.kind === 'bare' &&
       row.block.type === 'text' &&
-      lastWasText &&
-      (row.block as { text: string }).text.trim() !== ''
+      !(row.block as { text: string }).text.trim()
     ) {
-      out.push({ spans: [] })
+      continue
     }
+    // Adjacent text blocks stay separate paragraphs (a copied blank line,
+    // always on), whether they were adjacent or the activity between them is
+    // not shown.
+    if (row.kind === 'bare' && row.block.type === 'text' && lastWasText) out.push({ spans: [] })
     lastWasText = row.kind === 'bare' && row.block.type === 'text'
     const side = rowSide(row)
     // Content and activity are set apart by a blank decoration line.

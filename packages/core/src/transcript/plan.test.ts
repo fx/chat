@@ -46,6 +46,13 @@ describe('isBlockActive', () => {
       isBlockActive(tool('t', 'running'), { isActive: true, outcome: { kind: 'stopped' } }),
     ).toBe(false)
     expect(isBlockActive(tool('x', 'success'), ctx)).toBe(false)
+    // Blocked on the user's approval: not working, so not live.
+    expect(
+      isBlockActive(
+        { ...(tool('t', 'pending') as object), approval: { state: 'pending' } } as ContentBlock,
+        { isActive: true },
+      ),
+    ).toBe(false)
   })
   it('requires trailing position for other kinds, and unfinished reasoning', () => {
     expect(isBlockActive(status('x'), ctx)).toBe(true)
@@ -278,6 +285,19 @@ describe('planGroupHeader', () => {
       activeBlockId: 'r',
     })
     expect(untimed.showTimer).toBe(false)
+  })
+
+  it('neither spins nor ticks for a call awaiting approval', () => {
+    const plan = planGroupHeader(
+      [
+        reasoning('r', { durationMs: 5 }),
+        call('t', { status: 'pending', approval: { state: 'pending' }, startedAt: 1000 }),
+      ],
+      { isActive: true, startedAt: 1 },
+    )
+    expect(plan.isActive).toBe(false)
+    expect(plan.tools?.running).toBeUndefined()
+    expect(plan.showTimer).toBe(false)
   })
 
   it('reads reasoning: one thought as its row, several as a truthful count', () => {

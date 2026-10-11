@@ -553,7 +553,13 @@ describe('adjacent paragraphs', () => {
       { type: 'text', id: 'a', text: 'one' },
       { type: 'text', id: 'b', text: '  ' },
     ])
-    expect(text(layoutBody(starting, 40, ctx({ isActive: () => true })))).toEqual(['one', ''])
+    expect(text(layoutBody(starting, 40, ctx({ isActive: () => true })))).toEqual(['one'])
+    const between = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      { type: 'text', id: 'b', text: ' \n ' },
+      { type: 'text', id: 'c', text: 'two' },
+    ])
+    expect(text(layoutBody(between, 40, ctx()))).toEqual(['one', '', 'two'])
   })
 
   it('separates adjacent text blocks in stream order too', () => {
@@ -667,6 +673,10 @@ describe('group headers', () => {
     expect(text([header(60)])[0]).toBe('▸ ƒ 5 tool calls · 3 ✓ 2 ✗ · 9.2s')
     expect(text([header(26)])[0]).toBe('▸ ƒ 5 tool calls · 3 ✓ 2 ✗')
     expect(text([header(10)])[0]).toBe('▸ ƒ 5 too…')
+    // Without room for the counts, the label carries the failure.
+    const label = (w: number) => header(w).spans.find((s) => s.text.startsWith('5 '))?.role
+    expect(label(10)).toBe('danger')
+    expect(label(60)).toBe('strong')
     for (let w = 6; w <= 40; w++) {
       expect(defaultMeasure(text([header(w)])[0] as string)).toBeLessThanOrEqual(w)
     }
@@ -705,7 +715,24 @@ describe('group headers', () => {
         ctx({ isActive: () => true }),
       ),
     )
-    expect(awaiting[0]).toBe('· c · awaiting approval 3s')
+    expect(awaiting[0]).toBe('· c · awaiting approval')
+    // The same call heading a group: the qualifier, the idle caret, no spinner or timer.
+    const group = text(
+      layoutBody(
+        answer([
+          { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
+          tool('rm', {
+            status: 'pending',
+            approval: { state: 'pending' },
+            inputSummary: 'rm -rf x',
+            startedAt: 15_000,
+          }),
+        ]),
+        60,
+        ctx({ isActive: () => true, liveTail: 0 }),
+      ),
+    )
+    expect(group[0]).toBe('▸ ƒ rm rm -rf x · awaiting approval')
     const nameless = answer([
       { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
       tool('n', { name: '', durationMs: 200 }),

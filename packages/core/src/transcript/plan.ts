@@ -42,16 +42,20 @@ export interface ActivityContext {
 /**
  * Whether one block is live. A tool call is live while `pending`/`running`
  * at any position — but only while its message is live and has no outcome, so
- * a stopped or settled message never shows a spinner; a status row only as
+ * a stopped or settled message never shows a spinner, and never while it
+ * awaits the user's approval (it is blocked, not working); a status row only as
  * the trailing block of the streaming message; reasoning only while trailing
  * AND unfinished (no `durationMs`); any other block while trailing.
  */
 export function isBlockActive(block: RenderableBlock, context: ActivityContext): boolean {
   if (block.type === 'tool_call') {
     const status = (block as Extract<ContentBlock, { type: 'tool_call' }>).status
+    const blocked =
+      (block as Extract<ContentBlock, { type: 'tool_call' }>).approval?.state === 'pending'
     return (
       Boolean(context.isActive) &&
       !context.outcome &&
+      !blocked &&
       (status === 'running' || status === 'pending')
     )
   }

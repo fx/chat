@@ -134,8 +134,7 @@ function BlockRow({ block, ctx }: { block: RenderableBlock; ctx: Ctx }) {
           {...(input ? { detail: input } : {})}
           {...(approval ? { qualifier: approval } : {})}
           iconName="wrench"
-          // A call awaiting approval is blocked on the user: no spinner.
-          isActive={live && core.approval?.state !== 'pending'}
+          isActive={live}
           startedAt={core.startedAt}
           durationMs={core.durationMs}
           showTimer

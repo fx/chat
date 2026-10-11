@@ -103,6 +103,8 @@ describe('countActivity and livePhase', () => {
     expect(livePhase(msg([]))).toEqual({ kind: 'waiting' })
     expect(livePhase(msg([text('a'), running]))).toEqual({ kind: 'tool', call: running })
     expect(livePhase(msg([running, text('a')]))).toEqual({ kind: 'tool', call: running })
+    const blocked = tool('b', 'pending', { approval: { state: 'pending' } })
+    expect(livePhase(msg([text('a'), blocked]))).toEqual({ kind: 'approval', call: blocked })
     expect(livePhase(msg([reasoning('r')]))).toEqual({ kind: 'thinking' })
     expect(livePhase(msg([reasoning('r', 3, 5)]))).toEqual({ kind: 'waiting' })
     expect(livePhase(msg([text('a')]))).toEqual({ kind: 'writing' })

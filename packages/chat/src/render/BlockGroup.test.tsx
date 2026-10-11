@@ -399,6 +399,26 @@ describe('BlockGroup', () => {
     expect(container.querySelector('[data-affordance="active"]')).toBeNull()
   })
 
+  it('is idle while its only live call awaits approval', () => {
+    const blocks: ContentBlock[] = [
+      reasoning('r'),
+      {
+        type: 'tool_call',
+        id: 't',
+        name: 'rm',
+        arguments: {},
+        status: 'pending',
+        approval: { state: 'pending' },
+      },
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx({ isActive: true })} />)
+    expect(container.querySelector('[data-affordance="active"]')).toBeNull()
+    expect(container.querySelector('.chat-row-timer')).toBeNull()
+    expect(container.querySelector('.chat-group-summary')?.textContent).toBe(
+      'rm · awaiting approval',
+    )
+  })
+
   it('stays active for a pending tool anywhere in the run', () => {
     const blocks: ContentBlock[] = [
       { type: 'tool_call', id: 't1', name: 'q', arguments: {}, status: 'pending' },

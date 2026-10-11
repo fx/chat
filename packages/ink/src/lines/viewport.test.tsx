@@ -394,6 +394,28 @@ describe('StatusLine, PendingRows, EmptyState', () => {
     )
   })
 
+  it('says a call awaits approval rather than running', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(5_000)
+    const blocked: ChatMessage = {
+      ...live,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: 'shell',
+          inputSummary: 'rm -rf x',
+          arguments: {},
+          status: 'pending',
+          approval: { state: 'pending' },
+        },
+      ],
+    }
+    expect(str(<StatusLine width={80} live={{ message: blocked, startedAt: 0 }} />, 80)).toContain(
+      'awaiting approval shell rm -rf x · 5s',
+    )
+  })
+
   it('shows the pulse, phase, elapsed, tools, slow hint and extras while live', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(70_000)
