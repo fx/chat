@@ -1,3 +1,6 @@
+import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from '@fx/chat-core'
+import { type PlannedRow, planMessage } from '@fx/chat-core'
+import { useLiveTokensPerSecond } from '@fx/chat-core/react'
 /**
  * `MessageItem` — renders one `ChatMessage`, wrapped with the `data-message-id`
  * anchor contract.
@@ -34,15 +37,11 @@ import { useChatClassNames } from '../registry'
 import { BlockGroup } from './BlockGroup'
 import { GutterRow } from './GutterRow'
 import { MessageAttachments } from './MessageAttachments'
-import { MessageFooter, hasFooterContent } from './MessageFooter'
+import { LiveFooter, MessageFooter, hasFooterContent } from './MessageFooter'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock, RenderableMessage } from './extensions'
-import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from './format'
-import { type GroupedItem, getTimelineBehavior, groupBlocks } from './grouping'
-import { useLiveTokensPerSecond } from './hooks'
-import { collapseTurnAux } from './minimalGrouping'
 
 /** Props for {@link MessageItem}. */
 export interface MessageItemProps {
@@ -75,6 +74,12 @@ export interface MessageItemProps {
   timestampGutter?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
+  /** Activity after content (see core `planMessage`). */
+  activityPlacement?: 'inline' | 'after-content'
+  /** While live, show only the newest N activity blocks after an `N earlier` row. */
+  liveTail?: number
+  /** Show a footer with whole-second elapsed time while the message is live (opt-in). */
+  liveFooter?: boolean
   /** Optional render-layer extensions (custom block/tool renderers + grouping). */
   extensions?: ChatExtensions
   onRegenerate?: () => void
@@ -106,8 +111,11 @@ function blockTimestamp(block: RenderableBlock): number | undefined {
  * timestamp; a group uses its FIRST block's timestamp (the metadata line appears
  * where the run began). `undefined` when no row block carries one.
  */
-function groupedItemTimestamp(item: GroupedItem): number | undefined {
+type GroupedRow = Exclude<PlannedRow, { kind: 'pending' }>
+
+function groupedItemTimestamp(item: GroupedRow): number | undefined {
   if (item.kind === 'bare') return blockTimestamp(item.block)
+  if (item.kind === 'outcome' || item.kind === 'earlier') return undefined
   // Groups are always non-empty by construction (every group has at least one
   // block), but they are NOT limited to runs of length >= 2 — in minimal mode
   // `collapseTurnAux` can emit a single-item group.
@@ -121,6 +129,9 @@ export function MessageItem({
   flat = false,
   raw = false,
   minimal = false,
+  activityPlacement,
+  liveTail,
+  liveFooter = false,
   defaultOpen,
   showFooter = true,
   timestampGutter = false,
@@ -157,6 +168,7 @@ export function MessageItem({
     message,
     ...(raw ? { raw: true } : {}),
     ...(isActive && trailingBlock ? { activeBlockId: trailingBlock.id } : {}),
+    ...(message.outcome ? { outcome: message.outcome } : {}),
     ...(message.createdAt !== undefined ? { startedAt: message.createdAt } : {}),
     ...(message.metrics?.durationMs !== undefined
       ? { durationMs: message.metrics.durationMs }
@@ -171,49 +183,32 @@ export function MessageItem({
   const blocks = message.blocks
   const behaviorOverrides = extensions?.timelineBehavior
 
-  // The footer renders only for a completed assistant turn the host asked for a
-  // footer on — a cheap eligibility gate computed BEFORE any block walk.
-  const footerEligible = showFooter && !raw && message.role === 'assistant' && !isActive
-  // Whether the message carries at least one CONTENT (non-auxiliary) block —
-  // i.e. an actual answer (`text`/`system`), not just auxiliary chrome
-  // (`tool_call`/`reasoning`/`status`). Consults the timeline-behavior registry
-  // by block TYPE (honoring type-level and custom-block host overrides) rather
-  // than branching on block kind — content-worthiness is a per-kind question,
-  // not a per-tool-name one, so it deliberately uses `getTimelineBehavior` and
-  // never the per-tool-name resolution (keeping the flat/raw "no per-name
-  // lookup" guarantee intact).
-  //
-  // Short-circuited behind `footerEligible` so the `.some()` walk — and the
-  // registry lookup it performs — runs ONLY when the footer could actually
-  // render, never on the raw, hidden (`showFooter={false}`), non-assistant, or
-  // active paths, which must avoid timeline-behavior lookups and any host
-  // override getter side effects. An auxiliary-only turn (e.g. a tool-call-only
-  // step) is part of the assistant answer that follows, not a standalone
-  // answer, so it gets no footer even when action callbacks or metrics are
-  // present.
-  const showContentFooter =
-    footerEligible &&
-    blocks.some((block) => !getTimelineBehavior(block.type, behaviorOverrides).auxEligible)
-
   // Minimal (density) mode folds ALL of an assistant turn's auxiliary blocks into
-  // one group (via collapseTurnAux) and forces a compact footer. `flat` and `raw`
-  // FULLY override `minimal` — `minimalActive` gates every minimal-driven
-  // behavior (grouping, forced compact footer, and the `data-minimal` attribute)
-  // so neither is applied in flat/raw mode. User messages get the compact chrome
-  // but no aux-collapse (the default non-aux behavior keeps content bare/visible).
+  // one group and forces a compact footer. `flat` and `raw` FULLY override
+  // `minimal` — `minimalActive` gates every minimal-driven behavior (grouping,
+  // forced compact footer, and the `data-minimal` attribute).
   const minimalActive = minimal && !flat && !raw
-  const useMinimalGrouping = minimalActive && message.role === 'assistant'
   const effectiveCompactFooter = minimalActive || compactFooter
-  // Only compute grouping when the grouped render path actually consumes it. The
-  // flat path renders every block bare and the raw path renders JSON, so running
-  // collapseTurnAux/groupBlocks (and their timelineBehavior hooks) there is
-  // wasted work — gate it on `!flat && !raw`.
+  // Row + footer planning is shared with every renderer (`planMessage` in
+  // core). The flat and raw paths plan no grouping — so they perform no
+  // timeline-behavior lookups — and raw never shows a footer. The footer gate is
+  // short-circuited so the content-block walk only runs when a footer could
+  // render: a completed assistant turn with at least one content (non-aux)
+  // block; an aux-only turn is part of the answer that follows.
+  const plan = planMessage(message, {
+    isActive,
+    minimal: minimalActive,
+    ...(activityPlacement ? { activityPlacement } : {}),
+    ...(liveTail !== undefined ? { liveTail } : {}),
+    flat: flat || raw,
+    showFooter: showFooter && !raw,
+    overrides: behaviorOverrides,
+  })
+  const showContentFooter = plan.showFooter
   const groupedItems =
-    !flat && !raw
-      ? useMinimalGrouping
-        ? collapseTurnAux(blocks, behaviorOverrides)
-        : groupBlocks(blocks, behaviorOverrides)
-      : []
+    !flat && !raw ? plan.rows.filter((row): row is GroupedRow => row.kind !== 'pending') : []
+  // Flat mode renders blocks directly, so its outcome row trails them.
+  const flatOutcome = flat && !raw ? plan.rows.find((row) => row.kind === 'outcome') : undefined
 
   // A FRESH per-render clock de-duper, owned by this MessageItem and used only
   // for its own rows in order. Creating it inside render (not sharing one across
@@ -258,7 +253,7 @@ export function MessageItem({
     )
 
   const groupedRows = (
-    renderRow: (item: GroupedItem) => { node: ReactNode; key: string },
+    renderRow: (item: GroupedRow) => { node: ReactNode; key: string },
   ): ReactNode =>
     groupedItems.map((item) => {
       const { node, key } = renderRow(item)
@@ -274,6 +269,12 @@ export function MessageItem({
   // flat/grouped both map over an empty array here — and is gutter-wrapped with
   // the message `createdAt` so the clock cell prints. A settled (non-active)
   // empty message keeps rendering nothing.
+  const outcomeNode = (text: string): ReactNode => (
+    <div key="outcome" className={cx('chat-outcome', cn.outcome)} data-outcome="error" role="alert">
+      {text}
+    </div>
+  )
+
   const pendingStatusRow = (): ReactNode => {
     const pendingId = `${message.id}:pending`
     const row = (
@@ -310,32 +311,54 @@ export function MessageItem({
                     {...(extensions ? { extensions } : {})}
                   />
                 ))
-              : groupedRows((item) =>
-                  item.kind === 'bare'
-                    ? {
-                        key: item.block.id,
-                        node: (
-                          <BlockView
-                            key={item.block.id}
-                            block={item.block}
-                            context={context}
-                            {...(extensions ? { extensions } : {})}
-                          />
-                        ),
-                      }
-                    : {
-                        key: `group-${(item.blocks[0] as { id: string }).id}`,
-                        node: (
-                          <BlockGroup
-                            key={`group-${(item.blocks[0] as { id: string }).id}`}
-                            blocks={item.blocks}
-                            context={context}
-                            {...(defaultOpen !== undefined ? { defaultOpen } : {})}
-                            {...(extensions ? { extensions } : {})}
-                          />
-                        ),
-                      },
-                )}
+              : groupedRows((item) => {
+                  if (item.kind === 'bare') {
+                    return {
+                      key: item.block.id,
+                      node: (
+                        <BlockView
+                          key={item.block.id}
+                          block={item.block}
+                          context={context}
+                          {...(extensions ? { extensions } : {})}
+                        />
+                      ),
+                    }
+                  }
+                  if (item.kind === 'outcome')
+                    return { key: 'outcome', node: outcomeNode(item.outcome.message) }
+                  if (item.kind === 'earlier') {
+                    return {
+                      key: item.key,
+                      node: (
+                        <div
+                          key={item.key}
+                          className={cx('chat-earlier', cn.earlier)}
+                          data-count={item.count}
+                        >
+                          +{item.count} earlier
+                        </div>
+                      ),
+                    }
+                  }
+                  return {
+                    key: item.key,
+                    node: (
+                      <BlockGroup
+                        key={item.key}
+                        blocks={item.blocks}
+                        context={context}
+                        {...(defaultOpen !== undefined ? { defaultOpen } : {})}
+                        {...(extensions ? { extensions } : {})}
+                      />
+                    ),
+                  }
+                })}
+          {flatOutcome?.kind === 'outcome'
+            ? timestampGutter
+              ? wrapRow('outcome', undefined, outcomeNode(flatOutcome.outcome.message), true)
+              : outcomeNode(flatOutcome.outcome.message)
+            : null}
         </div>
       )}
       {!raw && message.role === 'user' && message.attachments && message.attachments.length > 0
@@ -348,6 +371,9 @@ export function MessageItem({
               : attachments
           })()
         : null}
+      {liveFooter && isActive && message.role === 'assistant' && blocks.length > 0 ? (
+        <LiveFooter startedAt={message.createdAt} />
+      ) : null}
       {showContentFooter
         ? (() => {
             const copyText = messageCopyText(message)
@@ -357,7 +383,8 @@ export function MessageItem({
             // this gate a timestamp-gutter layout would still emit an empty
             // `.chat-gutter-row` with a blank clock cell around it.
             const metrics = message.metrics
-            if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics })) {
+            const outcome = message.outcome
+            if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics, outcome })) {
               return null
             }
             const footer = (
@@ -365,6 +392,7 @@ export function MessageItem({
                 copyText={copyText}
                 compact={effectiveCompactFooter}
                 {...(metrics ? { metrics } : {})}
+                {...(outcome ? { outcome } : {})}
                 {...(onRegenerate ? { onRegenerate } : {})}
                 {...(onFork ? { onFork } : {})}
                 {...(onReset ? { onReset } : {})}

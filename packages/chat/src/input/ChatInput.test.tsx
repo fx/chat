@@ -1,3 +1,5 @@
+import type { Attachment } from '@fx/chat-core'
+import { referenceProvider } from '@fx/chat-core'
 /**
  * `ChatInput` composer tests.
  *
@@ -14,14 +16,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { type ReactElement, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Attachment } from '../model'
 import {
   ChatInput,
   __resetControlledWarnings,
   autosize,
   computeAtomicMentionDeletion,
 } from './ChatInput'
-import { referenceProvider } from './completion/reference'
 import type { CompletionProvider } from './completion/types'
 
 const attachment = (name: string): Attachment => ({

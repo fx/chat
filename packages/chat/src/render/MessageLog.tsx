@@ -1,3 +1,5 @@
+import { formatClockTime } from '@fx/chat-core'
+import { mergeTimeline } from '@fx/chat-core'
 /**
  * `MessageLog` — renders an ordered `ChatMessage[]`.
  *
@@ -16,8 +18,6 @@ import { GutterRow } from './GutterRow'
 import { MessageItem } from './MessageItem'
 import { TimelineItemView } from './TimelineItemView'
 import type { ChatExtensions, RenderableMessage } from './extensions'
-import { formatClockTime } from './format'
-import { mergeTimeline } from './mergeTimeline'
 
 /** Per-message affordance callbacks, keyed by message id. */
 export interface MessageCallbacks {
@@ -58,6 +58,12 @@ export interface MessageLogProps extends MessageCallbacks {
   timestampGutter?: boolean
   /** Compact footer mode. */
   compactFooter?: boolean
+  /** Activity after content instead of in stream order (see core `planMessage`). */
+  activityPlacement?: 'inline' | 'after-content'
+  /** While a message is live, show only its newest N activity blocks after an `N earlier` row. */
+  liveTail?: number
+  /** Show a whole-second elapsed footer on the live message (opt-in; off by default). */
+  liveFooter?: boolean
   /**
    * Optional render-layer extensions: custom block renderers, tool-name
    * overrides, and custom timeline items. Additive — when absent, output is the
@@ -80,6 +86,9 @@ export function MessageLog({
   flat,
   raw,
   minimal,
+  activityPlacement,
+  liveTail,
+  liveFooter,
   defaultOpen,
   showFooter,
   compactFooter,
@@ -136,6 +145,9 @@ export function MessageLog({
         {...(flat !== undefined ? { flat } : {})}
         {...(raw !== undefined ? { raw } : {})}
         {...(minimal !== undefined ? { minimal } : {})}
+        {...(activityPlacement ? { activityPlacement } : {})}
+        {...(liveTail !== undefined ? { liveTail } : {})}
+        {...(liveFooter !== undefined ? { liveFooter } : {})}
         {...(defaultOpen !== undefined ? { defaultOpen } : {})}
         {...(showFooter !== undefined ? { showFooter } : {})}
         {...(compactFooter !== undefined ? { compactFooter } : {})}

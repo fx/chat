@@ -1,3 +1,4 @@
+import { planGroupHeader } from '@fx/chat-core'
 /**
  * `BlockGroup` — renders a collapsed run of auxiliary blocks under one
  * disclosure, with a header summary chip selected by the grouping policy and a
@@ -8,15 +9,11 @@
  * branching in the log walk.
  */
 import { cx } from '../cx'
-import type { ContentBlock } from '../model'
 import { useChatClassNames } from '../registry'
 import { CollapsibleRow } from './CollapsibleRow'
-import { summarizeBlock } from './blockSummary'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
 import type { ChatExtensions, RenderableBlock } from './extensions'
-import { positiveTimestamp } from './format'
-import { selectHeaderSummary } from './grouping'
 
 /** Props for {@link BlockGroup}. */
 export interface BlockGroupProps {
@@ -30,99 +27,16 @@ export interface BlockGroupProps {
   extensions?: ChatExtensions
 }
 
-/** Whether a single block is currently active (drives the spinner). */
-function blockIsActive(block: RenderableBlock, context: BlockRenderContext): boolean {
-  // tool_call carries its own lifecycle, so a running/pending tool anywhere in
-  // the run counts regardless of which block is the message's trailing one.
-  if (block.type === 'tool_call') {
-    const status = (block as Extract<ContentBlock, { type: 'tool_call' }>).status
-    return status === 'running' || status === 'pending'
-  }
-  // status/reasoning are active only when they are the message's trailing block.
-  const isTrailingActive = Boolean(context.isActive) && block.id === context.activeBlockId
-  if (block.type === 'status') return isTrailingActive
-  if (block.type === 'reasoning') {
-    return (
-      isTrailingActive &&
-      (block as Extract<ContentBlock, { type: 'reasoning' }>).durationMs === undefined
-    )
-  }
-  // Custom (host-defined) kinds opted into grouping: active when they are the
-  // message's trailing active block — mirroring what `BlockView` passes as
-  // `isStreaming` to the host renderer, so the group spinner stays consistent.
-  return isTrailingActive
-}
-
-/**
- * Whether ANY block in the run is currently active. Checking the whole run (not
- * just the trailing block) means a still-running tool earlier in the collapsed
- * run keeps the group's spinner visible.
- */
-function groupIsActive(blocks: RenderableBlock[], context: BlockRenderContext): boolean {
-  return blocks.some((block) => blockIsActive(block, context))
-}
-
-/** Renders the collapsed group disclosure. */
 export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGroupProps) {
   const cn = useChatClassNames()
   // The trailing status only heads the summary while it is the live row; a
   // completed run surfaces the latest tool/reasoning summary instead.
-  const trailingBlock = blocks[blocks.length - 1] as RenderableBlock
-  const trailingActive = blockIsActive(trailingBlock, context)
-  const { block: summaryBlock, hiddenCount } = selectHeaderSummary(
-    blocks,
-    trailingActive,
-    extensions?.timelineBehavior,
-  )
-  const isActive = groupIsActive(blocks, context)
-
-  // Derive the collapsed-header summary (kind icon + label + timing) from the
-  // SAME `summarizeBlock` helper the bare renderers use, so the group header
-  // mirrors what the bare block shows (e.g. `brain` + "Thought for 1.3s" for a
-  // reasoning summary) and the two can't drift. Active state for the summary
-  // mirrors the row-level activeness of the chosen block.
-  const summaryActive = blockIsActive(summaryBlock, context)
-  const summary = summarizeBlock(summaryBlock, { isActive: summaryActive })
-
-  // When the chosen summary is a status row, surface its live/final timing and
-  // tokens/sec on the collapsed header — that is the whole reason the policy
-  // prefers a trailing active status as the summary (to keep the timer visible).
-  const summaryIsStatus = summaryBlock.type === 'status'
-
-  // Timer: a status summary surfaces a timer pill (status labels don't embed
-  // the duration, so the pill carries it), using the message-level duration.
-  // Other summaries follow `summary.showTimer`: an ACTIVE reasoning summary
-  // sets it — its "Thinking…" label carries no duration, and with
-  // `summary.durationMs` undefined while active, CollapsibleRow's
-  // useElapsedTimer ticks live from the timer anchor below. Finished
-  // reasoning/tool summaries keep it false — their bare renderers show no
-  // timer pill, and the reasoning "Thought for <dur>" label already embeds the
-  // duration, so a separate pill would duplicate it.
-  const showTimer = summaryIsStatus || summary.showTimer
-  const durationMs = summaryIsStatus ? context.durationMs : summary.durationMs
-  // Timer anchor: a reasoning summary prefers its block-level `startedAt`
-  // (reasoning that follows earlier tool activity ticks from when the thinking
-  // began, mirroring the bare ReasoningBlockView) — but only when it is a
-  // USABLE (finite, positive) timestamp — falling back to the message-level
-  // `context.startedAt` when the block carries none (or garbage: NaN/Infinity/
-  // non-positive must never defeat the fallback).
-  const startedAt =
-    positiveTimestamp(
-      summaryBlock.type === 'reasoning'
-        ? (summaryBlock as Extract<ContentBlock, { type: 'reasoning' }>).startedAt
-        : undefined,
-    ) ?? context.startedAt
-  // tok/s: the status summary shows the live rate only while active
-  // (unchanged). A reasoning/tool summary shows the message-level rate only
-  // when this group is itself active OR the whole message has settled — a
-  // FINISHED group inside a still-streaming message must not churn with the
-  // live estimate (jitter, stall decay, a snap at finalize).
-  const showRate = summaryIsStatus ? isActive : isActive || !context.isActive
-  const tokensPerSecond = showRate ? context.tokensPerSecond : undefined
-
-  // The `(+N)` hidden-count renders as plain muted text right after the
-  // disclosure caret and BEFORE the kind icon/label (reference order), via
-  // CollapsibleRow's `prefix` slot. Rendered only when there is a hidden remainder.
+  const header = planGroupHeader(blocks, {
+    ...context,
+    ...(extensions?.timelineBehavior ? { overrides: extensions.timelineBehavior } : {}),
+  })
+  const { summary, hiddenCount, isActive, showTimer, durationMs, startedAt } = header
+  const tokensPerSecond = header.showRate ? context.tokensPerSecond : undefined
   const prefix =
     hiddenCount > 0 ? (
       <span className={cx('chat-group-more', cn.groupMore)}>(+{hiddenCount})</span>
@@ -142,7 +56,7 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       isActive={isActive}
       startedAt={startedAt}
       showTimer={showTimer}
-      {...(showTimer && durationMs !== undefined ? { durationMs } : {})}
+      {...(durationMs !== undefined ? { durationMs } : {})}
       {...(tokensPerSecond !== undefined ? { tokensPerSecond } : {})}
       defaultOpen={defaultOpen}
       alwaysShow

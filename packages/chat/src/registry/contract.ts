@@ -140,6 +140,22 @@ export interface ChatClassNames {
   textPlain?: string
   mention?: string
   toolBody?: string
+  /** The tool row's one-line input beside its label (`.chat-tool-input`). */
+  toolInput?: string
+  /** The approval qualifier (`.chat-tool-approval`, `data-approval`). */
+  toolApproval?: string
+  /** A plan's entry list (`.chat-plan`). */
+  plan?: string
+  /** One plan entry (`.chat-plan-entry`, `data-status`). */
+  planEntry?: string
+  /** A live tail's `+N earlier` row (`.chat-earlier`, `data-count`). */
+  earlier?: string
+  /** A message's error outcome row (`.chat-outcome`). */
+  outcome?: string
+  /** The live footer's elapsed time (`.chat-footer-elapsed`). */
+  footerElapsed?: string
+  /** The footer's stopped / failed marker (`.chat-footer-outcome`). */
+  footerOutcome?: string
   toolSection?: string
   toolSectionLabel?: string
   toolMedia?: string
@@ -265,8 +281,17 @@ export type IconName =
   | 'download'
   | 'expand'
 
-/** The full icon map: one component per {@link IconName}. */
-export type IconRegistry = Record<IconName, IconComponent>
+/**
+ * Icons added after the first release. They are deliberately NOT members of
+ * {@link IconName}, and OPTIONAL in a registry, so host code typed against the
+ * original set (`Record<IconName, …>`) keeps compiling; the provider's merge
+ * supplies the headless glyph until the host maps them.
+ */
+export type OptionalIconName = 'checklist'
+
+/** The icon map: one component per {@link IconName}; optional icons may be omitted. */
+export type IconRegistry = Record<IconName, IconComponent> &
+  Partial<Record<OptionalIconName, IconComponent>>
 
 /**
  * The injectable component registry. A host supplies any subset via

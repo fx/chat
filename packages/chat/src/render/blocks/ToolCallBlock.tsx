@@ -1,3 +1,4 @@
+import { type ToolCallBlock, toolDisplayInput, toolLabel } from '@fx/chat-core'
 /**
  * `ToolCallBlockView` — a collapsible tool-invocation block.
  *
@@ -9,13 +10,18 @@
  * failure never rests on color alone (WCAG 1.4.1).
  */
 import { cx } from '../../cx'
-import type { ToolCallBlock } from '../../model'
 import { useChatClassNames, useChatComponents } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
 
 /** Props for {@link ToolCallBlockView}. */
 export interface ToolCallBlockViewProps {
   block: ToolCallBlock
+  /**
+   * Whether the call is live (spinner). Defaults to its status being
+   * `running`/`pending`; inside a message the renderer passes the shared rule
+   * (live only while the message is live and has no outcome).
+   */
+  isActive?: boolean | undefined
   /** Default-open state (e.g. driven by a verbose toggle). Error overrides this. */
   defaultOpen?: boolean | undefined
 }
@@ -56,17 +62,41 @@ function MediaItem({
  * queued/in-flight call is not done); error styling + default-open follow
  * `status === 'error'`.
  */
-export function ToolCallBlockView({ block, defaultOpen }: ToolCallBlockViewProps) {
+/** The approval qualifier text, when the call's approval says something. */
+const APPROVAL_TEXT: Record<string, string | undefined> = {
+  denied: 'denied',
+  unavailable: 'refused',
+  pending: 'awaiting approval',
+}
+
+export function ToolCallBlockView({ block, defaultOpen, isActive: live }: ToolCallBlockViewProps) {
   const { JsonView } = useChatComponents()
   const cn = useChatClassNames()
   const isError = block.status === 'error'
-  const isActive = block.status === 'running' || block.status === 'pending'
+  const isActive = live ?? (block.status === 'running' || block.status === 'pending')
+  const input = toolDisplayInput(block)
+  const approval = block.approval ? APPROVAL_TEXT[block.approval.state] : undefined
+  const label = (
+    <>
+      {toolLabel(block)}
+      {input ? <span className={cx('chat-tool-input', cn.toolInput)}> {input}</span> : null}
+      {approval ? (
+        <span
+          className={cx('chat-tool-approval', cn.toolApproval)}
+          data-approval={block.approval?.state}
+        >
+          {' · '}
+          {approval}
+        </span>
+      ) : null}
+    </>
+  )
   const hasResult = block.result !== undefined
   const media = block.media ?? []
 
   return (
     <CollapsibleRow
-      label={block.name}
+      label={label}
       iconName="wrench"
       isActive={isActive}
       startedAt={block.startedAt}

@@ -1,6 +1,6 @@
+import type { ChatMessage } from '@fx/chat-core'
 import { fireEvent, render, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChatMessage } from '../model'
 import { ChatProvider } from '../registry'
 import type {
   BadgeProps,

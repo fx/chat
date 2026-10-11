@@ -1,3 +1,4 @@
+import type { ChatMessage } from '@fx/chat-core'
 /**
  * Threading tests for the headless `classNames` injection API (STAGE A).
  *
@@ -10,7 +11,6 @@
  */
 import { render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChatMessage } from '../model'
 import { ChatProvider } from '../registry'
 import type { ChatClassNames } from '../registry'
 import { MessageLog } from './MessageLog'

@@ -1,3 +1,5 @@
+import { mentionsToSegments } from '@fx/chat-core'
+import type { Attachment } from '@fx/chat-core'
 /**
  * `ChatInput` — the headless message composer.
  *
@@ -28,8 +30,6 @@ import {
   useState,
 } from 'react'
 import { cx } from '../cx'
-import { mentionsToSegments } from '../mentions'
-import type { Attachment } from '../model'
 import { useChatClassNames, useChatComponents } from '../registry'
 import { CompletionPopup, type CompletionPopupHandle } from './CompletionPopup'
 import type { CompletionProvider } from './completion/types'

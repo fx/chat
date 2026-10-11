@@ -1,8 +1,8 @@
+import type { SystemBlock } from '@fx/chat-core'
 /**
  * `SystemBlockView` — a collapsible "system prompt" block.
  */
 import { cx } from '../../cx'
-import type { SystemBlock } from '../../model'
 import { useChatClassNames } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'
 

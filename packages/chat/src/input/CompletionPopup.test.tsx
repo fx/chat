@@ -1,3 +1,4 @@
+import { referenceProvider } from '@fx/chat-core'
 /**
  * `CompletionPopup` tests.
  *
@@ -17,7 +18,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { type RefObject, useImperativeHandle, useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CompletionPopup, type CompletionPopupHandle, LOADING_DELAY } from './CompletionPopup'
-import { referenceProvider } from './completion/reference'
 import type { CompletionItem, CompletionProvider } from './completion/types'
 
 /** A controllable harness wrapping a textarea + the popup. */

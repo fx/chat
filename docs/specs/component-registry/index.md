@@ -115,6 +115,11 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - **WHEN** each supplies its own `icons` map
 - **THEN** the same renderers display each demo's icons with no package change.
 
+- New semantic icons MUST be added as OPTIONAL registry entries with a headless fallback, outside the
+  original `IconName` set (as `OptionalIconName`), so host code typed against the earlier icon set
+  (including `Record<IconName, …>` maps) keeps compiling and renders the fallback until it maps the
+  new name. The `checklist` icon (plan blocks) is the first such icon.
+
 ### Markdown Contract
 
 - The registry MUST include a `Markdown` slot: a component receiving at least
@@ -279,3 +284,4 @@ type IconName =
 | 2026-06-27 | Clarified the `Collapsible` slot is the SOLE owner of the disclosure caret; the render substrate MUST NOT render one | [0010-single-caret-disclosure](../../changes/0010-single-caret-disclosure.md) |
 | 2026-06-28 | Required a visible, token-driven `:focus-visible` ring (via `--chat-accent`) on every focusable package control (button, copy, collapsible summary, attachment thumb/download, lightbox close); completion popup excluded (aria-activedescendant model) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-29 | Package goes fully headless: the styling mechanism is the `classNames` injection map onto the stable `.chat-*` hooks (not shipped CSS-var theme tokens). The default theme (font, role bubbles, density, focus rings) is removed; visual styling — including focus rings — is host-supplied via `classNames` | [0013-headless-styling](../../changes/0013-headless-styling.md) |
+| 2026-10-10 | Optional icons with headless fallback; `checklist` | [0024-plan-block](../../changes/0024-plan-block.md) |

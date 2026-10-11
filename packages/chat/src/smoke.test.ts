@@ -57,10 +57,10 @@ describe('@fx/chat public surface', () => {
     expect(existsSync(resolve(pkgDir, 'src/styles.css'))).toBe(false)
   })
 
-  it('keeps React as a peer dependency and bundles no runtime deps', () => {
+  it('keeps React as a peer dependency and depends only on @fx/chat-core', () => {
     expect(pkg.peerDependencies).toHaveProperty('react')
     expect(pkg.peerDependencies).toHaveProperty('react-dom')
-    expect(pkg.dependencies ?? {}).toEqual({})
+    expect(pkg.dependencies ?? {}).toEqual({ '@fx/chat-core': 'workspace:*' })
   })
 
   it('ships the animation keyframes that raw-CSS consumers cannot supply as utilities', () => {

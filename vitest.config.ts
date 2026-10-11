@@ -15,12 +15,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary'],
-      include: ['packages/chat/src/**', 'scripts/**/*.mjs'],
+      include: ['packages/core/src/**', 'packages/chat/src/**', 'scripts/**/*.mjs'],
       // Only meaningful source contributes to the threshold; CSS has no
       // executable lines and test files are not production source.
       exclude: [
         'packages/chat/src/**/*.css',
-        'packages/chat/src/**/*.test.{ts,tsx}',
+        'packages/*/src/**/*.test.{ts,tsx}',
+        'packages/chat/src/exports.snapshot.json',
         'scripts/**/*.test.mjs',
       ],
       thresholds: {

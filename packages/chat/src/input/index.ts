@@ -17,7 +17,7 @@ export {
   REFERENCE_ITEMS,
   REFERENCE_TRIGGER,
   referenceProvider,
-} from './completion/reference'
+} from '@fx/chat-core'
 export type {
   CompletionApplyResult,
   CompletionItem,

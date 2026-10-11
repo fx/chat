@@ -52,10 +52,23 @@
     "packages/chat": {
       "name": "@fx/chat",
       "version": "0.0.0",
+      "dependencies": {
+        "@fx/chat-core": "workspace:*",
+      },
       "peerDependencies": {
         "react": "^18.2.0 || ^19.0.0",
         "react-dom": "^18.2.0 || ^19.0.0",
       },
+    },
+    "packages/core": {
+      "name": "@fx/chat-core",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "react": "^18.2.0 || ^19.0.0",
+      },
+      "optionalPeers": [
+        "react",
+      ],
     },
   },
   "packages": {
@@ -204,6 +217,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
 
     "@fx/chat": ["@fx/chat@workspace:packages/chat"],
+
+    "@fx/chat-core": ["@fx/chat-core@workspace:packages/core"],
 
     "@fx/ui": ["@fx/ui@1.0.0", "https://npm.pkg.github.com/download/@fx/ui/1.0.0/cff4e5bd5ed8899430c10091711ef66f8246467f", { "dependencies": { "@base-ui-components/react": "^1.0.0-rc.0", "class-variance-authority": "^0.7", "clsx": "^2.1", "date-fns": "^4.1", "lucide-react": "^0.563", "recharts": "^3.7", "tailwind-merge": "^3.4" }, "peerDependencies": { "react": "^19", "react-dom": "^19" } }, "sha512-G212PgT17B7GEWv7OzIXImTRrJCwoypSpQM6gsrJJOWx2EL9nCZpCpJGI9lXtdV+K1iGYPZm6JGrP6WqJQzaqg=="],
 

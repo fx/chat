@@ -16,7 +16,46 @@
  */
 export const version = '0.0.0'
 
-export * from './model'
+/**
+ * The message model, codec, and mention helpers live in `@fx/chat-core` and are
+ * re-exported unchanged so existing host imports keep working.
+ */
+export type {
+  Attachment,
+  ChatMessage,
+  ContentBlock,
+  HostAttachment,
+  HostMessage,
+  HostToolCall,
+  MentionRange,
+  MentionSegment,
+  MessageMetrics,
+  MessageOutcome,
+  NormalizeMapping,
+  ReasoningBlock,
+  Role,
+  Segment,
+  StatusBlock,
+  SystemBlock,
+  TextBlock,
+  ToolCallBlock,
+  ToolApproval,
+  ToolKind,
+  ToolMedia,
+  ToolStatus,
+} from '@fx/chat-core'
+export {
+  ChatMessageAssertionError,
+  assertChatMessage,
+  attachmentKind,
+  deepParseJson,
+  defaultToolStatus,
+  mentionsToSegments,
+  normalizeMessage,
+  normalizeTranscript,
+  parseMentions,
+  toJsonSafe,
+} from '@fx/chat-core'
 
 /**
  * The `clsx`-style class-name joiner + its value type. Implemented in the
@@ -28,8 +67,6 @@ export { cx } from './cx'
 export type { ClassValue } from './cx'
 
 export * from './registry'
-
-export * from './mentions'
 
 export * from './render'
 

@@ -1,6 +1,6 @@
+import type { ChatMessage } from '@fx/chat-core'
 import { render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChatMessage } from '../model'
 import { MessageItem, messageCopyText } from './MessageItem'
 import { stubMatchMedia } from './test-helpers'
 

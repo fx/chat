@@ -185,6 +185,12 @@ scope** and MUST NOT appear in this package.
 - These behaviors MUST be exposed as reusable hooks (e.g. `useElapsedTimer`,
   `useFlashComplete`, `useLiveTokensPerSecond`) so hosts can reuse them and tests can drive
   them with fake timers.
+- **Shared clock.** A host MAY provide one clock with a chosen tick for a subtree. Inside it, every
+  timer, live rate, spinner and pulse MUST re-render from that one clock and MUST NOT arm intervals
+  of its own; one clock runs one interval, and only while something live subscribes. Without a
+  clock, the per-hook defaults above apply unchanged.
+- The flash-on-complete behavior MUST be disableable by the host (it costs extra frames on slow
+  terminals); it is on by default.
 - All animations/transitions MUST honor `prefers-reduced-motion`.
 
 #### Scenario: Timer survives remount
@@ -391,9 +397,8 @@ scope** and MUST NOT appear in this package.
   `MessageItem`'s branch gate and `MessageFooter`'s safety-net early return.
 - **Host responsibilities:** hosts MUST eventually clear `isStreaming`/`streamingMessageId`
   (terminalize runs, including on error) — a permanently-active message never shows a footer,
-  by design. Likewise, a turn that settles with ZERO blocks renders no footer, so a host that
-  wants a retry affordance on a failed/empty turn must surface an error block (giving the
-  footer content to attach to) or provide its own UI.
+  by design. A failed or stopped turn is described by the message `outcome` (see Agent Activity),
+  which opens the footer even when the turn has no content.
 - An ACTIVE assistant message with zero blocks MUST render a live pending status row (phase
   `'pre-stream'`, live timer); a settled empty message renders nothing. The row is a synthetic
   status block (`'<messageId>:pending'`) rendered through the normal `BlockView` dispatch
@@ -428,6 +433,105 @@ scope** and MUST NOT appear in this package.
   inside its blocks container — gutter-wrapped with the `createdAt` clock when
   `timestampGutter` is on — and once `isStreaming` clears (or the message is otherwise
   non-active) the empty message renders nothing again.
+
+### Agent Activity
+
+How every renderer shows an agent's work. The decisions live in the shared render plan in
+`@fx/chat-core`, so every renderer shows the same labels, counts, and gates.
+
+- **Tool label and input.** A tool row's label MUST be the call's non-blank `title` (trimmed), else
+  its `name`; a bare row and a group header headed by the call MUST agree. The row MAY add a one-line
+  input: the call's `inputSummary`, else a summary derived from `arguments` (a string argument as
+  is; else the first non-empty string among `command`, `file_path`, `path`, `pattern`, `url`,
+  `query`, `prompt`, `description`; else compact JSON of a non-empty object), whitespace collapsed
+  and cut with `…` — and none when the label already contains it.
+- **Tool output text.** A tool's output text MUST be the result itself when it is a string, empty
+  when absent, and two-space-indented JSON otherwise; it is what renderers lay out and what a copy
+  of the output copies.
+- **Approval qualifier.** A call with `approval.state` of `denied` or `unavailable` MUST show a
+  `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`.
+- **Tool liveness.** A `pending`/`running` tool call MUST count as live only while its message is
+  live and has no `outcome`; on a settled or stopped message it shows as unfinished, without a
+  spinner. (Previously it counted as live regardless of its message.)
+- **Plan.** A plan block is auxiliary (it folds into a turn's activity like reasoning and tool
+  calls, and alone does not open the footer gate). Its summary is `Plan d/t` (completed / total),
+  or `Plan` with no entries, with the `checklist` icon and no timer. Renderers MUST render it as a
+  checklist with one row per entry and a per-status marker; completed entries de-emphasized.
+- **Outcome.** An assistant message with an `error` outcome MUST show the error inside the message,
+  after its content, as an error-toned row; a `stopped` outcome adds no row. A settled message with
+  an outcome MUST show its footer even with no content; the footer facts include `stopped` /
+  `failed` and a host-labelled retry hint slot.
+- **Footer facts.** The footer's content MUST be planned as ordered facts — `elapsed`, `outcome`,
+  `reasoning` (characters), `plan` (`d/t`), `tools` (`N tools[, M failed]`), `cost`, `context`
+  (`ctx used/size`), `model`, `rate` — that each renderer draws with its own (injected) glyphs and
+  separators. Activity facts (`reasoning`, `plan`, `tools`) appear only when the activity itself is
+  collapsed; `context` only when it is shown in detail. The existing single-line metrics text stays
+  available unchanged.
+- **Live footer.** A footer on a live message is OPT-IN for the host (the default footer gate above
+  is unchanged). When enabled, it shows from the first thing that arrives, and its elapsed fact
+  counts whole seconds from the message's creation, so it changes at most once a second.
+- **Durations.** Finished durations everywhere (row timers, footer `elapsed`) use the
+  tenths-of-a-second format above. Live elapsed values outside rows (the live footer, a status
+  line) use whole seconds (`12s`, `2m 05s`) so they change once a second. Sub-second finished
+  footer values read in milliseconds (`640ms`).
+- **Formats.** Cost: `$` and the amount with four decimals below 0.01, else two; a non-USD currency
+  is suffixed with its code instead. Token and character counts: exact below 1000, then `2.4k`,
+  `12k`, and `1.2M` from a million.
+- **Activity counts and live phase** MUST be shared helpers: counts of reasoning characters, plan
+  progress, and tools (total / failed / denied / running), where denied includes `unavailable` and
+  failed includes denied; and the live phase of a message — `waiting` (nothing back), `thinking`
+  (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text), or
+  `writing`.
+- **Activity placement.** A host MAY ask for activity after content: content blocks (and the
+  outcome row) first in their order, then the turn's activity folded as one group in its order.
+  Text blocks separated by activity remain separate paragraphs.
+- **Live tail.** A host MAY ask that, while a message is live and its activity collapsed, only the
+  newest N activity blocks show, preceded by an `N earlier` row; reasoning shows only while nothing
+  else has arrived. A finished message never shows a tail.
+
+#### Scenario: Title wins over name
+
+- **GIVEN** a tool call `{ name: 'fs_read', title: 'Read config.yaml' }`
+- **WHEN** it heads a bare row or a group
+- **THEN** both show `Read config.yaml`.
+
+#### Scenario: Input not repeated
+
+- **GIVEN** `{ title: 'Run npm test', arguments: { command: 'npm test' } }`
+- **WHEN** its row is drawn
+- **THEN** no separate input is shown.
+
+#### Scenario: Stopped mid-tool
+
+- **GIVEN** an assistant message with a `running` tool call and `outcome: { kind: 'stopped' }`
+- **WHEN** it renders as not live
+- **THEN** the tool row has no spinner, the footer shows, and its facts include `stopped`.
+
+#### Scenario: Collapsed footer carries the activity
+
+- **GIVEN** a finished answer with 599 reasoning characters, 3 tool calls (1 failed), cost 0.021,
+  duration 16 s, activity collapsed
+- **WHEN** its footer is planned
+- **THEN** the facts are, in order, elapsed `16.0s`, reasoning `599`, tools `3 tools, 1 failed`,
+  cost `$0.02`.
+
+#### Scenario: Live footer ticks by the second
+
+- **GIVEN** a live answer created 12.4 s ago with the live footer enabled
+- **WHEN** its footer is planned now and 500 ms later
+- **THEN** elapsed reads `12s` both times.
+
+#### Scenario: Plan progress label
+
+- **GIVEN** a group whose latest header-eligible block is a plan with 2 of 5 entries completed
+- **WHEN** the group header is planned
+- **THEN** its label is `Plan 2/5` with the `checklist` icon.
+
+#### Scenario: Tool after text
+
+- **GIVEN** a live message with blocks `[text, tool_call(running)]`
+- **WHEN** its live phase is asked
+- **THEN** it is `tool` with that call.
 
 ### Scroll-to-Message Utility
 
@@ -716,3 +820,7 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-07-03 | Correctness review fixes: reasoning timers anchor at the block-level `startedAt` (new model field, host `reasoningStartedAt`) with message-level fallback; `summarizeBlock` owns the durationMs finished-gate (stale `isActive` never yields "Thinking…"); non-status group headers show tok/s only when the group is active or the message settled (no live churn on finished groups); provider `metrics.tokensPerSecond` wins over the live estimate while active (usage/durationMs finalized-only); rates rounding to `0.0 tok/s` render nothing; live pills require a finite clock anchor | [0016-live-reasoning-timer-and-tokens](../../changes/0016-live-reasoning-timer-and-tokens.md) |
 | 2026-07-03 | Custom-block summary label: `CustomBlock` gains an OPTIONAL documented `label?: unknown` field (declared `unknown` so hosts already carrying a non-string `label` payload keep compiling); when a custom block heads a collapsed header, `summarizeBlock` prefers a host-supplied non-blank string `label` over the raw `type` (empty/whitespace-only/non-string/absent fall back to `type` unchanged) | [0017-custom-block-summary-label](../../changes/0017-custom-block-summary-label.md) |
 | 2026-07-05 | Timeline-item gutter timestamps: under `timestampGutter`, `MessageLog` wraps host `timelineItems` (`TimelineItemView`) in the same `.chat-gutter-row` as message rows, deriving the clock from the item's `at` via `formatClockTime` (no cross-entry de-dupe; non-finite `at` → blank `aria-hidden` cell; bare when off). The gutter-row markup is extracted into a shared `GutterRow` primitive that `MessageItem` and `MessageLog` both delegate to | [0018-timeline-item-gutter-timestamps](../../changes/0018-timeline-item-gutter-timestamps.md) |
+| 2026-10-10 | Agent activity: tool title/input/approval, tool liveness gated on the message, outcome | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
+| 2026-10-10 | Plan rendering | [0024-plan-block](../../changes/0024-plan-block.md) |
+| 2026-10-10 | Footer facts, opt-in live footer, formats, counts/phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
+| 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |

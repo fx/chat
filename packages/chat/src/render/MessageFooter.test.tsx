@@ -1,6 +1,6 @@
+import type { MessageMetrics } from '@fx/chat-core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { MessageMetrics } from '../model'
 import { ChatProvider } from '../registry'
 import type { PartialChatComponents } from '../registry'
 import { MessageFooter, hasFooterContent } from './MessageFooter'
