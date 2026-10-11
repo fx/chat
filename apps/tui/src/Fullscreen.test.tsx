@@ -2,7 +2,7 @@ import { InkChatProvider } from '@fx/chat-ink'
 import { cleanup, render } from 'ink-testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Fullscreen, type FullscreenProps } from './Fullscreen'
-import { KEYS, fakeEndpoint, sseBody, tick } from './test-helpers'
+import { KEYS, fakeEndpoint, fetchCall, sseBody, stuckBody, tick } from './test-helpers'
 
 afterEach(() => cleanup())
 
@@ -185,6 +185,63 @@ describe('Fullscreen', () => {
     expect(onExit).not.toHaveBeenCalled()
     await type(KEYS.ctrl('c'))
     expect(onExit).toHaveBeenCalledWith('quit')
+  })
+
+  it('stops the turn with Ctrl+C while an approval is shown, then quits', async () => {
+    const { type, frame, endpoint, onExit } = setup(
+      [() => fetchCall(), () => sseBody([{ content: 'never' }])],
+      { settings: { ...settings, tools: { fetch_url: true } }, size: { columns: 120, rows: 24 } },
+    )
+    await type('go', KEYS.enter)
+    await tick(60)
+    expect(frame()).toContain('Allow fetch_url?')
+    await type(KEYS.ctrl('c'))
+    await tick(60)
+    expect(frame()).not.toContain('Allow fetch_url?')
+    expect(frame()).toContain('stopped')
+    expect(onExit).not.toHaveBeenCalled()
+    expect(endpoint.requests.some((r) => r.url === 'https://x.test/')).toBe(false)
+    expect(endpoint.requests.filter((r) => r.url.endsWith('/chat/completions'))).toHaveLength(1)
+    await type(KEYS.ctrl('c'))
+    expect(onExit).toHaveBeenCalledWith('quit')
+  })
+
+  it('keeps details, scrolling and the mouse live while an approval is shown', async () => {
+    const { type, frame, write } = setup([() => fetchCall()], {
+      settings: { ...settings, tools: { fetch_url: true } },
+    })
+    await type('go', KEYS.enter)
+    await tick(60)
+    expect(frame()).toContain('Allow fetch_url?')
+    expect(write).not.toHaveBeenCalledWith(expect.stringContaining('?1002l'))
+    expect(frame()).not.toContain('pondering')
+    await type(KEYS.ctrl('o'))
+    expect(frame()).toContain('pondering')
+    await type(KEYS.ctrl('o'))
+    expect(frame()).not.toContain('pondering')
+    await type(KEYS.ctrl('t'))
+    expect(frame()).toContain('pondering')
+    expect(frame()).toContain('Allow fetch_url?')
+  })
+
+  it('quits on a second Ctrl+C when a stopped turn does not wind down', async () => {
+    const { type, onExit } = setup([stuckBody])
+    await type('go', KEYS.enter)
+    await tick(40)
+    await type(KEYS.ctrl('c'))
+    await tick(40)
+    expect(onExit).not.toHaveBeenCalled()
+    await type(KEYS.ctrl('c'))
+    expect(onExit).toHaveBeenCalledWith('quit')
+  })
+
+  it('refuses /new while an answer runs', async () => {
+    const { type, frame, endpoint } = setup([slow('kept', 200)])
+    await type('go', KEYS.enter, '/new', KEYS.enter)
+    expect(frame()).toContain('Stop it first')
+    await tick(300)
+    expect(frame()).toContain('kept')
+    expect(endpoint.requests.filter((r) => r.url.endsWith('/chat/completions'))).toHaveLength(1)
   })
 
   it('cycles detail, scrolls, and toggles details with Ctrl+O', async () => {

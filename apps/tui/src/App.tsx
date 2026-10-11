@@ -38,17 +38,13 @@ export function App(props: AppProps) {
     session
 
   ink.useInput((input, key) => {
-    if (approval) {
-      if (input === 'y' || input === 'Y' || key.return) approval.resolve(true)
-      else if (input === 'n' || input === 'N' || key.escape) approval.resolve(false)
-      return
-    }
-    if (key.ctrl && input === 'c') {
-      if (run) session.stop()
-      else session.quit('quit')
-    } else if (key.ctrl && input === 'o') {
-      setExpanded((e) => !e)
-    }
+    // Ctrl+C and Ctrl+O come before the approval keys: an approval is part of
+    // a running turn, which Ctrl+C stops (settling the approval as stopped).
+    if (key.ctrl && input === 'c') return session.interrupt()
+    if (key.ctrl && input === 'o') return setExpanded((e) => !e)
+    if (!approval) return
+    if (input === 'y' || input === 'Y' || key.return) approval.resolve(true)
+    else if (input === 'n' || input === 'N' || key.escape) approval.resolve(false)
   })
 
   return (

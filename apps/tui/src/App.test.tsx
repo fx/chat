@@ -2,7 +2,7 @@ import { InkChatProvider } from '@fx/chat-ink'
 import { cleanup, render } from 'ink-testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App, type AppProps } from './App'
-import { KEYS, fakeEndpoint, sseBody, tick } from './test-helpers'
+import { KEYS, fakeEndpoint, fetchCall, sseBody, stuckBody, tick } from './test-helpers'
 
 afterEach(() => cleanup())
 
@@ -142,6 +142,63 @@ describe('App', () => {
     expect(onExit).not.toHaveBeenCalled()
     await type(KEYS.ctrl('c'))
     expect(onExit).toHaveBeenCalledWith('quit')
+  })
+
+  it('stops the turn with Ctrl+C while an approval is shown, then quits', async () => {
+    const { type, lastFrame, frames, endpoint, onExit } = setup(
+      [() => fetchCall(), () => sseBody([{ content: 'never' }])],
+      { settings: { ...settings, tools: { fetch_url: true } } },
+    )
+    await type('go', KEYS.enter)
+    await tick(60)
+    expect(lastFrame()).toContain('Allow fetch_url?')
+    await type(KEYS.ctrl('c'))
+    await tick(60)
+    expect(lastFrame()).not.toContain('Allow fetch_url?')
+    expect(frames()).toContain('stopped')
+    expect(onExit).not.toHaveBeenCalled()
+    // Settled as stopped: nothing fetched, the model is not asked again.
+    expect(endpoint.requests.some((r) => r.url === 'https://x.test/')).toBe(false)
+    expect(endpoint.requests.filter((r) => r.url.endsWith('/chat/completions'))).toHaveLength(1)
+    await type(KEYS.ctrl('c'))
+    expect(onExit).toHaveBeenCalledWith('quit')
+  })
+
+  it('toggles details with Ctrl+O while an approval is shown', async () => {
+    const { type, lastFrame } = setup([() => fetchCall()], {
+      settings: { ...settings, tools: { fetch_url: true } },
+    })
+    await type('go', KEYS.enter)
+    await tick(60)
+    expect(lastFrame()).toContain('Allow fetch_url?')
+    expect(lastFrame()).not.toContain('pondering')
+    await type(KEYS.ctrl('o'))
+    expect(lastFrame()).toContain('pondering')
+    expect(lastFrame()).toContain('Allow fetch_url?')
+  })
+
+  it('quits on a second Ctrl+C when a stopped turn does not wind down', async () => {
+    const { type, onExit } = setup([stuckBody])
+    await type('go', KEYS.enter)
+    await tick(40)
+    await type(KEYS.ctrl('c'))
+    await tick(40)
+    expect(onExit).not.toHaveBeenCalled()
+    await type(KEYS.ctrl('c'))
+    expect(onExit).toHaveBeenCalledWith('quit')
+  })
+
+  it('refuses /retry and /new while an answer runs', async () => {
+    const slow = (signal?: AbortSignal) => sseBody([{ content: 'kept' }], 'stop', 200, signal)
+    const { type, lastFrame, frames, endpoint, clearScreen } = setup([slow, slow])
+    await type('go', KEYS.enter)
+    await type('/retry', KEYS.enter)
+    expect(lastFrame()).toContain('Stop it first')
+    await type('/new', KEYS.enter)
+    expect(clearScreen).not.toHaveBeenCalled()
+    await tick(300)
+    expect(frames()).toContain('kept')
+    expect(endpoint.requests.filter((r) => r.url.endsWith('/chat/completions'))).toHaveLength(1)
   })
 
   it('shows run errors with a retry hint and retries', async () => {

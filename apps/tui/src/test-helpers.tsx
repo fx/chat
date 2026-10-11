@@ -42,6 +42,32 @@ export function sseBody(
   )
 }
 
+/** A body that never sends and ignores the abort signal (a stuck transport). */
+export function stuckBody(): Response {
+  return new Response(new ReadableStream({ pull: () => new Promise(() => {}) }), {
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}
+
+/** One completion that calls the fetch tool, after some reasoning. */
+export function fetchCall(url = 'https://x.test/', reasoning = 'pondering'): Response {
+  return sseBody(
+    [
+      { reasoning_content: reasoning },
+      {
+        tool_calls: [
+          {
+            index: 0,
+            id: 'c',
+            function: { name: 'fetch_url', arguments: JSON.stringify({ url }) },
+          },
+        ],
+      },
+    ],
+    'tool_calls',
+  )
+}
+
 /** Serves /models and replays one completion per request; other URLs get a small page. */
 export function fakeEndpoint(
   completions: Array<(signal?: AbortSignal) => Response>,

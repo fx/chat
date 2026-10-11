@@ -119,6 +119,24 @@ export function useChatSession({
 
   const stop = () => controller.current?.abort()
 
+  /**
+   * Ctrl+C: the first press stops a running turn (a pending approval settles
+   * as stopped, not declined); a press when idle, or while a stopped turn is
+   * still winding down, quits.
+   */
+  const interrupt = () => {
+    const current = controller.current
+    if (current && !current.signal.aborted) current.abort()
+    else quit('quit')
+  }
+
+  /** A turn is running: /retry and /new would race it. */
+  const busy = () => {
+    if (!controller.current) return false
+    setNotice(['An answer is running. Stop it first (Esc or Ctrl+C).'])
+    return true
+  }
+
   const startRun = React.useCallback(
     async (turnHistory: ChatMessage[]) => {
       const abort = new AbortController()
@@ -188,6 +206,7 @@ export function useChatSession({
   }, [run, queued])
 
   const retry = () => {
+    if (busy()) return
     let cut = messages.length
     while (cut > 0 && messages[cut - 1]?.role !== 'user') cut--
     if (cut === 0) return setNotice(['Nothing to retry.'])
@@ -225,6 +244,7 @@ export function useChatSession({
       case 'retry':
         return retry()
       case 'new':
+        if (busy()) return
         setMessages([])
         setNotice([])
         setQueued([])
@@ -276,6 +296,7 @@ export function useChatSession({
     history: history.current,
     submit,
     stop,
+    interrupt,
     retry,
     quit,
   }

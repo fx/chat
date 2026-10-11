@@ -78,7 +78,9 @@ Related: [ink-renderer](../ink-renderer/), [chat-agent](../chat-agent/),
 - Tools that require approval MUST prompt inline with the tool name and arguments; `y`/Enter allows
   and `n`/Esc denies.
 - Esc (inline; in fullscreen after its other layers) and the first Ctrl+C MUST stop a running turn
-  and keep the partial answer; Ctrl+C when idle MUST exit.
+  and keep the partial answer; Ctrl+C when idle, or again while a stopped turn winds down, MUST
+  exit. Ctrl+C works while an approval is shown: the turn stops and the call is not declined.
+- `/retry` and `/new` MUST NOT run while an answer is running (a notice says to stop it first).
 - Ctrl+O MUST toggle reasoning/tool details for the live turn.
 - Slash commands MUST be offered through completion: `/model <id>` (with the endpoint's models as
   completions), `/system <text>`, `/tools [name]`, `/expand`, `/retry`, `/new`, `/setup`, `/help`,

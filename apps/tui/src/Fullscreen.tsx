@@ -11,7 +11,9 @@ import type { DetailLevel } from '@fx/chat-core'
  * Keys: PgUp/PgDn and Shift+↑/↓ scroll (the wheel too); Ctrl+T cycles detail;
  * Ctrl+R retries after a failed or stopped answer; Esc closes details, clears
  * the input, takes back the last queued message, or stops a running turn, in
- * that order; Ctrl+C stops, or quits when idle. Mouse drag copies.
+ * that order; Ctrl+C stops, or quits when idle (or when a stopped turn is
+ * still winding down). Mouse drag copies. While an approval is shown, y/Enter
+ * allow, n/Esc deny, and scrolling, ^T, ^O and Ctrl+C keep working.
  */
 import { React, ink } from '@fx/chat-ink'
 import {
@@ -74,15 +76,14 @@ export function Fullscreen({ images, write, size, ...props }: FullscreenProps) {
   const failed = !run && last?.role === 'assistant' && last.outcome !== undefined
 
   ink.useInput((input, key) => {
-    if (approval) {
-      if (input === 'y' || input === 'Y' || key.return) approval.resolve(true)
-      else if (input === 'n' || input === 'N' || key.escape) approval.resolve(false)
-      return
-    }
-    if (key.ctrl && input === 'c') {
-      if (run) session.stop()
-      else session.quit('quit')
-    }
+    // Ctrl+C comes before the approval keys: an approval is part of a running
+    // turn, which Ctrl+C stops (settling the approval as stopped).
+    if (key.ctrl && input === 'c') return session.interrupt()
+    if (!approval) return
+    // The composer (which owns Ctrl+O) is hidden while an approval is shown.
+    if (key.ctrl && input === 'o') setDetail((d) => (d === 'collapsed' ? 'details' : 'collapsed'))
+    else if (input === 'y' || input === 'Y' || key.return) approval.resolve(true)
+    else if (input === 'n' || input === 'N' || key.escape) approval.resolve(false)
   })
 
   const onKey = (
@@ -140,7 +141,6 @@ export function Fullscreen({ images, write, size, ...props }: FullscreenProps) {
           onDetailChange={setDetail}
           frame={threadedFrame}
           hints={{ retry: '^R again', details: '^T details', close: 'Esc close' }}
-          focused={!approval}
           keys={{ homeEnd: draft.text === '' }}
           {...(images ? { images } : {})}
           {...(write ? { write } : {})}
