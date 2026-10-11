@@ -93,11 +93,14 @@ Related specs:
 
 ### Repository Layout
 
-- The repository MUST be a monorepo containing the libraries and the demo application, sharing
-  one lockfile.
+- The repository MUST be a monorepo containing the libraries, the demo, and the reference
+  applications, sharing one lockfile.
 - Each published library MUST live under its own directory in `packages/`: `packages/core/`
   (`@fx/chat-core`, see [chat-core](../chat-core/)), `packages/chat/` (`@fx/chat`, the React-DOM
   renderers), and `packages/agent/` (`@fx/chat-agent`, see [chat-agent](../chat-agent/)).
+- Reference applications MUST live under `apps/`: the Android app (see [mobile-app](../mobile-app/)).
+  They are product code: they MAY carry features the libraries deliberately do not, MUST consume the
+  libraries only through their public package names, and MUST NOT be published to npm.
 - The demo MUST be a **single** static application living under `demos/` (or `apps/`). It MUST
   render the same fixtures through three interchangeable registries supplied as per-design-system
   adapter modules (e.g. `registries/{fx-ui,shadcn,headless}.tsx`), switchable in place and
@@ -159,6 +162,8 @@ Related specs:
 @fx/chat-core (packages/core)  pure model, transcript logic, completion contract, DOM-free hooks
         ▲                         ▲
 @fx/chat (DOM)     @fx/chat-agent (OpenAI-compatible runs, tools)
+        ▲                         ▲
+   apps/mobile (Tauri v2 Android) — uses both
 
 Inside @fx/chat (modules marked * now live in @fx/chat-core and are re-exported):
 @fx/chat (packages/chat)
@@ -179,7 +184,7 @@ demos/ (one static app; design system switchable in place / side-by-side)  → d
 ```
 
 Layering rule: `@fx/chat-core` depends on nothing in this repository; `@fx/chat` and the agent
-depend on core. Within `@fx/chat`: `model` depends on nothing; `registry` depends on `model`; `render` and
+depend on core; apps depend on public packages only. Within `@fx/chat`: `model` depends on nothing; `registry` depends on `model`; `render` and
 `input` depend on `model` + `registry`; demos depend on the public package only. No layer
 may import a host application module.
 
@@ -265,3 +270,4 @@ not in the rule.
 | 2026-06-29 | Package goes fully headless: ships NO visual theme CSS (host-supplied via the `classNames` map onto `.chat-*` hooks); the `./styles.css` export is replaced by `./structure.css` (layout mechanics only) | [0013-headless-styling](../../changes/0013-headless-styling.md) |
 | 2026-10-10 | Two-package layout: `@fx/chat-core` extracted from `@fx/chat` | [0019-core-extraction](../../changes/0019-core-extraction.md) |
 | 2026-10-10 | `@fx/chat-agent` added | [0020-agent-runtime](../../changes/0020-agent-runtime.md) |
+| 2026-10-10 | `apps/` reference applications: the Android app (`apps/mobile`) | [0021-mobile-app](../../changes/0021-mobile-app.md) |

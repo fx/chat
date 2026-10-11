@@ -12,6 +12,9 @@
     },
     {
       "path": "./demos/chat-demo"
+    },
+    {
+      "path": "./apps/mobile"
     }
   ]
 }

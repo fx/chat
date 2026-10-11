@@ -44,3 +44,6 @@ jobs:
 
       - name: Build demo
         run: bun run build:demo
+
+      - name: Build mobile web UI
+        run: bun run --filter 'chat-mobile' build

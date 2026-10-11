@@ -1,6 +1,38 @@
 # Development toolchain. mise-first: install everything mise can manage with
-# `mise install`.
+# `mise install`; the Android SDK (no first-party mise backend) is installed by
+# `mise run android:setup` into .toolchain/ (gitignored, survives $HOME wipes).
 
 [tools]
 bun = "1.3.14"
 node = "22"
+java = "temurin-17"
+rust = { version = "1.99", profile = "minimal", targets = "aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android" }
+
+[env]
+# Rust toolchains and the cargo registry live in the workspace, not $HOME.
+RUSTUP_HOME = "{{config_root}}/.toolchain/rustup"
+CARGO_HOME = "{{config_root}}/.toolchain/cargo"
+ANDROID_HOME = "{{config_root}}/.toolchain/android-sdk"
+ANDROID_SDK_ROOT = "{{config_root}}/.toolchain/android-sdk"
+NDK_HOME = "{{config_root}}/.toolchain/android-sdk/ndk/27.2.12479018"
+ANDROID_USER_HOME = "{{config_root}}/.toolchain/android-home"
+ANDROID_AVD_HOME = "{{config_root}}/.toolchain/android-home/avd"
+GRADLE_USER_HOME = "{{config_root}}/.toolchain/gradle"
+_.path = [
+  "{{config_root}}/.toolchain/cargo/bin",
+  "{{config_root}}/.toolchain/android-sdk/platform-tools",
+  "{{config_root}}/.toolchain/android-sdk/emulator",
+  "{{config_root}}/.toolchain/android-sdk/cmdline-tools/latest/bin",
+]
+
+[tasks."android:setup"]
+description = "Install the Android SDK, NDK, emulator and a test AVD into .toolchain/"
+run = "bash scripts/android-setup.sh"
+
+[tasks."android:build"]
+description = "Build the reference app's debug APK (x86_64 + arm64)"
+run = "bun run build && cd apps/mobile && bunx tauri android build --debug --apk --target x86_64 aarch64"
+
+[tasks."android:emulator"]
+description = "Boot the test emulator"
+run = "emulator -avd fxchat -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect"
