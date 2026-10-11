@@ -9,6 +9,7 @@ import type { FetchLike } from '@fx/chat-agent'
  */
 import { React, ink } from '@fx/chat-ink'
 import { Composer, Styled, Transcript } from '@fx/chat-ink'
+import { approvalArguments } from './approval'
 import { type ExitReason, useChatSession } from './session'
 import { type ChatSettings, hostOf } from './settings'
 
@@ -73,7 +74,7 @@ export function App(props: AppProps) {
       {approval ? (
         <ink.Box flexDirection="column" borderStyle="round" paddingX={1}>
           <Styled tone="strong">Allow {approval.call.name}?</Styled>
-          <ink.Text>{JSON.stringify(approval.call.arguments, null, 2)}</ink.Text>
+          <ink.Text>{approvalArguments(approval.call.arguments)}</ink.Text>
           <Styled tone="muted">y / Enter allow · n / Esc deny</Styled>
         </ink.Box>
       ) : (

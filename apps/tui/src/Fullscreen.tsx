@@ -29,6 +29,7 @@ import {
   scrollEnd,
   threadedFrame,
 } from '@fx/chat-ink'
+import { approvalArguments } from './approval'
 import { type ExitReason, useChatSession } from './session'
 import { type ChatSettings, hostOf } from './settings'
 
@@ -116,7 +117,7 @@ export function Fullscreen({ images, write, size, ...props }: FullscreenProps) {
     : composerRows(draft, columns, { variant: 'plain', maxRows: COMPOSER_ROWS })
   // Border, title and hint around the arguments.
   const approvalRows = approval
-    ? 4 + JSON.stringify(approval.call.arguments, null, 2).split('\n').length
+    ? 4 + approvalArguments(approval.call.arguments).split('\n').length
     : 0
   const pendingRows = Math.min(3, session.queued.length)
   const height = Math.max(1, rows - 1 - inputRows - approvalRows - pendingRows - notice.length)
@@ -167,7 +168,7 @@ export function Fullscreen({ images, write, size, ...props }: FullscreenProps) {
       {approval ? (
         <ink.Box flexDirection="column" borderStyle="round" paddingX={1} flexShrink={0}>
           <Styled tone="strong">Allow {approval.call.name}?</Styled>
-          <ink.Text>{JSON.stringify(approval.call.arguments, null, 2)}</ink.Text>
+          <ink.Text>{approvalArguments(approval.call.arguments)}</ink.Text>
           <Styled tone="muted">y / Enter allow · n / Esc deny</Styled>
         </ink.Box>
       ) : (

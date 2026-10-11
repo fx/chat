@@ -123,6 +123,9 @@ fails with a message naming the version it needs. This repository pins the relea
 - No outbound request other than the configured endpoint, pages the fetch tool loads with approval,
   and images the user clicked to show.
 - Conversations are not persisted; they last for the session.
+- Model-controlled text the app draws itself (the approval prompt's arguments, its markdown) MUST go
+  through the same terminal-control sanitization as `@fx/chat-ink`'s own rendering, so content
+  cannot drive the terminal.
 
 ## Open Questions
 

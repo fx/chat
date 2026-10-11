@@ -45,4 +45,12 @@ describe('TerminalMarkdown', () => {
   it('renders an empty document', () => {
     expect(md('')).toBe('')
   })
+
+  it('draws no terminal controls from content it is handed', () => {
+    const out = md(
+      'a\u009b2Jb\u007fc \u009d52;c;QQ==\u009c`x\u001b]52;c;QQ==\u0007y`\n\n```\nz\u009b0m\n```',
+    )
+    expect(out).toContain('abc')
+    for (const bad of ['\u009b', '\u007f', '\u009d', '\u001b]52']) expect(out).not.toContain(bad)
+  })
 })

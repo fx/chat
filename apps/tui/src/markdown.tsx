@@ -1,5 +1,11 @@
 import { React, ink } from '@fx/chat-ink'
-import { type InkMarkdownProps, Styled, appearanceProps, useInkComponents } from '@fx/chat-ink'
+import {
+  type InkMarkdownProps,
+  Styled,
+  appearanceProps,
+  stripControls,
+  useInkComponents,
+} from '@fx/chat-ink'
 import { type Token, type Tokens, lexer } from 'marked'
 /** @jsxRuntime classic */
 /** @jsx React.createElement */
@@ -191,7 +197,8 @@ function Blocks({ tokens }: { tokens: Token[] }) {
 }
 
 export function TerminalMarkdown({ content }: InkMarkdownProps) {
-  const tokens = lexer(content).filter((t) => t.type !== 'space')
+  // MessageView cleans content already; this slot draws with the host's raw `ink.Text`, so it guards itself too.
+  const tokens = lexer(stripControls(content)).filter((t) => t.type !== 'space')
   return (
     <ink.Box flexDirection="column" gap={1}>
       <Blocks tokens={tokens} />

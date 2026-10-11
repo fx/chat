@@ -136,6 +136,36 @@ describe('Fullscreen', () => {
     expect(frame()).toContain('done')
   })
 
+  it('shows no terminal controls from model-chosen approval arguments', async () => {
+    const args = JSON.stringify({
+      url: 'https://x.test/\u009b2J\u007f\u009d52;c;QQ==\u009c\u001b]52;c;QQ==\u0007end',
+    })
+    const { type, frame } = setup(
+      [
+        () =>
+          sseBody(
+            [
+              {
+                tool_calls: [
+                  { index: 0, id: 'c', function: { name: 'fetch_url', arguments: args } },
+                ],
+              },
+            ],
+            'tool_calls',
+          ),
+        () => sseBody([{ content: 'done' }]),
+      ],
+      { settings: { ...settings, tools: { fetch_url: true } } },
+    )
+    await type('go', KEYS.enter)
+    await tick(60)
+    const shown = frame()
+    expect(shown).toContain('Allow fetch_url?')
+    expect(shown).toContain('end')
+    for (const bad of ['\u009b', '\u007f', '\u009d', '\u009c', '\u001b]52'])
+      expect(shown).not.toContain(bad)
+  })
+
   it('denies with n, and Ctrl+C stops a run then quits', async () => {
     const call = () =>
       sseBody(

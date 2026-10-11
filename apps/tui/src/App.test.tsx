@@ -91,6 +91,36 @@ describe('App', () => {
     expect(JSON.stringify(endpoint.requests.at(-1)?.body)).toContain('declined')
   })
 
+  it('shows no terminal controls from model-chosen approval arguments', async () => {
+    const args = JSON.stringify({
+      url: 'https://x.test/\u009b2J\u007f\u009d52;c;QQ==\u009c\u001b]52;c;QQ==\u0007end',
+    })
+    const { type, lastFrame } = setup(
+      [
+        () =>
+          sseBody(
+            [
+              {
+                tool_calls: [
+                  { index: 0, id: 'c', function: { name: 'fetch_url', arguments: args } },
+                ],
+              },
+            ],
+            'tool_calls',
+          ),
+        () => sseBody([{ content: 'done' }]),
+      ],
+      { settings: { ...settings, tools: { fetch_url: true } } },
+    )
+    await type('go', KEYS.enter)
+    await tick(60)
+    const shown = lastFrame()
+    expect(shown).toContain('Allow fetch_url?')
+    expect(shown).toContain('end')
+    for (const bad of ['\u009b', '\u007f', '\u009d', '\u009c', '\u001b]52'])
+      expect(shown).not.toContain(bad)
+  })
+
   it('stops a streaming turn with Esc and with Ctrl+C', async () => {
     const slow = (signal?: AbortSignal) =>
       sseBody(
