@@ -20,8 +20,8 @@ import { cn } from './cn'
 /** Options for {@link createShadcnClassNames}. */
 export interface ShadcnClassNamesOptions {
   /**
-   * Touch-first sizing: disclosure rows are 40px tall with 13px text (the row
-   * header is the tap target), instead of 28px with 12px text. Pair it with
+   * Touch-first sizing: disclosure rows are 40px tall with 14px text, the size
+   * of the answer text (the row header is the tap target), instead of 28px with 12px text. Pair it with
    * `createShadcnComponents({ touch: true })`. Default false.
    */
   touch?: boolean
@@ -38,7 +38,9 @@ export interface ShadcnClassNamesOptions {
 export function createShadcnClassNames({
   touch = false,
 }: ShadcnClassNamesOptions = {}): ChatClassNames {
-  const rowText = touch ? 'text-[0.8125rem]' : 'text-xs'
+  const rowText = touch ? 'text-sm' : 'text-xs'
+  // Timers and rates stay a step below the row text.
+  const metricText = touch ? 'text-[0.8125rem]' : 'text-xs'
   return {
     // ── Transcript: root + message containers ────────────────────────────────
     log: 'flex flex-col gap-3 data-[minimal=true]:gap-[0.625rem] text-foreground',
@@ -70,8 +72,8 @@ export function createShadcnClassNames({
     rowAffordance:
       'inline-flex size-[1em] items-center justify-center text-muted-foreground data-[affordance=success]:text-green-600',
     rowLabel: 'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
-    rowTimer: 'shrink-0 text-xs text-muted-foreground tabular-nums',
-    rowTps: 'shrink-0 text-xs text-muted-foreground tabular-nums',
+    rowTimer: cn('shrink-0 text-muted-foreground tabular-nums', metricText),
+    rowTps: cn('shrink-0 text-muted-foreground tabular-nums', metricText),
 
     // ── Grouped-run disclosure (minimal mode) ─────────────────────────────────
     group: '!p-0 !m-0',
