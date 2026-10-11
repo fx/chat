@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { assertChatMessage, normalizeMessage } from './codec'
+import { assertChatMessage, normalizeMessage, normalizeTranscript } from './codec'
+import type { ToolCallBlock } from './types'
 
 const base = { id: 'm', role: 'assistant', blocks: [] as unknown[] }
 const tool = (extra: Record<string, unknown>) => ({
@@ -42,7 +43,54 @@ describe('agent-activity fields', () => {
     expect(() => assertChatMessage({ ...base, outcome: { kind: 'stopped' } })).not.toThrow()
   })
 
+  it.each(['denied', 'unavailable'] as const)(
+    'normalizes a %s call to an error status whatever the host says',
+    (state) => {
+      const message = normalizeMessage({
+        id: 'm',
+        role: 'assistant',
+        toolCalls: [
+          { id: 'a', name: 'n', approval: { state } },
+          { id: 'b', name: 'n', result: { ok: true }, approval: { state } },
+          { id: 'c', name: 'n', status: 'success', approval: { state } },
+        ],
+      })
+      expect(message.blocks.map((b) => (b as ToolCallBlock).status)).toEqual([
+        'error',
+        'error',
+        'error',
+      ])
+      expect(() => assertChatMessage(message)).not.toThrow()
+    },
+  )
+
+  it('keeps a refused call an error when a tool-role result is folded into it', () => {
+    const [message] = normalizeTranscript([
+      {
+        id: 'a1',
+        role: 'assistant',
+        toolCalls: [{ id: 't1', name: 'n', approval: { state: 'denied' } }],
+      },
+      { id: 'tr1', role: 'tool', toolCallId: 't1', result: { ok: true }, status: 'success' },
+    ])
+    expect(message?.blocks[0]).toMatchObject({ status: 'error', result: { ok: true } })
+  })
+
+  it('leaves an approved or pending call status to the host', () => {
+    const message = normalizeMessage({
+      id: 'm',
+      role: 'assistant',
+      toolCalls: [
+        { id: 'a', name: 'n', status: 'success', approval: { state: 'approved' } },
+        { id: 'b', name: 'n', approval: { state: 'pending' } },
+      ],
+    })
+    expect(message.blocks.map((b) => (b as ToolCallBlock).status)).toEqual(['success', 'pending'])
+  })
+
   it.each([
+    [tool({ status: 'success', approval: { state: 'denied' } }), 'must have status error'],
+    [tool({ status: 'pending', approval: { state: 'unavailable' } }), 'must have status error'],
     [tool({ title: 1 }), 'title must be a string'],
     [tool({ kind: 2 }), 'kind must be a string'],
     [tool({ inputSummary: 3 }), 'inputSummary must be a string'],

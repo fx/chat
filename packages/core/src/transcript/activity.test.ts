@@ -87,6 +87,17 @@ describe('countActivity and livePhase', () => {
     })
   })
 
+  it('counts a refused call as failed once, whatever its status', () => {
+    expect(
+      countActivity([
+        tool('a', 'error', { approval: { state: 'denied' } }),
+        tool('b', 'success', { approval: { state: 'denied' } }),
+        tool('c', 'success', { approval: { state: 'unavailable' } }),
+        tool('d', 'success', { approval: { state: 'approved' } }),
+      ]).tools,
+    ).toEqual({ total: 4, failed: 3, denied: 3, running: 0 })
+  })
+
   it('reports the live phase', () => {
     const running = tool('x', 'running')
     expect(livePhase(msg([]))).toEqual({ kind: 'waiting' })

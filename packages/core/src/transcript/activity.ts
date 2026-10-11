@@ -34,10 +34,10 @@ export function countActivity(blocks: readonly RenderableBlock[]): ActivityCount
     } else if (block.type === 'tool_call') {
       const tool = block as ToolCallBlock
       counts.tools.total++
-      if (tool.status === 'error') counts.tools.failed++
-      if (tool.approval?.state === 'denied' || tool.approval?.state === 'unavailable') {
-        counts.tools.denied++
-      }
+      // Denied includes unavailable; failed includes denied (each call once).
+      const refused = tool.approval?.state === 'denied' || tool.approval?.state === 'unavailable'
+      if (tool.status === 'error' || refused) counts.tools.failed++
+      if (refused) counts.tools.denied++
       if (tool.status === 'running' || tool.status === 'pending') counts.tools.running++
     }
   }

@@ -214,9 +214,12 @@ function toToolCallBlock(
   const rawArguments = call.function?.arguments ?? call.arguments
   const rawResult = call.result
   const parsedResult = rawResult === undefined ? undefined : parseToolPayload(rawResult)
-  const status: ToolStatus = isToolStatus(call.status)
-    ? call.status
-    : mapping.toolStatus(call, parsedResult)
+  // A denied or unavailable call is an error whatever else the host says.
+  const status: ToolStatus = isRefusedApproval(call.approval)
+    ? 'error'
+    : isToolStatus(call.status)
+      ? call.status
+      : mapping.toolStatus(call, parsedResult)
 
   const block: ToolCallBlock = {
     type: 'tool_call',
@@ -237,6 +240,12 @@ function toToolCallBlock(
   if (call.inputSummary !== undefined) block.inputSummary = call.inputSummary
   if (call.approval !== undefined) block.approval = call.approval
   return block
+}
+
+/** True when an approval refused the call (`denied` or `unavailable`). */
+function isRefusedApproval(approval: unknown): boolean {
+  const state = (approval as { state?: unknown } | null | undefined)?.state
+  return state === 'denied' || state === 'unavailable'
 }
 
 function isToolStatus(value: unknown): value is ToolStatus {
@@ -363,6 +372,8 @@ function applyToolResult(
 ): void {
   const parsedResult = hostMsg.result === undefined ? undefined : parseToolPayload(hostMsg.result)
   if (parsedResult !== undefined) block.result = parsedResult
+  // A refused call stays an error even when its folded result says otherwise.
+  if (isRefusedApproval(block.approval)) return
   block.status = isToolStatus(hostMsg.status)
     ? hostMsg.status
     : mapping.toolStatus({ id: block.id, name: block.name, result: parsedResult }, parsedResult)
@@ -747,6 +758,11 @@ function assertToolCallBlockPayload(block: Record<string, unknown>): void {
       )
     }
     assertOptionalString(approval, 'label', 'tool_call block approval.label must be a string')
+    if (isRefusedApproval(approval) && block.status !== 'error') {
+      throw new ChatMessageAssertionError(
+        'tool_call block with a denied or unavailable approval must have status error',
+      )
+    }
   }
 }
 
