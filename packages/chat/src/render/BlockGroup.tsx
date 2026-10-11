@@ -1,8 +1,9 @@
 import { planGroupHeader } from '@fx/chat-core'
 /**
  * `BlockGroup` — renders a collapsed run of auxiliary blocks under one
- * disclosure, with a header summary chip selected by the grouping policy and a
- * plain muted `(+N)` text count of the hidden blocks.
+ * disclosure, with the header core plans (`planGroupHeader`): a tool group's
+ * count, outcome split and time; a reasoning group's thoughts; else a summary
+ * chip and a plain muted `(+N)` text count of the hidden blocks.
  *
  * The header summary text is derived from the chosen block's kind via the
  * grouping policy's selection (`selectHeaderSummary`), never via ad-hoc kind
@@ -13,6 +14,7 @@ import { useChatClassNames } from '../registry'
 import { CollapsibleRow } from './CollapsibleRow'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
+import { APPROVAL_TEXT } from './blocks/ToolCallBlock'
 import type { ChatExtensions, RenderableBlock } from './extensions'
 
 /** Props for {@link BlockGroup}. */
@@ -42,9 +44,27 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       <span className={cx('chat-group-more', cn.groupMore)}>(+{hiddenCount})</span>
     ) : null
 
+  // A one-call group reads as that call's row: its error state and approval qualifier.
+  const only = header.tools?.only
+  const failedOnly = only !== undefined && header.tools?.failed === 1
+  const approval = only?.approval ? APPROVAL_TEXT[only.approval.state] : undefined
   const label = (
-    <span className={cx('chat-group-summary', cn.groupSummary)}>
+    <span
+      className={cx('chat-group-summary', cn.groupSummary)}
+      {...(header.tools
+        ? { 'data-tools': header.tools.total, 'data-failed': header.tools.failed }
+        : {})}
+    >
       <span className={cx('chat-group-summary-label', cn.groupSummaryLabel)}>{summary.label}</span>
+      {approval ? (
+        <span
+          className={cx('chat-tool-approval', cn.toolApproval)}
+          data-approval={only?.approval?.state}
+        >
+          {' · '}
+          {approval}
+        </span>
+      ) : null}
     </span>
   )
 
@@ -54,6 +74,7 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       {...(prefix ? { prefix } : {})}
       {...(summary.iconName ? { iconName: summary.iconName } : {})}
       isActive={isActive}
+      error={failedOnly}
       startedAt={startedAt}
       showTimer={showTimer}
       {...(durationMs !== undefined ? { durationMs } : {})}

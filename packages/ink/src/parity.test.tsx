@@ -51,7 +51,7 @@ describe('renderer parity', () => {
     )
     // The footer's arrangement is each renderer's own (DOM keeps its metrics
     // line; the terminal draws planned facts), but every value agrees.
-    for (const expected of ['Thought for 0.4s', '(+2)', 'It is 42.', 'm-1', '3.2s', '21.5 tok/s']) {
+    for (const expected of ['calculator', '0.0s', 'It is 42.', 'm-1', '3.2s', '21.5 tok/s']) {
       expect(domText).toContain(expected)
       expect(term).toContain(expected)
     }
@@ -93,5 +93,166 @@ describe('renderer parity', () => {
       expect(domText).toContain(expected)
       expect(term).toContain(expected)
     }
+  })
+
+  it('agrees on the live tail’s earlier label and a lone activity block after content', () => {
+    const live: ChatMessage = {
+      id: 'l',
+      role: 'assistant',
+      createdAt: 1000,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'hmm', durationMs: 400 },
+        { type: 'tool_call', id: 't1', name: 'a', arguments: {}, status: 'success' },
+        { type: 'text', id: 'x', text: 'hi' },
+        { type: 'tool_call', id: 't2', name: 'b', arguments: {}, status: 'running' },
+      ],
+    }
+    const domLive =
+      render(
+        <ChatProvider>
+          <MessageLog messages={[live]} isStreaming streamingMessageId="l" liveTail={1} />
+        </ChatProvider>,
+      ).container.textContent ?? ''
+    const termLive = renderToString(
+      <InkChatProvider>
+        <Transcript messages={[live]} isStreaming streamingMessageId="l" liveTail={1} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    expect(domLive).toContain('+1 earlier tool call')
+    expect(termLive).toContain('+1 earlier tool call')
+
+    const done: ChatMessage = {
+      id: 'd',
+      role: 'assistant',
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'hmm', durationMs: 400 },
+        { type: 'text', id: 'x', text: 'hi' },
+      ],
+    }
+    const domDone =
+      render(
+        <ChatProvider>
+          <MessageLog messages={[done]} activityPlacement="after-content" />
+        </ChatProvider>,
+      ).container.textContent ?? ''
+    const termDone = renderToString(
+      <InkChatProvider>
+        <Transcript messages={[done]} activityPlacement="after-content" />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    for (const out of [domDone, termDone]) {
+      expect(out.split('Thought for 0.4s')).toHaveLength(2)
+      expect(out).not.toContain('(+')
+    }
+  })
+
+  it('agrees on a tool group header: count, failures and wall-clock time', () => {
+    const turn: ChatMessage[] = [
+      {
+        id: 'g',
+        role: 'assistant',
+        blocks: [
+          ...Array.from({ length: 5 }, (_, i): ChatMessage['blocks'] => [
+            { type: 'reasoning', id: `r${i}`, text: 'x', durationMs: 100 },
+            {
+              type: 'tool_call',
+              id: `t${i}`,
+              name: 'fetch',
+              arguments: {},
+              status: i === 0 ? 'error' : 'success',
+              startedAt: 1000 + i * 2000,
+              durationMs: 1200,
+            },
+          ]).flat(),
+          { type: 'text', id: 'x', text: 'done' },
+        ],
+      },
+    ]
+    const domText =
+      render(
+        <ChatProvider>
+          <MessageLog messages={turn} />
+        </ChatProvider>,
+      ).container.querySelector('.chat-group')?.textContent ?? ''
+    const term = renderToString(
+      <InkChatProvider>
+        <Transcript messages={turn} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    for (const out of [domText, term]) {
+      expect(out).toContain('5 tool calls')
+      expect(out).toContain('9.2s')
+      expect(out).not.toContain('(+')
+    }
+    expect(domText).toContain('4 ok · 1 failed')
+  })
+
+  it('agrees on a failed one-call group and a plan-first live tail', () => {
+    const failed: ChatMessage[] = [
+      {
+        id: 'f',
+        role: 'assistant',
+        blocks: [
+          { type: 'reasoning', id: 'r', text: 'x', durationMs: 100 },
+          {
+            type: 'tool_call',
+            id: 't',
+            name: 'shell',
+            arguments: {},
+            status: 'error',
+            approval: { state: 'denied' },
+          },
+          { type: 'text', id: 'x', text: 'no' },
+        ],
+      },
+    ]
+    const dom = render(
+      <ChatProvider>
+        <MessageLog messages={failed} />
+      </ChatProvider>,
+    ).container
+    const term = renderToString(
+      <InkChatProvider>
+        <Transcript messages={failed} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    expect(dom.querySelector('.chat-group')?.classList.contains('chat-row-error')).toBe(true)
+    for (const out of [dom.textContent ?? '', term]) {
+      expect(out).toContain('shell')
+      expect(out).toContain('denied')
+    }
+
+    const live: ChatMessage = {
+      id: 'l',
+      role: 'assistant',
+      blocks: [
+        { type: 'plan', id: 'p', entries: [] },
+        ...[1, 2, 3, 4].map((i): ChatMessage['blocks'][number] => ({
+          type: 'tool_call',
+          id: `t${i}`,
+          name: `step${i}`,
+          arguments: {},
+          status: 'success',
+        })),
+        { type: 'tool_call', id: 't5', name: 'step5', arguments: {}, status: 'running' },
+      ],
+    }
+    const domLive =
+      render(
+        <ChatProvider>
+          <MessageLog messages={[live]} isStreaming streamingMessageId="l" liveTail={2} />
+        </ChatProvider>,
+      ).container.textContent ?? ''
+    const termLive = renderToString(
+      <InkChatProvider>
+        <Transcript messages={[live]} isStreaming streamingMessageId="l" liveTail={2} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    for (const out of [domLive, termLive]) expect(out).toContain('+3 earlier tool calls')
   })
 })

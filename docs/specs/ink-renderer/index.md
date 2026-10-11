@@ -59,8 +59,19 @@ projection of it.
   inverse. Defaults: `accent`, `code` plain; `link` underlined; `selection` inverse.
 - The package MUST export a plain ASCII glyph set for terminals without box-drawing or emoji
   symbols, alongside the default Unicode set; every glyph the renderer draws (tool status, plan
-  status, activity facts, frames, folds, attachment, image, pending, pulse, rules, bars) is a named,
-  overridable glyph.
+  status, activity facts, the live tail's `earlier` marker, frames, folds, attachment, image,
+  pending, pulse, rules, bars) is a named, overridable glyph.
+- No default glyph may be emoji-capable. The default set is monochrome text with no
+  emoji-capable character (Unicode `Emoji=No`), so it draws one cell in non-CJK terminals: `✻`
+  thinking, `ƒ` tools, `§` system prompt, `☐` plan, `▣` image, `‖` queued, `⊕` attachment,
+  `☐`/`☒` markdown tasks. It sticks to glyphs common monospace fonts carry. Several (`§ ▣ ‖ ⊕`,
+  `… ·` and the box drawing) are East Asian Width *Ambiguous*: a terminal set to treat ambiguous
+  characters as wide (common with CJK locales) draws them two cells, which a host there can avoid
+  with the ASCII set. The package MUST also export an opt-in colour set (`emojiGlyphs`: `🧠` `🔧`
+  `📜` `📋` `📷` `📎` `⏳` over the default set) using only `Emoji_Presentation=Yes` characters,
+  which terminals draw and the default measure counts as two cells; a host turns it on with
+  `<InkChatProvider components={{ glyphs: emojiGlyphs }}>`. A test holds every shipped set to these
+  rules (ASCII digits, `#` and `*` exempt).
 - The completion flash MUST be switchable off through the registry (default on).
 
 ### Transcript
@@ -136,3 +147,5 @@ projection of it.
 | 2026-10-10 | Implemented; registry roles, composer keys and chunked input specified | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Fullscreen hosts: line layout, frames, viewport, markdown, composer, mouse, images; roles and glyphs extended | [0028-ink-line-layout](../../changes/0028-ink-line-layout.md) |
 | 2026-10-11 | Terminal safety: content never drives the terminal; image size cap enforced while reading; split terminal reports joined | — |
+| 2026-10-11 | `earlier` glyph; activity spacing; footer-only finished activity hides every activity row; bare threaded corner without footer facts | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | One spinner for every live row; tool headline in the live phase; monochrome default glyphs and opt-in `emojiGlyphs` | [0034-activity-layout](../../changes/0034-activity-layout.md) |

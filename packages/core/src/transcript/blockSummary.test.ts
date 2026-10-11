@@ -71,8 +71,8 @@ describe('summarizeBlock', () => {
       iconName: 'wrench',
       label: 'search',
       durationMs: 2000,
-      // No timer pill — mirrors the bare ToolCallBlockView, which shows none.
-      showTimer: false,
+      // A tool row shows its time (duration, or live elapsed while running).
+      showTimer: true,
     })
   })
 
@@ -84,7 +84,7 @@ describe('summarizeBlock', () => {
       arguments: {},
       status: 'success',
     }
-    expect(summarizeBlock(block)).toEqual({ iconName: 'wrench', label: 'fetch', showTimer: false })
+    expect(summarizeBlock(block)).toEqual({ iconName: 'wrench', label: 'fetch', showTimer: true })
   })
 
   it('system: gear icon + "System prompt", no timer', () => {

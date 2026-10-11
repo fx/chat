@@ -142,13 +142,13 @@ describe('Row helpers', () => {
 describe('MessageView', () => {
   it('renders a finished turn collapsed with footer metrics', () => {
     expect(str(<MessageView message={finished} />)).toBe(
-      '• ▸ (+1) ⚒ calc 42.0 tok/s\n  Answer\n  2.4s · ∴ 17 · ⚒ 1 tool · m-1 · 42.0 tok/s',
+      '• ▸ ƒ calc {"x":1} 0.0s\n  Answer\n  2.4s · ✻ 17 · ƒ 1 tool · m-1 · 42.0 tok/s',
     )
   })
 
   it('expands group bodies, clipping to bodyLines', () => {
     const out = str(<MessageView message={finished} expanded bodyLines={1} />)
-    expect(out).toContain('▾ ∴ Thought for 1.2s')
+    expect(out).toContain('▾ ✻ Thought for 1.2s')
     expect(out).toContain('step one\n      … 1 more lines')
     expect(out).toContain('input')
     expect(out).toContain('output')
@@ -201,7 +201,7 @@ describe('MessageView', () => {
     expect(out).toContain('tool ✗ Error')
     expect(out).toContain('"error": "no"')
     const done = str(<MessageView message={{ ...live, blocks: live.blocks.slice(0, 2) }} />)
-    expect(done).toContain('▸ ⚒ tool ✗ Error')
+    expect(done).toContain('▸ ƒ tool ✗ Error')
     expect(
       str(
         <MessageView
@@ -223,9 +223,9 @@ describe('MessageView', () => {
       ],
     }
     const out = str(<MessageView message={m} minimal expanded showFooter={false} />)
-    expect(out).toContain('▾ ⚙ System prompt\n    Be brief.')
-    expect(out).toContain('(+1)')
-    expect(out).not.toContain('·')
+    expect(out).toContain('▾ § System prompt\n    Be brief.')
+    expect(out).toContain('✻ Thought ×2 · 0.1s')
+    expect(out.split('\n').at(-1)).toBe('  ok')
   })
 
   it('renders custom blocks through host renderers or as an inert label', () => {
@@ -321,9 +321,9 @@ describe('MessageView edge cases', () => {
       ],
     }
     const out = str(<MessageView message={live} isActive expanded />)
-    expect(out).toContain('▾ (+1) ⚒ calc')
+    expect(out).toContain('▾ ƒ calc')
     expect(out).not.toContain('tok/s')
-    expect(out).toContain('⠋ ⚒ slow')
+    expect(out).toContain('⠋ ƒ slow')
     expect(out).not.toContain('output')
     const minimal = str(
       <MessageView
@@ -334,7 +334,7 @@ describe('MessageView edge cases', () => {
         minimal
       />,
     )
-    expect(minimal).toContain('▸ ∴ Thought for 0.0s')
+    expect(minimal).toContain('▸ ✻ Thought for 0.0s')
     expect(minimal).not.toContain('(+')
   })
 

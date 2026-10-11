@@ -62,7 +62,8 @@ in Background):
   clock-gutter de-duper, approximate token count, attachment-URL safety check, mention parsing.
 - **Render planning:** the renderer-independent decisions about a message — its planned rows (bare
   blocks, folded auxiliary groups, the pending row of an active empty assistant message), the live
-  block, the footer gate, a collapsed group's header (summary, `+N`, timer and rate gates), the
+  block, the footer gate, a collapsed group's header (what it is about — tool counts and span,
+  thoughts, or a summary block — `+N`, timer and rate gates; `toolGroupLabel`, `toolSpanMs`), the
   status-row label, the timer-pill gate, and the footer metrics line. Every renderer MUST derive these
   from core rather than re-deriving them, so labels, timers, and gates are identical across renderers.
 - **Extension data types:** custom block, renderable block/message, timeline-behavior overrides,
@@ -173,3 +174,4 @@ nothing in core depends on them.
 | 2026-10-10 | Footer facts, counts, live phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | `./json` loose-JSON subpath | [0026-loose-json](../../changes/0026-loose-json.md) |
 | 2026-10-10 | Shared clock in `./react` | [0027-shared-clock](../../changes/0027-shared-clock.md) |
+| 2026-10-11 | `finishedActivity` plan option; `earlier` row `tools` and `earlierLabel`; earlier row counts only older non-reasoning activity; `toolHeadline`; group headers by content (`ToolGroupCounts`, `toolGroupLabel`, `toolSpanMs`) | [0034-activity-layout](../../changes/0034-activity-layout.md) |

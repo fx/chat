@@ -80,7 +80,7 @@ export interface InkGlyphs {
   wrench: string
   gear: string
   checklist: string
-  /** Plan entry markers by status. */
+  /** Plan entry markers by status (a live in-progress entry draws the spinner). */
   planDone: string
   planActive: string
   planPending: string
@@ -96,10 +96,14 @@ export interface InkGlyphs {
   spinner: readonly string[]
   /** Between footer facts and status facts. */
   separator: string
-  /** Tool row status markers. */
+  /** @deprecated No longer drawn (the live tail's row uses `earlier`); kept for existing glyph sets. */
   tool: string
+  /** Before the live tail's row counting hidden earlier activity (empty: no marker). */
+  earlier: string
+  /** Tool row status markers (a live call draws the spinner). */
   toolSuccess: string
   toolError: string
+  /** @deprecated No longer drawn (a live call draws the spinner); kept for existing glyph sets. */
   toolRunning: string
   toolIdle: string
   /** Frames: boxes, gutters and footer corner. */
@@ -130,13 +134,18 @@ export interface InkGlyphs {
   tableCross: string
 }
 
+/**
+ * The default glyphs: monochrome text, one cell each. No glyph is
+ * emoji-capable (Unicode `Emoji=No`), so terminals cannot widen or colour one,
+ * and every glyph is one that common monospace fonts carry.
+ */
 export const plainGlyphs: InkGlyphs = {
   collapsed: '▸',
   expanded: '▾',
-  brain: '∴',
-  wrench: '⚒',
-  gear: '⚙',
-  checklist: '☑',
+  brain: '✻',
+  wrench: 'ƒ',
+  gear: '§',
+  checklist: '☐',
   planDone: '✓',
   planActive: '…',
   planPending: '·',
@@ -147,7 +156,8 @@ export const plainGlyphs: InkGlyphs = {
   prompt: '›',
   spinner: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
   separator: ' · ',
-  tool: '🔧',
+  tool: 'ƒ',
+  earlier: '⋮',
   toolSuccess: '✓',
   toolError: '✗',
   toolRunning: '…',
@@ -161,13 +171,13 @@ export const plainGlyphs: InkGlyphs = {
   boxVertical: '│',
   footer: '╰',
   outputBar: '┊',
-  attachment: '📎',
-  image: '🖼',
-  pending: '⏸',
+  attachment: '⊕',
+  image: '▣',
+  pending: '‖',
   pulse: ['●··', '·●·', '··●'],
   bullet: '•',
   taskOpen: '☐',
-  taskDone: '☑',
+  taskDone: '☒',
   rule: '─',
   quoteBar: '│',
   codeBar: '│',
@@ -194,6 +204,7 @@ export const asciiGlyphs: InkGlyphs = {
   spinner: ['|', '/', '-', '\\'],
   separator: ' | ',
   tool: '*',
+  earlier: '^',
   toolSuccess: '+',
   toolError: 'x',
   toolRunning: '~',
@@ -219,4 +230,22 @@ export const asciiGlyphs: InkGlyphs = {
   codeBar: '|',
   tableColumn: '|',
   tableCross: '+',
+}
+
+/**
+ * Opt-in colour icons over {@link plainGlyphs}: only code points that are
+ * emoji by default (`Emoji_Presentation=Yes`), which terminals and the
+ * default measure both treat as two cells. Turn it on with
+ * `<InkChatProvider components={{ glyphs: emojiGlyphs }}>`.
+ */
+export const emojiGlyphs: InkGlyphs = {
+  ...plainGlyphs,
+  brain: '🧠',
+  wrench: '🔧',
+  tool: '🔧',
+  gear: '📜',
+  checklist: '📋',
+  attachment: '📎',
+  image: '📷',
+  pending: '⏳',
 }

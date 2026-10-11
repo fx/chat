@@ -217,20 +217,41 @@ scope** and MUST NOT appear in this package.
   a single disclosure, **across consecutive internal assistant steps**, while non-aux items
   (user text, assistant answer text, system) render bare and break runs.
 - A single-item run MUST render bare (no pointless one-item disclosure).
-- The collapsed header MUST select its summary chip as: the trailing active-but-header-
-  ineligible item (the live status row, to keep the timer visible) if present; otherwise the
-  latest header-eligible item; otherwise the trailing item. A `+N` badge MUST count hidden
-  items.
+- The collapsed header (planned in core, `planGroupHeader`) MUST say what the group holds:
+  - **Tool calls.** A group with tool calls is about them only — its reasoning and status rows
+    are not mentioned. That includes a trailing live status row: without a live tail, a tool
+    group shows its calls rather than `Generating…` and the message timer (a host shows the
+    live phase elsewhere, e.g. a status line). One call reads as its row does (label, then
+    input when it adds something, its approval qualifier, and its error state). Two or more read `N tool calls`, then the outcome split when any failed
+    (core returns the counts — total, succeeded, failed, where denied and unavailable count
+    as failed; the DOM renderer and the plain-text helper `toolGroupLabel` read
+    `4 ok · 1 failed`, the terminal draws `4 ✓ 1 ✗` with its glyphs and roles), then, while
+    live, the running call's headline. The time is the calls' wall-clock span (earliest
+    `startedAt` to latest `startedAt + durationMs`, so parallel calls overlap), else the sum
+    of their durations when a start is missing, else none (non-finite or negative durations
+    are ignored; the span is never negative). The timer ticks — from the earliest call's
+    start, else the message start — only while a call in the group runs; while only other
+    blocks in the group are live, it shows the calls' span. A tool group shows no tokens/sec.
+  - **Reasoning.** A group of reasoning (and finished status rows) with one thought reads as
+    that thought's row; with two or more, `Thought ×N · <total>` (`Reasoning ×N` with no
+    durations; `Thinking… ×N` with a live timer while one streams).
+  - **Otherwise** the latest plan heads it (unless a live status row trails), else the summary
+    chip the policy selects: the trailing active-but-header-ineligible item (the live status
+    row, to keep the timer visible) if present; otherwise the latest header-eligible item;
+    otherwise the trailing item.
+  - A `+N` badge counts hidden items only where the label does not already state what the group
+    holds — never on a tool or reasoning header.
 - Collapsed-header timer/tok-s pills: a STATUS summary MUST surface the message-level timer
   pill (its label embeds no duration) plus the live tokens/sec while active. An ACTIVE
   REASONING summary MUST likewise surface a LIVE ticking timer pill (the "Thinking…" label
   carries no duration; the block's `durationMs` is undefined while active, so the pill ticks
   live) alongside the context tokens/sec pill; the pill MUST anchor at the reasoning block's
   own `startedAt` when present, else the message `startedAt` — mirroring the bare row. A
-  FINISHED reasoning or tool summary MUST show NO timer pill — the reasoning "Thought for
-  <dur>" label already embeds the duration, and their bare renderers show none. This timer
-  rule is the shared `summarizeBlock` helper's `showTimer` (single source of truth, including
-  the durationMs finished-gate), so the bare reasoning row and the group header cannot drift.
+  FINISHED reasoning summary MUST show NO timer pill — the "Thought for <dur>" label already
+  embeds the duration. A tool row (bare or in a group body) MUST show its time: its
+  `durationMs`, or a live timer from its `startedAt` while it runs. This timer rule is the
+  shared `summarizeBlock` helper's `showTimer` (single source of truth, including the
+  durationMs finished-gate), so the bare rows and the group header cannot drift.
 - Collapsed-header tokens/sec MUST NOT churn on settled groups: a non-status summary shows the
   context rate only when the group is itself ACTIVE or the whole message has SETTLED
   (`!context.isActive`). A finished group inside a still-streaming message shows no tok/s pill
@@ -254,8 +275,21 @@ scope** and MUST NOT appear in this package.
 - **GIVEN** an assistant turn whose blocks are `[reasoning, tool_call, tool_call, status]`
   followed by the answer `text`
 - **WHEN** the log renders in grouped mode
-- **THEN** the four metadata blocks collapse under one disclosure with a header summary chip
-  and a `+N` badge, and the answer text renders bare beneath it.
+- **THEN** the four metadata blocks collapse under one disclosure headed `2 tool calls` (no
+  `+N`), and the answer text renders bare beneath it.
+
+#### Scenario: Tool group header with a failure
+
+- **GIVEN** a finished group of five tool calls, each preceded by reasoning, one failed, started
+  2 s apart and lasting 1.2 s each
+- **WHEN** its header is planned
+- **THEN** it is about the tool calls only: `5 tool calls`, 4 succeeded and 1 failed, 9.2 s.
+
+#### Scenario: Several thoughts
+
+- **GIVEN** a finished group of two reasoning blocks of 1.0 s and 2.1 s
+- **WHEN** its header is planned
+- **THEN** it reads `Thought ×2 · 3.1s` with no `+N`.
 
 ### Minimal / Density Mode
 
@@ -288,8 +322,8 @@ scope** and MUST NOT appear in this package.
 
 - **GIVEN** an assistant turn `[reasoning, tool_call, status, text]` and `minimal` set
 - **WHEN** the log renders
-- **THEN** the three metadata blocks collapse under ONE disclosure (with a header summary and `+N`
-  badge), the answer `text` renders bare beneath it, the footer is compact, and the log/message
+- **THEN** the three metadata blocks collapse under ONE disclosure (headed by the tool call), the
+  answer `text` renders bare beneath it, the footer is compact, and the log/message
   wrappers carry `data-minimal="true"`.
 
 #### Scenario: Minimal folds non-adjacent aux into the same group
@@ -439,6 +473,10 @@ scope** and MUST NOT appear in this package.
 How every renderer shows an agent's work. The decisions live in the shared render plan in
 `@fx/chat-core`, so the DOM and terminal renderers show the same labels, counts, and gates.
 
+- **Tool headline.** Where a tool call is named in one line outside its row (a live phase label),
+  it MUST read as its row does — the label, then the input when it adds something
+  (`toolHeadline`), so a generic title (`Running`) still says what runs. With a blank title and
+  name it falls back to `tool`, as the row does; it is never blank and never padded.
 - **Tool label and input.** A tool row's label MUST be the call's non-blank `title` (trimmed), else
   its `name`; a bare row and a group header headed by the call MUST agree. The row MAY add a one-line
   input: the call's `inputSummary`, else a summary derived from `arguments` (a string argument as
@@ -449,10 +487,13 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   when absent, and two-space-indented JSON otherwise (`toolResultText`). The terminal renderer lays
   out and copies this text; the DOM renderer shows the result in its registry `JsonView` instead.
 - **Approval qualifier.** A call with `approval.state` of `denied` or `unavailable` MUST show a
-  `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`.
+  `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`, and
+  such a call MUST NOT show a spinner — it is blocked on the user, not working.
 - **Tool liveness.** A `pending`/`running` tool call MUST count as live only while its message is
-  live and has no `outcome`; on a settled or stopped message it shows as unfinished, without a
-  spinner. (Previously it counted as live regardless of its message.)
+  live and has no `outcome`, and not while it awaits approval (`approval.state` `pending`: it is
+  blocked on the user) — no spinner and no ticking timer, on its row or on a group header it
+  heads; on a settled or stopped message it shows as unfinished, without a spinner. (Previously
+  it counted as live regardless of its message.)
 - **Plan.** A plan block is auxiliary (it folds into a turn's activity like reasoning and tool
   calls, and alone does not open the footer gate). Its summary is `Plan d/t` (completed / total),
   or `Plan` with no entries, with the `checklist` icon and no timer. Renderers MUST render it as a
@@ -485,14 +526,32 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **Activity counts and live phase** MUST be shared helpers: counts of reasoning characters, plan
   progress, and tools (total / failed / denied / running), where denied includes `unavailable` and
   failed includes denied; and the live phase of a message — `waiting` (nothing back), `thinking`
-  (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text), or
-  `writing`.
+  (trailing reasoning open), `tool` (a live tool call, the latest such; it outranks earlier text),
+  `approval` (that call awaits the user's approval), or `writing`. A call awaiting approval is
+  not live, so a host tool renderer gets `isStreaming` false for it (an approval UI reads
+  `block.approval`), and with a running call and a newer one awaiting approval the phase is
+  `approval` while a group header names the running call.
 - **Activity placement.** A host MAY ask for activity after content: content blocks (and the
-  outcome row) first in their order, then the turn's activity folded as one group in its order.
-  Text blocks separated by activity remain separate paragraphs.
+  outcome row) first in their order, then the turn's activity folded as one group in its order —
+  or, when there is a single activity block, that block as a bare row (no group around one block,
+  as in stream order). Text blocks separated by activity remain separate paragraphs — in either
+  placement, and also when that activity is not shown.
 - **Live tail.** A host MAY ask that, while a message is live and its activity collapsed, only the
-  newest N activity blocks show, preceded by an `N earlier` row; reasoning shows only while nothing
-  else has arrived. A finished message never shows a tail.
+  newest N tool calls (plus the latest plan and live status rows) show, preceded by an `earlier`
+  row; reasoning shows only while nothing else has arrived. A finished message never shows a tail.
+  The `earlier` row announces only what would have been a row above the tail: hidden blocks older
+  than the tail's first shown tool call (the latest plan and status rows show however old they
+  are, so they never anchor it), never reasoning (which the tail hides anyway and the footer's
+  reasoning count covers), and never a hidden block between shown rows. So there is no row until
+  more than N tool calls exist. The row carries how many blocks it announces and how many of them
+  are tool calls, and reads (`earlierLabel`) `+N earlier tool calls` when all
+  are tool calls, `+N earlier steps` when none are, else `+N earlier steps (M tool calls)` (singular
+  forms for one). Renderers add only their own marker.
+- **Finished activity.** A host MAY ask that a finished message's activity show only as its
+  footer's counts: for a non-live assistant message whose footer shows, the plan then holds no
+  activity rows — neither bare activity blocks nor groups, by the timeline behaviour of each block —
+  in either placement. Without a footer the rows stay. Hosts ask for it only while activity is
+  collapsed.
 
 #### Scenario: Title wins over name
 
@@ -531,6 +590,26 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **GIVEN** a group whose latest header-eligible block is a plan with 2 of 5 entries completed
 - **WHEN** the group header is planned
 - **THEN** its label is `Plan 2/5` with the `checklist` icon.
+
+#### Scenario: One activity block after content
+
+- **GIVEN** a finished answer `[reasoning, text]` planned with activity after content
+- **WHEN** its rows are planned
+- **THEN** they are the text, then the reasoning as a bare row (no group).
+
+#### Scenario: Earlier row counts only older tool calls
+
+- **GIVEN** a live answer with reasoning before each of 5 tool calls, then reasoning and text, and
+  a live tail of 3
+- **WHEN** its rows are planned
+- **THEN** the earlier row reads `+2 earlier tool calls` above the newest 3 tool calls; with 3 tool
+  calls there is no earlier row.
+
+#### Scenario: Finished activity left to the footer
+
+- **GIVEN** a finished answer `[reasoning, text, tool]` with a footer, finished activity `footer`
+- **WHEN** its rows are planned in stream order
+- **THEN** only the text row remains.
 
 #### Scenario: Tool after text
 
@@ -829,3 +908,5 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Plan rendering | [0024-plan-block](../../changes/0024-plan-block.md) |
 | 2026-10-10 | Footer facts, opt-in live footer, formats, counts/phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
+| 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |

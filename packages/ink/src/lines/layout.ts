@@ -8,13 +8,16 @@ import {
   type CustomBlock,
   type DetailLevel,
   type PlanBlock,
+  type PlannedRow,
   type RenderableBlock,
   type RenderableMessage,
   type ToolCallBlock,
   countActivity,
+  earlierLabel,
   formatDuration,
   formatElapsed,
   formatTokensPerSecond,
+  getBlockTimelineBehavior,
   isBlockActive,
   isCoreBlockType,
   lookupExtension,
@@ -25,6 +28,7 @@ import {
   statusLabel,
   summarizeBlock,
   toolDisplayInput,
+  toolHeadline,
   toolLabel,
   toolResultText,
 } from '@fx/chat-core'
@@ -112,10 +116,16 @@ export interface LayoutContext {
   /** Host facts after a message's own footer facts (e.g. `turn 42` in details). */
   footerExtras?: ((message: RenderableMessage, detail: DetailLevel) => string[]) | undefined
   /**
-   * A finished answer's folded activity when collapsed: its own row (default),
-   * or only the footer's counts.
+   * A finished answer's activity when collapsed: its own rows (default), or
+   * only the footer's counts (every activity row is dropped, in either
+   * placement, when the answer has a footer).
    */
   finishedActivity?: 'row' | 'footer' | undefined
+  /**
+   * A blank decoration line between content and an adjacent activity row or
+   * group (default true). Consecutive activity rows stay together.
+   */
+  activitySpacing?: boolean | undefined
 }
 
 /** What a frame needs to wrap a laid-out message. */
@@ -183,29 +193,53 @@ interface HeaderParts {
   prefix?: Span
   icon?: string
   label: string
+  /** Spans right after the label (exempt from truncation), before the detail. */
+  after?: Span[] | undefined
   detail?: string | undefined
   qualifier?: Span | undefined
   trailing?: string | undefined
   error?: boolean
+  /** Draw the label as an error when the `after` spans had to be dropped (they carried the cue). */
+  errorWithoutAfter?: boolean
   target?: LineTarget
 }
 
-/** One header row, truncated to `w` (affordance, icon, qualifier and timer exempt). */
+/**
+ * Cells of label (up to its whole width) a header keeps before it gives up its
+ * time, then its `after` spans.
+ */
+const LABEL_MIN = 16
+
+/**
+ * One header row, truncated to `w` (affordance, icon and qualifier exempt). The
+ * timer and the `after` spans are exempt too, until the label would be cut
+ * below {@link LABEL_MIN} cells: then the timer goes, then the `after` spans.
+ */
 function headerRow(parts: HeaderParts, w: number, ctx: LayoutContext): LineDraft {
   const fixed: Span[] = [parts.affordance, span(' ')]
   if (parts.prefix) fixed.push(parts.prefix, span(' '))
   if (parts.icon) fixed.push(span(parts.icon, { role: 'marker' }), span(' '))
-  const tail: Span[] = []
-  if (parts.qualifier) tail.push(span(' '), parts.qualifier)
-  if (parts.trailing) tail.push(span(` ${parts.trailing}`, { role: 'muted' }))
-  const budget = Math.max(1, w - width(fixed, ctx.measure) - width(tail, ctx.measure))
   const label = parts.label.replace(/\s+/g, ' ').trim()
+  const least = Math.min(LABEL_MIN, ctx.measure(label))
+  let trailing = parts.trailing
+  let after = parts.after ?? []
+  const tailOf = (): Span[] => [
+    ...(parts.qualifier ? [span(' '), parts.qualifier] : []),
+    ...(trailing ? [span(` ${trailing}`, { role: 'muted' })] : []),
+  ]
+  const room = () =>
+    w - width(fixed, ctx.measure) - width(after, ctx.measure) - width(tailOf(), ctx.measure)
+  if (room() < least) trailing = undefined
+  if (room() < least) after = []
+  const tail = tailOf()
+  const budget = Math.max(1, room())
   const detail = parts.detail ? parts.detail.replace(/\s+/g, ' ').trim() : undefined
   const full = detail ? `${label} ${detail}` : label
   const cut = truncate(full, budget, ctx.measure)
   const labelPart = cut.slice(0, Math.min(label.length, cut.length))
   const detailPart = cut.slice(labelPart.length)
-  const middle: Span[] = [span(labelPart, { role: parts.error ? 'danger' : 'strong' })]
+  const error = parts.error || (parts.errorWithoutAfter && after.length === 0)
+  const middle: Span[] = [span(labelPart, { role: error ? 'danger' : 'strong' }), ...after]
   if (detailPart) middle.push(span(detailPart, { role: 'muted' }))
   return {
     spans: [...fixed, ...middle, ...tail],
@@ -241,16 +275,24 @@ interface BodyContext {
   ctx: LayoutContext
 }
 
-function toolGlyph(tool: ToolCallBlock, live: boolean, g: InkGlyphs): Span {
+function toolGlyph(tool: ToolCallBlock, live: boolean, ctx: LayoutContext): Span {
+  const g = ctx.glyphs
   if (tool.status === 'success') return span(g.toolSuccess, { role: 'positive', dim: true })
   if (tool.status === 'error') return span(g.toolError, { role: 'danger' })
-  return span(live ? g.toolRunning : g.toolIdle, { role: 'caution' })
+  // A live call spins on the shared clock like every live row; an unfinished
+  // one (or one awaiting approval, which is not live) is idle.
+  return live ? span(spinnerFrame(ctx), { role: 'marker' }) : span(g.toolIdle, { role: 'caution' })
 }
 
 const APPROVAL: Record<string, [string, InkThemeRole] | undefined> = {
   denied: ['· denied', 'danger'],
   unavailable: ['· refused', 'danger'],
   pending: ['· awaiting approval', 'caution'],
+}
+
+function approvalQualifier(tool: ToolCallBlock | undefined): Span | undefined {
+  const approval = tool?.approval ? APPROVAL[tool.approval.state] : undefined
+  return approval ? span(approval[0], { role: approval[1] }) : undefined
 }
 
 function toolOutput(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
@@ -319,13 +361,13 @@ function toolOutput(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
 
 function toolRow(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
   const live = isBlockActive(tool, { isActive: b.live, outcome: b.message.outcome })
-  const approval = tool.approval ? APPROVAL[tool.approval.state] : undefined
   const row = headerRow(
     {
-      affordance: toolGlyph(tool, live, b.ctx.glyphs),
+      affordance: toolGlyph(tool, live, b.ctx),
       label: toolLabel(tool) || 'tool',
       detail: toolDisplayInput(tool),
-      qualifier: approval ? span(approval[0], { role: approval[1] }) : undefined,
+      qualifier: approvalQualifier(tool),
+      trailing: liveTimer(positiveTimestamp(tool.startedAt), tool.durationMs, live, b.ctx),
       error: tool.status === 'error',
       target: { kind: 'row-toggle', rowKey: tool.id },
     },
@@ -344,7 +386,9 @@ function planRows(plan: PlanBlock, b: BodyContext): LineDraft[] {
     const marker = done
       ? span(g.planDone, { role: 'positive', dim: true })
       : active
-        ? span(g.planActive, { role: 'caution', ...(b.live ? {} : { dim: true }) })
+        ? b.live
+          ? span(spinnerFrame(b.ctx), { role: 'marker' })
+          : span(g.planActive, { role: 'caution', dim: true })
         : span(g.planPending, { dim: true })
     const lead = b.ctx.measure(marker.text) + 1
     const rows = wrapLines(entry.content, Math.max(1, b.width - lead), b.ctx.measure)
@@ -458,6 +502,7 @@ function blockLines(block: RenderableBlock, b: BodyContext): LineDraft[] {
 
 function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): LineDraft[] {
   const { ctx } = b
+  const g = ctx.glyphs
   const plan = planGroupHeader(blocks, {
     isActive: b.live,
     activeBlockId: b.activeBlockId,
@@ -466,28 +511,69 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
     durationMs: b.message.metrics?.durationMs,
   })
   const open = ctx.detail !== 'collapsed' || ctx.opened.isOpen(key, ROW_PATH)
-  const icon = plan.summary.iconName ? ctx.glyphs[plan.summary.iconName] : undefined
+  const icon = plan.summary.iconName ? g[plan.summary.iconName] : undefined
   const rate =
     plan.showRate && !b.live ? formatTokensPerSecond(b.message.metrics?.tokensPerSecond) : undefined
   const timer = plan.showTimer
     ? liveTimer(plan.startedAt, plan.durationMs, plan.isActive, ctx)
     : undefined
-  const header = headerRow(
-    {
-      affordance: plan.isActive
-        ? span(spinnerFrame(ctx), { role: 'marker' })
-        : span(open ? ctx.glyphs.expanded : ctx.glyphs.collapsed, { role: 'marker' }),
-      ...(plan.hiddenCount > 0
-        ? { prefix: span(`(+${plan.hiddenCount})`, { role: 'marker' }) }
-        : {}),
-      ...(icon ? { icon } : {}),
-      label: plan.summary.label,
-      trailing: [timer, rate].filter(Boolean).join(' ') || undefined,
-      target: { kind: 'row-toggle', rowKey: key },
-    },
-    b.width,
-    ctx,
-  )
+  const affordance = plan.isActive
+    ? span(spinnerFrame(ctx), { role: 'marker' })
+    : span(open ? g.expanded : g.collapsed, { role: 'marker' })
+  const target: LineTarget = { kind: 'row-toggle', rowKey: key }
+  let header: LineDraft
+  if (plan.tools) {
+    // About the tool calls only: one call as its row reads, else the count and
+    // outcome split with the glyphs, the running call, then the time.
+    const t = plan.tools
+    const sep = g.separator
+    const counts: Span[] =
+      !t.only && t.failed > 0
+        ? [
+            span(sep, { role: 'muted' }),
+            span(`${t.succeeded} ${g.success}`, { role: 'positive' }),
+            span(' '),
+            span(`${t.failed} ${g.error}`, { role: 'danger' }),
+          ]
+        : []
+    const detail = t.only
+      ? toolDisplayInput(t.only)
+      : t.running
+        ? `${sep.trimStart()}${toolHeadline(t.running)}`
+        : undefined
+    header = headerRow(
+      {
+        affordance,
+        icon: g.wrench,
+        label: t.only ? toolLabel(t.only) || 'tool' : `${t.total} tool calls`,
+        after: counts,
+        detail,
+        qualifier: approvalQualifier(t.only),
+        trailing: timer ? `${sep.trimStart()}${timer}` : undefined,
+        error: t.only !== undefined && t.failed > 0,
+        // Too narrow for the counts: the label alone carries the failure.
+        errorWithoutAfter: t.failed > 0,
+        target,
+      },
+      b.width,
+      ctx,
+    )
+  } else {
+    header = headerRow(
+      {
+        affordance,
+        ...(plan.hiddenCount > 0
+          ? { prefix: span(`(+${plan.hiddenCount})`, { role: 'marker' }) }
+          : {}),
+        ...(icon ? { icon } : {}),
+        label: plan.summary.label,
+        trailing: [timer, rate].filter(Boolean).join(' ') || undefined,
+        target,
+      },
+      b.width,
+      ctx,
+    )
+  }
   if (!open) return [header]
   const inner = { ...b, width: Math.max(1, b.width - 2) }
   return [
@@ -497,6 +583,14 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
       2,
     ),
   ]
+}
+
+/** Which side of the content/activity boundary a planned row is on. */
+function rowSide(row: PlannedRow): 'content' | 'activity' {
+  if (row.kind === 'bare') {
+    return getBlockTimelineBehavior(row.block).auxEligible ? 'activity' : 'content'
+  }
+  return row.kind === 'outcome' ? 'content' : 'activity'
 }
 
 /** Lay out a message's body (no frame) at `w` cells. */
@@ -512,20 +606,34 @@ export function layoutBody(
     isActive: live,
     activityPlacement: ctx.placement,
     ...(live && ctx.detail === 'collapsed' ? { liveTail: ctx.liveTail } : {}),
+    ...(ctx.detail === 'collapsed' && ctx.finishedActivity
+      ? { finishedActivity: ctx.finishedActivity }
+      : {}),
   })
   const b: BodyContext = { message, live, activeBlockId: plan.activeBlockId, width: w, ctx }
   const out: LineDraft[] = []
+  const spacing = ctx.activitySpacing ?? true
   let lastWasText = false
+  let lastSide: 'content' | 'activity' | undefined
   for (const row of plan.rows) {
+    // A text block with nothing visible (a stream's empty start) draws nothing
+    // and does not count as a paragraph.
     if (
       row.kind === 'bare' &&
       row.block.type === 'text' &&
-      lastWasText &&
-      ctx.placement === 'after-content'
+      !(row.block as { text: string }).text.trim()
     ) {
-      out.push({ spans: [] })
+      continue
     }
+    // Adjacent text blocks stay separate paragraphs (a copied blank line,
+    // always on), whether they were adjacent or the activity between them is
+    // not shown.
+    if (row.kind === 'bare' && row.block.type === 'text' && lastWasText) out.push({ spans: [] })
     lastWasText = row.kind === 'bare' && row.block.type === 'text'
+    const side = rowSide(row)
+    // Content and activity are set apart by a blank decoration line.
+    if (spacing && lastSide !== undefined && side !== lastSide) out.push({ spans: [], frame: true })
+    lastSide = side
     switch (row.kind) {
       case 'pending':
         out.push(
@@ -541,12 +649,17 @@ export function layoutBody(
         )
         break
       case 'group':
-        // A finished, collapsed answer may leave its activity to the footer's counts.
-        if (!live && ctx.detail === 'collapsed' && ctx.finishedActivity === 'footer') break
         out.push(...groupLines(row.key, row.blocks, b))
         break
       case 'earlier':
-        out.push({ spans: [span(`${ctx.glyphs.tool} +${row.count} earlier`, { role: 'muted' })] })
+        out.push({
+          spans: [
+            ...(ctx.glyphs.earlier
+              ? [span(`${ctx.glyphs.earlier} `, { role: 'marker', chrome: true })]
+              : []),
+            span(earlierLabel(row), { role: 'muted' }),
+          ],
+        })
         break
       case 'outcome':
         out.push(

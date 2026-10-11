@@ -8,7 +8,7 @@ import {
   countActivity,
   formatElapsed,
   livePhase,
-  toolLabel,
+  toolHeadline,
 } from '@fx/chat-core'
 /**
  * Fullscreen chrome around the viewport: the status line, queued (pending)
@@ -44,7 +44,7 @@ export interface StatusLineProps {
   measure?: Measure
 }
 
-function defaultPhaseLabel(phase: LivePhase): string {
+function defaultPhaseLabel(phase: LivePhase, headline: string | undefined): string {
   switch (phase.kind) {
     case 'waiting':
       return 'waiting'
@@ -53,7 +53,9 @@ function defaultPhaseLabel(phase: LivePhase): string {
     case 'writing':
       return 'writing'
     case 'tool':
-      return `running ${truncate(toolLabel(phase.call), 32)}`
+      return `running ${headline}`
+    case 'approval':
+      return `awaiting approval ${headline}`
   }
 }
 
@@ -73,18 +75,26 @@ export function StatusLine({
   const ticks = hooks.useTicks(live !== undefined, 1000)
   const now = hooks.useClock(false)
   const rule = glyphs.boxHorizontal
+  const phase = live ? livePhase(live.message) : undefined
+  const call = phase?.kind === 'tool' || phase?.kind === 'approval' ? phase.call : undefined
+  // The running call's headline, computed once per call and input (it may
+  // serialise the arguments), not on every tick.
+  const headline = React.useMemo(
+    () => (call ? truncate(toolHeadline(call), 32) : undefined),
+    [call, call?.title, call?.name, call?.inputSummary, call?.arguments],
+  )
   let label: ReactNode = null
   let labelText = ''
   if (live) {
-    const phase = livePhase(live.message)
+    const current = phase as LivePhase
     const elapsed = now - live.startedAt
     const facts = [
-      phaseLabel?.(phase) ?? defaultPhaseLabel(phase),
+      phaseLabel?.(current) ?? defaultPhaseLabel(current, headline),
       formatElapsed(elapsed, { live: true }),
     ]
     const tools = countActivity(live.message.blocks).tools.total
     if (tools > 0) facts.push(`${tools} tool${tools === 1 ? '' : 's'}`)
-    if (slowHint && elapsed >= slowHint.afterMs && slowHint.phases.includes(phase.kind))
+    if (slowHint && elapsed >= slowHint.afterMs && slowHint.phases.includes(current.kind))
       facts.push(slowHint.text)
     facts.push(...extras)
     const pulse = glyphs.pulse[ticks % glyphs.pulse.length] ?? ''

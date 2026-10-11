@@ -42,16 +42,26 @@ export type {
   MessagePlan,
   MessagePlanOptions,
   PlannedRow,
+  ToolGroupCounts,
 } from './plan'
 export {
+  earlierLabel,
   formatFooterMetrics,
   isBlockActive,
   planGroupHeader,
   planMessage,
   shouldShowTimer,
   statusLabel,
+  toolGroupLabel,
+  toolSpanMs,
 } from './plan'
-export { summarizeToolInput, toolDisplayInput, toolLabel, toolResultText } from './tool'
+export {
+  summarizeToolInput,
+  toolDisplayInput,
+  toolHeadline,
+  toolLabel,
+  toolResultText,
+} from './tool'
 export type {
   ActivityCounts,
   DetailLevel,

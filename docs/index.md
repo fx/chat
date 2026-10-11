@@ -53,3 +53,4 @@
 | 0031 | [Ink Mouse And Images](changes/0031-ink-mouse-and-images.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028, 0029 |
 | 0032 | [Tui Fullscreen](changes/0032-tui-fullscreen.md) | [Terminal App](specs/terminal-app/) | complete | 0028, 0029, 0030, 0031 |
 | 0033 | [Host Instances](changes/0033-host-instances.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028, 0029, 0030, 0031, 0032 |
+| 0034 | [Activity Layout](changes/0034-activity-layout.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0025, 0028, 0033 |

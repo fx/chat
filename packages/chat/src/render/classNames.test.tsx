@@ -174,6 +174,9 @@ describe('classNames threading — render layer', () => {
         { type: 'reasoning', id: 'r1', text: 'thinking', durationMs: 300 },
         // System (chat-system-body) — also auxiliary, grows the group to (+N).
         { type: 'system', id: 's1', text: 'system prompt' },
+        // A plan group: its header names the plan and counts the rest (chat-group-more).
+        { type: 'plan', id: 'p1', entries: [] },
+        { type: 'reasoning', id: 'r2', text: 'more', durationMs: 100 },
       ],
     }
     const user: ChatMessage = {

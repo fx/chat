@@ -126,7 +126,7 @@ describe('layout branches', () => {
         ctx({ isActive: () => true }),
       ),
     )
-    expect(live[0]).toBe('… tool x')
+    expect(live[0]).toBe('⠋ tool x')
     const idle = text(layoutBody(msg([tool({ status: 'pending' })]), 40, ctx()))
     expect(idle[0]).toBe('· run')
     const long = text(
@@ -171,12 +171,13 @@ describe('layout branches', () => {
         ctx({ detail: 'details' }),
       ),
     )
-    expect(details[0]).toBe('▾ (+1) ∴ … 12.0 tok/s')
-    expect(details[1]).toMatch(/^ {2}▾ ∴ Thought/)
+    // Too narrow for the label and the rate: the rate goes first.
+    expect(details[0]).toBe('▾ ✻ Thought for 0.9s')
+    expect(details[1]).toMatch(/^ {2}▾ ✻ Thought/)
     const collapsed = text(
       layoutBody(msg(blocks, { metrics: { durationMs: 4000, tokensPerSecond: 12 } }), 60, ctx()),
     )
-    expect(collapsed[0]).toBe('▸ (+1) ∴ Thought for 0.9s 12.0 tok/s')
+    expect(collapsed[0]).toBe('▸ ✻ Thought for 0.9s 12.0 tok/s')
     const statusOnly = text(
       layoutBody(
         msg(
@@ -201,11 +202,11 @@ describe('layout branches', () => {
         ctx({ isActive: () => true, detail: 'details' }),
       ),
     )
-    expect(liveGroup[0]).toMatch(/^. \(\+1\) 🔧?⚒ run$|^. \(\+1\) ⚒ run$/)
+    expect(liveGroup[0]).toBe('⠋ ƒ run · 2s')
     const system = text(
       layoutBody(msg([{ type: 'system', id: 'sy', text: 'Be brief.' }]), 40, ctx()),
     )
-    expect(system).toEqual(['  ⚙ System prompt'])
+    expect(system).toEqual(['  § System prompt'])
     const plan = text(
       layoutBody(
         msg([{ type: 'plan', id: 'p', entries: [{ content: 'doing', status: 'in_progress' }] }]),
@@ -213,7 +214,7 @@ describe('layout branches', () => {
         ctx({ isActive: () => true }),
       ),
     )
-    expect(plan).toEqual(['  ☑ Plan 0/1', '  … doing'])
+    expect(plan).toEqual(['  ☐ Plan 0/1', '  ⠋ doing'])
     const spinnerless = text(
       layoutBody(
         msg([]),
@@ -248,7 +249,7 @@ describe('layout branches', () => {
       text(
         layoutMessage(msg([{ type: 'text', id: 'x', text: 'hi' }]), ctx({ frame: threadedFrame })),
       ),
-    ).toEqual(['│', '│ hi', '│', '╰ ', ''])
+    ).toEqual(['│', '│ hi', '╰', ''])
     expect(
       text(
         layoutBody(

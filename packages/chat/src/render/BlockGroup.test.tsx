@@ -30,14 +30,62 @@ const tool = (id: string, name = id): ContentBlock => ({
   status: 'success',
 })
 const status = (id: string): ContentBlock => ({ type: 'status', id })
+const plan = (id: string): ContentBlock => ({ type: 'plan', id, entries: [] })
+const thought = (id: string, durationMs = 5): ContentBlock => ({
+  type: 'reasoning',
+  id,
+  text: id,
+  durationMs,
+})
 
 describe('BlockGroup', () => {
+  it('heads a tool group with its calls only: count, failures and time, no (+N)', () => {
+    const blocks: ContentBlock[] = [
+      reasoning('r'),
+      { ...(tool('t1', 'search') as object), startedAt: 1000, durationMs: 2000 } as ContentBlock,
+      reasoning('r2'),
+      {
+        ...(tool('t2', 'fetch') as object),
+        status: 'error',
+        startedAt: 2500,
+        durationMs: 500,
+      } as ContentBlock,
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    const summary = container.querySelector('.chat-group-summary') as HTMLElement
+    expect(summary.textContent).toBe('2 tool calls · 1 ok · 1 failed')
+    expect(summary.getAttribute('data-tools')).toBe('2')
+    expect(summary.getAttribute('data-failed')).toBe('1')
+    expect(container.querySelector('.chat-group-more')).toBeNull()
+    const header = container.querySelector('.chat-row-header') as HTMLElement
+    expect(within(header).getByText('2.0s')).toBeInTheDocument()
+  })
+
+  it('reads a one-call group like the call’s row: error state and approval qualifier', () => {
+    const blocks: ContentBlock[] = [
+      reasoning('r'),
+      {
+        ...(tool('t', 'shell') as object),
+        status: 'error',
+        approval: { state: 'denied' },
+      } as ContentBlock,
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    expect(container.querySelector('.chat-group')?.classList.contains('chat-row-error')).toBe(true)
+    expect(container.querySelector('.chat-group-summary')?.textContent).toBe('shell · denied')
+    const ok = render(<BlockGroup blocks={[reasoning('r2'), tool('t2', 'ls')]} context={ctx()} />)
+    expect(ok.container.querySelector('.chat-group')?.classList.contains('chat-row-error')).toBe(
+      false,
+    )
+    expect(ok.container.querySelector('.chat-tool-approval')).toBeNull()
+  })
+
   it('renders a header summary chip and a (+N) plain-text count', () => {
-    const blocks = [reasoning('r'), tool('t1', 'search'), tool('t2', 'fetch')]
+    const blocks = [reasoning('r'), plan('p1'), plan('p2')]
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} defaultOpen />)
-    // Latest header-eligible block (fetch) heads the summary chip.
+    // The latest plan heads the summary chip.
     const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
-    expect(summary.textContent).toBe('fetch')
+    expect(summary.textContent).toBe('Plan')
     // The hidden-count `(+N)` is plain muted text (parenthesized, reference
     // format) — a bare <span>, NOT a filled `Badge` chip (no `chat-badge`).
     const more = container.querySelector('.chat-group-more') as HTMLElement
@@ -48,7 +96,7 @@ describe('BlockGroup', () => {
   })
 
   it('surfaces an ACTIVE trailing status row as the summary (no +N when 1 hidden)', () => {
-    const blocks = [tool('t1'), status('s')]
+    const blocks = [thought('t1'), status('s')]
     render(
       <BlockGroup
         blocks={blocks}
@@ -67,7 +115,7 @@ describe('BlockGroup', () => {
   })
 
   it('surfaces live timer + tokens/sec on a grouped active status header', () => {
-    const blocks = [tool('t1'), status('s')]
+    const blocks = [thought('t1'), status('s')]
     const { container } = render(
       <BlockGroup
         blocks={blocks}
@@ -93,7 +141,7 @@ describe('BlockGroup', () => {
   it('prefers a finalized durationMs on an active status summary header', () => {
     // An active status summary with a provided finalized durationMs surfaces
     // that duration (durationMs wins over the live ticker in the substrate).
-    const blocks = [tool('t1'), status('s')]
+    const blocks = [thought('t1'), status('s')]
     const { container } = render(
       <BlockGroup
         blocks={blocks}
@@ -144,7 +192,7 @@ describe('BlockGroup', () => {
     expect(header.querySelector('.chat-row-icon')).not.toBeNull()
     // Label mirrors the bare reasoning header (carries the duration).
     expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe(
-      'Thought for 1.3s',
+      'Thought ×2 · 2.6s',
     )
     // NO standalone timer pill — the duration lives only in the label.
     expect(header.querySelector('.chat-row-timer')).toBeNull()
@@ -158,14 +206,14 @@ describe('BlockGroup', () => {
     // `summary.showTimer` surfaces a LIVE timer pill: `summary.durationMs` is
     // undefined while active, so CollapsibleRow's useElapsedTimer ticks from
     // `context.startedAt`. The message-level tok/s pill renders alongside it.
-    const blocks = [tool('t1'), reasoning('r')]
+    const blocks = [thought('t1'), reasoning('r')]
     const { container } = render(
       <BlockGroup
         blocks={blocks}
         context={ctx({ isActive: true, activeBlockId: 'r', startedAt: 0, tokensPerSecond: 12 })}
       />,
     )
-    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('Thinking…')
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('Thinking… ×2')
     const header = container.querySelector('.chat-row-header') as HTMLElement
     const timer = header.querySelector('.chat-row-timer') as HTMLElement
     expect(timer).not.toBeNull()
@@ -185,7 +233,7 @@ describe('BlockGroup', () => {
   it('shows an active reasoning summary timer even without a tok/s rate', () => {
     // The timer pill is independent of the tok/s pill (e.g. before the live
     // rate estimate crosses its min-elapsed window).
-    const blocks = [tool('t1'), reasoning('r')]
+    const blocks = [thought('t1'), reasoning('r')]
     const { container } = render(
       <BlockGroup
         blocks={blocks}
@@ -203,7 +251,7 @@ describe('BlockGroup', () => {
     // read 1.0s (since the THINKING began), not 2.0s (since the message did).
     vi.setSystemTime(2000)
     const blocks: ContentBlock[] = [
-      tool('t1'),
+      thought('t1'),
       { type: 'reasoning', id: 'r', text: 'r', startedAt: 1000 },
     ]
     const { container } = render(
@@ -219,7 +267,7 @@ describe('BlockGroup', () => {
 
   it('falls back to context.startedAt for a reasoning summary without its own startedAt', () => {
     vi.setSystemTime(2000)
-    const blocks = [tool('t1'), reasoning('r')]
+    const blocks = [thought('t1'), reasoning('r')]
     const { container } = render(
       <BlockGroup
         blocks={blocks}
@@ -235,7 +283,7 @@ describe('BlockGroup', () => {
     // can produce it) must not defeat the valid message-level fallback.
     vi.setSystemTime(2000)
     const blocks: ContentBlock[] = [
-      tool('t1'),
+      thought('t1'),
       { type: 'reasoning', id: 'r', text: 'r', startedAt: Number.NaN },
     ]
     const { container } = render(
@@ -269,7 +317,7 @@ describe('BlockGroup', () => {
     expect(within(header).queryByText(/tok\/s/)).toBeNull()
     // The finished label still renders (no live churn, no stale "Thinking…").
     expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe(
-      'Thought for 1.3s',
+      'Thought ×2 · 2.6s',
     )
   })
 
@@ -277,11 +325,7 @@ describe('BlockGroup', () => {
     // Reference collapsed header order: [caret] [(+N)] [brain icon] [label] …
     // The (+N) text is CollapsibleRow's `prefix` slot, so within the header it
     // precedes the leading kind icon in document order.
-    const blocks: ContentBlock[] = [
-      { type: 'reasoning', id: 'r1', text: 'a', durationMs: 1300 },
-      { type: 'reasoning', id: 'r2', text: 'b', durationMs: 1300 },
-      { type: 'reasoning', id: 'r3', text: 'c', durationMs: 1300 },
-    ]
+    const blocks: ContentBlock[] = [thought('r1'), thought('r2'), plan('p')]
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
     const header = container.querySelector('.chat-row-header') as HTMLElement
     const more = header.querySelector('.chat-group-more') as HTMLElement
@@ -355,6 +399,26 @@ describe('BlockGroup', () => {
     expect(container.querySelector('[data-affordance="active"]')).toBeNull()
   })
 
+  it('is idle while its only live call awaits approval', () => {
+    const blocks: ContentBlock[] = [
+      reasoning('r'),
+      {
+        type: 'tool_call',
+        id: 't',
+        name: 'rm',
+        arguments: {},
+        status: 'pending',
+        approval: { state: 'pending' },
+      },
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx({ isActive: true })} />)
+    expect(container.querySelector('[data-affordance="active"]')).toBeNull()
+    expect(container.querySelector('.chat-row-timer')).toBeNull()
+    expect(container.querySelector('.chat-group-summary')?.textContent).toBe(
+      'rm · awaiting approval',
+    )
+  })
+
   it('stays active for a pending tool anywhere in the run', () => {
     const blocks: ContentBlock[] = [
       { type: 'tool_call', id: 't1', name: 'q', arguments: {}, status: 'pending' },
@@ -406,7 +470,7 @@ describe('BlockGroup', () => {
     const blocks = [reasoning('r1'), reasoning('r2')]
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
     const summary = container.querySelector('.chat-group-summary-label') as HTMLElement
-    expect(summary.textContent).toBe('Reasoning')
+    expect(summary.textContent).toBe('Reasoning ×2')
   })
 
   it('surfaces the host-supplied `label` of a custom summary block on the collapsed header', () => {

@@ -127,7 +127,7 @@ describe('Composer (fullscreen options)', () => {
     expect(changes.at(-1)).toEqual({ text: 'hi', caret: 2, attachments: [] })
     setValue({ text: 'see', caret: 1, attachments: [shot, doc] })
     await tick()
-    expect(lines(lastFrame())).toEqual(['📎 shot.png · notes  Esc removes', '› see'])
+    expect(lines(lastFrame())).toEqual(['⊕ shot.png · notes  Esc removes', '› see'])
     await press('X')
     expect(changes.at(-1)).toEqual({ text: 'sXee', caret: 2, attachments: [shot, doc] })
     await press(KEYS.ctrl('u'), KEYS.ctrl('k'), KEYS.enter)
@@ -154,14 +154,14 @@ describe('Composer (fullscreen options)', () => {
     }
     const { lastFrame } = plain({ value })
     await tick()
-    expect(lines(lastFrame())[0]).toBe('📎 audio/ogg')
+    expect(lines(lastFrame())[0]).toBe('⊕ audio/ogg')
   })
 
   it('truncates the attachments row to the width', async () => {
     const value = { text: '', caret: 0, attachments: [{ ...shot, name: 'a-very-long-name.png' }] }
     const { lastFrame } = plain({ value, width: 12 })
     await tick()
-    expect(lines(lastFrame())[0]).toBe('📎 a-very-l…')
+    expect(lines(lastFrame())[0]).toBe('⊕ a-very-lo…')
   })
 
   it('submits typed chunks with attachments', async () => {

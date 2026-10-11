@@ -150,8 +150,10 @@ export interface TranscriptViewportProps {
   write?: (data: string) => void
   /** Host facts after a message's own footer facts (e.g. `turn 42` in details). */
   footerExtras?: LayoutContext['footerExtras']
-  /** A finished answer's folded activity when collapsed: a row (default) or only the footer counts. */
+  /** A finished answer's activity when collapsed: its rows (default) or only the footer counts. */
   finishedActivity?: LayoutContext['finishedActivity']
+  /** A blank line between content and adjacent activity (default true). */
+  activitySpacing?: boolean
 }
 
 /** Mouse options. Shift+drag keeps the terminal's own selection. */
@@ -264,6 +266,7 @@ export function useTranscriptLayout(props: TranscriptViewportProps) {
     measure,
     footerExtras: props.footerExtras,
     finishedActivity: props.finishedActivity,
+    activitySpacing: props.activitySpacing,
     image,
   }
   const { lines } = layoutTranscript(props.messages, ctx, cache.current)

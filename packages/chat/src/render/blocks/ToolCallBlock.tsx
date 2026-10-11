@@ -63,7 +63,7 @@ function MediaItem({
  * `status === 'error'`.
  */
 /** The approval qualifier text, when the call's approval says something. */
-const APPROVAL_TEXT: Record<string, string | undefined> = {
+export const APPROVAL_TEXT: Record<string, string | undefined> = {
   denied: 'denied',
   unavailable: 'refused',
   pending: 'awaiting approval',
@@ -73,7 +73,10 @@ export function ToolCallBlockView({ block, defaultOpen, isActive: live }: ToolCa
   const { JsonView } = useChatComponents()
   const cn = useChatClassNames()
   const isError = block.status === 'error'
-  const isActive = live ?? (block.status === 'running' || block.status === 'pending')
+  // A call awaiting approval is blocked on the user: no spinner.
+  const isActive =
+    (live ?? (block.status === 'running' || block.status === 'pending')) &&
+    block.approval?.state !== 'pending'
   const input = toolDisplayInput(block)
   const approval = block.approval ? APPROVAL_TEXT[block.approval.state] : undefined
   const label = (
@@ -101,6 +104,7 @@ export function ToolCallBlockView({ block, defaultOpen, isActive: live }: ToolCa
       isActive={isActive}
       startedAt={block.startedAt}
       durationMs={block.durationMs}
+      showTimer
       error={isError}
       defaultOpen={isError ? true : defaultOpen}
       alwaysShow

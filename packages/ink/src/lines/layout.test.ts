@@ -1,10 +1,11 @@
 // @vitest-environment node
 import type { ChatMessage, ContentBlock, CustomBlock, RenderableMessage } from '@fx/chat-core'
 import { describe, expect, it } from 'vitest'
-import { plainGlyphs, plainTheme } from '../theme'
+import { asciiGlyphs, plainGlyphs, plainTheme } from '../theme'
 import { compactFrame, threadedFrame } from './frames'
 import {
   type LayoutContext,
+  type LineDraft,
   NOTHING_OPEN,
   ROW_PATH,
   footerSpans,
@@ -74,7 +75,8 @@ describe('layoutBody', () => {
       40,
       ctx(),
     )
-    expect(text(body)).toEqual(['▸ (+1) ⚒ Run tests', 'Done.'])
+    expect(text(body)).toEqual(['▸ ƒ Run tests npm test · denied', '', 'Done.'])
+    expect(body[1]?.frame).toBe(true)
     const opened = {
       version: 1,
       isOpen: (b: string, p: string) => b === 'group-r' && p === ROW_PATH,
@@ -89,7 +91,7 @@ describe('layoutBody', () => {
         ctx({ opened }),
       ),
     )
-    expect(open).toEqual(['▾ (+1) ⚒ t', '  ▸ ∴ Thought for 1.2s', '  ✗ t · denied'])
+    expect(open).toEqual(['▾ ƒ t · denied', '  ▸ ✻ Thought for 1.2s', '  ✗ t · denied'])
   })
 
   it('shows tool output in details: plain text wrapped, JSON folded, open in full', () => {
@@ -147,8 +149,8 @@ describe('layoutBody', () => {
       tool('t4', { status: 'running', startedAt: 15_000 }),
     ])
     const out = text(layoutBody(live, 50, ctx({ isActive: () => true })))
-    expect(out[0]).toBe('🔧 +2 earlier')
-    expect(out.at(-1)).toBe('… t4')
+    expect(out[0]).toBe('⋮ +1 earlier tool call')
+    expect(out.at(-1)).toBe('⠋ t4 5s')
     const thinking = text(
       layoutBody(
         answer([{ type: 'reasoning', id: 'r', text: 'one\ntwo\nthree\nfour', startedAt: 12_000 }]),
@@ -156,7 +158,7 @@ describe('layoutBody', () => {
         ctx({ isActive: () => true }),
       ),
     )
-    expect(thinking[0]).toMatch(/^. ∴ Thinking… 8s$/)
+    expect(thinking[0]).toMatch(/^. ✻ Thinking… 8s$/)
     expect(thinking.slice(1)).toEqual(['  two', '  three', '  four'])
     const pending = text(layoutBody(answer([]), 50, ctx({ isActive: () => true })))
     expect(pending[0]).toMatch(/Starting… 10s$/)
@@ -194,13 +196,16 @@ describe('layoutBody', () => {
       ),
     )
     expect(out).toEqual([
-      '  ☑ Plan 1/3',
+      '  ☐ Plan 1/3',
       '  ✓ Read the code',
       '  … Write',
       '  · Test',
-      '  ⚙ System prompt',
+      '',
+      '  § System prompt',
       '  Be brief.',
+      '',
       '  Generated',
+      '',
       'Sales',
       'note n 40',
       '✗ boom',
@@ -215,7 +220,7 @@ describe('layoutBody', () => {
       40,
       ctx(),
     )
-    expect(text(user)).toEqual(['hi there', '📎 x.png'])
+    expect(text(user)).toEqual(['hi there', '⊕ x.png'])
     expect(user[0]?.spans[0]?.role).toBe('user')
     const plan = layoutBody(
       {
@@ -231,7 +236,7 @@ describe('layoutBody', () => {
       12,
       ctx({ isActive: () => true }),
     )
-    expect(text(plan)).toEqual(['  ☑ Plan 0/1', '  · a long', '    entry', '    that', '    wraps'])
+    expect(text(plan)).toEqual(['  ☐ Plan 0/1', '  · a long', '    entry', '    that', '    wraps'])
   })
 
   it('separates paragraphs split by activity when placed after content', () => {
@@ -246,7 +251,7 @@ describe('layoutBody', () => {
         ctx({ placement: 'after-content' }),
       ),
     )
-    expect(out).toEqual(['one', '', 'two', '▸ ⚒ t'])
+    expect(out).toEqual(['one', '', 'two', '', '✓ t'])
   })
 })
 
@@ -267,7 +272,7 @@ describe('footer and frames', () => {
       close: 'Esc close',
     }
     expect(footerSpans(done, ctx({ hints }))?.[0]?.text).toBe(
-      '2.0s · stopped · ∴ 2 · ⚒ 1 tool · ^R again · ^T details',
+      '2.0s · stopped · ✻ 2 · ƒ 1 tool · ^R again · ^T details',
     )
     expect(footerSpans(done, ctx({ hints, detail: 'details' }))?.[0]?.text).toBe(
       '2.0s · stopped · ^R again · ^T open all · Esc close',
@@ -319,16 +324,16 @@ describe('footer and frames', () => {
     })
     const t = ctx({ frame: threadedFrame, width: 40 })
     expect(text(layoutMessage(user, t, reply))).toEqual([
-      '╭────── 14:02 ─╮',
-      '│ how big?     │',
-      '│ 📎 image/png │',
-      '├──────────────╯',
+      '╭───── 14:02 ─╮',
+      '│ how big?    │',
+      '│ ⊕ image/png │',
+      '├─────────────╯',
     ])
     expect(text(layoutMessage(user, t))).toEqual([
-      '╭────── 14:02 ─╮',
-      '│ how big?     │',
-      '│ 📎 image/png │',
-      '╰──────────────╯',
+      '╭───── 14:02 ─╮',
+      '│ how big?    │',
+      '│ ⊕ image/png │',
+      '╰─────────────╯',
       '',
     ])
     expect(text(layoutMessage(reply, t))).toEqual(['│', '│ About 2.4 GB.', '│', '╰ 1.0s', ''])
@@ -460,7 +465,8 @@ describe('footer extras', () => {
     expect(footer('details')).toBe('1.2s · turn m · Esc close')
     expect(footer('collapsed')).toBe('1.2s')
     expect(layoutSignature(message, ctx({ detail: 'details', footerExtras }))).toContain('turn m')
-    expect(layoutSignature(message, ctx())).toContain('|row||')
+    expect(layoutSignature(message, ctx())).toContain('|row|s||')
+    expect(layoutSignature(message, ctx({ activitySpacing: false }))).toContain('|row|-||')
   })
 })
 
@@ -469,19 +475,278 @@ describe('finished activity', () => {
     id: 'm',
     role: 'assistant',
     blocks: [
+      { type: 'reasoning', id: 'r', text: 'hmm', durationMs: 5 },
       { type: 'text', id: 't', text: 'answer' },
       { type: 'tool_call', id: 'x', name: 'search', arguments: {}, status: 'success', result: 'r' },
+      { type: 'tool_call', id: 'y', name: 'fetch', arguments: {}, status: 'success' },
     ],
     metrics: { durationMs: 1000 },
   }
+  const lines = (extra: Partial<LayoutContext>) => text(layoutBody(message, 40, ctx(extra)))
+
   it('leaves a finished, collapsed answer’s activity to the footer when asked', () => {
-    const lines = (extra: Partial<LayoutContext>) =>
-      text(layoutBody(message, 40, ctx({ placement: 'after-content', ...extra })))
-    expect(lines({}).join('\n')).toContain('search')
+    expect(lines({})).toEqual(['▸ ✻ Thought for 0.0s', '', 'answer', '', '▸ ƒ 2 tool calls'])
     expect(lines({ finishedActivity: 'footer' })).toEqual(['answer'])
+    expect(lines({ finishedActivity: 'footer', placement: 'after-content' })).toEqual(['answer'])
     expect(lines({ finishedActivity: 'footer', detail: 'details' }).join('\n')).toContain('search')
     expect(lines({ finishedActivity: 'footer', isActive: () => true }).join('\n')).toContain(
-      'search',
+      'fetch',
     )
+    expect(footerSpans(message, ctx({ finishedActivity: 'footer' }))?.[0]?.text).toBe(
+      '1.0s · ✻ 3 · ƒ 2 tools',
+    )
+  })
+
+  it('draws one header for a single activity block after content', () => {
+    const one: ChatMessage = { ...message, blocks: (message.blocks as ContentBlock[]).slice(0, 2) }
+    expect(text(layoutBody(one, 40, ctx({ placement: 'after-content' })))).toEqual([
+      'answer',
+      '',
+      '▸ ✻ Thought for 0.0s',
+    ])
+  })
+})
+
+describe('adjacent paragraphs', () => {
+  const message = answer(
+    [
+      { type: 'reasoning', id: 'r1', text: 'first', durationMs: 1000 },
+      { type: 'text', id: 'a', text: 'one' },
+      tool('t', { result: 'out' }),
+      { type: 'reasoning', id: 'r2', text: 'second', durationMs: 2000 },
+      { type: 'text', id: 'b', text: 'two' },
+    ],
+    { metrics: { durationMs: 4000 } },
+  )
+
+  it('keeps two paragraphs apart when the activity between them is hidden', () => {
+    const body = layoutBody(message, 40, ctx({ finishedActivity: 'footer' }))
+    expect(text(body)).toEqual(['one', '', 'two'])
+    // A paragraph break: copied, unlike the activity spacing.
+    expect(body[1]?.frame).toBeUndefined()
+    expect(
+      text(layoutBody(message, 40, ctx({ finishedActivity: 'footer', activitySpacing: false }))),
+    ).toEqual(['one', '', 'two'])
+  })
+
+  it('shows chronological rows in details, spaced at the content/activity boundaries', () => {
+    expect(
+      text(layoutBody(message, 40, ctx({ finishedActivity: 'footer', detail: 'details' }))),
+    ).toEqual([
+      '▾ ✻ Thought for 1.0s',
+      '  first',
+      '',
+      'one',
+      '',
+      '▾ ƒ t',
+      '  ✓ t',
+      '    ┊ out',
+      '  ▾ ✻ Thought for 2.0s',
+      '    second',
+      '',
+      'two',
+    ])
+  })
+
+  it('adds no break before a text block with nothing to show yet', () => {
+    const starting = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      { type: 'text', id: 'b', text: '  ' },
+    ])
+    expect(text(layoutBody(starting, 40, ctx({ isActive: () => true })))).toEqual(['one'])
+    const between = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      { type: 'text', id: 'b', text: ' \n ' },
+      { type: 'text', id: 'c', text: 'two' },
+    ])
+    expect(text(layoutBody(between, 40, ctx()))).toEqual(['one', '', 'two'])
+  })
+
+  it('separates adjacent text blocks in stream order too', () => {
+    const two = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      { type: 'text', id: 'b', text: 'two' },
+    ])
+    expect(text(layoutBody(two, 40, ctx()))).toEqual(['one', '', 'two'])
+  })
+})
+
+describe('activity spacing', () => {
+  const message = answer([
+    { type: 'text', id: 'a', text: 'one' },
+    tool('t1'),
+    tool('t2', { status: 'error' }),
+    { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
+    { type: 'text', id: 'b', text: 'two' },
+  ])
+
+  it('sets content and activity apart on both sides', () => {
+    expect(text(layoutBody(message, 40, ctx({ detail: 'details' })))).toEqual([
+      'one',
+      '',
+      '▾ ƒ 2 tool calls · 1 ✓ 1 ✗',
+      '  ✓ t1',
+      '  ✗ t2',
+      '  ▾ ✻ Thought for 0.0s',
+      '    x',
+      '',
+      'two',
+    ])
+    expect(text(layoutBody(message, 40, ctx({ activitySpacing: false })))).toEqual([
+      'one',
+      '▸ ƒ 2 tool calls · 1 ✓ 1 ✗',
+      'two',
+    ])
+  })
+
+  it('draws the blank line as decoration inside either frame', () => {
+    const compact = layoutMessage(message, ctx())
+    expect(text(compact).slice(0, 4)).toEqual(['• one', '  ', '  ▸ ƒ 2 tool calls · 1 ✓ 1 ✗', '  '])
+    expect(compact[1]?.frame).toBe(true)
+    const threaded = layoutMessage(message, ctx({ frame: threadedFrame }))
+    expect(text(threaded).slice(0, 6)).toEqual([
+      '│',
+      '│ one',
+      '│ ',
+      '│ ▸ ƒ 2 tool calls · 1 ✓ 1 ✗',
+      '│ ',
+      '│ two',
+    ])
+    expect(threaded[2]?.frame).toBe(true)
+  })
+
+  it('keeps consecutive activity rows together, the earlier row with or without its marker', () => {
+    const live = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      tool('t1'),
+      tool('t2'),
+      tool('t3', { status: 'running' }),
+    ])
+    const body = (extra: Partial<LayoutContext>) =>
+      text(layoutBody(live, 40, ctx({ isActive: () => true, liveTail: 1, ...extra })))
+    expect(body({})).toEqual(['one', '', '⋮ +2 earlier tool calls', '⠋ t3'])
+    expect(body({ glyphs: { ...plainGlyphs, earlier: '' } })[2]).toBe('+2 earlier tool calls')
+  })
+})
+
+describe('group headers', () => {
+  // Reasoning before each of five calls, then a last thought.
+  const turn = (failed = 0) =>
+    answer([
+      ...Array.from({ length: 5 }, (_, i): ContentBlock[] => [
+        { type: 'reasoning', id: `r${i}`, text: 'x', durationMs: 100 },
+        tool(`t${i}`, {
+          startedAt: 1000 + i * 2000,
+          durationMs: 1200,
+          ...(i < failed ? { status: 'error' as const } : {}),
+        }),
+      ]).flat(),
+      { type: 'reasoning', id: 'r5', text: 'x', durationMs: 100 },
+      { type: 'text', id: 'a', text: 'done' },
+    ])
+
+  it('heads a tool group with its calls: count, outcome split and wall-clock time', () => {
+    expect(text(layoutBody(turn(), 60, ctx()))[0]).toBe('▸ ƒ 5 tool calls · 9.2s')
+    expect(text(layoutBody(turn(1), 60, ctx()))[0]).toBe('▸ ƒ 5 tool calls · 4 ✓ 1 ✗ · 9.2s')
+    const ascii = text(layoutBody(turn(1), 60, ctx({ glyphs: asciiGlyphs })))[0]
+    expect(ascii).toBe('> * 5 tool calls | 4 + 1 x | 9.2s')
+  })
+
+  it('shows a live group’s count so far, the running call and a live timer', () => {
+    const live = answer([
+      tool('a', { startedAt: 12_000, durationMs: 1000 }),
+      { type: 'reasoning', id: 'r', text: 'x', durationMs: 100 },
+      tool('b', {
+        status: 'running',
+        title: 'Running',
+        inputSummary: 'sleep 2',
+        startedAt: 14_000,
+      }),
+    ])
+    expect(text(layoutBody(live, 60, ctx({ isActive: () => true, detail: 'details' })))[0]).toBe(
+      '⠋ ƒ 2 tool calls · Running sleep 2 · 8s',
+    )
+  })
+
+  it('keeps a tool group header within the width: drops the time, then the counts', () => {
+    const header = (w: number) => layoutBody(turn(2), w, ctx())[0] as LineDraft
+    expect(text([header(60)])[0]).toBe('▸ ƒ 5 tool calls · 3 ✓ 2 ✗ · 9.2s')
+    expect(text([header(26)])[0]).toBe('▸ ƒ 5 tool calls · 3 ✓ 2 ✗')
+    expect(text([header(10)])[0]).toBe('▸ ƒ 5 too…')
+    // Without room for the counts, the label carries the failure.
+    const label = (w: number) => header(w).spans.find((s) => s.text.startsWith('5 '))?.role
+    expect(label(10)).toBe('danger')
+    expect(label(60)).toBe('strong')
+    for (let w = 6; w <= 40; w++) {
+      expect(defaultMeasure(text([header(w)])[0] as string)).toBeLessThanOrEqual(w)
+    }
+  })
+
+  it('reads several thoughts truthfully, with no hidden count', () => {
+    const thoughts = answer([
+      { type: 'reasoning', id: 'a', text: 'x', durationMs: 1000 },
+      { type: 'reasoning', id: 'b', text: 'y', durationMs: 2100 },
+      { type: 'text', id: 't', text: 'ok' },
+    ])
+    expect(text(layoutBody(thoughts, 60, ctx()))[0]).toBe('▸ ✻ Thought ×2 · 3.1s')
+  })
+
+  it('times each tool row: its duration, or live elapsed while it runs', () => {
+    const rows = text(
+      layoutBody(
+        answer([
+          tool('a', { durationMs: 1500 }),
+          { type: 'text', id: 't', text: 'mid' },
+          tool('b', { status: 'running', startedAt: 17_000 }),
+        ]),
+        60,
+        ctx({ isActive: () => true }),
+      ),
+    )
+    expect(rows[0]).toBe('✓ a 1.5s')
+    expect(rows.at(-1)).toBe('⠋ b 3s')
+    // A call awaiting approval is blocked on the user: no spinner, time still shown.
+    const awaiting = text(
+      layoutBody(
+        answer([
+          tool('c', { status: 'pending', approval: { state: 'pending' }, startedAt: 17_000 }),
+        ]),
+        60,
+        ctx({ isActive: () => true }),
+      ),
+    )
+    expect(awaiting[0]).toBe('· c · awaiting approval')
+    // The same call heading a group: the qualifier, the idle caret, no spinner or timer.
+    const group = text(
+      layoutBody(
+        answer([
+          { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
+          tool('rm', {
+            status: 'pending',
+            approval: { state: 'pending' },
+            inputSummary: 'rm -rf x',
+            startedAt: 15_000,
+          }),
+        ]),
+        60,
+        ctx({ isActive: () => true, liveTail: 0 }),
+      ),
+    )
+    expect(group[0]).toBe('▸ ƒ rm rm -rf x · awaiting approval')
+    const nameless = answer([
+      { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
+      tool('n', { name: '', durationMs: 200 }),
+    ])
+    expect(text(layoutBody(nameless, 40, ctx()))[0]).toBe('▸ ƒ tool · 0.2s')
+  })
+})
+
+describe('threaded footer corner', () => {
+  it('closes the gutter with a bare corner when there are no footer facts', () => {
+    const hi = answer([{ type: 'text', id: 'x', text: 'hi' }])
+    expect(text(layoutMessage(hi, ctx({ frame: threadedFrame })))).toEqual(['│', '│ hi', '╰', ''])
+    expect(
+      text(layoutMessage({ ...hi, metrics: { model: 'm' } }, ctx({ frame: threadedFrame }))),
+    ).toEqual(['│', '│ hi', '│', '╰ m', ''])
   })
 })

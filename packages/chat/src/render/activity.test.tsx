@@ -152,7 +152,8 @@ describe('activity planning in the DOM', () => {
       />,
     )
     expect(container.querySelector('.chat-earlier')?.getAttribute('data-count')).toBe('2')
-    expect(container.querySelector('.chat-earlier')?.textContent).toBe('+2 earlier')
+    expect(container.querySelector('.chat-earlier')?.getAttribute('data-tools')).toBe('2')
+    expect(container.querySelector('.chat-earlier')?.textContent).toBe('+2 earlier tool calls')
     expect(container.querySelector('[data-live="true"] .chat-footer-elapsed')?.textContent).toBe(
       '12s',
     )

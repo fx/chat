@@ -184,6 +184,56 @@ describe('TranscriptViewport', () => {
     expect(ui.lastFrame()).toContain('hello')
   })
 
+  it('spins a running tool row and a live plan entry on the shared clock', async () => {
+    vi.setSystemTime(0)
+    const running: ChatMessage = {
+      id: 'a',
+      role: 'assistant',
+      createdAt: 0,
+      blocks: [
+        {
+          type: 'plan',
+          id: 'p',
+          entries: [{ content: 'step', status: 'in_progress' }],
+        },
+        { type: 'tool_call', id: 't', name: 'fetch', arguments: {}, status: 'running' },
+      ],
+    }
+    const view = render(
+      <InkChatProvider>
+        <TranscriptViewport
+          messages={[running]}
+          streamingMessageId="a"
+          width={30}
+          height={6}
+          scroll={scrollEnd}
+          onScroll={vi.fn()}
+        />
+      </InkChatProvider>,
+    )
+    expect(view.lastFrame()).toContain('⠋ fetch')
+    expect(view.lastFrame()).toContain('⠋ step')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(view.lastFrame()).toContain('⠙ fetch')
+    expect(view.lastFrame()).toContain('⠙ step')
+    view.rerender(
+      <InkChatProvider>
+        <TranscriptViewport
+          messages={[{ ...running, outcome: { kind: 'stopped' } }]}
+          detail="details"
+          width={30}
+          height={6}
+          scroll={scrollEnd}
+          onScroll={vi.fn()}
+        />
+      </InkChatProvider>,
+    )
+    expect(view.lastFrame()).toContain('· fetch')
+    expect(view.lastFrame()).toContain('… step')
+  })
+
   it('renders the empty state and threaded frames', () => {
     expect(
       str(
@@ -322,6 +372,73 @@ describe('StatusLine, PendingRows, EmptyState', () => {
     ],
   }
 
+  it('names a running tool by its label and input', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(5_000)
+    const shell: ChatMessage = {
+      ...live,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: 'shell',
+          title: 'Running',
+          inputSummary: 'sleep 2 && echo done && echo more',
+          arguments: {},
+          status: 'running',
+        },
+      ],
+    }
+    expect(str(<StatusLine width={80} live={{ message: shell, startedAt: 0 }} />, 80)).toContain(
+      'running Running sleep 2 && echo done &&… · 5s',
+    )
+  })
+
+  it('names a nameless running call by the row’s fallback label', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(5_000)
+    const nameless = (inputSummary?: string): ChatMessage => ({
+      ...live,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: ' ',
+          title: '',
+          ...(inputSummary ? { inputSummary } : {}),
+          arguments: {},
+          status: 'running',
+        },
+      ],
+    })
+    const line = (m: ChatMessage) =>
+      str(<StatusLine width={80} live={{ message: m, startedAt: 0 }} />, 80)
+    expect(line(nameless())).toContain('●·· running tool · 5s')
+    expect(line(nameless('ls -la'))).toContain('●·· running tool ls -la · 5s')
+  })
+
+  it('says a call awaits approval rather than running', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(5_000)
+    const blocked: ChatMessage = {
+      ...live,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: 'shell',
+          inputSummary: 'rm -rf x',
+          arguments: {},
+          status: 'pending',
+          approval: { state: 'pending' },
+        },
+      ],
+    }
+    expect(str(<StatusLine width={80} live={{ message: blocked, startedAt: 0 }} />, 80)).toContain(
+      'awaiting approval shell rm -rf x · 5s',
+    )
+  })
+
   it('shows the pulse, phase, elapsed, tools, slow hint and extras while live', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(70_000)
@@ -399,7 +516,7 @@ describe('StatusLine, PendingRows, EmptyState', () => {
       { text: 'four' },
     ]
     expect(str(<PendingRows items={items} width={30} />, 30)).toBe(
-      '⏸ +1 · 📎2 two lines\n⏸ three\n⏸ four',
+      '‖ +1 · ⊕2 two lines\n‖ three\n‖ four',
     )
     expect(str(<PendingRows items={[]} width={30} />, 30)).toBe('')
     expect(str(<EmptyState title="Ready" subtitle="model" notes={['a', 'b']} />, 20)).toContain(

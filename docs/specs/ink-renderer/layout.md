@@ -34,7 +34,7 @@ remains for the inline transcript.
   measure) and the next message (which decides a frame's junction).
 - A layout cache MUST key each message by its object identity plus a signature of everything layout
   reads (width, detail, placement, frame id, live tail, live footer, finished-activity mode,
-  liveness and — when live — the second, the open-state and image versions, whether the next
+  activity spacing, liveness and — when live — the second, the open-state and image versions, whether the next
   message shows, the host's footer facts, the hint labels, the resolved accent, the glyphs, the
   markdown layout, the measure, the image hook and the custom block layouts). Plain values (facts,
   hints, accent) count by value; the glyph set and injected functions count by identity, so hosts
@@ -46,7 +46,19 @@ remains for the inline transcript.
   `compact` (the default: role glyph, rows, footer line) and an OPTIONAL `threaded` frame (user
   message in a round-cornered box with the time set into its top edge and its attachments listed;
   an answer hanging from it on a gutter with a footer corner). Frames draw only with injected roles
-  and glyphs.
+  and glyphs. With footer facts the threaded answer ends with a blank gutter line and the corner
+  followed by the facts; without, the corner glyph alone closes the gutter right after the body
+  (no empty footer line, no trailing space).
+- **Activity spacing.** One blank decoration line (`frame`, never copied) MUST separate a content
+  row (a non-activity block or the outcome) from an adjacent activity row, group or `earlier` row,
+  on either side; consecutive activity rows are not separated. Frames draw it like any body line (the
+  threaded gutter continues through it). A host MAY turn it off (on by default).
+- **Adjacent paragraphs.** Two text blocks whose rows are adjacent — in either placement, including
+  when the activity between them is not shown (footer-only finished activity) — MUST be separated
+  by one blank line. A text block with no visible content (a stream's empty start) draws nothing
+  and does not count as a paragraph. It is a paragraph break, so a copy keeps it (unlike activity spacing, which is
+  decoration). It is always on — it does not follow the activity-spacing option, since without it
+  two paragraphs run together.
 - An answer **shows** once it has content, reasoning, an outcome, a tool call or a plan. Before that,
   a live answer in the threaded frame draws nothing (the status line reports waiting); the compact
   frame keeps the pending row.
@@ -59,10 +71,11 @@ remains for the inline transcript.
 ## Block Layouts
 
 - **Reasoning:** wrapped, italic, `muted`.
-- **Tool row:** one line — status glyph (success, error, running when its message is live, idle
-  otherwise, unknown), the label, the input when it adds something, then the approval qualifier.
-  Whitespace collapsed and truncated to the width; the glyph and qualifier are exempt from
-  truncation.
+- **Tool row:** one line — status glyph (success, error; a pending or running call draws the
+  spinner while its message is live and the idle glyph otherwise), the label, the input when it
+  adds something, the approval qualifier, then its time (duration, or live elapsed while it runs).
+  Whitespace collapsed and truncated to the width; the glyph, qualifier and time are exempt from
+  truncation. A call awaiting approval is not live: the idle glyph, no spinner, no ticking time.
 - **Tool output box** (details and full): the output text, each line prefixed by an indented dotted
   bar (chrome), every line targeted at the block. Plain text is wrapped and dim and never cut (the
   inline transcript keeps its line clip). JSON is laid out with core's loose-JSON layout — folded in
@@ -71,8 +84,23 @@ remains for the inline transcript.
   last indent step, its preview and a size label, and targets the toggle. Trailing non-JSON follows
   as text. Open state is per block and path, kept by the viewport or controlled by the host.
 - **Plan:** one row per entry — status glyph (done, active, pending), the content with a hanging
-  indent; completed entries dim; the active glyph bright while live.
+  indent; completed entries dim; an in-progress entry draws the spinner while its message is live,
+  else the active glyph, dim.
+- **One spinner.** Every live affordance in the transcript — live reasoning, the status row, live
+  group headers, running tool rows, in-progress plan entries — MUST draw the same spinner frames,
+  stepped by the same clock.
 - **Outcome:** an error row `✗ <message>` (glyph injected), wrapped, `danger`, after the content.
+- **Group header:** core's plan, drawn with glyphs. A tool group: the tools glyph, one call as its
+  row reads (label, input, qualifier), else `N tool calls`, then — when any failed — the counts as
+  `<ok> <success glyph> <failed> <error glyph>` in the positive and danger roles, then the running
+  call's headline while live, then the time, each joined by the separator. A reasoning group: core's
+  label (`Thought ×N · <total>`). Others: `(+N)`, icon, label, timer and rate as before.
+- **One header row ≤ width.** A header is one line no wider than its width: the label (and detail)
+  is cut first, but once the label would drop below 16 cells (or its whole width, if shorter) the
+  time or rate goes, then the tool counts — and when the counts carried a failure, the label is
+  drawn in the danger role instead.
+- **Earlier row:** the `earlier` glyph (a `marker`, chrome; none when empty), then core's label,
+  `muted`.
 - **Footer:** the planned facts joined by a separator, with fact glyphs (reasoning, plan, tools) from
   the glyph set, then host-labelled hints: `retry` with an outcome, `details` when collapsed with
   activity, `openAll` in details with tool output, `close` in details or full. Hint labels default to
@@ -85,7 +113,7 @@ Three levels apply to every message in the viewport:
 
 | Level | Finished message | Live message |
 |---|---|---|
-| `collapsed` | content; activity as a folded row and footer facts (or, by host option, footer facts only) | content; the live tail (reasoning while nothing else arrived, the plan, the newest tool rows after an `N earlier` row) |
+| `collapsed` | content; activity in its rows and footer facts (or, by host option, footer facts only — every activity row hidden when the footer shows) | content; the live tail (reasoning while nothing else arrived, the plan, the newest tool rows after an `earlier` row) |
 | `details` | everything; JSON folded | same |
 | `full` | everything; JSON open, nothing cut | same |
 
@@ -120,7 +148,8 @@ Per-member JSON opening is independent of the level and persists while the viewp
 
 - **Status line:** a full-width rule with a label set into it near the left, cut to fit. While a
   message is live: the pulse (frames from the glyph set, one step per clock tick, in the accent),
-  the live phase (`waiting`, `thinking`, `running <tool label, ≤32 cells>`, `writing`, or a host
+  the live phase (`waiting`, `thinking`, `running <tool label and input as its row reads them,
+  ≤32 cells>`, `awaiting approval <the same>`, `writing`, or a host
   label per phase), whole elapsed seconds, the tool count, an OPTIONAL slow-phase hint after a
   host-given delay, then host facts. Not live: a host notice (`✓`/`✗` in its tone), else the host's
   own state label and `↓ N more` (either or both), else a plain rule.

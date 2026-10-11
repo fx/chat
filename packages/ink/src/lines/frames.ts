@@ -39,7 +39,7 @@ export const compactFrame: MessageFrame = {
 /**
  * Threaded: the user's message in a round-cornered box with its time set into
  * the top edge; an answer hangs from the box on a gutter in its accent and
- * ends with a footer corner. A live answer that shows nothing yet draws
+ * ends with a footer corner (bare when the answer has no footer facts). A live answer that shows nothing yet draws
  * nothing.
  */
 export const threadedFrame: MessageFrame = {
@@ -109,12 +109,17 @@ function answerGutter({ body, footer, shows, accent, ctx }: FrameInput): LineDra
   const lines: LineDraft[] = [
     bare,
     ...body.map((line) => ({ ...line, spans: [gutter, ...line.spans] })),
-    bare,
   ]
-  lines.push({
-    spans: [span(`${g.footer} `, { style: accent, chrome: true }), ...(footer ?? [])],
-    frame: true,
-  })
+  // With footer facts: a blank gutter line, then the corner and the facts.
+  // Without: the corner alone closes the gutter right after the body.
+  if (footer) {
+    lines.push(bare, {
+      spans: [span(`${g.footer} `, { style: accent, chrome: true }), ...footer],
+      frame: true,
+    })
+  } else {
+    lines.push({ spans: [span(g.footer, { style: accent, chrome: true })], frame: true })
+  }
   lines.push(blank())
   return lines
 }

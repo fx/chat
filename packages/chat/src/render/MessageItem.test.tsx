@@ -277,8 +277,8 @@ describe('MessageItem', () => {
       ],
     })
     render(<MessageItem message={msg} defaultOpen />)
-    // The four metadata blocks collapse: a (+3) badge counts the hidden ones.
-    expect(screen.getByText('(+3)')).toBeInTheDocument()
+    // The four metadata blocks collapse under a header about the tool calls.
+    expect(screen.getByText('2 tool calls')).toBeInTheDocument()
     // The answer renders bare.
     expect(screen.getByText('final answer')).toBeInTheDocument()
   })
@@ -554,7 +554,7 @@ describe('MessageItem', () => {
     const { container } = render(<MessageItem message={msg} minimal defaultOpen />)
     // One group holds BOTH aux blocks despite the text between them.
     expect(container.querySelectorAll('.chat-group')).toHaveLength(1)
-    expect(screen.getByText('(+1)')).toBeInTheDocument()
+    expect(container.querySelector('.chat-group-summary-label')?.textContent).toBe('search')
     expect(screen.getByText('interim')).toBeInTheDocument()
   })
 

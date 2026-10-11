@@ -10,6 +10,7 @@ import {
   type RenderableBlock,
   type RenderableMessage,
   approxTokenCount,
+  earlierLabel,
   isBlockActive,
   isCoreBlockType,
   lookupExtension,
@@ -30,6 +31,7 @@ import {
  */
 import type { ComponentType } from 'react'
 import { Row, clipLines, toJson } from './Row'
+import { Spinner } from './Spinner'
 import { Styled, useInkComponents } from './registry'
 import { React, hooks, ink } from './runtime'
 import { stripControlsDeep } from './sanitize'
@@ -135,6 +137,7 @@ function BlockRow({ block, ctx }: { block: RenderableBlock; ctx: Ctx }) {
           isActive={live}
           startedAt={core.startedAt}
           durationMs={core.durationMs}
+          showTimer
           error={isError}
           expanded={ctx.expanded}
         >
@@ -202,7 +205,11 @@ function PlanEntries({ entries, live }: { entries: PlanEntry[]; live: boolean })
               : 'content'
         return (
           <ink.Box key={entry.id ?? index} gap={1}>
-            <Styled tone={entry.status === 'completed' ? 'positive' : 'marker'}>{marker}</Styled>
+            {entry.status === 'in_progress' && live ? (
+              <Spinner />
+            ) : (
+              <Styled tone={entry.status === 'completed' ? 'positive' : 'marker'}>{marker}</Styled>
+            )}
             <Styled tone={tone}>{entry.content}</Styled>
           </ink.Box>
         )
@@ -214,9 +221,14 @@ function PlanEntries({ entries, live }: { entries: PlanEntry[]; live: boolean })
 function GroupRow({ blocks, ctx }: { blocks: RenderableBlock[]; ctx: Ctx }) {
   const plan = planGroupHeader(blocks, ctx)
   const tokensPerSecond = plan.showRate ? ctx.tokensPerSecond : undefined
+  // A one-call group reads as that call's row: its error state and approval qualifier.
+  const only = plan.tools?.only
+  const approval = only?.approval ? APPROVAL_TEXT[only.approval.state] : undefined
   return (
     <Row
       label={plan.summary.label}
+      {...(approval ? { qualifier: approval } : {})}
+      error={only !== undefined && plan.tools?.failed === 1}
       iconName={plan.summary.iconName}
       prefix={plan.hiddenCount > 0 ? <Styled tone="marker">(+{plan.hiddenCount})</Styled> : null}
       isActive={plan.isActive}
@@ -319,7 +331,7 @@ export function MessageView({
               <BlockRow key={row.block.id} block={row.block} ctx={ctx} />
             ) : row.kind === 'earlier' ? (
               <Styled key={row.key} tone="muted">
-                {glyphs.wrench} +{row.count} earlier
+                {glyphs.earlier ? `${glyphs.earlier} ${earlierLabel(row)}` : earlierLabel(row)}
               </Styled>
             ) : row.kind === 'outcome' ? (
               <Styled key="outcome" tone="danger">
