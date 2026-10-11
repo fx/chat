@@ -220,6 +220,20 @@ describe('ReasoningBlockView', () => {
 })
 
 describe('ToolCallBlockView', () => {
+  it('does not spin while a call awaits approval', () => {
+    const block: ToolCallBlock = {
+      type: 'tool_call',
+      id: 'tc',
+      name: 'shell',
+      arguments: {},
+      status: 'pending',
+      approval: { state: 'pending' },
+    }
+    const { container } = render(<ToolCallBlockView block={block} />)
+    expect(container.querySelector('[data-affordance="active"]')).toBeNull()
+    expect(container.textContent).toContain('awaiting approval')
+  })
+
   it('shows its duration, or a live timer from its start while it runs', () => {
     vi.setSystemTime(5000)
     const done: ToolCallBlock = {

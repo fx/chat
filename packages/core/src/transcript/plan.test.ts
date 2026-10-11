@@ -211,6 +211,21 @@ describe('planGroupHeader', () => {
       toolSpanMs([call('a', { durationMs: 3000 }), call('b', { startedAt: 5, durationMs: 1000 })]),
     ).toBe(4000)
     expect(toolSpanMs([call('a'), call('b')])).toBeUndefined()
+    // Non-finite or negative durations are ignored; a bad start falls back to the sum.
+    expect(
+      toolSpanMs([
+        call('a', { startedAt: 1000, durationMs: Number.NaN }),
+        call('b', { startedAt: 1000, durationMs: -5 }),
+        call('c', { startedAt: 2000, durationMs: 500 }),
+      ]),
+    ).toBe(500)
+    expect(
+      toolSpanMs([
+        call('a', { startedAt: -1, durationMs: 300 }),
+        call('b', { startedAt: 2000, durationMs: 200 }),
+      ]),
+    ).toBe(500)
+    expect(toolSpanMs([call('a', { durationMs: Number.POSITIVE_INFINITY })])).toBeUndefined()
     const untimed = planGroupHeader([call('a'), call('b')], {})
     expect('durationMs' in untimed).toBe(false)
     expect('durationMs' in untimed.summary).toBe(false)
@@ -243,6 +258,26 @@ describe('planGroupHeader', () => {
     })
     expect(one.summary.label).toBe('tool-x')
     expect(one.startedAt).toBe(7)
+  })
+
+  it('ticks only while a call runs; with live reasoning after finished calls, the span is static', () => {
+    const plan = planGroupHeader(
+      [
+        call('a', { startedAt: 1000, durationMs: 500 }),
+        call('b', { startedAt: 2000, durationMs: 500 }),
+        reasoning('r', { startedAt: 3000 }),
+      ],
+      { isActive: true, activeBlockId: 'r', startedAt: 1 },
+    )
+    expect(plan.isActive).toBe(true)
+    expect(plan.tools?.running).toBeUndefined()
+    expect(plan.durationMs).toBe(1500)
+    expect(plan.showTimer).toBe(true)
+    const untimed = planGroupHeader([call('a'), call('b'), reasoning('r')], {
+      isActive: true,
+      activeBlockId: 'r',
+    })
+    expect(untimed.showTimer).toBe(false)
   })
 
   it('reads reasoning: one thought as its row, several as a truthful count', () => {

@@ -189,4 +189,70 @@ describe('renderer parity', () => {
     }
     expect(domText).toContain('4 ok · 1 failed')
   })
+
+  it('agrees on a failed one-call group and a plan-first live tail', () => {
+    const failed: ChatMessage[] = [
+      {
+        id: 'f',
+        role: 'assistant',
+        blocks: [
+          { type: 'reasoning', id: 'r', text: 'x', durationMs: 100 },
+          {
+            type: 'tool_call',
+            id: 't',
+            name: 'shell',
+            arguments: {},
+            status: 'error',
+            approval: { state: 'denied' },
+          },
+          { type: 'text', id: 'x', text: 'no' },
+        ],
+      },
+    ]
+    const dom = render(
+      <ChatProvider>
+        <MessageLog messages={failed} />
+      </ChatProvider>,
+    ).container
+    const term = renderToString(
+      <InkChatProvider>
+        <Transcript messages={failed} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    expect(dom.querySelector('.chat-group')?.classList.contains('chat-row-error')).toBe(true)
+    for (const out of [dom.textContent ?? '', term]) {
+      expect(out).toContain('shell')
+      expect(out).toContain('denied')
+    }
+
+    const live: ChatMessage = {
+      id: 'l',
+      role: 'assistant',
+      blocks: [
+        { type: 'plan', id: 'p', entries: [] },
+        ...[1, 2, 3, 4].map((i): ChatMessage['blocks'][number] => ({
+          type: 'tool_call',
+          id: `t${i}`,
+          name: `step${i}`,
+          arguments: {},
+          status: 'success',
+        })),
+        { type: 'tool_call', id: 't5', name: 'step5', arguments: {}, status: 'running' },
+      ],
+    }
+    const domLive =
+      render(
+        <ChatProvider>
+          <MessageLog messages={[live]} isStreaming streamingMessageId="l" liveTail={2} />
+        </ChatProvider>,
+      ).container.textContent ?? ''
+    const termLive = renderToString(
+      <InkChatProvider>
+        <Transcript messages={[live]} isStreaming streamingMessageId="l" liveTail={2} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    for (const out of [domLive, termLive]) expect(out).toContain('+3 earlier tool calls')
+  })
 })

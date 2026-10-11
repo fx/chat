@@ -356,6 +356,14 @@ describe('live tail earlier row', () => {
     ).toEqual(['bare', '+2 earlier tool calls', 'bare', 'bare', 'bare'])
   })
 
+  it('anchors on the first shown tool call, not on a pinned plan or status row', () => {
+    const tools = [tool('t1'), tool('t2'), tool('t3'), tool('t4'), tool('t5', 'running')]
+    const plan: ContentBlock = { type: 'plan', id: 'p', entries: [] }
+    const status: ContentBlock = { type: 'status', id: 's', phase: 'complete' }
+    expect(rows([plan, ...tools], 2)).toEqual(['+3 earlier tool calls', 'p', 't4', 't5'])
+    expect(rows([status, ...tools], 2)).toEqual(['+3 earlier tool calls', 's', 't4', 't5'])
+  })
+
   it('counts other hidden activity above the tail, not what sits between shown rows', () => {
     const plan = (id: string): ContentBlock => ({ type: 'plan', id, entries: [] })
     expect(

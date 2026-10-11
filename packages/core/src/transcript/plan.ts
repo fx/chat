@@ -177,8 +177,9 @@ export function planMessage(
     const aux = blocks.filter(isAux)
     const visible = tailVisible(aux, blocks, liveTail)
     // Announce only what would have been a row above the tail: hidden blocks
-    // older than its first shown row, never hidden reasoning.
-    const first = aux.findIndex((block) => visible.has(block))
+    // older than its first shown tool call, never hidden reasoning. The latest
+    // plan and status rows show however old they are, so they do not anchor it.
+    const first = aux.findIndex((block) => block.type === 'tool_call' && visible.has(block))
     const hidden = aux.filter(
       (block, i) =>
         !visible.has(block) && block.type !== 'reasoning' && (first === -1 || i < first),
@@ -344,7 +345,10 @@ function toolFailed(tool: ToolCallBlock): boolean {
  * of their durations when one lacks a start; undefined when none has one.
  */
 export function toolSpanMs(tools: ToolCallBlock[]): number | undefined {
-  const timed = tools.filter((tool) => tool.durationMs !== undefined)
+  // Only finite, non-negative durations count; a bad one never poisons the span.
+  const timed = tools.filter(
+    (tool) => Number.isFinite(tool.durationMs) && (tool.durationMs as number) >= 0,
+  )
   if (timed.length === 0) return undefined
   const starts = timed.map((tool) => positiveTimestamp(tool.startedAt))
   if (starts.every((start) => start !== undefined)) {
@@ -407,7 +411,9 @@ export function planGroupHeader(
       ...(running ? { running } : {}),
       ...(tools.length === 1 ? { only: tools[0] as ToolCallBlock } : {}),
     }
-    const durationMs = isActive ? undefined : toolSpanMs(tools)
+    // The time ticks only while a call runs; otherwise it is the calls' span.
+    const durationMs = running ? undefined : toolSpanMs(tools)
+    const showTimer = running !== undefined || durationMs !== undefined
     const starts = tools
       .map((tool) => positiveTimestamp(tool.startedAt))
       .filter((start): start is number => start !== undefined)
@@ -420,11 +426,11 @@ export function planGroupHeader(
         iconName: 'wrench',
         label: toolGroupLabel(counts),
         ...(durationMs !== undefined ? { durationMs } : {}),
-        showTimer: true,
+        showTimer,
       },
       hiddenCount: 0,
       isActive,
-      showTimer: true,
+      showTimer,
       ...(durationMs !== undefined ? { durationMs } : {}),
       ...(startedAt !== undefined ? { startedAt } : {}),
       showRate: false,

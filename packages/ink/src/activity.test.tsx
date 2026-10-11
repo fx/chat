@@ -128,6 +128,27 @@ describe('activity planning in the terminal', () => {
     vi.useRealTimers()
   })
 
+  it('does not spin a call that awaits approval', () => {
+    const awaiting: ChatMessage = {
+      id: 'w',
+      role: 'assistant',
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: 'shell',
+          arguments: {},
+          status: 'pending',
+          approval: { state: 'pending' },
+        },
+      ],
+    }
+    const out = str(<MessageView message={awaiting} isActive />)
+    expect(out).toContain('ƒ shell')
+    expect(out).toContain('awaiting approval')
+    expect(out).not.toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/)
+  })
+
   it('draws the earlier row without a marker when the glyph is empty', () => {
     const out = renderToString(
       <InkChatProvider components={{ glyphs: { earlier: '' } }}>

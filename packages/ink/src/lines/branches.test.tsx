@@ -171,7 +171,8 @@ describe('layout branches', () => {
         ctx({ detail: 'details' }),
       ),
     )
-    expect(details[0]).toBe('▾ ✻ Thou… 12.0 tok/s')
+    // Too narrow for the label and the rate: the rate goes first.
+    expect(details[0]).toBe('▾ ✻ Thought for 0.9s')
     expect(details[1]).toMatch(/^ {2}▾ ✻ Thought/)
     const collapsed = text(
       layoutBody(msg(blocks, { metrics: { durationMs: 4000, tokensPerSecond: 12 } }), 60, ctx()),

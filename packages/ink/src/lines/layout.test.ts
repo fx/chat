@@ -5,6 +5,7 @@ import { asciiGlyphs, plainGlyphs, plainTheme } from '../theme'
 import { compactFrame, threadedFrame } from './frames'
 import {
   type LayoutContext,
+  type LineDraft,
   NOTHING_OPEN,
   ROW_PATH,
   footerSpans,
@@ -547,6 +548,14 @@ describe('adjacent paragraphs', () => {
     ])
   })
 
+  it('adds no break before a text block with nothing to show yet', () => {
+    const starting = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      { type: 'text', id: 'b', text: '  ' },
+    ])
+    expect(text(layoutBody(starting, 40, ctx({ isActive: () => true })))).toEqual(['one', ''])
+  })
+
   it('separates adjacent text blocks in stream order too', () => {
     const two = answer([
       { type: 'text', id: 'a', text: 'one' },
@@ -653,6 +662,16 @@ describe('group headers', () => {
     )
   })
 
+  it('keeps a tool group header within the width: drops the time, then the counts', () => {
+    const header = (w: number) => layoutBody(turn(2), w, ctx())[0] as LineDraft
+    expect(text([header(60)])[0]).toBe('▸ ƒ 5 tool calls · 3 ✓ 2 ✗ · 9.2s')
+    expect(text([header(26)])[0]).toBe('▸ ƒ 5 tool calls · 3 ✓ 2 ✗')
+    expect(text([header(10)])[0]).toBe('▸ ƒ 5 too…')
+    for (let w = 6; w <= 40; w++) {
+      expect(defaultMeasure(text([header(w)])[0] as string)).toBeLessThanOrEqual(w)
+    }
+  })
+
   it('reads several thoughts truthfully, with no hidden count', () => {
     const thoughts = answer([
       { type: 'reasoning', id: 'a', text: 'x', durationMs: 1000 },
@@ -676,6 +695,17 @@ describe('group headers', () => {
     )
     expect(rows[0]).toBe('✓ a 1.5s')
     expect(rows.at(-1)).toBe('⠋ b 3s')
+    // A call awaiting approval is blocked on the user: no spinner, time still shown.
+    const awaiting = text(
+      layoutBody(
+        answer([
+          tool('c', { status: 'pending', approval: { state: 'pending' }, startedAt: 17_000 }),
+        ]),
+        60,
+        ctx({ isActive: () => true }),
+      ),
+    )
+    expect(awaiting[0]).toBe('· c · awaiting approval 3s')
     const nameless = answer([
       { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
       tool('n', { name: '', durationMs: 200 }),

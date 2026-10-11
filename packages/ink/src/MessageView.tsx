@@ -134,7 +134,8 @@ function BlockRow({ block, ctx }: { block: RenderableBlock; ctx: Ctx }) {
           {...(input ? { detail: input } : {})}
           {...(approval ? { qualifier: approval } : {})}
           iconName="wrench"
-          isActive={live}
+          // A call awaiting approval is blocked on the user: no spinner.
+          isActive={live && core.approval?.state !== 'pending'}
           startedAt={core.startedAt}
           durationMs={core.durationMs}
           showTimer
@@ -221,9 +222,14 @@ function PlanEntries({ entries, live }: { entries: PlanEntry[]; live: boolean })
 function GroupRow({ blocks, ctx }: { blocks: RenderableBlock[]; ctx: Ctx }) {
   const plan = planGroupHeader(blocks, ctx)
   const tokensPerSecond = plan.showRate ? ctx.tokensPerSecond : undefined
+  // A one-call group reads as that call's row: its error state and approval qualifier.
+  const only = plan.tools?.only
+  const approval = only?.approval ? APPROVAL_TEXT[only.approval.state] : undefined
   return (
     <Row
       label={plan.summary.label}
+      {...(approval ? { qualifier: approval } : {})}
+      error={only !== undefined && plan.tools?.failed === 1}
       iconName={plan.summary.iconName}
       prefix={plan.hiddenCount > 0 ? <Styled tone="marker">(+{plan.hiddenCount})</Styled> : null}
       isActive={plan.isActive}

@@ -202,20 +202,35 @@ interface HeaderParts {
   target?: LineTarget
 }
 
-/** One header row, truncated to `w` (affordance, icon, qualifier and timer exempt). */
+/**
+ * Cells of label (up to its whole width) a header keeps before it gives up its
+ * time, then its `after` spans.
+ */
+const LABEL_MIN = 16
+
+/**
+ * One header row, truncated to `w` (affordance, icon and qualifier exempt). The
+ * timer and the `after` spans are exempt too, until the label would be cut
+ * below {@link LABEL_MIN} cells: then the timer goes, then the `after` spans.
+ */
 function headerRow(parts: HeaderParts, w: number, ctx: LayoutContext): LineDraft {
   const fixed: Span[] = [parts.affordance, span(' ')]
   if (parts.prefix) fixed.push(parts.prefix, span(' '))
   if (parts.icon) fixed.push(span(parts.icon, { role: 'marker' }), span(' '))
-  const tail: Span[] = []
-  if (parts.qualifier) tail.push(span(' '), parts.qualifier)
-  if (parts.trailing) tail.push(span(` ${parts.trailing}`, { role: 'muted' }))
-  const after = parts.after ?? []
-  const budget = Math.max(
-    1,
-    w - width(fixed, ctx.measure) - width(after, ctx.measure) - width(tail, ctx.measure),
-  )
   const label = parts.label.replace(/\s+/g, ' ').trim()
+  const least = Math.min(LABEL_MIN, ctx.measure(label))
+  let trailing = parts.trailing
+  let after = parts.after ?? []
+  const tailOf = (): Span[] => [
+    ...(parts.qualifier ? [span(' '), parts.qualifier] : []),
+    ...(trailing ? [span(` ${trailing}`, { role: 'muted' })] : []),
+  ]
+  const room = () =>
+    w - width(fixed, ctx.measure) - width(after, ctx.measure) - width(tailOf(), ctx.measure)
+  if (room() < least) trailing = undefined
+  if (room() < least) after = []
+  const tail = tailOf()
+  const budget = Math.max(1, room())
   const detail = parts.detail ? parts.detail.replace(/\s+/g, ' ').trim() : undefined
   const full = detail ? `${label} ${detail}` : label
   const cut = truncate(full, budget, ctx.measure)
@@ -261,8 +276,11 @@ function toolGlyph(tool: ToolCallBlock, live: boolean, ctx: LayoutContext): Span
   const g = ctx.glyphs
   if (tool.status === 'success') return span(g.toolSuccess, { role: 'positive', dim: true })
   if (tool.status === 'error') return span(g.toolError, { role: 'danger' })
-  // A live call spins on the shared clock like every live row; else it is unfinished.
-  return live ? span(spinnerFrame(ctx), { role: 'marker' }) : span(g.toolIdle, { role: 'caution' })
+  // A live call spins on the shared clock like every live row; one awaiting
+  // approval is blocked on the user, and an unfinished one is idle.
+  return live && tool.approval?.state !== 'pending'
+    ? span(spinnerFrame(ctx), { role: 'marker' })
+    : span(g.toolIdle, { role: 'caution' })
 }
 
 const APPROVAL: Record<string, [string, InkThemeRole] | undefined> = {
@@ -597,8 +615,15 @@ export function layoutBody(
   for (const row of plan.rows) {
     // Adjacent text blocks stay separate paragraphs (a copied blank line,
     // always on), whether they were adjacent or the activity between them is
-    // not shown.
-    if (row.kind === 'bare' && row.block.type === 'text' && lastWasText) out.push({ spans: [] })
+    // not shown — but not before a text block with nothing to show yet.
+    if (
+      row.kind === 'bare' &&
+      row.block.type === 'text' &&
+      lastWasText &&
+      (row.block as { text: string }).text.trim() !== ''
+    ) {
+      out.push({ spans: [] })
+    }
     lastWasText = row.kind === 'bare' && row.block.type === 'text'
     const side = rowSide(row)
     // Content and activity are set apart by a blank decoration line.

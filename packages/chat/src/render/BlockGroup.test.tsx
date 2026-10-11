@@ -61,6 +61,25 @@ describe('BlockGroup', () => {
     expect(within(header).getByText('2.0s')).toBeInTheDocument()
   })
 
+  it('reads a one-call group like the call’s row: error state and approval qualifier', () => {
+    const blocks: ContentBlock[] = [
+      reasoning('r'),
+      {
+        ...(tool('t', 'shell') as object),
+        status: 'error',
+        approval: { state: 'denied' },
+      } as ContentBlock,
+    ]
+    const { container } = render(<BlockGroup blocks={blocks} context={ctx()} />)
+    expect(container.querySelector('.chat-group')?.classList.contains('chat-row-error')).toBe(true)
+    expect(container.querySelector('.chat-group-summary')?.textContent).toBe('shell · denied')
+    const ok = render(<BlockGroup blocks={[reasoning('r2'), tool('t2', 'ls')]} context={ctx()} />)
+    expect(ok.container.querySelector('.chat-group')?.classList.contains('chat-row-error')).toBe(
+      false,
+    )
+    expect(ok.container.querySelector('.chat-tool-approval')).toBeNull()
+  })
+
   it('renders a header summary chip and a (+N) plain-text count', () => {
     const blocks = [reasoning('r'), plan('p1'), plan('p2')]
     const { container } = render(<BlockGroup blocks={blocks} context={ctx()} defaultOpen />)

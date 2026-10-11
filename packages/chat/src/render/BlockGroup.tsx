@@ -14,6 +14,7 @@ import { useChatClassNames } from '../registry'
 import { CollapsibleRow } from './CollapsibleRow'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
+import { APPROVAL_TEXT } from './blocks/ToolCallBlock'
 import type { ChatExtensions, RenderableBlock } from './extensions'
 
 /** Props for {@link BlockGroup}. */
@@ -43,6 +44,10 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       <span className={cx('chat-group-more', cn.groupMore)}>(+{hiddenCount})</span>
     ) : null
 
+  // A one-call group reads as that call's row: its error state and approval qualifier.
+  const only = header.tools?.only
+  const failedOnly = only !== undefined && header.tools?.failed === 1
+  const approval = only?.approval ? APPROVAL_TEXT[only.approval.state] : undefined
   const label = (
     <span
       className={cx('chat-group-summary', cn.groupSummary)}
@@ -51,6 +56,15 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
         : {})}
     >
       <span className={cx('chat-group-summary-label', cn.groupSummaryLabel)}>{summary.label}</span>
+      {approval ? (
+        <span
+          className={cx('chat-tool-approval', cn.toolApproval)}
+          data-approval={only?.approval?.state}
+        >
+          {' · '}
+          {approval}
+        </span>
+      ) : null}
     </span>
   )
 
@@ -60,6 +74,7 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
       {...(prefix ? { prefix } : {})}
       {...(summary.iconName ? { iconName: summary.iconName } : {})}
       isActive={isActive}
+      error={failedOnly}
       startedAt={startedAt}
       showTimer={showTimer}
       {...(durationMs !== undefined ? { durationMs } : {})}
