@@ -74,6 +74,31 @@ function randomId(): string {
   return `msg_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`
 }
 
+/** Thrown by {@link untilAborted} when the run is aborted first. */
+const ABORTED = Symbol('aborted')
+
+/**
+ * Settle with `promise`, or reject with {@link ABORTED} as soon as `signal`
+ * aborts: a host callback that ignores the signal must not hang the run.
+ */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(ABORTED)
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(ABORTED)
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
+}
+
 const STEP_LIMIT_MESSAGE = (steps: number) => `Stopped after ${steps} tool steps.`
 
 export async function runAgent(options: RunOptions): Promise<RunResult> {
@@ -168,7 +193,9 @@ async function runTool(
     emit(state)
     let approved = false
     try {
-      approved = options.approve ? await options.approve(call, signal) : false
+      approved = options.approve
+        ? await untilAborted(Promise.resolve(options.approve(call, signal)), signal)
+        : false
     } catch {
       approved = false
     }
@@ -188,8 +215,11 @@ async function runTool(
   state = updateToolCall(state, call.id, { status: 'running', startedAt })
   emit(state)
   try {
-    const result = await tool.execute(call.arguments, { signal, call })
-    if (signal.aborted) return state
+    const result = await untilAborted(
+      Promise.resolve().then(() => tool.execute(call.arguments, { signal, call })),
+      signal,
+    )
+    // A result that arrived before the abort is kept: the tool did finish.
     state = updateToolCall(state, call.id, {
       status: 'success',
       result: result === undefined ? null : result,

@@ -7,6 +7,7 @@
  * clock), so the tools run in a webview and in Node/Bun alike.
  */
 import type { FetchLike } from '../client'
+import { redirectOf } from '../redirect'
 import type { AgentTool } from '../types'
 import { evaluate } from './calculator'
 
@@ -92,13 +93,6 @@ export interface BuiltinToolOptions {
   now?: () => Date
 }
 
-/** The URL without its fragment, normalized, for comparing request and response URLs. */
-function comparable(url: string): string {
-  const parsed = new URL(url)
-  parsed.hash = ''
-  return parsed.href
-}
-
 /**
  * Text telling the model a page redirects instead of returning the target's
  * body: each URL the tool loads needs its own approval.
@@ -165,17 +159,10 @@ export function buildTools(
         }
         // Never follow redirects: an approved URL must not load an unapproved target.
         const response = await fetchImpl(url, { method: 'GET', redirect: 'manual', signal })
-        if (
-          response.type === 'opaqueredirect' ||
-          (response.status >= 300 && response.status < 400)
-        ) {
-          const location = response.headers.get('location')
-          return redirectNotice(location ? new URL(location, url).href : undefined)
-        }
-        // Some platform fetches follow redirects despite `redirect: 'manual'`.
-        if (response.redirected || (response.url && comparable(response.url) !== comparable(url))) {
-          return redirectNotice(response.url || undefined)
-        }
+        // Some platform fetches follow redirects despite `redirect: 'manual'`;
+        // `redirectOf` catches those too and the body is never returned.
+        const redirect = redirectOf(response, url)
+        if (redirect) return redirectNotice(redirect.target)
         const contentType = response.headers.get('content-type') ?? ''
         const raw = await response.text()
         const text = /html/i.test(contentType) ? htmlToText(raw) : raw

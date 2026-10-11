@@ -462,3 +462,54 @@ describe('runAgent', () => {
     })
   })
 })
+
+describe('runAgent abort during host callbacks', () => {
+  it('ends a pending approval that never resolves when aborted', async () => {
+    const controller = new AbortController()
+    const gated: AgentTool = { ...calc, requiresApproval: true, execute: vi.fn() }
+    const { client } = scripted(callEvents('a', 'calc'))
+    const result = await runAgent({
+      client,
+      model: 'm',
+      history,
+      tools: [gated],
+      signal: controller.signal,
+      approve: (_call, signal) => {
+        expect(signal).toBe(controller.signal)
+        setTimeout(() => controller.abort(), 0)
+        return new Promise<boolean>(() => {})
+      },
+      now,
+    })
+    expect(result.outcome).toBe('aborted')
+    expect(result.message.outcome).toEqual({ kind: 'stopped' })
+    const block = result.message.blocks[0] as ToolCallBlock
+    expect(block.status).toBe('error')
+    expect(block.result).toEqual({ error: 'Aborted.' })
+    expect(gated.execute).not.toHaveBeenCalled()
+  })
+
+  it('ends a running tool that never settles when aborted', async () => {
+    const controller = new AbortController()
+    const stuck: AgentTool = {
+      ...calc,
+      execute: () => {
+        setTimeout(() => controller.abort(), 0)
+        return new Promise(() => {})
+      },
+    }
+    const { client } = scripted(callEvents('a', 'calc'))
+    const result = await runAgent({
+      client,
+      model: 'm',
+      history,
+      tools: [stuck],
+      signal: controller.signal,
+      now,
+    })
+    expect(result.outcome).toBe('aborted')
+    const block = result.message.blocks[0] as ToolCallBlock
+    expect(block.status).toBe('error')
+    expect(block.result).toEqual({ error: 'Aborted.' })
+  })
+})

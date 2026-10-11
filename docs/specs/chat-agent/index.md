@@ -35,6 +35,9 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - A client MUST be configured with a base URL and an OPTIONAL API key; when a key is present it MUST
   be sent as an `Authorization: Bearer` header and MUST NOT be sent anywhere except the configured
   base URL.
+- The client MUST NOT follow redirects from the endpoint. A redirect response — or a response the
+  transport followed anyway — MUST be an error naming the redirect target and telling the user to
+  configure that URL as the base URL directly; its body MUST NOT be read.
 - The base URL MUST be accepted with or without a trailing slash and with or without a trailing
   `/v1` segment supplied by the user (it is used as given; paths are appended to it).
 - The client MUST list available models from the endpoint's models listing and MUST surface a listing
@@ -46,6 +49,13 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - **WHEN** the agent runs a turn whose tools fetch `https://other.example.test/`
 - **THEN** the request to `api.example.test` carries `Authorization: Bearer sk-test`, and no
   request to any other host carries it.
+
+#### Scenario: Endpoint redirects
+
+- **GIVEN** a client configured with base URL `https://api.example.test/v1` and key `sk-test`
+- **WHEN** the endpoint answers the models listing with a redirect to `https://other.example.test/v1/models`
+- **THEN** listing fails with an error naming `https://other.example.test/v1/models` and asking for it
+  to be configured as the base URL, and no request to `other.example.test` is made.
 
 ### Streaming Into a Message
 
@@ -143,7 +153,7 @@ receives an immutable snapshot after every applied delta.
 
 ### Cancellation and Errors
 
-- Aborting a run MUST stop at the next stream event even if the transport ignores the signal, MUST stop the stream and any running tool, MUST leave the message well-formed
+- Aborting a run MUST stop at the next stream event even if the transport ignores the signal, MUST stop the stream and any running tool, MUST end a pending approval even if the host's approval callback never settles, MUST leave the message well-formed
   (open reasoning finalized, unfinished tool calls marked `error` with an aborted result), and MUST
   resolve the run with an `aborted` outcome rather than rejecting.
 - HTTP errors, malformed streams, and network failures MUST resolve the run with an `error` outcome

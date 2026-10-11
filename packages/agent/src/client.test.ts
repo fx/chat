@@ -269,3 +269,77 @@ describe('createClient().streamCompletion', () => {
     await expect(gen.next()).rejects.toThrow('Response has no body')
   })
 })
+
+describe('createClient() redirects', () => {
+  const base = 'https://api.test/v1'
+  const text = vi.fn()
+  const fake = (init: Record<string, unknown>) =>
+    ({
+      type: 'basic',
+      status: 200,
+      ok: true,
+      redirected: false,
+      url: '',
+      headers: new Headers(),
+      body: null,
+      text,
+      json: text,
+      ...init,
+    }) as unknown as Response
+  const cases: Array<[string, () => Response, string, number | undefined]> = [
+    [
+      '3xx with a location',
+      () => fake({ status: 307, ok: false, headers: new Headers({ location: '/v2/x?q=1' }) }),
+      'https://api.test/v2/x?q=1',
+      307,
+    ],
+    [
+      'opaque redirect',
+      () => fake({ type: 'opaqueredirect', status: 0, ok: false }),
+      'an unknown location',
+      undefined,
+    ],
+    [
+      'followed anyway (different url)',
+      () => fake({ url: 'https://evil.test/v1/models' }),
+      'https://evil.test/v1/models',
+      undefined,
+    ],
+    [
+      'followed anyway (redirected flag)',
+      () => fake({ redirected: true }),
+      'an unknown location',
+      undefined,
+    ],
+  ]
+
+  const sites: Array<[string, (client: ReturnType<typeof createClient>) => Promise<unknown>]> = [
+    ['listModels', (client) => client.listModels()],
+    ['streamCompletion', (client) => client.streamCompletion({ model: 'm', messages: [] }).next()],
+  ]
+
+  for (const [site, call] of sites) {
+    it.each(cases)(
+      `${site}: never follows a redirect (%s)`,
+      async (_, response, target, status) => {
+        const { fn, calls } = fakeFetch(response())
+        const error = await call(createClient({ baseUrl: base, apiKey: 'sk', fetch: fn })).catch(
+          (e: unknown) => e,
+        )
+        expect(calls).toHaveLength(1)
+        expect(calls[0]?.init.redirect).toBe('manual')
+        expect(error).toBeInstanceOf(AgentError)
+        expect((error as AgentError).message).toBe(
+          `The endpoint redirects to ${target}. Redirects are not followed so the API key stays on the configured endpoint; set the redirect target as the base URL directly.`,
+        )
+        expect((error as AgentError).status).toBe(status)
+        expect(text).not.toHaveBeenCalled()
+      },
+    )
+  }
+
+  it('accepts a response whose url is the requested url', async () => {
+    const { fn } = fakeFetch(fake({ url: `${base}/models#x`, json: async () => ({ data: [] }) }))
+    expect(await createClient({ baseUrl: base, fetch: fn }).listModels()).toEqual([])
+  })
+})

@@ -4,8 +4,10 @@
  * Talks to any endpoint that implements `GET {base}/models` and streaming
  * `POST {base}/chat/completions`. The transport is injectable so hosts can
  * supply a CORS-exempt native fetch (e.g. on mobile); the API key is sent only
- * to the configured base URL and never logged.
+ * to the configured base URL and never logged. Redirects from the endpoint are
+ * never followed, so the key cannot reach another URL.
  */
+import { redirectOf } from './redirect'
 import { parseSSE } from './sse'
 import { ThinkSplitter } from './think'
 import type { ReasoningField, StreamEvent, WireMessage, WireTool } from './types'
@@ -115,8 +117,25 @@ export function createClient(options: ClientOptions): Client {
     }
   }
 
+  /**
+   * Request `url` without following redirects: a redirect would carry the key
+   * to a URL other than the configured base, so it is an error instead.
+   */
+  async function send(url: string, init: RequestInit): Promise<Response> {
+    const response = await doFetch(url, { ...init, redirect: 'manual' })
+    const redirect = redirectOf(response, url)
+    if (redirect) {
+      const target = redirect.target ?? 'an unknown location'
+      throw new AgentError(
+        `The endpoint redirects to ${target}. Redirects are not followed so the API key stays on the configured endpoint; set the redirect target as the base URL directly.`,
+        response.status >= 300 && response.status < 400 ? response.status : undefined,
+      )
+    }
+    return response
+  }
+
   async function listModels(signal?: AbortSignal): Promise<string[]> {
-    const response = await doFetch(`${base}/models`, {
+    const response = await send(`${base}/models`, {
       method: 'GET',
       headers: headers(false),
       ...(signal ? { signal } : {}),
@@ -139,7 +158,7 @@ export function createClient(options: ClientOptions): Client {
       ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       ...request.body,
     }
-    return doFetch(`${base}/chat/completions`, {
+    return send(`${base}/chat/completions`, {
       method: 'POST',
       headers: headers(true),
       body: JSON.stringify(body),
