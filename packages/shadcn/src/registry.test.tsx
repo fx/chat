@@ -37,6 +37,9 @@ describe('shadcn registry slots', () => {
     )
     const button = screen.getByRole('button', { name: 'Retry' })
     expect(button).toHaveClass('min-h-11', 'min-w-11', 'extra')
+    // Not a fixed 28px square: a labelled button grows to fit its label.
+    expect(button).toHaveClass('w-auto')
+    expect(button).not.toHaveClass('w-7')
     expect(button).toHaveAttribute('type', 'button')
     fireEvent.click(button)
     expect(onClick).toHaveBeenCalledOnce()

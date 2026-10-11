@@ -111,9 +111,12 @@ export function createShadcnClassNames({
     mdCodeInline: 'rounded bg-muted px-1 py-0.5 text-[0.85em]',
 
     // ── Footer (metrics + action buttons) ─────────────────────────────────────
-    footer:
-      'mt-1 flex flex-wrap items-center gap-1.5 data-[compact=true]:gap-[3px] min-w-0 text-[0.625rem] text-muted-foreground',
-    footerMetrics: 'min-w-0 [overflow-wrap:anywhere]',
+    footer: cn(
+      'mt-1 flex flex-wrap items-center gap-1.5 data-[compact=true]:gap-[3px] min-w-0 text-muted-foreground',
+      touch ? 'text-xs' : 'text-[0.625rem]',
+    ),
+    // On touch the metrics take their own line under the actions.
+    footerMetrics: cn('min-w-0 [overflow-wrap:anywhere]', touch && 'basis-full'),
     footerIcon: 'size-2.5',
 
     // ── User attachments ──────────────────────────────────────────────────────

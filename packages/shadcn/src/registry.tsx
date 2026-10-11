@@ -56,9 +56,11 @@ const CopyIcon = lucideIcons.copy
 
 /**
  * `icon-sm` is 28×28 — below the 44×44 minimum touch target. Icon-only
- * buttons get a 44×44 tappable area; the glyph stays small.
+ * buttons get a 44×44 tappable area; the glyph stays small. The width is not
+ * fixed: a button the package gives a label (a revealed footer action) grows
+ * to fit it instead of spilling over its neighbours.
  */
-const ICON_TOUCH = 'min-h-11 min-w-11'
+const ICON_TOUCH = 'min-h-11 min-w-11 w-auto px-2'
 
 /** Build the shadcn registry, tuned by `options`. */
 export function createShadcnComponents({

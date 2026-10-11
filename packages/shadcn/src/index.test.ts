@@ -47,6 +47,10 @@ describe('public export surface', () => {
     expect(root.shadcnClassNames.rowTimer).toContain('text-xs')
     // A static row's header reserves the caret's width.
     expect(touch.row).toContain('[&>.chat-row-header]:pl-5')
+    expect(touch.footer).toContain('text-xs')
+    expect(touch.footerMetrics).toContain('basis-full')
+    expect(root.shadcnClassNames.footer).toContain('text-[0.625rem]')
+    expect(root.shadcnClassNames.footerMetrics).not.toContain('basis-full')
     expect(touch.rowIcon).toContain('[.chat-row-affordance+&]:hidden')
     for (const key of ['toolBody', 'reasoningBody', 'systemBody', 'plan'] as const)
       expect(touch[key]).toContain('pl-5')
