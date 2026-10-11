@@ -55,10 +55,12 @@ them requires of this change:
   - **Why**: the second renderer exists now; sharing the plan is what keeps the two identical.
 - **The terminal app is a tx plugin** (`.tx/config.json` at the repo root → `apps/tui`).
   - **Why**: tx supplies settings storage, theme and dialogs, so the app carries only chat logic.
-- **The plugin bundles its own React 19.3 and Ink 8** instead of tx's injected React 19.2 / Ink 7.1.
-  - **Why**: `@fx/chat-ink` needs Ink 8; tx's dialogs (setup) and the chat never render at the same
-    time, so the two copies never share a tree. Ink's optional `react-devtools-core` import must
-    resolve for tx's bundler, so the plugin depends on it.
+- **The plugin renders with tx's injected React and Ink** (React 19.3 / Ink 8, tx 2.0); the
+  package and the tx bundle of the plugin contain neither. This first shipped with the plugin
+  bundling its own React 19.3 and Ink 8 beside tx's React 19.2 / Ink 7.1;
+  [0033-host-instances](./0033-host-instances.md) moved it onto the host's instances.
+  - **Why**: one tree renders with one React and one Ink, so a plugin that shares the screen with
+    tx's UI must use tx's instances; tx 2.0 injects the Ink 8 `@fx/chat-ink` needs.
 - **Built-in tools moved into `@fx/chat-agent`** with injected fetch / HTML-to-text / clock.
   - **Why**: the second consumer (the terminal app) arrived; the mobile app passes its DOM converter.
 
@@ -84,4 +86,5 @@ them requires of this change:
 
 - Spec: [ink-renderer](../specs/ink-renderer/)
 - Related changes: [0019-core-extraction](./0019-core-extraction.md),
-  [0020-agent-runtime](./0020-agent-runtime.md)
+  [0020-agent-runtime](./0020-agent-runtime.md),
+  [0033-host-instances](./0033-host-instances.md)

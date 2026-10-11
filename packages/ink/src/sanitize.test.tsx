@@ -94,6 +94,57 @@ describe('stripControlsDeep', () => {
     expect(stripControlsDeep(Object.assign(Object.create(null), { s: SGR }))).toEqual({ s: 'red' })
     expect(stripControlsDeep(7)).toBe(7)
   })
+
+  it('keeps every value when keys clean to the same name', () => {
+    const out = stripControlsDeep({
+      x: 1,
+      '\u0001x': 2,
+      [`x${BEL}`]: 3,
+      'x\\u001B': 4,
+      'x\\u001B (2)': 5,
+    })
+    expect(out).toEqual({ x: 1, 'x\\u001B': 4, 'x\\u001B (2)': 5, '\\u0001x': 2, 'x\\u0007': 3 })
+    const dirtyOnly = stripControlsDeep({ '\u0001y': 1, [`y${ESC}`]: 2, '\u0085y': 3 })
+    expect(dirtyOnly).toEqual({ y: 1, 'y\\u001B': 2, '\\u0085y': 3 })
+    const crowded = stripControlsDeep({ z: 1, '\\u0007z': 2, [`${BEL}z`]: 3, [`z${BEL}`]: 4 })
+    expect(crowded).toEqual({ z: 1, '\\u0007z': 2, '\\u0007z (2)': 3, 'z\\u0007': 4 })
+  })
+
+  it('keeps a __proto__ key an own property and never changes a prototype', () => {
+    const parsed = JSON.parse(
+      `{"__proto__": {"polluted": "${'\\u001b'}[31mred"}, "a": "${'\\u0007'}b"}`,
+    )
+    const out = stripControlsDeep(parsed)
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype)
+    expect(Object.hasOwn(out, '__proto__')).toBe(true)
+    expect(out.__proto__).toEqual({ polluted: 'red' })
+    expect(out.a).toBe('b')
+    const renamed = stripControlsDeep({ [`__proto__${BEL}`]: { p: 1 } }) as Record<string, unknown>
+    expect(Object.getPrototypeOf(renamed)).toBe(Object.prototype)
+    expect(Object.hasOwn(renamed, '__proto__')).toBe(true)
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+  })
+
+  it('passes non-plain objects through and survives cycles', () => {
+    const map = new Map([['k', SGR]])
+    const set = new Set([SGR])
+    expect(stripControlsDeep({ map, set, s: SGR })).toEqual({ map, set, s: 'red' })
+    const cyclic: Record<string, unknown> = { s: SGR }
+    cyclic.self = cyclic
+    const list: unknown[] = [SGR]
+    list.push(list)
+    const out = stripControlsDeep({ cyclic, list }) as {
+      cyclic: Record<string, unknown>
+      list: unknown[]
+    }
+    expect(out.cyclic.s).toBe('red')
+    expect(out.cyclic.self).toBe(cyclic)
+    expect(out.list[0]).toBe('red')
+    expect(out.list[1]).toBe(list)
+    const shared = { s: SGR }
+    const twice = stripControlsDeep([shared, shared])
+    expect(twice).toEqual([{ s: 'red' }, { s: 'red' }])
+  })
 })
 
 const hostile: ChatMessage = {

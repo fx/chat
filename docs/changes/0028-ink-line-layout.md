@@ -46,7 +46,7 @@ The specs own the behavior. This change owns:
 
 ### Non-Goals
 
-Injected React/Ink instances (deferred; see ink-renderer open questions).
+Injected React/Ink instances (deferred here; delivered by [0033-host-instances](./0033-host-instances.md)).
 
 ## Tasks
 
