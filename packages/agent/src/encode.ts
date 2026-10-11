@@ -166,3 +166,42 @@ export function encodeHistory(history: readonly ChatMessage[], system?: string):
   }
   return out
 }
+
+/**
+ * Wire history for an endpoint that takes no tools: each assistant tool call
+ * and its result become text in the assistant's turn, and `tool` messages go
+ * away, so a conversation that used tools can continue on a model that
+ * rejects them (and the `tool` role with them).
+ */
+export function flattenToolHistory(messages: readonly WireMessage[]): WireMessage[] {
+  const names = new Map<string, string>()
+  const out: WireMessage[] = []
+  // True while the last message out is an assistant turn with a tool call
+  // still being answered: results and the follow-up step join it.
+  let open = false
+  const add = (text: string, base: WireMessage & { role: 'assistant' }) => {
+    const last = out.at(-1)
+    if (open && last?.role === 'assistant') {
+      out[out.length - 1] = { ...last, content: [last.content, text].filter(Boolean).join('\n\n') }
+    } else out.push({ ...base, content: text })
+  }
+  for (const message of messages) {
+    if (message.role === 'tool') {
+      const name = names.get(message.tool_call_id) ?? 'tool'
+      add(`[${name} returned]\n${message.content}`, { role: 'assistant', content: null })
+      open = true
+    } else if (message.role === 'assistant') {
+      const { tool_calls: calls = [], ...rest } = message
+      const called = calls.map((call) => {
+        names.set(call.id, call.function.name)
+        return `[called ${call.function.name}(${call.function.arguments})]`
+      })
+      add([rest.content, ...called].filter(Boolean).join('\n\n'), rest)
+      open = calls.length > 0
+    } else {
+      out.push(message)
+      open = false
+    }
+  }
+  return out
+}

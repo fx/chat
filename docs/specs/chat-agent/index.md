@@ -48,7 +48,22 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - The base URL MUST be accepted with or without a trailing slash and with or without a trailing
   `/v1` segment supplied by the user (it is used as given; paths are appended to it).
 - The client MUST list available models from the endpoint's models listing and MUST surface a listing
-  failure as an error rather than an empty list.
+  failure as an error rather than an empty list. Each listed model carries the request parameters it
+  declares (the `supported_parameters` convention), when the endpoint says.
+- The client MUST NOT send tools to a model whose listing declares parameters without `tools`; it
+  reads the listing at most once per endpoint and key, and only for a request with tools or tool
+  history. A model the listing does not describe gets its tools; if the endpoint then rejects the
+  request over tools (a 400/422 naming tools, tool choice or function calling), the client MUST retry
+  it once without them and skip tools for that endpoint and model from then on.
+- A request sent without tools MUST carry its tool history as text: each call and result folds into
+  the assistant turn, and no `tool` message or `tool_calls` field is sent.
+
+#### Scenario: Agent model that takes no client tools
+
+- **GIVEN** an endpoint listing `agency/smoke-fx` with no `tools` among its supported parameters
+- **WHEN** a turn with the built-in tools enabled, after an earlier calculator call, runs on it
+- **THEN** the request has no `tools` field and no `tool` message, and the calculator call and its
+  result appear as text in the earlier assistant turn.
 
 #### Scenario: Key goes only to the endpoint
 
@@ -233,7 +248,7 @@ receives an immutable snapshot after every applied delta.
 
 ```
 createClient({ baseUrl, apiKey?, fetch? })
-  ├── listModels()
+  ├── listModels() / listModelInfo()   (listings cached per endpoint: tool support)
   └── streamCompletion(request, signal) ──► SSE parser ──► normalized StreamEvent[]
 runAgent({ client, model, history, tools, approve?, maxSteps, signal, onUpdate })
   loop: encode(history + current turn) → stream → applyEvent* → execute tools → next step
@@ -272,3 +287,4 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 | 2026-10-10 | Built-in tools moved in from the mobile app; abort honoured per event | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Approval state, message outcome, cost/context metrics | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
 | 2026-10-11 | `ChatController` conversation controller; `KeyValueStore` with memory and IndexedDB stores | [0037-chat-controller](../../changes/0037-chat-controller.md) |
+| 2026-10-11 | Tool capability: `supported_parameters` from the listing, retry without tools on rejection, tool history as text | — |

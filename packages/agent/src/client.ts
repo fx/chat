@@ -7,6 +7,7 @@
  * to the configured base URL and never logged. Redirects from the endpoint are
  * never followed, so the key cannot reach another URL.
  */
+import { flattenToolHistory } from './encode'
 import { redirectOf } from './redirect'
 import { parseSSE } from './sse'
 import { ThinkSplitter } from './think'
@@ -51,9 +52,22 @@ export class AgentError extends Error {
   }
 }
 
+/** A model the endpoint lists. */
+export interface ModelInfo {
+  id: string
+  /**
+   * The request parameters the model takes, when the endpoint says (the
+   * OpenRouter `supported_parameters` convention). Without `tools`, the
+   * client sends the model no tools.
+   */
+  supportedParameters?: readonly string[]
+}
+
 export interface Client {
   /** List model ids offered by the endpoint, sorted. */
   listModels(signal?: AbortSignal): Promise<string[]>
+  /** List the endpoint's models with what they declare about themselves, sorted by id. */
+  listModelInfo(signal?: AbortSignal): Promise<ModelInfo[]>
   /** Stream a completion as normalized events. */
   streamCompletion(request: CompletionRequest): AsyncGenerator<StreamEvent>
 }
@@ -117,9 +131,33 @@ function textOr(value: unknown): string | undefined {
 
 const REASONING_FIELDS: ReasoningField[] = ['reasoning_content', 'reasoning']
 
+/** An error message blaming the request's tools (or tool calling in general). */
+const TOOLS_REJECTED = /\btools?\b|tool[_ ]choice|function[_ ]call/i
+
+/**
+ * Endpoint + model pairs that rejected client tools, shared by every client:
+ * whether a model takes tools is the endpoint's property, not the client's.
+ */
+const toolless = new Set<string>()
+/** Model listings per endpoint and key, fetched once and shared by every client. */
+const catalogs = new Map<string, Promise<ModelInfo[]>>()
+const CACHE_LIMIT = 256
+
+/** Start a process-wide cache over when it is full. */
+function bound(cache: { size: number; clear(): void }) {
+  if (cache.size >= CACHE_LIMIT) cache.clear()
+}
+
+function remember(key: string, models: Promise<ModelInfo[]>) {
+  bound(catalogs)
+  catalogs.set(key, models)
+}
+
 export function createClient(options: ClientOptions): Client {
   const base = options.baseUrl.trim().replace(/\/+$/, '')
   const doFetch: FetchLike = options.fetch ?? ((input, init) => globalThis.fetch(input, init))
+
+  const catalogKey = `${base}\n${options.apiKey ?? ''}`
 
   function headers(json: boolean): Record<string, string> {
     return {
@@ -147,7 +185,7 @@ export function createClient(options: ClientOptions): Client {
     return response
   }
 
-  async function listModels(signal?: AbortSignal): Promise<string[]> {
+  async function listModelInfo(signal?: AbortSignal): Promise<ModelInfo[]> {
     const response = await send(`${base}/models`, {
       method: 'GET',
       headers: headers(false),
@@ -156,23 +194,62 @@ export function createClient(options: ClientOptions): Client {
     if (!response.ok) throw await errorFrom(response)
     // The body is the endpoint's: anything but `{ data: [...] }` is unexpected.
     const body = (await response.json().catch(() => undefined)) as
-      | { data?: Array<{ id?: unknown } | null> }
+      | { data?: Array<{ id?: unknown; supported_parameters?: unknown } | null> }
       | null
       | undefined
     if (!Array.isArray(body?.data)) throw new AgentError('Unexpected models response')
-    return body.data
-      .map((model) => model?.id)
-      .filter((id): id is string => typeof id === 'string')
-      .sort((a, b) => a.localeCompare(b))
+    const models: ModelInfo[] = []
+    for (const model of body.data) {
+      if (typeof model?.id !== 'string') continue
+      const params = model.supported_parameters
+      models.push(
+        Array.isArray(params)
+          ? {
+              id: model.id,
+              supportedParameters: params.filter((p): p is string => typeof p === 'string'),
+            }
+          : { id: model.id },
+      )
+    }
+    models.sort((a, b) => a.id.localeCompare(b.id))
+    remember(catalogKey, Promise.resolve(models))
+    return models
   }
 
-  async function post(request: CompletionRequest, includeUsage: boolean): Promise<Response> {
+  async function listModels(signal?: AbortSignal): Promise<string[]> {
+    return (await listModelInfo(signal)).map((model) => model.id)
+  }
+
+  /**
+   * Whether `model` takes tools by the endpoint's own account: false or true
+   * when its listing says, undefined when it does not (or cannot be listed).
+   * The listing is fetched once per endpoint and key, and only when needed.
+   */
+  async function declaresTools(model: string, signal?: AbortSignal): Promise<boolean | undefined> {
+    let models = catalogs.get(catalogKey)
+    if (!models) {
+      models = listModelInfo(signal).catch(() => {
+        // An aborted listing says nothing about the endpoint: try again next time.
+        if (signal?.aborted) catalogs.delete(catalogKey)
+        return []
+      })
+      remember(catalogKey, models)
+    }
+    const params = (await models).find((m) => m.id === model)?.supportedParameters
+    return params ? params.includes('tools') : undefined
+  }
+
+  async function post(
+    request: CompletionRequest,
+    includeUsage: boolean,
+    includeTools: boolean,
+  ): Promise<Response> {
     const body = {
       model: request.model,
-      messages: request.messages,
+      messages: includeTools ? request.messages : flattenToolHistory(request.messages),
       stream: true,
       ...(includeUsage ? { stream_options: { include_usage: true } } : {}),
-      ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
+      ...(includeTools && request.tools?.length ? { tools: request.tools } : {}),
       ...request.body,
     }
     // `request.body` and the tool schemas are host values: one with no JSON
@@ -194,12 +271,33 @@ export function createClient(options: ClientOptions): Client {
   }
 
   async function* streamCompletion(request: CompletionRequest): AsyncGenerator<StreamEvent> {
-    let response = await post(request, true)
-    if (!response.ok && (response.status === 400 || response.status === 422)) {
-      // Some servers reject `stream_options`; retry once without it.
+    const toolKey = `${base}\n${request.model}`
+    // `tools` covers the tool history too: without tools, it is sent as text.
+    let tools =
+      Boolean(request.tools?.length) ||
+      request.messages.some(
+        (m) => m.role === 'tool' || (m.role === 'assistant' && m.tool_calls?.length),
+      )
+    if (
+      tools &&
+      (toolless.has(toolKey) || (await declaresTools(request.model, request.signal)) === false)
+    )
+      tools = false
+    let usage = true
+    let response = await post(request, usage, tools)
+    // Some servers reject `stream_options`, and some models (or ingresses) take
+    // no client tools though their listing does not say so: retry without the
+    // rejected feature, each at most once. A model that rejected tools is
+    // remembered, so later turns skip them.
+    while (!response.ok && (response.status === 400 || response.status === 422)) {
       const error = await errorFrom(response)
-      if (!/stream_options|include_usage/i.test(error.message)) throw error
-      response = await post(request, false)
+      if (usage && /stream_options|include_usage/i.test(error.message)) usage = false
+      else if (tools && TOOLS_REJECTED.test(error.message)) {
+        tools = false
+        bound(toolless)
+        toolless.add(toolKey)
+      } else throw error
+      response = await post(request, usage, tools)
     }
     if (!response.ok) throw await errorFrom(response)
     if (!response.body) throw new AgentError('Response has no body')
@@ -277,7 +375,7 @@ export function createClient(options: ClientOptions): Client {
     if (splitter) for (const piece of splitter.flush()) yield toEvent(piece)
   }
 
-  return { listModels, streamCompletion }
+  return { listModels, listModelInfo, streamCompletion }
 }
 
 function toEvent(piece: { kind: 'text' | 'reasoning'; text: string }): StreamEvent {

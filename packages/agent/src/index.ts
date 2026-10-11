@@ -19,7 +19,7 @@ export {
   readAgentMeta,
   updateToolCall,
 } from './accumulate'
-export type { Client, ClientOptions, CompletionRequest, FetchLike } from './client'
+export type { Client, ClientOptions, CompletionRequest, FetchLike, ModelInfo } from './client'
 export { AgentError, createClient } from './client'
 export type {
   ActiveRun,
@@ -33,7 +33,7 @@ export type {
   RunResolution,
 } from './controller'
 export { ChatController, newId, titleFrom } from './controller'
-export { encodeHistory, splitSteps, toolResultContent } from './encode'
+export { encodeHistory, flattenToolHistory, splitSteps, toolResultContent } from './encode'
 export type { AgentOutcome, RunOptions, RunResult } from './run'
 export { runAgent } from './run'
 export { parseSSE } from './sse'

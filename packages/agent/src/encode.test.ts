@@ -2,7 +2,13 @@
 import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
 import { describe, expect, it } from 'vitest'
 import { AGENT_META_KEY } from './accumulate'
-import { encodeHistory, splitSteps, stringifyValue, toolResultContent } from './encode'
+import {
+  encodeHistory,
+  flattenToolHistory,
+  splitSteps,
+  stringifyValue,
+  toolResultContent,
+} from './encode'
 
 const user = (text: string, attachments?: ChatMessage['attachments']): ChatMessage => ({
   id: `u-${text}`,
@@ -275,5 +281,69 @@ describe('encodeHistory', () => {
         },
       ]),
     ).toEqual([])
+  })
+})
+
+describe('flattenToolHistory', () => {
+  const call = (id: string, name: string) => ({
+    id,
+    type: 'function' as const,
+    function: { name, arguments: '{"x":1}' },
+  })
+
+  it('folds a multi-step tool turn into one assistant message', () => {
+    expect(
+      flattenToolHistory([
+        { role: 'system', content: 's' },
+        { role: 'user', content: 'go' },
+        {
+          role: 'assistant',
+          content: 'Checking.',
+          tool_calls: [call('a', 'one'), call('b', 'two')],
+          reasoning: 'r',
+        },
+        { role: 'tool', tool_call_id: 'a', content: '1' },
+        { role: 'tool', tool_call_id: 'b', content: '2' },
+        { role: 'assistant', content: null, tool_calls: [call('c', 'three')] },
+        { role: 'tool', tool_call_id: 'c', content: '3' },
+        { role: 'assistant', content: 'Done.' },
+        { role: 'user', content: 'next' },
+        { role: 'assistant', content: 'Plain.' },
+      ]),
+    ).toEqual([
+      { role: 'system', content: 's' },
+      { role: 'user', content: 'go' },
+      {
+        role: 'assistant',
+        reasoning: 'r',
+        content: [
+          'Checking.',
+          '[called one({"x":1})]',
+          '[called two({"x":1})]',
+          '[one returned]\n1',
+          '[two returned]\n2',
+          '[called three({"x":1})]',
+          '[three returned]\n3',
+          'Done.',
+        ].join('\n\n'),
+      },
+      { role: 'user', content: 'next' },
+      { role: 'assistant', content: 'Plain.' },
+    ])
+  })
+
+  it('keeps a result whose call is missing, and leaves plain turns apart', () => {
+    expect(
+      flattenToolHistory([
+        { role: 'user', content: 'u' },
+        { role: 'tool', tool_call_id: 'gone', content: 'x' },
+        { role: 'assistant', content: 'a' },
+        { role: 'assistant', content: 'b' },
+      ]),
+    ).toEqual([
+      { role: 'user', content: 'u' },
+      { role: 'assistant', content: '[tool returned]\nx\n\na' },
+      { role: 'assistant', content: 'b' },
+    ])
   })
 })
