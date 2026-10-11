@@ -11,7 +11,7 @@ import { mergeTimeline } from '@fx/chat-core'
  *
  * No data fetching, router, or store — it renders exactly what it is given.
  */
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 import { cx } from '../cx'
 import { useChatClassNames } from '../registry'
 import { GutterRow } from './GutterRow'
@@ -106,6 +106,7 @@ export function MessageLog({
   renderList,
 }: MessageLogProps) {
   const cn = useChatClassNames()
+  const callbacksFor = useStableMessageCallbacks({ onRegenerate, onFork, onReset })
   // Interleave messages and host-supplied custom timeline items by createdAt/at.
   // With no timeline items, this is the messages in order (default path).
   const timeline = mergeTimeline(messages, extensions?.timelineItems)
@@ -161,9 +162,9 @@ export function MessageLog({
         {...(compactFooter !== undefined ? { compactFooter } : {})}
         {...(timestampGutter !== undefined ? { timestampGutter } : {})}
         {...(extensions ? { extensions } : {})}
-        {...(onRegenerate ? { onRegenerate: () => onRegenerate(message.id) } : {})}
-        {...(onFork ? { onFork: () => onFork(message.id) } : {})}
-        {...(onReset ? { onReset: () => onReset(message.id) } : {})}
+        {...(onRegenerate ? { onRegenerate: callbacksFor(message.id).regenerate } : {})}
+        {...(onFork ? { onFork: callbacksFor(message.id).fork } : {})}
+        {...(onReset ? { onReset: callbacksFor(message.id).reset } : {})}
       />
     )
   })
@@ -178,4 +179,39 @@ export function MessageLog({
       {renderList ? renderList(items) : items}
     </div>
   )
+}
+
+interface BoundCallbacks {
+  regenerate: () => void
+  fork: () => void
+  reset: () => void
+}
+
+/**
+ * Per-message action callbacks whose identity never changes (so memoized
+ * messages are not re-rendered by a host passing fresh handlers each render),
+ * each calling the host's latest handler.
+ */
+function useStableMessageCallbacks(
+  handlers: {
+    [K in keyof MessageCallbacks]: MessageCallbacks[K] | undefined
+  },
+): (id: string) => BoundCallbacks {
+  const latest = useRef(handlers)
+  useEffect(() => {
+    latest.current = handlers
+  })
+  const cache = useRef(new Map<string, BoundCallbacks>())
+  return (id) => {
+    let callbacks = cache.current.get(id)
+    if (!callbacks) {
+      callbacks = {
+        regenerate: () => latest.current.onRegenerate?.(id),
+        fork: () => latest.current.onFork?.(id),
+        reset: () => latest.current.onReset?.(id),
+      }
+      cache.current.set(id, callbacks)
+    }
+    return callbacks
+  }
 }

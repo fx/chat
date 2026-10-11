@@ -31,7 +31,7 @@ import { useLiveTokensPerSecond } from '@fx/chat-core/react'
  * no forced compact footer, and no `data-minimal` attribute (an explicitly
  * passed `compactFooter` prop is still honored).
  */
-import { type ComponentType, type ReactNode, useState } from 'react'
+import { type ComponentType, type ReactNode, memo, useState } from 'react'
 import { cx } from '../cx'
 import { type ActivitySummaryProps, useChatClassNames, useChatComponents } from '../registry'
 import { BlockGroup } from './BlockGroup'
@@ -164,8 +164,12 @@ function groupedItemTimestamp(item: DisplayRow): number | undefined {
   return blockTimestamp(item.blocks[0] as RenderableBlock)
 }
 
-/** Renders a single message and its footer. */
-export function MessageItem({
+/**
+ * Renders a single message and its footer. Memoized: a message re-renders
+ * only when its own props change (a settled message stays put while another
+ * streams), so callers should pass stable callbacks (`MessageLog` does).
+ */
+export const MessageItem = memo(function MessageItem({
   message,
   isActive = false,
   flat = false,
@@ -565,4 +569,4 @@ export function MessageItem({
       ) : null}
     </div>
   )
-}
+})

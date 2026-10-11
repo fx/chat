@@ -1,6 +1,7 @@
 import type { ChatMessage } from '@fx/chat-core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ChatProvider } from '../registry'
 import { MessageLog } from './MessageLog'
 import type { ChatExtensions } from './extensions'
 import { stubMatchMedia } from './test-helpers'
@@ -319,5 +320,62 @@ describe('MessageLog activity options', () => {
       <MessageLog messages={[{ id: 'm', role: 'assistant', blocks }]} activityDisplay="summary" />,
     )
     expect(document.querySelector('.chat-row')).not.toBeNull()
+  })
+})
+
+describe('MessageLog memoization', () => {
+  it('re-renders only the message that changed, even with fresh handlers', () => {
+    const renders = new Map<string, number>()
+    const Markdown = ({ content }: { content: string }) => {
+      renders.set(content, (renders.get(content) ?? 0) + 1)
+      return <span>{content}</span>
+    }
+    const settled: ChatMessage = {
+      id: 'a',
+      role: 'assistant',
+      blocks: [{ type: 'text', id: 't', text: 'settled' }],
+    }
+    const live = (text: string): ChatMessage => ({
+      id: 'b',
+      role: 'assistant',
+      blocks: [{ type: 'text', id: 't', text }],
+    })
+    // Registries are stable in a host (a fresh one re-renders every consumer).
+    const components = { Markdown }
+    const log = (message: ChatMessage, onRegenerate: (id: string) => void) => (
+      <ChatProvider components={components}>
+        <MessageLog messages={[settled, message]} onRegenerate={onRegenerate} />
+      </ChatProvider>
+    )
+    const first = vi.fn()
+    const { rerender } = render(log(live('one'), first))
+    const latest = vi.fn()
+    rerender(log(live('two'), latest))
+    expect(renders.get('settled')).toBe(1)
+    expect(renders.get('two')).toBe(1)
+    // The stable callback reaches the latest handler.
+    fireEvent.click(
+      within(screen.getByText('settled').closest('.chat-message') as HTMLElement).getByLabelText(
+        'Regenerate',
+      ),
+    )
+    expect(first).not.toHaveBeenCalled()
+    expect(latest).toHaveBeenCalledWith('a')
+  })
+
+  it('forks and resets through the same stable callbacks', () => {
+    const onFork = vi.fn()
+    const onReset = vi.fn()
+    render(
+      <MessageLog
+        messages={[{ id: 'a', role: 'assistant', blocks: [{ type: 'text', id: 't', text: 'x' }] }]}
+        onFork={onFork}
+        onReset={onReset}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Fork'))
+    fireEvent.click(screen.getByLabelText('Reset'))
+    expect(onFork).toHaveBeenCalledWith('a')
+    expect(onReset).toHaveBeenCalledWith('a')
   })
 })
