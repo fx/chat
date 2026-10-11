@@ -17,7 +17,7 @@ conversation can render through any design system with no change to the package.
 ```
 packages/core/   @fx/chat-core — renderer-agnostic model, transcript logic, DOM-free hooks
 packages/chat/   @fx/chat — the published React-DOM renderers (re-exports core)
-packages/agent/  @fx/chat-agent — UI-free OpenAI-compatible agent runtime + built-in tools (optional)
+packages/agent/  @fx/chat-agent — UI-free OpenAI-compatible agent runtime, built-in tools, conversation controller (optional)
 packages/ink/    @fx/chat-ink — terminal (Ink) renderer
 packages/shadcn/ @fx/chat-shadcn — optional ready-made shadcn/ui look (registry + classNames + tokens)
 apps/mobile/     Android reference app (Tauri v2)
