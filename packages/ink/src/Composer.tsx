@@ -48,7 +48,7 @@ import { type Measure, defaultMeasure, truncate } from './lines/measure'
 import { Styled, appearanceProps, useInkComponents } from './registry'
 import { React, ink } from './runtime'
 import { stripControls } from './sanitize'
-import { KITTY_POP, KITTY_PUSH, isTerminalReport } from './terminal'
+import { KITTY_POP, KITTY_PUSH, createKeyReportReader } from './terminal'
 import { Text } from './text'
 
 /** The composer's content: text, caret offset and attachments. */
@@ -147,6 +147,9 @@ function useLive<T>(initial: T | (() => T)) {
 }
 
 const toEditor = (v: ComposerValue): EditorState => ({ value: v.text, caret: v.caret })
+/** The draft around the start of a possibly split report: before it and after its latest piece. */
+type HeldReport = { before: EditorState; after: EditorState }
+const sameEditor = (a: EditorState, b: EditorState) => a.value === b.value && a.caret === b.caret
 
 /**
  * Cells left for text at `width`: the prompt, the border and padding of the
@@ -377,8 +380,34 @@ export function Composer({
     setEditor({ value: stepped.value, caret: stepped.value.length }, stepped.attachments ?? [])
   }
 
+  // A report split across key events starts out looking like typing (`[<0;3`):
+  // it is inserted, and taken back out when the rest of the report arrives.
+  const [readReport] = React.useState(createKeyReportReader)
+  const held = React.useRef<HeldReport>(undefined)
+
   const handleKey = (input: string, key: Key) => {
-    if (isTerminalReport(input)) return
+    const report = readReport(input)
+    // Set exactly when the previous event was a `partial`, as the reader's own tail is.
+    const start = held.current as HeldReport
+    held.current = undefined
+    if (report.kind === 'report') {
+      const now = toEditor(valueRef.current)
+      // Only if nothing else changed the draft since (a paste, the host).
+      if (report.joined && sameEditor(now, start.after) && !sameEditor(now, start.before))
+        edit(start.before)
+      if (report.rest) handleKey(report.rest, key)
+      return
+    }
+    // A continued start keeps the draft from before its first piece.
+    const from =
+      report.kind === 'partial' && report.continued ? start.before : toEditor(valueRef.current)
+    // Held before handling, so a throwing host handler cannot leave the reader ahead of it.
+    if (report.kind === 'partial') held.current = { before: from, after: from }
+    handleOwnKey(input, key)
+    if (held.current) held.current.after = toEditor(valueRef.current)
+  }
+
+  const handleOwnKey = (input: string, key: Key) => {
     if (onKey?.(input, key)) return
     const completion = completionRef.current
     const editor = toEditor(valueRef.current)

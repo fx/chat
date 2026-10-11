@@ -262,6 +262,39 @@ describe('TranscriptViewport mouse', () => {
 })
 
 describe('TranscriptViewport split reports', () => {
+  it('keeps the selection through a report split across key events', async () => {
+    // Which shown lines carry the selection highlight, as last rendered.
+    const marks = new Map<number, boolean>()
+    const override: TranscriptViewportProps['override'] = (line, _i, at) => {
+      marks.set(
+        at,
+        line.spans.some((span) => span.style?.inverse === true),
+      )
+      return undefined
+    }
+    const selected = () => [...marks.values()].some(Boolean)
+    const { send, rowOf, view } = setup({ override })
+    const y = rowOf('alpha')
+    await send(sgr(0, 2, y), sgr(32, 9, y), sgr(0, 9, y, true))
+    expect(selected()).toBe(true)
+    const reply = '\u001b[6;18;9t'
+    const split = async (rest: string) => {
+      await act(async () => {
+        view.stdin.write(reply.slice(0, 4))
+        // Past Ink's wait for the rest of an escape sequence: it flushes what it has.
+        await new Promise((r) => setTimeout(r, 40))
+      })
+      await send(rest)
+    }
+    await split(reply.slice(4))
+    expect(selected()).toBe(true)
+    // Split right after ESC, Ink delivers Escape (a key) and then the report.
+    await send(reply.slice(1))
+    expect(selected()).toBe(true)
+    await split(`${reply.slice(4)}x`)
+    expect(selected()).toBe(false)
+  })
+
   it('acts on a mouse report split at every position', async () => {
     const report = sgr(64, 0, 0)
     for (let at = 1; at < report.length; at++) {

@@ -213,6 +213,74 @@ describe('Composer (fullscreen options)', () => {
     expect(lines(lastFrame())).toEqual(['› ab'])
   })
 
+  it('keeps a report split across stdin chunks out of the draft, at every position', async () => {
+    for (const report of ['\u001b[<0;3;4M', '\u001b[6;18;9t']) {
+      for (let at = 1; at < report.length; at++) {
+        const onChange = vi.fn()
+        const { lastFrame, press, stdin, unmount } = plain({ onChange })
+        await press('ab', KEYS.left)
+        stdin.write(report.slice(0, at))
+        // Past Ink's wait for the rest of an escape sequence: it flushes what it has.
+        await tick(40)
+        await press(report.slice(at), 'c')
+        expect(lines(lastFrame())).toEqual(['› acb'])
+        expect(onChange.mock.lastCall?.[0]).toMatchObject({ text: 'acb', caret: 2 })
+        unmount()
+      }
+    }
+  })
+
+  it('types what follows the rest of a split report, and a literal `[`', async () => {
+    const onEscape = vi.fn()
+    const { lastFrame, press, stdin } = plain({ onEscape })
+    stdin.write('\u001b[<0;3')
+    await tick(40)
+    await press(';4Mxy', '[', 'z', '[', '1', ']', '[', '?', 'a')
+    expect(lines(lastFrame())).toEqual(['› xy[z[1][?a'])
+    await press(KEYS.escape)
+    await tick(40)
+    expect(onEscape).toHaveBeenCalledTimes(1)
+    await press('\u001b[200~[<0;3;4M\u001b[201~')
+    expect(lines(lastFrame())).toEqual(['› xy[z[1][?a[<0;3;4M'])
+  })
+
+  it('leaves a split report start that something else has since edited around', async () => {
+    const { lastFrame, press, stdin } = plain()
+    stdin.write('\u001b[<0;3')
+    await tick(40)
+    await press('\u001b[200~P\u001b[201~', ';4M')
+    expect(lines(lastFrame())).toEqual(['› [<0;3P'])
+  })
+
+  it('joins split reports the host routes, raw or as Ink delivers them', async () => {
+    const ref = createRef<ComposerHandle>()
+    const onKey = vi.fn((input: string) => input === '[<9')
+    const { lastFrame, onSubmit } = plain({ inputSource: 'host', ref, onKey })
+    const key = { return: false } as Parameters<ComposerHandle['key']>[1]
+    const handle = ref.current as ComposerHandle
+    handle.key('a', key)
+    handle.key('\u001b[<0;3', key)
+    handle.key(';4', key)
+    handle.key('M', { ...key, shift: true })
+    handle.key('[<0;3', key)
+    handle.key(';4Mb', key)
+    // A start the host handled itself is not the draft's to take back.
+    handle.key('[<9', key)
+    handle.key(';1;1M', key)
+    await tick()
+    expect(lines(lastFrame())).toEqual(['› ab'])
+    expect(onKey.mock.calls.map(([input]) => input)).toEqual([
+      'a',
+      '\u001b[<0;3',
+      ';4',
+      '[<0;3',
+      'b',
+      '[<9',
+    ])
+    handle.key('', { ...key, return: true })
+    expect(onSubmit).toHaveBeenCalledWith('ab')
+  })
+
   it('pushes the kitty keyboard flag while focused and pops it on blur and unmount', async () => {
     const write = vi.spyOn(process.stdout, 'write')
     const onSubmit = vi.fn()

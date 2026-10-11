@@ -111,7 +111,7 @@ export interface KittyOptions {
   autoFetch?: (src: string) => boolean
   /** Per fetch, in ms (default 15 s). */
   timeoutMs?: number
-  /** Largest image in bytes (default 20 MB). */
+  /** Largest image in bytes, fetched or decoded (default 20 MB). */
   maxBytes?: number
 }
 
@@ -293,6 +293,8 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
       // Every source is held to the cap before its bytes are held whole.
       const { bytes, mediaType } = await bytesOf(src, clicked)
       const png = isPng(bytes) ? bytes : await decode?.(bytes, mediaType)
+      // A decoder's PNG is held to the cap too: it is what gets transmitted.
+      if (png && png.byteLength > maxBytes) throw new Error('too large')
       const px = png && pngSize(png)
       if (!png || !px) entry.state = 'declined'
       else Object.assign(entry, { state: 'ready', png, px })

@@ -50,5 +50,6 @@ protocol, on its own subpath so hosts that do not use it never load it.
   cap, and a `data:` URL fails before decoding when its body decodes to more than the cap — counted
   from the encoded body without decoding it (base64 by its length, never undercounting;
   percent-encoding exactly, each valid `%XX` one byte and any other character its UTF-8 length).
-  A percent-encoded body decodes to raw bytes. The JPEG decoder refuses an image above a
+  A percent-encoded body decodes to raw bytes. A decoder's PNG is held to the same cap and fails
+  as too large past it, so nothing larger is ever transmitted. The JPEG decoder refuses an image above a
   megapixel bound (default 50) before allocating its pixels.

@@ -55,4 +55,9 @@ the default.
 - A host paste handler MUST be called first for bracketed pastes; returning true means handled (e.g.
   pasted image paths become attachments). Pasted newlines are text, never Enter.
 - Mouse reports and terminal replies reach input listeners as input; the composer and viewport MUST
-  ignore them, and a predicate recognising them MUST be exported for hosts.
+  ignore them, and a predicate recognising them MUST be exported for hosts. A report split across
+  stdin chunks reaches key handlers in pieces (Ink flushes an unfinished escape sequence with its ESC
+  stripped, e.g. `[<0;3` then `;4M`); the composer MUST follow such a start into the next event,
+  through its own listener and the host's imperative handler alike, and keep the joined report out
+  of the draft. A start cannot be told from typing (a typed `[`), so it is inserted and taken back
+  out when the rest of a report completes it, unless the draft changed in between.

@@ -19,7 +19,7 @@ import type { DOMElement, Key } from 'ink'
 import type { ReactNode } from 'react'
 import { useInkComponents } from '../registry'
 import { React, hooks, ink } from '../runtime'
-import { isTerminalReport } from '../terminal'
+import { createKeyReportReader, isTerminalReport } from '../terminal'
 import type { InkAppearance, InkThemeRole } from '../theme'
 import { Lines } from './Lines'
 import { compactFrame } from './frames'
@@ -376,8 +376,16 @@ export function TranscriptViewport(props: TranscriptViewportProps) {
     },
     { isActive: focused && keys !== false },
   )
-  // Any key clears the selection.
-  ink.useInput(() => setSelection(undefined), { isActive: focused && selection !== undefined })
+  // Any key clears the selection; a report split across key events (a drag's) is no key.
+  const [readReport] = React.useState(createKeyReportReader)
+  ink.useInput(
+    (input: string) => {
+      const report = readReport(input)
+      if (report.kind === 'text' || (report.kind === 'report' && report.rest))
+        setSelection(undefined)
+    },
+    { isActive: focused && selection !== undefined },
+  )
 
   const mouse = props.mouse
   const mouseActive = mouse !== undefined && focused

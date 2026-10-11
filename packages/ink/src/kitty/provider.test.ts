@@ -331,6 +331,21 @@ describe('createKittyProvider', () => {
     expect(Buffer.from(mixedBytes).toString('utf8')).toBe('a%zz%4é你🙂\ufffdA')
   })
 
+  it('holds a decoder’s PNG to the cap and never transmits one past it', async () => {
+    const write = vi.fn()
+    const decode = vi.fn(async (bytes: Uint8Array) => png(4, 4, bytes[0] as number))
+    const provider = createKittyProvider({ write, maxBytes: 30, decode })
+    const over = dataUrl(new Uint8Array([7]), 'image/jpeg')
+    const at = dataUrl(new Uint8Array([6]), 'image/jpeg')
+    provider.get(over, box)
+    provider.get(at, box)
+    await flush()
+    expect(provider.get(over, box)).toEqual({ kind: 'failed', error: 'too large' })
+    expect(provider.get(at, box)?.kind).toBe('ready')
+    const transmitted = write.mock.calls.filter(([d]) => (d as string).startsWith('\u001b_Ga=t'))
+    expect(transmitted).toEqual([[transmit(1, png(4, 4, 6))]])
+  })
+
   it('fails a data URL without a body', async () => {
     const provider = createKittyProvider({ write: vi.fn() })
     provider.get('data:image/png;base64', box)
