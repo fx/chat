@@ -14,7 +14,11 @@
  *
  * The primitives and helpers are exported too, so an app shell can share them.
  */
-export { shadcnClassNames } from './class-names'
+export {
+  type ShadcnClassNamesOptions,
+  createShadcnClassNames,
+  shadcnClassNames,
+} from './class-names'
 export { cn } from './cn'
 export { CodeBlock, JsonView } from './code'
 export { lucideIcons } from './icons'

@@ -27,12 +27,27 @@ describe('public export surface', () => {
         'badgeVariants',
         'buttonVariants',
         'cn',
+        'createShadcnClassNames',
         'createShadcnComponents',
         'lucideIcons',
         'shadcnClassNames',
         'shadcnComponents',
       ].sort(),
     )
+  })
+
+  it('sizes every disclosure row alike, larger for touch', () => {
+    const touch = root.createShadcnClassNames({ touch: true })
+    expect(root.shadcnClassNames.rowHeader).toContain('min-h-7')
+    expect(root.shadcnClassNames.rowHeader).toContain('text-xs')
+    expect(touch.rowHeader).toContain('min-h-10')
+    expect(touch.rowHeader).toContain('text-[0.8125rem]')
+    expect(touch.row).toContain('text-[0.8125rem]')
+    // A static row's header reserves the caret's width.
+    expect(touch.row).toContain('[&>.chat-row-header]:pl-5')
+    expect(touch.rowIcon).toContain('[.chat-row-affordance+&]:hidden')
+    for (const key of ['toolBody', 'reasoningBody', 'systemBody', 'plan'] as const)
+      expect(touch[key]).toContain('pl-5')
   })
 
   it('styles every message container hook', () => {

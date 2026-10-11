@@ -177,7 +177,8 @@ describe('options', () => {
     const { Collapsible: Touch } = createShadcnComponents({ touch: true, tooltipDelay: 300 })
     render(<Touch header="Row" />)
     const trigger = screen.getByRole('button', { name: 'Row' })
-    expect(trigger).toHaveClass('min-h-11')
+    // Row height comes from the classNames theme's row header, not the trigger.
+    expect(trigger).not.toHaveClass('min-h-11')
     expect(trigger).not.toHaveClass('hover:text-foreground/80')
   })
 

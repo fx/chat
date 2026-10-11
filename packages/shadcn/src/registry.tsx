@@ -35,9 +35,10 @@ export interface ShadcnComponentsOptions {
    */
   copyResetMs?: number
   /**
-   * Touch-first tuning: disclosure rows get a 44px-tall tap target and drop
-   * their hover tint (touch has no hover). Icon-only buttons always get a
-   * 44×44 target. Default false.
+   * Touch-first tuning: disclosure triggers drop their hover tint (touch has
+   * no hover); row height comes from the classNames theme
+   * (`createShadcnClassNames({ touch: true })`). Icon-only buttons always get
+   * a 44×44 target. Default false.
    */
   touch?: boolean
 }
@@ -67,7 +68,7 @@ export function createShadcnComponents({
 }: ShadcnComponentsOptions = {}): ChatComponents {
   const triggerClass = cn(
     'flex w-full cursor-pointer items-center gap-1.5 text-left text-sm',
-    touch ? 'min-h-11' : 'hover:text-foreground/80',
+    !touch && 'hover:text-foreground/80',
   )
 
   return {
@@ -126,7 +127,7 @@ export function createShadcnComponents({
             <ChevronIcon size={14} className="shrink-0 text-muted-foreground" />
             {header}
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-1">{children}</CollapsibleContent>
+          <CollapsibleContent>{children}</CollapsibleContent>
         </Collapsible>
       )
     },
