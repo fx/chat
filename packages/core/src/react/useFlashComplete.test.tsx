@@ -1,9 +1,17 @@
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useFlashComplete } from './index'
+import { ClockProvider, useFlashComplete } from './index'
 
-function Probe({ isActive, duration }: { isActive: boolean; duration?: number }) {
-  const flashing = useFlashComplete(isActive, duration)
+function Probe({
+  isActive,
+  duration,
+  enabled,
+}: {
+  isActive: boolean
+  duration?: number
+  enabled?: boolean
+}) {
+  const flashing = useFlashComplete(isActive, duration, enabled)
   return <span data-testid="flash">{flashing ? 'on' : 'off'}</span>
 }
 
@@ -75,5 +83,116 @@ describe('useFlashComplete', () => {
     rerender(<Probe isActive />)
     rerender(<Probe isActive={false} />)
     expect(state()).toBe('on')
+  })
+
+  it('cancels for good when switched off mid-flash, then re-enabled', () => {
+    const { rerender } = render(<Probe isActive />)
+    rerender(<Probe isActive={false} />)
+    expect(state()).toBe('on')
+    rerender(<Probe isActive={false} enabled={false} />)
+    expect(state()).toBe('off')
+    expect(vi.getTimerCount()).toBe(0)
+    rerender(<Probe isActive={false} enabled />)
+    expect(state()).toBe('off')
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    expect(state()).toBe('off')
+  })
+
+  it('cancels for good when reduced motion turns on mid-flash, then off', () => {
+    let listener: ((event: { matches: boolean }) => void) | undefined
+    let matches = false
+    window.matchMedia = vi.fn(() => ({
+      get matches() {
+        return matches
+      },
+      addEventListener: (_: string, fn: typeof listener) => {
+        listener = fn
+      },
+      removeEventListener: vi.fn(),
+    })) as unknown as typeof matchMedia
+    const { rerender } = render(<Probe isActive />)
+    rerender(<Probe isActive={false} />)
+    expect(state()).toBe('on')
+    act(() => {
+      matches = true
+      listener?.({ matches: true })
+    })
+    expect(state()).toBe('off')
+    act(() => {
+      matches = false
+      listener?.({ matches: false })
+    })
+    expect(state()).toBe('off')
+  })
+
+  it('cancels a showing flash when a new activity starts', () => {
+    const { rerender } = render(<Probe isActive />)
+    rerender(<Probe isActive={false} />)
+    rerender(<Probe isActive />)
+    expect(state()).toBe('off')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps the original end when the duration changes mid-flash', () => {
+    const { rerender } = render(<Probe isActive duration={1000} />)
+    rerender(<Probe isActive={false} duration={1000} />)
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    rerender(<Probe isActive={false} duration={500} />)
+    expect(state()).toBe('on')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(state()).toBe('off')
+  })
+
+  describe('inside a shared clock', () => {
+    function Clocked(props: { isActive: boolean; enabled?: boolean }) {
+      return (
+        <ClockProvider tickMs={500}>
+          <Probe duration={1200} {...props} />
+        </ClockProvider>
+      )
+    }
+
+    it('arms no timer of its own and ends on the first tick at or after the duration', () => {
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+      const { rerender, unmount } = render(<Clocked isActive />)
+      expect(vi.getTimerCount()).toBe(0)
+      rerender(<Clocked isActive={false} />)
+      expect(state()).toBe('on')
+      expect(setTimeoutSpy).not.toHaveBeenCalled()
+      expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBe(1)
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(state()).toBe('on')
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(state()).toBe('off')
+      // The clock stops once nothing live subscribes.
+      expect(vi.getTimerCount()).toBe(0)
+      unmount()
+      setTimeoutSpy.mockRestore()
+      setIntervalSpy.mockRestore()
+    })
+
+    it('unsubscribes when switched off mid-flash and stays off when re-enabled', () => {
+      const { rerender } = render(<Clocked isActive />)
+      rerender(<Clocked isActive={false} />)
+      expect(vi.getTimerCount()).toBe(1)
+      rerender(<Clocked isActive={false} enabled={false} />)
+      expect(state()).toBe('off')
+      expect(vi.getTimerCount()).toBe(0)
+      rerender(<Clocked isActive={false} enabled />)
+      expect(state()).toBe('off')
+      expect(vi.getTimerCount()).toBe(0)
+    })
   })
 })

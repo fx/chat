@@ -29,7 +29,7 @@ export function createCoreHooks(React: ReactApi) {
     useElapsedTimer: elapsedTimerHook(useTicks),
     useLiveTokensPerSecond: liveTokensPerSecondHook(React, useTicks),
     usePrefersReducedMotion,
-    useFlashComplete: flashCompleteHook(React, usePrefersReducedMotion),
+    useFlashComplete: flashCompleteHook(React, usePrefersReducedMotion, useSharedClock),
   }
 }
 
