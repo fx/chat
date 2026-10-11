@@ -109,6 +109,59 @@ describe('runAgent', () => {
     ])
   })
 
+  it('echoes only field reasoning, each under its own field', async () => {
+    const { client, requests } = scripted(
+      [
+        { type: 'reasoning', text: 'tag ' },
+        { type: 'reasoning', text: 'rc1 ', field: 'reasoning_content' },
+        { type: 'reasoning', text: 'r1 ', field: 'reasoning' },
+        { type: 'reasoning', text: 'rc2', field: 'reasoning_content' },
+        { type: 'reasoning', text: ' tag2' },
+        ...callEvents('c1', 'calc'),
+      ],
+      [{ type: 'text', text: 'It is 2.' }],
+    )
+    const result = await runAgent({ client, model: 'm', history, tools: [calc], now })
+    expect(result.message.blocks[0]).toMatchObject({
+      type: 'reasoning',
+      text: 'tag rc1 r1 rc2 tag2',
+    })
+    expect(requests[1]?.messages.at(-2)).toEqual({
+      role: 'assistant',
+      content: null,
+      reasoning_content: 'rc1 rc2',
+      reasoning: 'r1 ',
+      tool_calls: [
+        { id: 'c1', type: 'function', function: { name: 'calc', arguments: '{"a":1}' } },
+      ],
+    })
+  })
+
+  it('keeps a reasoning-only step in the next request history', async () => {
+    const first = scripted([
+      { type: 'reasoning', text: 'just thinking', field: 'reasoning' },
+      { type: 'finish', reason: 'stop' },
+    ])
+    const turn = await runAgent({ client: first.client, model: 'm', history, now })
+    const next = scripted([{ type: 'text', text: 'ok' }])
+    const followUp: ChatMessage = {
+      id: 'u2',
+      role: 'user',
+      blocks: [{ type: 'text', id: 'b2', text: 'go on' }],
+    }
+    await runAgent({
+      client: next.client,
+      model: 'm',
+      history: [...history, turn.message, followUp],
+      now,
+    })
+    expect(next.requests[0]?.messages).toEqual([
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '', reasoning: 'just thinking' },
+      { role: 'user', content: 'go on' },
+    ])
+  })
+
   it('records unknown tools, invalid arguments, thrown errors and undefined results', async () => {
     const failing: AgentTool = {
       ...calc,

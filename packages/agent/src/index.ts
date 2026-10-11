@@ -6,7 +6,7 @@
  * the tool loop with optional approval, and encodes conversations back into
  * request messages. No UI, no backend: the HTTP transport is injectable.
  */
-export type { AgentMeta, StepMeta, TurnState } from './accumulate'
+export type { AgentMeta, ReasoningSegment, StepMeta, TurnState } from './accumulate'
 export {
   AGENT_META_KEY,
   applyEvent,

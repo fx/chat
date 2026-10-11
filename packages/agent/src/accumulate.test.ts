@@ -55,18 +55,35 @@ describe('accumulator', () => {
     ])
     expect(state.message.metrics?.model).toBe('served')
     expect(readAgentMeta(state.message)?.steps).toEqual([
-      { start: 0, reasoningField: 'reasoning_content' },
+      { start: 0, reasoning: [{ field: 'reasoning_content', length: 5 }] },
     ])
   })
 
-  it('keeps the first reasoning field of a step and none for think-tag reasoning', () => {
-    const s1 = feed(start(), [
-      [{ type: 'reasoning', text: 'a', field: 'reasoning' }, 1],
-      [{ type: 'reasoning', text: 'b', field: 'reasoning_content' }, 2],
+  it('records reasoning provenance per segment while keeping one block', () => {
+    const state = feed(start(), [
+      [{ type: 'reasoning', text: 'ab', field: 'reasoning' }, 1],
+      [{ type: 'reasoning', text: 'c', field: 'reasoning' }, 2],
+      [{ type: 'reasoning', text: 'de', field: 'reasoning_content' }, 3],
+      [{ type: 'reasoning', text: 'think' }, 4],
+      [{ type: 'reasoning', text: 'f', field: 'reasoning' }, 5],
     ])
-    expect(readAgentMeta(s1.message)?.steps[0]?.reasoningField).toBe('reasoning')
-    const s2 = feed(start(), [[{ type: 'reasoning', text: 'a' }, 1]])
-    expect(readAgentMeta(s2.message)?.steps[0]).toEqual({ start: 0 })
+    expect(state.message.blocks).toEqual([
+      { type: 'reasoning', id: 't-b1', text: 'abcdethinkf', startedAt: 1 },
+    ])
+    expect(readAgentMeta(state.message)?.steps[0]).toEqual({
+      start: 0,
+      reasoning: [
+        { field: 'reasoning', length: 3 },
+        { field: 'reasoning_content', length: 2 },
+        { length: 5 },
+        { field: 'reasoning', length: 1 },
+      ],
+    })
+    const think = feed(start(), [[{ type: 'reasoning', text: 'a' }, 1]])
+    expect(readAgentMeta(think.message)?.steps[0]).toEqual({
+      start: 0,
+      reasoning: [{ length: 1 }],
+    })
   })
 
   it('tolerates a reasoning field arriving with no step begun', () => {

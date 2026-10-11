@@ -21,12 +21,25 @@ import type { ReasoningField, StreamEvent, Usage } from './types'
 /** `meta` key holding the runtime's per-turn bookkeeping. */
 export const AGENT_META_KEY = 'fx.agent'
 
+/**
+ * A run of a step's reasoning text from one source. `length` counts UTF-16
+ * code units of the step's reasoning text (its reasoning blocks joined in
+ * order); `field` is the delta field it arrived on, absent for think tags.
+ */
+export interface ReasoningSegment {
+  field?: ReasoningField
+  length: number
+}
+
 /** One step's record in {@link AgentMeta}. */
 export interface StepMeta {
   /** Index into `blocks` where the step's first block sits. */
   start: number
-  /** Delta field the step's reasoning arrived on, when any. */
-  reasoningField?: ReasoningField
+  /**
+   * Provenance of the step's reasoning, in arrival order, covering all of it.
+   * Rendering keeps one reasoning block; only the encoder reads this.
+   */
+  reasoning?: ReasoningSegment[]
 }
 
 /** The bookkeeping stored at `message.meta[AGENT_META_KEY]`. */
@@ -136,14 +149,21 @@ export function applyEvent(input: TurnState, event: StreamEvent, now: number): T
         blocks = [...blocks, block]
       }
       let message: ChatMessage = { ...state.message, blocks }
-      if (event.field) {
-        const agentMeta = meta(state)
-        const steps = agentMeta.steps.slice()
-        const current = steps[steps.length - 1]
-        if (current && !current.reasoningField) {
-          steps[steps.length - 1] = { ...current, reasoningField: event.field }
-          message = withMeta(message, { steps })
+      const steps = meta(state).steps.slice()
+      const current = steps[steps.length - 1]
+      if (current) {
+        const segments = (current.reasoning ?? []).slice()
+        const tail = segments[segments.length - 1]
+        if (tail && tail.field === event.field) {
+          segments[segments.length - 1] = { ...tail, length: tail.length + event.text.length }
+        } else {
+          segments.push({
+            ...(event.field ? { field: event.field } : {}),
+            length: event.text.length,
+          })
         }
+        steps[steps.length - 1] = { ...current, reasoning: segments }
+        message = withMeta(message, { steps })
       }
       return { ...state, message }
     }

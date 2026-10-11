@@ -41,11 +41,11 @@ describe('splitSteps', () => {
       role: 'assistant',
       blocks: [call('1'), { type: 'text', id: 't', text: 'x' }, call('2')],
       meta: {
-        [AGENT_META_KEY]: { steps: [{ start: 0 }, { start: 1, reasoningField: 'reasoning' }] },
+        [AGENT_META_KEY]: { steps: [{ start: 0 }, { start: 1 }] },
       },
     }
     expect(splitSteps(message).map((s) => s.blocks.length)).toEqual([1, 2])
-    expect(splitSteps(message)[1]?.meta).toEqual({ start: 1, reasoningField: 'reasoning' })
+    expect(splitSteps(message)[1]?.meta).toEqual({ start: 1 })
   })
 
   it('recovers steps from block order without bookkeeping', () => {
@@ -84,7 +84,10 @@ describe('encodeHistory', () => {
       ],
       meta: {
         [AGENT_META_KEY]: {
-          steps: [{ start: 0, reasoningField: 'reasoning_content' }, { start: 6 }],
+          steps: [
+            { start: 0, reasoning: [{ field: 'reasoning_content', length: 4 }] },
+            { start: 6, reasoning: [{ length: 19 }] },
+          ],
         },
       },
     }
@@ -133,7 +136,11 @@ describe('encodeHistory', () => {
         id: 'b',
         role: 'assistant',
         blocks: [call('c', { arguments: undefined }), { type: 'reasoning', id: 'r', text: '' }],
-        meta: { [AGENT_META_KEY]: { steps: [{ start: 0, reasoningField: 'reasoning' }] } },
+        meta: {
+          [AGENT_META_KEY]: {
+            steps: [{ start: 0, reasoning: [{ field: 'reasoning', length: 0 }] }],
+          },
+        },
       },
     ]
     expect(encodeHistory(history, '  ')).toEqual([
@@ -147,5 +154,51 @@ describe('encodeHistory', () => {
       { role: 'tool', tool_call_id: 'c', content: '{"value":2}' },
     ])
     expect(encodeHistory([])).toEqual([])
+  })
+
+  it('echoes field reasoning per field, drops think-tag text, keeps reasoning-only steps', () => {
+    const message: ChatMessage = {
+      id: 'a',
+      role: 'assistant',
+      blocks: [
+        { type: 'reasoning', id: 'r1', text: 'tagAAbb' },
+        { type: 'reasoning', id: 'r2', text: 'Ctag' },
+      ],
+      meta: {
+        [AGENT_META_KEY]: {
+          steps: [
+            {
+              start: 0,
+              reasoning: [
+                { length: 3 },
+                { field: 'reasoning_content', length: 2 },
+                { field: 'reasoning', length: 2 },
+                { field: 'reasoning_content', length: 1 },
+                { length: 3 },
+                { field: 'reasoning', length: 4 },
+              ],
+            },
+          ],
+        },
+      },
+    }
+    expect(encodeHistory([message])).toEqual([
+      { role: 'assistant', content: '', reasoning_content: 'AAC', reasoning: 'bb' },
+    ])
+  })
+
+  it('sends no reasoning without recorded segments or from think tags alone', () => {
+    const blocks: ChatMessage['blocks'] = [{ type: 'reasoning', id: 'r', text: 'hidden' }]
+    expect(encodeHistory([{ id: 'a', role: 'assistant', blocks }])).toEqual([])
+    expect(
+      encodeHistory([
+        {
+          id: 'a',
+          role: 'assistant',
+          blocks,
+          meta: { [AGENT_META_KEY]: { steps: [{ start: 0, reasoning: [{ length: 6 }] }] } },
+        },
+      ]),
+    ).toEqual([])
   })
 })

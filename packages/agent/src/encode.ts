@@ -8,7 +8,7 @@
  */
 import type { ChatMessage, ContentBlock, ToolCallBlock } from '@fx/chat-core'
 import { type StepMeta, readAgentMeta } from './accumulate'
-import type { WireContentPart, WireMessage } from './types'
+import type { ReasoningField, WireContentPart, WireMessage } from './types'
 
 /** Serialize a tool result for the `tool` message content. */
 export function toolResultContent(block: ToolCallBlock): string {
@@ -66,15 +66,38 @@ function encodeUser(message: ChatMessage): WireMessage {
   return { role: 'user', content: parts }
 }
 
+/**
+ * The step's delta-field reasoning, joined per field, using the recorded
+ * segments to slice the step's reasoning text. Think-tag segments (no field)
+ * are dropped; without segments nothing is echoed.
+ */
+function fieldReasoning(
+  blocks: readonly ContentBlock[],
+  meta: StepMeta | undefined,
+): Partial<Record<ReasoningField, string>> {
+  const all = textOf(blocks, 'reasoning')
+  const out: Partial<Record<ReasoningField, string>> = {}
+  let offset = 0
+  for (const segment of meta?.reasoning ?? []) {
+    const piece = all.slice(offset, offset + segment.length)
+    offset += segment.length
+    if (segment.field && piece) out[segment.field] = (out[segment.field] ?? '') + piece
+  }
+  return out
+}
+
 function encodeAssistant(message: ChatMessage): WireMessage[] {
   const out: WireMessage[] = []
   for (const step of splitSteps(message)) {
     const text = textOf(step.blocks, 'text')
     const calls = step.blocks.filter((b): b is ToolCallBlock => b.type === 'tool_call')
-    if (!text && calls.length === 0) continue
+    const reasoning = fieldReasoning(step.blocks, step.meta)
+    const hasReasoning = Object.keys(reasoning).length > 0
+    if (!text && calls.length === 0 && !hasReasoning) continue
     const assistant: Extract<WireMessage, { role: 'assistant' }> = {
       role: 'assistant',
-      content: text || null,
+      // A reasoning-only step still goes back; content is then empty, not null.
+      content: text || (calls.length > 0 ? null : ''),
     }
     if (calls.length > 0) {
       assistant.tool_calls = calls.map((call) => ({
@@ -89,9 +112,7 @@ function encodeAssistant(message: ChatMessage): WireMessage[] {
         },
       }))
     }
-    const field = step.meta?.reasoningField
-    const reasoning = field ? textOf(step.blocks, 'reasoning') : ''
-    if (field && reasoning) assistant[field] = reasoning
+    Object.assign(assistant, reasoning)
     out.push(assistant)
     for (const call of calls) {
       out.push({ role: 'tool', tool_call_id: call.id, content: toolResultContent(call) })
