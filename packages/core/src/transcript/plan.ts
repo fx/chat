@@ -15,7 +15,6 @@ import { formatDuration, formatTokensPerSecond, positiveTimestamp } from './form
 import {
   type TimelineBehavior,
   getBlockTimelineBehavior,
-  getTimelineBehavior,
   groupBlocks,
   selectHeaderSummary,
 } from './grouping'
@@ -223,8 +222,7 @@ export function planMessage(
     showFooter &&
     assistant &&
     !isActive &&
-    (outcome !== undefined ||
-      blocks.some((block) => !getTimelineBehavior(block.type, overrides).auxEligible))
+    (outcome !== undefined || blocks.some((block) => !isAux(block)))
 
   return { rows, ...(activeBlockId ? { activeBlockId } : {}), showFooter: footer }
 }

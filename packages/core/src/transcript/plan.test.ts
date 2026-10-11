@@ -101,6 +101,20 @@ describe('planMessage', () => {
     const overrides = { reasoning: { auxEligible: false } }
     expect(planMessage(msg([reasoning('r')]), { overrides }).showFooter).toBe(true)
   })
+
+  it('gates the footer on per-tool overrides, matching grouping', () => {
+    const overrides = { 'tool-deploy': { auxEligible: false } }
+    const deploy = planMessage(msg([tool('deploy'), tool('t')]), { overrides })
+    expect(deploy.rows).toEqual([
+      { kind: 'bare', block: tool('deploy') },
+      { kind: 'bare', block: tool('t') },
+    ])
+    expect(planMessage(msg([tool('deploy')]), { overrides }).showFooter).toBe(true)
+    const aux = planMessage(msg([tool('t'), tool('u')]), { overrides })
+    expect(aux.rows).toEqual([{ kind: 'group', key: 'group-t', blocks: [tool('t'), tool('u')] }])
+    expect(aux.showFooter).toBe(false)
+    expect(planMessage(msg([tool('t')]), { overrides }).showFooter).toBe(false)
+  })
 })
 
 describe('planMessage outcomes', () => {
