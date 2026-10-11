@@ -475,7 +475,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 
 - **Tool headline.** Where a tool call is named in one line outside its row (a live phase label),
   it MUST read as its row does — the label, then the input when it adds something
-  (`toolHeadline`), so a generic title (`Running`) still says what runs.
+  (`toolHeadline`), so a generic title (`Running`) still says what runs. With a blank title and
+  name it falls back to `tool`, as the row does; it is never blank and never padded.
 - **Tool label and input.** A tool row's label MUST be the call's non-blank `title` (trimmed), else
   its `name`; a bare row and a group header headed by the call MUST agree. The row MAY add a one-line
   input: the call's `inputSummary`, else a summary derived from `arguments` (a string argument as

@@ -394,6 +394,29 @@ describe('StatusLine, PendingRows, EmptyState', () => {
     )
   })
 
+  it('names a nameless running call by the row’s fallback label', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(5_000)
+    const nameless = (inputSummary?: string): ChatMessage => ({
+      ...live,
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 't',
+          name: ' ',
+          title: '',
+          ...(inputSummary ? { inputSummary } : {}),
+          arguments: {},
+          status: 'running',
+        },
+      ],
+    })
+    const line = (m: ChatMessage) =>
+      str(<StatusLine width={80} live={{ message: m, startedAt: 0 }} />, 80)
+    expect(line(nameless())).toContain('●·· running tool · 5s')
+    expect(line(nameless('ls -la'))).toContain('●·· running tool ls -la · 5s')
+  })
+
   it('says a call awaits approval rather than running', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(5_000)

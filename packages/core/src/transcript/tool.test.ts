@@ -45,6 +45,11 @@ describe('tool helpers', () => {
     expect(toolHeadline(call({ title: 'Run npm test', arguments: { command: 'npm test' } }))).toBe(
       'Run npm test',
     )
+    // Blank title and name fall back to the row's label, never a blank or padded line.
+    expect(toolHeadline(call({ title: '  ', name: ' ' }))).toBe('tool')
+    expect(toolHeadline(call({ title: '', name: '', inputSummary: ' ls -la ' }))).toBe(
+      'tool ls -la',
+    )
   })
 
   it('shows input only when it adds something', () => {
