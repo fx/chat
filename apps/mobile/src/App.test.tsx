@@ -65,6 +65,9 @@ describe('App', () => {
     // action retries the turn.
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('HTTP 500: no more')
+    // Footers stay hidden until the message is tapped.
+    expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
+    await user.click(alert)
     await user.click(screen.getByRole('button', { name: 'Regenerate' }))
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('HTTP 500'))
   })
@@ -96,7 +99,7 @@ describe('App', () => {
     await user.click(screen.getByText('Old chat'))
     const textbox = await screen.findByPlaceholderText(/profile is unavailable/)
     expect((textbox as HTMLTextAreaElement).disabled).toBe(true)
-    await screen.findByText('reply')
+    await user.click(await screen.findByText('reply'))
     expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Change model' }))
@@ -104,6 +107,7 @@ describe('App', () => {
     expect(endpoint.requests).toHaveLength(0)
     await user.click(screen.getByRole('button', { name: 'Other' }))
     expect(store.conversation('c1')).toMatchObject({ profileId: 'p2', model: 'fake-1' })
+    // Still selected from the tap above: its footer now offers regenerate.
     await user.click(await screen.findByRole('button', { name: 'Regenerate' }))
     await waitFor(() => expect(screen.getByText('answer')).toBeTruthy())
     expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')

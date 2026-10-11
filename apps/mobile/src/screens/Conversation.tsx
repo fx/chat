@@ -70,6 +70,8 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const approval = state.approvals.find((a) => a.conversationId === id)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
+  // The one assistant message whose footer shows (tap a message to show it).
+  const [selected, setSelected] = useState<string>()
   const scrollRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
 
@@ -170,7 +172,18 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
         }
       />
 
-      <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <style>{footerStyle(selected)}</style>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: tapping shows the message's footer; its actions stay reachable from the keyboard */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        onClick={(event) => {
+          // Read the event now: `currentTarget` is only set during dispatch.
+          const tap = { target: event.target, currentTarget: event.currentTarget }
+          setSelected((current) => selectionAfterTap(tap, current))
+        }}
+        className="conversation-log min-h-0 flex-1 overflow-y-auto px-3 py-3"
+      >
         {messages && messages.length === 0 && !run ? (
           <p className="px-6 py-16 text-center text-sm text-muted-foreground">
             Ask anything. Reasoning and tool calls show up live as the model works.
@@ -343,4 +356,32 @@ function ModelSheet({
       </div>
     </Sheet>
   )
+}
+
+/**
+ * Footers are hidden except the selected message's. The selection is a
+ * message id, so the rule is generated (escaped) rather than a static class.
+ */
+export function footerStyle(selected: string | undefined): string {
+  const keep = selected ? `:not([data-message-id="${CSS.escape(selected)}"])` : ''
+  return `.conversation-log .chat-message${keep} .chat-footer { display: none; }`
+}
+
+/**
+ * The selected message after a tap in the transcript: an assistant message
+ * becomes selected (tapping it again on its text deselects it), anywhere else
+ * clears the selection. Taps on a footer, and those bubbling through React
+ * from a portal (the details sheet), change nothing.
+ */
+export function selectionAfterTap(
+  event: { target: EventTarget; currentTarget: Element },
+  current: string | undefined,
+): string | undefined {
+  const target = event.target as Element
+  if (!event.currentTarget.contains(target) || target.closest('.chat-footer')) return current
+  const message = target.closest<HTMLElement>('.chat-message[data-role="assistant"]')
+  const id = message?.dataset.messageId
+  if (!id) return undefined
+  const control = target.closest('button, a, input, textarea, select, [role="button"]')
+  return id === current && !control ? undefined : id
 }
