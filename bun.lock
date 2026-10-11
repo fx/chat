@@ -49,6 +49,13 @@
         "vite": "6.0.7",
       },
     },
+    "packages/agent": {
+      "name": "@fx/chat-agent",
+      "version": "0.0.0",
+      "dependencies": {
+        "@fx/chat-core": "workspace:*",
+      },
+    },
     "packages/chat": {
       "name": "@fx/chat",
       "version": "0.0.0",
@@ -217,6 +224,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
 
     "@fx/chat": ["@fx/chat@workspace:packages/chat"],
+
+    "@fx/chat-agent": ["@fx/chat-agent@workspace:packages/agent"],
 
     "@fx/chat-core": ["@fx/chat-core@workspace:packages/core"],
 

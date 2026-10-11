@@ -3,7 +3,7 @@
 ## Overview
 
 `@fx/chat-core` is the renderer-agnostic foundation shared by every `@fx/chat` renderer (the
-React-DOM package today) and by any UI-free consumer such as an agent runtime. It holds the
+React-DOM package today) and by the agent runtime. It holds the
 message model and codec, the pure transcript logic (grouping, timeline merge, block summaries,
 formatting, mentions, URL safety), the completion-provider contract, and the React hooks that need
 React but not a DOM. It MUST NOT render anything and MUST NOT touch a DOM, a terminal, or the network.
@@ -139,12 +139,12 @@ each renderer package MUST specialize it.
 ├── ./react    useElapsedTimer, useLiveTokensPerSecond, useFlashComplete, usePrefersReducedMotion
 ├── ./hooks    createCoreHooks factory: the same hooks over an injected React instance
 └── ./json     loose-JSON detection, parsing, layout
-        ▲
-@fx/chat (DOM renderers; re-exports core)
+        ▲                                   ▲
+@fx/chat (DOM renderers; re-exports core)   @fx/chat-agent (no UI; root entry only)
 ```
 
-Layering rule: core depends on nothing in this repository. Renderers and other consumers depend on
-core; nothing in core depends on them.
+Layering rule: core depends on nothing in this repository. Renderers and the agent depend on core;
+nothing in core depends on them.
 
 ## Constraints
 

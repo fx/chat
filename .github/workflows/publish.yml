@@ -1,4 +1,4 @@
-# Publish `@fx/chat-core` and `@fx/chat` to GitHub Packages, in lockstep.
+# Publish `@fx/chat-core`, `@fx/chat` and `@fx/chat-agent` to GitHub Packages, in lockstep.
 #
 # Every push to `main` publishes a commit-pinned prerelease version
 # (`0.0.0-<short-sha>`), so consumers can pin an exact main commit the same way
@@ -43,7 +43,7 @@ jobs:
           node -e "
             const fs = require('fs')
             const version = '0.0.0-' + process.argv[1]
-            for (const dir of ['packages/core', 'packages/chat']) {
+            for (const dir of ['packages/core', 'packages/chat', 'packages/agent']) {
               const file = dir + '/package.json'
               const p = JSON.parse(fs.readFileSync(file, 'utf8'))
               p.version = version
@@ -56,7 +56,7 @@ jobs:
 
       - name: Publish to GitHub Packages
         run: |
-          for dir in packages/core packages/chat; do
+          for dir in packages/core packages/chat packages/agent; do
             (cd "$dir" && printf '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' > .npmrc && npm publish && rm -f .npmrc)
           done
         env:
