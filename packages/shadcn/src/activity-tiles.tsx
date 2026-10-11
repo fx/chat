@@ -104,7 +104,7 @@ export function createActivityTiles(toolIcons: Record<string, IconComponent> = {
   return function ActivityTiles({ items, live }: ActivitySummaryProps) {
     const now = useNow(live && items.some((item) => item.status === 'running'))
     return (
-      <div className="chat-tiles flex flex-wrap gap-2" data-live={live ? 'true' : undefined}>
+      <div className="chat-tiles flex flex-wrap gap-1.5" data-live={live ? 'true' : undefined}>
         {items.map((item) => (
           <Tile
             key={item.id}

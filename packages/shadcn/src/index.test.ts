@@ -76,6 +76,8 @@ describe('public export surface', () => {
     expect(root.shadcnClassNames.footerCopy).toBeUndefined()
     expect(touch.footerActivity).toBe('contents')
     expect(touch.footerFact).toBe('contents')
+    expect(touch.footerActivityItems).toContain('[&>.chat-tiles]:contents')
+    expect(root.shadcnClassNames.footerActivityItems).toBe('inline-flex')
     expect(touch.footerFactIcon).toBe('size-4 shrink-0')
     expect(root.shadcnClassNames.footerFactIcon).toBe('size-3')
     expect(touch.rowIcon).toContain('[.chat-row-affordance+&]:hidden')

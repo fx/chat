@@ -142,6 +142,8 @@ export function createShadcnClassNames({
         )
       : 'inline-flex items-center gap-1 tabular-nums [[data-failed]>&]:text-destructive',
     footerFactIcon: touch ? TILE_ICON : 'size-3',
+    // Activity shown from the footer: its tiles join the footer's own wrap.
+    footerActivityItems: touch ? 'contents [&>.chat-tiles]:contents' : 'inline-flex',
     detailsActivity: 'flex flex-col',
 
     // ── User attachments ──────────────────────────────────────────────────────
