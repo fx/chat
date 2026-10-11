@@ -5,7 +5,7 @@
 Plan footers as structured facts (`planFooter`) with the elapsed/token/cost formatters, an opt-in live footer, activity counts and the live phase, and two planner options: activity after content (reusing the `group` row) and a live tail (`earlier` row).
 
 **Spec:** [message-rendering § Agent Activity](../specs/message-rendering/index.md#agent-activity)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0023, 0024
 
 ## Motivation
@@ -52,7 +52,7 @@ DOM footer redesign: `@fx/chat`'s footer keeps its metrics line (now with the co
 - [x] `planFooter` + `formatElapsed`/`formatTokenCount`/`formatCost`; `formatFooterMetrics` wrapper; tests
 - [x] `countActivity`, `livePhase`; tests
 - [x] Planner `activityPlacement` + `liveTail`; tests
-- [ ] `@fx/chat`: footer facts (cost) and `activityPlacement`/`liveTail` props; ink adoption; parity
+- [x] `@fx/chat`: footer facts (cost) and `activityPlacement`/`liveTail` props; ink adoption; parity
 - [x] Specs/indexes
 
 ## References

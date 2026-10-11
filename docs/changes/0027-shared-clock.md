@@ -5,7 +5,7 @@
 Add `ClockProvider` / `useClock` to `@fx/chat-core/react`; timers, live rates, spinners and pulses read it when present; `useFlashComplete` gains `enabled`; the ink registry gains a flash switch.
 
 **Spec:** [message-rendering § Streaming & Timing State Machine](../specs/message-rendering/index.md#streaming--timing-state-machine)
-**Status:** draft
+**Status:** complete
 **Depends On:** —
 
 ## Motivation
@@ -45,7 +45,7 @@ Changing default tick rates.
 ## Tasks
 
 - [x] `ClockProvider`, `useClock`; hooks read it; flash `enabled`; tests
-- [ ] Ink spinner/pulse on the clock; registry flash switch; tests
+- [x] Ink spinner/pulse on the clock; registry flash switch; tests
 - [x] Specs/indexes
 
 ## References

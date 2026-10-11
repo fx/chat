@@ -11,6 +11,9 @@
       "path": "./packages/agent"
     },
     {
+      "path": "./packages/ink"
+    },
+    {
       "path": "./demos/chat-demo"
     },
     {

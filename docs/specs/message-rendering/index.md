@@ -437,7 +437,7 @@ scope** and MUST NOT appear in this package.
 ### Agent Activity
 
 How every renderer shows an agent's work. The decisions live in the shared render plan in
-`@fx/chat-core`, so every renderer shows the same labels, counts, and gates.
+`@fx/chat-core`, so the DOM and terminal renderers show the same labels, counts, and gates.
 
 - **Tool label and input.** A tool row's label MUST be the call's non-blank `title` (trimmed), else
   its `name`; a bare row and a group header headed by the call MUST agree. The row MAY add a one-line
@@ -446,8 +446,8 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   `query`, `prompt`, `description`; else compact JSON of a non-empty object), whitespace collapsed
   and cut with `…` — and none when the label already contains it.
 - **Tool output text.** A tool's output text MUST be the result itself when it is a string, empty
-  when absent, and two-space-indented JSON otherwise (`toolResultText`); a renderer that lays out
-  output as text MUST use it. The DOM renderer shows the result in its registry `JsonView` instead.
+  when absent, and two-space-indented JSON otherwise (`toolResultText`). The terminal renderer lays
+  out and copies this text; the DOM renderer shows the result in its registry `JsonView` instead.
 - **Approval qualifier.** A call with `approval.state` of `denied` or `unavailable` MUST show a
   `denied` / `refused` qualifier beside its error marker; `pending` shows `awaiting approval`.
 - **Tool liveness.** A `pending`/`running` tool call MUST count as live only while its message is
@@ -456,18 +456,19 @@ How every renderer shows an agent's work. The decisions live in the shared rende
 - **Plan.** A plan block is auxiliary (it folds into a turn's activity like reasoning and tool
   calls, and alone does not open the footer gate). Its summary is `Plan d/t` (completed / total),
   or `Plan` with no entries, with the `checklist` icon and no timer. Renderers MUST render it as a
-  checklist with one row per entry. The DOM renderer exposes each entry's status as `data-status`
-  (and in its accessible name) and leaves per-status markers and de-emphasis to host styling.
+  checklist with one row per entry. The terminal renderer draws a per-status marker and
+  de-emphasizes completed entries; the DOM renderer exposes each entry's status as `data-status`
+  (and in its accessible name) and leaves markers and de-emphasis to host styling.
 - **Outcome.** An assistant message with an `error` outcome MUST show the error inside the message,
   after its content, as an error-toned row; a `stopped` outcome adds no row. A settled message with
   an outcome MUST show its footer even with no content, marked `stopped` / `failed` (the planned
-  `outcome` fact; the DOM renderer's `Stopped` / `Failed` marker). A renderer MAY also show a
-  host-labelled retry hint there; the DOM renderer has none.
+  `outcome` fact; the DOM renderer's `Stopped` / `Failed` marker). The terminal renderer also
+  shows a host-labelled retry hint there; the DOM renderer has none.
 - **Footer facts.** Core MUST plan the footer's content as ordered facts (`planFooter`) —
   `elapsed`, `outcome`, `reasoning` (characters), `plan` (`d/t`), `tools` (`N tools[, M failed]`),
   `cost`, `context` (`ctx used/size`), `model`, `rate`. Activity facts (`reasoning`, `plan`,
   `tools`) appear only when the activity itself is collapsed; `context` only when it is shown in
-  detail. A renderer MAY draw the planned facts with its own (injected) glyphs and
+  detail. The terminal renderer draws the planned facts with its own (injected) glyphs and
   separators. The DOM renderer does not: its footer keeps the existing single-line metrics text
   (`formatFooterMetrics`, unchanged: model · duration · rate) with the cost appended when reported,
   beside the `Stopped` / `Failed` outcome marker.

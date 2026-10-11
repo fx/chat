@@ -5,8 +5,8 @@
 `@fx/chat-agent` is an optional, UI-free runtime that drives agent-style conversations against any
 OpenAI-compatible Chat Completions endpoint and produces `@fx/chat-core` `ChatMessage`s as it goes.
 It streams text, reasoning and tool calls, executes host-registered tools (with optional approval),
-and loops until the model stops calling tools. Every renderer (today `@fx/chat`) can display its
-output unchanged. It MUST NOT render UI and MUST NOT require a backend: it runs entirely in the
+and loops until the model stops calling tools. Every renderer (`@fx/chat`, `@fx/chat-ink`) can display
+its output unchanged. It MUST NOT render UI and MUST NOT require a backend: it runs entirely in the
 client (browser, webview, Node).
 
 ## Background
