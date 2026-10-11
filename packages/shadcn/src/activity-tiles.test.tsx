@@ -83,13 +83,12 @@ describe('ActivityTiles', () => {
     expect(screen.getByRole('img').querySelector('svg')).not.toBeNull()
   })
 
-  it('is status only even when items could open details, and does not tick when idle', () => {
+  it('opens the item on tap when it can, and does not tick when nothing runs', () => {
     const onActivate = vi.fn()
     const Tiles = shadcnComponentsTouchTiles()
     render(<Tiles live={false} items={[item({ id: 'x' })]} onActivate={onActivate} />)
-    expect(screen.queryByRole('button')).toBeNull()
-    fireEvent.click(screen.getByRole('img', { name: 'fetch_url, done' }))
-    expect(onActivate).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'fetch_url, done' }))
+    expect(onActivate).toHaveBeenCalledWith('x')
     expect(vi.getTimerCount()).toBe(0)
   })
 })

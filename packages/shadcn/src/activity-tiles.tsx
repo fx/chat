@@ -2,8 +2,8 @@
  * The `ActivitySummary` presenter: a message's activity as a wrapping run of
  * square tiles — the kind's icon (a tool's from the host's `toolIcons`), its
  * time or rate in small text inside, and a turning ring while it runs (amber
- * while it waits for approval). Tiles are status only (the footer's info
- * control opens the details). Touch-first; the registry provides it with
+ * while it waits for approval). Tapping a tile opens the message's details at
+ * it (highlighted there). Touch-first; the registry provides it with
  * `createShadcnComponents({ touch: true })`.
  */
 import {
@@ -62,10 +62,12 @@ function Tile({
   item,
   now,
   Icon,
+  onActivate,
 }: {
   item: ActivityItem
   now: number
   Icon: IconComponent
+  onActivate?: ((id: string) => void) | undefined
 }) {
   const text = tileText(item, now)
   const spinning = item.status === 'running' || item.status === 'awaiting'
@@ -76,6 +78,7 @@ function Tile({
     item.status === 'done' && 'text-foreground/80',
     item.status === 'error' && 'bg-destructive/10 text-destructive',
     item.status === 'awaiting' && 'text-amber-600',
+    onActivate && 'cursor-pointer transition-transform active:scale-95',
   )
   const body = [
     spinning ? <span key="ring" aria-hidden className="chat-tile-ring" /> : null,
@@ -86,22 +89,20 @@ function Tile({
       </span>
     ) : null,
   ]
-  return (
-    <span
-      role="img"
-      className={className}
-      data-kind={item.kind}
-      data-status={item.status}
-      aria-label={label}
-    >
+  const data = { 'data-kind': item.kind, 'data-status': item.status, 'aria-label': label }
+  return onActivate ? (
+    <button type="button" className={className} {...data} onClick={() => onActivate(item.id)}>
+      {body}
+    </button>
+  ) : (
+    <span role="img" className={className} {...data}>
       {body}
     </span>
   )
 }
 
 export function createActivityTiles(toolIcons: Record<string, IconComponent> = {}) {
-  // Tiles are status only: the footer's info control opens the details.
-  return function ActivityTiles({ items, live }: ActivitySummaryProps) {
+  return function ActivityTiles({ items, live, onActivate }: ActivitySummaryProps) {
     const now = useNow(live && items.some((item) => item.status === 'running'))
     return (
       <div className="chat-tiles flex flex-wrap gap-1.5" data-live={live ? 'true' : undefined}>
@@ -116,6 +117,7 @@ export function createActivityTiles(toolIcons: Record<string, IconComponent> = {
                   lucideIcons.wrench)
                 : KIND_ICONS[item.kind]
             }
+            onActivate={onActivate}
           />
         ))}
       </div>

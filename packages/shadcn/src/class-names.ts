@@ -144,7 +144,10 @@ export function createShadcnClassNames({
     footerFactIcon: touch ? TILE_ICON : 'size-3',
     // Activity shown from the footer: its tiles join the footer's own wrap.
     footerActivityItems: touch ? 'contents [&>.chat-tiles]:contents' : 'inline-flex',
-    detailsActivity: 'flex flex-col',
+    detailsActivity: 'flex flex-col gap-0.5',
+    // The item the details were opened for (from its tile) stands out.
+    detailsActivityItem:
+      'rounded-lg px-2 -mx-2 transition-colors data-[focused=true]:bg-primary/10 data-[focused=true]:ring-1 data-[focused=true]:ring-primary/25',
 
     // ── User attachments ──────────────────────────────────────────────────────
     attachments: 'mt-2 flex flex-col gap-2',

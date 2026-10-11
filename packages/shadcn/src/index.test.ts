@@ -77,6 +77,7 @@ describe('public export surface', () => {
     expect(touch.footerActivity).toBe('contents')
     expect(touch.footerFact).toBe('contents')
     expect(touch.footerActivityItems).toContain('[&>.chat-tiles]:contents')
+    expect(touch.detailsActivityItem).toContain('data-[focused=true]:bg-primary/10')
     expect(root.shadcnClassNames.footerActivityItems).toBe('inline-flex')
     expect(touch.footerFactIcon).toBe('size-4 shrink-0')
     expect(root.shadcnClassNames.footerFactIcon).toBe('size-3')
