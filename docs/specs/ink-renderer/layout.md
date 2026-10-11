@@ -33,10 +33,14 @@ remains for the inline transcript.
   state, the markdown layout, the image provider, glyphs, hint labels, custom block layouts, a
   measure) and the next message (which decides a frame's junction).
 - A layout cache MUST key each message by its object identity plus a signature of everything layout
-  reads (width, detail, placement, frame, liveness and — when live — the second, the open-state and
-  image versions, and whether the next message shows). Finished messages MUST NOT be laid out again
-  when only the live message changes. Hosts that mutate messages in place give a changed message a
-  new identity.
+  reads (width, detail, placement, frame id, live tail, live footer, finished-activity mode,
+  liveness and — when live — the second, the open-state and image versions, whether the next
+  message shows, the host's footer facts, the hint labels, the resolved accent, the glyphs, the
+  markdown layout, the measure, the image hook and the custom block layouts). Plain values (facts,
+  hints, accent) count by value; the glyph set and injected functions count by identity, so hosts
+  SHOULD pass stable ones (a new one lays every message out again). Finished messages MUST NOT be
+  laid out again when only the live message changes. Hosts that mutate messages in place give a
+  changed message a new identity.
 - **Frames are injected.** The message frame — what surrounds a user message and an answer (box,
   gutter, footer corner, separators) — MUST be a replaceable layout slot. The package ships two:
   `compact` (the default: role glyph, rows, footer line) and an OPTIONAL `threaded` frame (user

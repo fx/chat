@@ -3,7 +3,7 @@
  * once per signature, so a streamed delta only lays out the live message.
  */
 import type { RenderableMessage } from '@fx/chat-core'
-import { type LayoutContext, layoutMessage, showsSomething } from './layout'
+import { type LayoutContext, layoutMessage, resolveAccent, showsSomething } from './layout'
 import type { Line } from './model'
 
 /** Memoised `layoutMessage`, keyed by message identity plus a signature. */
@@ -13,7 +13,24 @@ export interface LayoutCache {
   readonly misses: number
 }
 
-/** Everything a message's layout reads, as a string. */
+const identities = new WeakMap<object, number>()
+let nextIdentity = 0
+/** A stable token per object or function: injected inputs compare by identity. */
+function identity(value: object | undefined): number {
+  if (value === undefined) return 0
+  let id = identities.get(value)
+  if (id === undefined) {
+    id = ++nextIdentity
+    identities.set(value, id)
+  }
+  return id
+}
+
+/**
+ * Everything a message's layout reads, as a string. Plain values (hint labels,
+ * the resolved accent, host footer facts) count by value; injected functions
+ * and the glyph set count by identity, so hosts memoise them.
+ */
 export function layoutSignature(
   message: RenderableMessage,
   ctx: LayoutContext,
@@ -34,6 +51,9 @@ export function layoutSignature(
     ctx.liveFooter ? 'f' : '-',
     ctx.finishedActivity ?? 'row',
     ctx.footerExtras?.(message, ctx.detail).join('\u0000') ?? '',
+    JSON.stringify(ctx.hints),
+    JSON.stringify(resolveAccent(message, ctx)),
+    [ctx.glyphs, ctx.markdown, ctx.measure, ctx.image, ctx.blockLayouts].map(identity).join(','),
   ].join('|')
 }
 

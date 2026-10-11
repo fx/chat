@@ -123,6 +123,10 @@ export interface TranscriptViewportProps {
   opened?: OpenState
   onToggle?: (blockId: string, path: string) => void
   hints?: FooterHints
+  /**
+   * Injected layouts and measure are compared by identity (part of the layout
+   * cache key): pass stable values, or every change lays everything out again.
+   */
   markdown?: MarkdownLayout
   blockLayouts?: Record<string, (block: CustomBlock, ctx: BlockLayoutContext) => LineDraft[]>
   measure?: Measure
@@ -130,7 +134,7 @@ export interface TranscriptViewportProps {
   focused?: boolean
   /** Key bindings; `false` disables all. Home/End need `homeEnd: true` (no composer). */
   keys?: ViewportKeys | false
-  /** Lays out a block image line, when the host draws images. */
+  /** Lays out a block image line, when the host draws images (compared by identity). */
   image?: LayoutContext['image']
   /** Draw a line differently (selection highlight); index is within the window. */
   override?: (line: Line, index: number, absolute: number) => ReactNode | undefined
@@ -215,6 +219,32 @@ export function useTranscriptLayout(props: TranscriptViewportProps) {
   const versionRef = React.useRef(imagesVersion)
   versionRef.current = imagesVersion
   cache.current ??= createLayoutCache(() => versionRef.current)
+  const maxHeight = props.maxImageHeight ?? Math.max(1, props.height - 8)
+  const measure = props.measure ?? defaultMeasure
+  // The image hook is part of the layout cache key (by identity): a new one
+  // only when what it reads changes.
+  const image = React.useMemo<LayoutContext['image']>(
+    () =>
+      props.image ??
+      (provider
+        ? (src, alt, width) =>
+            layoutImage(src, alt, width, {
+              provider: {
+                ...provider,
+                get: (source, box) => {
+                  const state = provider.get(source, box)
+                  imageStates.current.set(source, state)
+                  return state
+                },
+              },
+              expanded: expanded.open.has(src),
+              maxHeight,
+              glyphs,
+              measure,
+            })
+        : undefined),
+    [props.image, provider, expanded, maxHeight, glyphs, measure],
+  )
   const ctx: LayoutContext = {
     width: props.width,
     detail: props.detail ?? 'collapsed',
@@ -231,28 +261,10 @@ export function useTranscriptLayout(props: TranscriptViewportProps) {
     ...(props.blockLayouts ? { blockLayouts: props.blockLayouts } : {}),
     frame: props.frame ?? compactFrame,
     accentFor: props.accentFor,
-    measure: props.measure ?? defaultMeasure,
+    measure,
     footerExtras: props.footerExtras,
     finishedActivity: props.finishedActivity,
-    image:
-      props.image ??
-      (provider
-        ? (src, alt, width) =>
-            layoutImage(src, alt, width, {
-              provider: {
-                ...provider,
-                get: (source, box) => {
-                  const state = provider.get(source, box)
-                  imageStates.current.set(source, state)
-                  return state
-                },
-              },
-              expanded: expanded.open.has(src),
-              maxHeight: props.maxImageHeight ?? Math.max(1, props.height - 8),
-              glyphs,
-              measure: props.measure ?? defaultMeasure,
-            })
-        : undefined),
+    image,
   }
   const { lines } = layoutTranscript(props.messages, ctx, cache.current)
   const rows = Math.max(0, props.height)
@@ -543,7 +555,7 @@ export function TranscriptViewport(props: TranscriptViewportProps) {
             : {})}
         />
       ),
-    [signature, theme, props.override, props.empty],
+    [signature, theme, props.override, props.empty, props.height],
   )
 
   return (

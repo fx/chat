@@ -371,6 +371,51 @@ describe('transcript cache', () => {
   })
 })
 
+describe('transcript cache keys', () => {
+  const done = answer([{ type: 'text', id: 'x', text: '**done**' }])
+  const glyphs = { ...plainGlyphs, bullet: '*' }
+  const markdown: LayoutContext['markdown'] = (source) => [{ spans: [{ text: `md ${source}` }] }]
+  const measure: LayoutContext['measure'] = (s) => defaultMeasure(s)
+  const image: LayoutContext['image'] = () => undefined
+  const blockLayouts: LayoutContext['blockLayouts'] = {}
+  const changes: Array<[string, Partial<LayoutContext>]> = [
+    ['glyphs', { glyphs }],
+    ['hints', { hints: { details: '^T details' } }],
+    ['markdown', { markdown }],
+    ['measure', { measure }],
+    ['image', { image }],
+    ['blockLayouts', { blockLayouts }],
+    ['accentFor', { accentFor: () => 'danger' }],
+    ['theme', { theme: { ...plainTheme, assistant: { color: 'cyan' } } }],
+  ]
+
+  it.each(changes)('lays out again when %s changes', (_, change) => {
+    const cache = createLayoutCache()
+    cache.get(done, ctx())
+    expect(cache.misses).toBe(1)
+    cache.get(done, ctx())
+    expect(cache.misses).toBe(1)
+    cache.get(done, ctx(change))
+    expect(cache.misses).toBe(2)
+    cache.get(done, ctx(change))
+    expect(cache.misses).toBe(2)
+  })
+
+  it('serves new lines for a new markdown layout', () => {
+    const cache = createLayoutCache()
+    const before = text(cache.get(done, ctx()))
+    expect(text(cache.get(done, ctx({ markdown })))).not.toEqual(before)
+    expect(text(cache.get(done, ctx({ markdown })))).toContain('• md **done**')
+  })
+
+  it('counts plain values by value, not identity', () => {
+    const cache = createLayoutCache()
+    cache.get(done, ctx({ hints: { close: 'Esc' }, accentFor: () => 'danger' }))
+    cache.get(done, ctx({ hints: { close: 'Esc' }, accentFor: () => 'danger' }))
+    expect(cache.misses).toBe(1)
+  })
+})
+
 describe('copy scenario', () => {
   it('copies a threaded answer with code and a table without decoration', async () => {
     const { copyText } = await import('./mouse')
@@ -415,7 +460,7 @@ describe('footer extras', () => {
     expect(footer('details')).toBe('1.2s · turn m · Esc close')
     expect(footer('collapsed')).toBe('1.2s')
     expect(layoutSignature(message, ctx({ detail: 'details', footerExtras }))).toContain('turn m')
-    expect(layoutSignature(message, ctx())).toMatch(/\|$/)
+    expect(layoutSignature(message, ctx())).toContain('|row||')
   })
 })
 

@@ -146,6 +146,43 @@ describe('TranscriptViewport', () => {
     expect(onGeometry).toHaveBeenLastCalledWith({ total: 24, first: 0, rows: 4, below: 20 })
   })
 
+  it('keeps its image hook while what it reads holds, so finished layouts stay cached', () => {
+    const markdown = vi.fn((source: string) => [{ spans: [span(source)] }])
+    const provider = {
+      get: () => undefined,
+      allow: vi.fn(),
+      version: 0,
+      subscribe: () => () => {},
+    }
+    const answer: ChatMessage = {
+      id: 'a',
+      role: 'assistant',
+      blocks: [{ type: 'text', id: 't', text: 'hello' }],
+    }
+    const view = (height: number) => (
+      <InkChatProvider>
+        <TranscriptViewport
+          messages={[answer]}
+          width={20}
+          height={height}
+          scroll={scrollEnd}
+          onScroll={vi.fn()}
+          markdown={markdown}
+          images={provider}
+        />
+      </InkChatProvider>
+    )
+    const ui = render(view(4))
+    const calls = markdown.mock.calls.length
+    ui.rerender(view(4))
+    ui.rerender(view(4))
+    expect(markdown.mock.calls.length).toBe(calls)
+    // The image height cap reads the viewport height.
+    ui.rerender(view(12))
+    expect(markdown.mock.calls.length).toBe(calls + 1)
+    expect(ui.lastFrame()).toContain('hello')
+  })
+
   it('renders the empty state and threaded frames', () => {
     expect(
       str(
