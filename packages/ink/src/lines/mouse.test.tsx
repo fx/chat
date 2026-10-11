@@ -10,6 +10,7 @@ import {
   MOUSE_OFF,
   MOUSE_ON,
   copyText,
+  createReportReader,
   highlightLine,
   ordered,
   osc52,
@@ -56,6 +57,36 @@ describe('parseMouse', () => {
       'none',
     ])
     expect(parseMouse('plain')).toEqual([])
+  })
+})
+
+describe('createReportReader', () => {
+  const mouse = '\u001b[<0;10;5M'
+  const reply = '\u001b[6;18;9t'
+
+  it('joins a report split at every position, between other input', () => {
+    for (const report of [mouse, reply]) {
+      for (let at = 0; at <= report.length; at++) {
+        const read = createReportReader()
+        const got = [...read(`x${report.slice(0, at)}`), ...read(`${report.slice(at)}y`)]
+        expect(got).toEqual([report])
+      }
+    }
+  })
+
+  it('joins a report split across three chunks, next to whole ones', () => {
+    const read = createReportReader()
+    expect(read(`${mouse}\u001b`)).toEqual([mouse])
+    expect(read('[6;1')).toEqual([])
+    expect(read(`8;9t${mouse}`)).toEqual([reply, mouse])
+  })
+
+  it('drops a pending tail that grows past its bound, and plain input', () => {
+    const read = createReportReader()
+    expect(read(`\u001b[${'1;'.repeat(40)}`)).toEqual([])
+    expect(read('t')).toEqual([])
+    expect(read('plain')).toEqual([])
+    expect(read(mouse)).toEqual([mouse])
   })
 })
 

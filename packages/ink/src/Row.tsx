@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 import { Spinner } from './Spinner'
 import { Styled, useInkComponents } from './registry'
 import { React, hooks, ink } from './runtime'
+import { Text } from './text'
 
 export interface RowProps {
   label: ReactNode
@@ -62,7 +63,7 @@ export function Row({
   else if (flash) affordance = <Styled tone="positive">{glyphs.success}</Styled>
   else if (hasBody)
     affordance = <Styled tone="marker">{expanded ? glyphs.expanded : glyphs.collapsed}</Styled>
-  else affordance = <ink.Text> </ink.Text>
+  else affordance = <Text> </Text>
 
   return (
     <ink.Box flexDirection="column">

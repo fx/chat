@@ -38,6 +38,7 @@ export {
   wordLeft,
   wordRight,
 } from './editor'
+export { stripControls, stripControlsDeep } from './sanitize'
 export { KITTY_POP, KITTY_PUSH, isTerminalReport } from './terminal'
 export type { InkBlockRendererProps, InkExtensions, MessageViewProps } from './MessageView'
 export { MessageView } from './MessageView'

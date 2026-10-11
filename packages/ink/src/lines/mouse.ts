@@ -57,6 +57,32 @@ export function parseMouse(data: string): MouseEvent[] {
   })
 }
 
+/** The longest incomplete report kept for the next chunk; a longer one is noise. */
+const MAX_PENDING = 64
+// A CSI sequence (mouse reports, cell-size replies) and an unfinished one at the end of input.
+const CSI_SEQUENCE = new RegExp(`${ESC}\\[[\\x30-\\x3f]*[\\x20-\\x2f]*[\\x40-\\x7e]`, 'g')
+const CSI_PARTIAL = new RegExp(`${ESC}(?:\\[[\\x30-\\x3f]*[\\x20-\\x2f]*)?$`)
+
+/**
+ * A reader of terminal reports across input chunks: each call returns the
+ * complete CSI sequences in what has arrived, keeping an unfinished one at
+ * the end for the next chunk (a terminal may split a report anywhere). The
+ * kept tail is bounded; past the bound it is dropped as noise.
+ */
+export function createReportReader(): (data: string) => string[] {
+  let pending = ''
+  return (data) => {
+    let text = pending + data
+    pending = ''
+    const partial = CSI_PARTIAL.exec(text)
+    if (partial) {
+      text = text.slice(0, partial.index)
+      if (partial[0].length <= MAX_PENDING) pending = partial[0]
+    }
+    return Array.from(text.matchAll(CSI_SEQUENCE), (m) => m[0])
+  }
+}
+
 /** An OSC 52 clipboard write of `text`. */
 export function osc52(text: string): string {
   return `${ESC}]52;c;${Buffer.from(text, 'utf8').toString('base64')}\u0007`

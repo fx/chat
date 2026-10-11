@@ -9,7 +9,8 @@
  * Fetch policy: an image URL in an answer is attacker-controllable and can
  * leak the conversation through its query string, so only `data:` URLs load
  * without a click by default; anything else is `ask` until allowed. Fetches
- * without a click never follow redirects. A timeout and a size cap apply.
+ * without a click never follow redirects. A timeout and a size cap apply; the
+ * cap holds while reading, so an oversize body is never buffered whole.
  */
 import { Buffer } from 'node:buffer'
 import type { CellBox, ImageProvider, ImageState } from '../lines/images'
@@ -133,15 +134,48 @@ interface Entry {
   placed?: string | undefined
 }
 
-function decodeDataUrl(src: string): { bytes: Uint8Array; mediaType: string } {
+/** The fewest bytes a data URL's body decodes to (base64: exact bar whitespace; else a third). */
+function decodedFloor(body: string, base64: boolean): number {
+  if (!base64) return Math.ceil(body.length / 3)
+  const padding = body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0
+  return Math.floor((body.length * 3) / 4) - padding
+}
+
+/** Decode a data URL, refusing before decoding one whose body implies more than `maxBytes`. */
+function decodeDataUrl(src: string, maxBytes: number): { bytes: Uint8Array; mediaType: string } {
   const comma = src.indexOf(',')
   const header = src.slice(5, comma)
   const body = src.slice(comma + 1)
   const mediaType = header.split(';')[0] || 'text/plain'
-  const bytes = header.endsWith(';base64')
-    ? Buffer.from(body, 'base64')
-    : Buffer.from(decodeURIComponent(body), 'utf8')
+  const base64 = header.endsWith(';base64')
+  if (decodedFloor(body, base64) > maxBytes) throw new Error('too large')
+  const bytes = base64 ? Buffer.from(body, 'base64') : Buffer.from(decodeURIComponent(body), 'utf8')
   return { bytes: new Uint8Array(bytes), mediaType }
+}
+
+/** Read a response body in chunks, cancelling it once it passes `maxBytes`. */
+async function readCapped(response: Response, maxBytes: number): Promise<Uint8Array> {
+  if (!response.body) return new Uint8Array()
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > maxBytes) {
+      await reader.cancel()
+      throw new Error('too large')
+    }
+    chunks.push(value)
+  }
+  const bytes = new Uint8Array(total)
+  let at = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return bytes
 }
 
 export function createKittyProvider(options: KittyOptions): KittyProvider {
@@ -172,7 +206,7 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
   }
 
   async function bytesOf(src: string, clicked: boolean) {
-    if (src.startsWith('data:')) return decodeDataUrl(src)
+    if (src.startsWith('data:')) return decodeDataUrl(src, maxBytes)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
@@ -183,7 +217,8 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       if (Number(response.headers.get('content-length') ?? 0) > maxBytes)
         throw new Error('too large')
-      const bytes = new Uint8Array(await response.arrayBuffer())
+      // A declared length over the cap fails at once; an undeclared one is read only up to it.
+      const bytes = await readCapped(response, maxBytes)
       clearTimeout(timer)
       return { bytes, mediaType: response.headers.get('content-type') ?? '' }
     } catch (error) {

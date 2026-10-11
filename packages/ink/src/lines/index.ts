@@ -66,6 +66,7 @@ export {
   highlightLine,
   ordered,
   osc52,
+  createReportReader,
   parseMouse,
   screenOrigin,
   useMouseReporting,

@@ -29,6 +29,7 @@ import {
   toolResultText,
 } from '@fx/chat-core'
 import { layoutJson, looksLikeJson, parseLooseJson } from '@fx/chat-core/json'
+import { stripControls, stripControlsDeep } from '../sanitize'
 import type { InkAppearance, InkGlyphs, InkTheme, InkThemeRole } from '../theme'
 import { type Measure, truncate, wrapLines } from './measure'
 import { type Line, type LineTarget, type Span, span } from './model'
@@ -499,8 +500,14 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
 }
 
 /** Lay out a message's body (no frame) at `w` cells. */
-export function layoutBody(message: RenderableMessage, w: number, ctx: LayoutContext): LineDraft[] {
-  const live = ctx.isActive(message)
+export function layoutBody(
+  original: RenderableMessage,
+  w: number,
+  ctx: LayoutContext,
+): LineDraft[] {
+  const live = ctx.isActive(original)
+  // Content enters the line model here, cleaned before anything measures it.
+  const message = stripControlsDeep(original)
   const plan = planMessage(message, {
     isActive: live,
     activityPlacement: ctx.placement,
@@ -563,8 +570,9 @@ export function layoutBody(message: RenderableMessage, w: number, ctx: LayoutCon
 }
 
 /** The footer spans of a message: planned facts with injected glyphs, then hints. */
-export function footerSpans(message: RenderableMessage, ctx: LayoutContext): Span[] | undefined {
-  const live = ctx.isActive(message)
+export function footerSpans(original: RenderableMessage, ctx: LayoutContext): Span[] | undefined {
+  const live = ctx.isActive(original)
+  const message = stripControlsDeep(original)
   const plan = planMessage(message, { isActive: live })
   const shows = showsSomething(message)
   if (!(plan.showFooter || (live && ctx.liveFooter && shows))) return undefined
@@ -577,7 +585,7 @@ export function footerSpans(message: RenderableMessage, ctx: LayoutContext): Spa
   const texts = facts.map((fact) =>
     glyph[fact.key] ? `${glyph[fact.key]} ${fact.text}` : fact.text,
   )
-  texts.push(...(ctx.footerExtras?.(message, ctx.detail) ?? []))
+  texts.push(...(ctx.footerExtras?.(original, ctx.detail) ?? []))
   const counts = countActivity(message.blocks)
   const hasActivity =
     counts.reasoningChars > 0 || counts.tools.total > 0 || counts.plan !== undefined
@@ -590,7 +598,7 @@ export function footerSpans(message: RenderableMessage, ctx: LayoutContext): Spa
   if (ctx.detail === 'details' && hasOutput && hints.openAll) texts.push(hints.openAll)
   if (ctx.detail !== 'collapsed' && hints.close) texts.push(hints.close)
   if (texts.length === 0) return undefined
-  return [span(texts.join(ctx.glyphs.separator), { role: 'muted', chrome: true })]
+  return [span(stripControls(texts.join(ctx.glyphs.separator)), { role: 'muted', chrome: true })]
 }
 
 /** Whether an answer shows anything: content, reasoning, an outcome, a tool call or a plan. */
@@ -600,21 +608,24 @@ export function showsSomething(message: RenderableMessage): boolean {
 
 /** Lay out one message inside its frame. */
 export function layoutMessage(
-  message: RenderableMessage,
+  original: RenderableMessage,
   ctx: LayoutContext,
   next?: RenderableMessage,
 ): Line[] {
+  const live = ctx.isActive(original)
+  const message = stripControlsDeep(original)
+  // Host callbacks see the message they were handed; the frame draws the clean one.
   const inner = ctx.frame.innerWidth(message, ctx.width)
-  const footer = footerSpans(message, ctx)
+  const footer = footerSpans(original, ctx)
   const drafts = ctx.frame.layout({
     message,
-    body: layoutBody(message, inner, ctx),
+    body: layoutBody(original, inner, ctx),
     ...(footer ? { footer } : {}),
     shows: message.role !== 'assistant' || showsSomething(message),
     nextShows: next !== undefined && next.role === 'assistant' && showsSomething(next),
-    live: ctx.isActive(message),
-    accent: resolveAccent(message, ctx),
+    live,
+    accent: resolveAccent(original, ctx),
     ctx,
   })
-  return owned(drafts, { messageId: message.id }) as Line[]
+  return owned(drafts, { messageId: original.id }) as Line[]
 }

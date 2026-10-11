@@ -45,4 +45,6 @@ protocol, on its own subpath so hosts that do not use it never load it.
   conversation through its query string. Only `data:` URLs are fetched without a click by default;
   hosts widen this per URL. Any other source is `ask` until allowed. Fetches without a click MUST
   NOT follow redirects; clicked fetches may. A timeout (default 15 s) and a size cap (default 20 MB)
-  apply to both.
+  apply to both. The cap MUST hold before the bytes are held whole: a declared `Content-Length`
+  above it fails at once, an undeclared body is read in chunks and cancelled once it passes the
+  cap, and a `data:` URL whose encoded length implies more than the cap fails before decoding.

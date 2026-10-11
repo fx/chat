@@ -5,6 +5,7 @@
  * scrolls and clips like any other line. Without a provider, or when it
  * declines, only a caption is drawn.
  */
+import { stripControls } from '../sanitize'
 import type { InkGlyphs } from '../theme'
 import type { LineDraft } from './layout'
 import { describeSource } from './markdown/inline'
@@ -84,5 +85,7 @@ export function layoutImage(
     span(describeSource(src), { role: 'link' }),
     ...(state ? [span(` ${HINT[state.kind](state, expanded)}`, { role: 'muted', dim: true })] : []),
   ]
-  return [...image, ...wrapSpans(caption, width, measure).map((row) => ({ ...row, target }))]
+  // The caption carries the answer's alt and source and a provider's error text.
+  const clean = caption.map((s) => ({ ...s, text: stripControls(s.text) }))
+  return [...image, ...wrapSpans(clean, width, measure).map((row) => ({ ...row, target }))]
 }

@@ -9,6 +9,9 @@ Part of the [ink-renderer spec](./index.md). Mouse support is opt-in on the view
   SGR encoding, and disable both when focus leaves, on unmount, and on process exit, so a crash never
   leaves a shell receiving mouse reports. The terminal's own selection stays available with
   Shift+drag (documented).
+- A terminal may split a report (a mouse report, a reply to the image provider's query) across
+  input chunks. The viewport MUST keep an unfinished report at the end of a chunk and complete it
+  with the next; the kept tail is bounded, and dropped past the bound.
 - Mapping a screen cell to a line needs the viewport's absolute screen position; finding it relies on
   renderer internals and MUST be isolated in one helper with its own test.
 

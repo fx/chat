@@ -237,6 +237,19 @@ describe('TranscriptViewport mouse', () => {
   })
 })
 
+describe('TranscriptViewport split reports', () => {
+  it('acts on a mouse report split at every position', async () => {
+    const report = sgr(64, 0, 0)
+    for (let at = 1; at < report.length; at++) {
+      const { send, onScroll, view } = setup()
+      await send(report.slice(0, at))
+      await send(report.slice(at))
+      expect(onScroll).toHaveBeenCalledTimes(1)
+      view.unmount()
+    }
+  })
+})
+
 describe('TranscriptViewport image provider wiring', () => {
   it('writes the provider query once and hands it the replies', async () => {
     const write = vi.fn()
@@ -263,12 +276,14 @@ describe('TranscriptViewport image provider wiring', () => {
       </InkChatProvider>,
     )
     await act(async () => {
-      view.stdin.write('\u001b[6;18;9t')
+      view.stdin.write('\u001b[6;1')
+      view.stdin.write('8;9t')
       view.stdin.write('x')
     })
     expect(write).toHaveBeenCalledWith('\u001b[16t')
     expect(write).toHaveBeenCalledTimes(1)
+    // The reply arrived split; the provider sees it whole, and only it.
+    expect(takeReply).toHaveBeenCalledTimes(1)
     expect(takeReply).toHaveBeenCalledWith('\u001b[6;18;9t')
-    expect(takeReply).toHaveBeenCalledWith('x')
   })
 })

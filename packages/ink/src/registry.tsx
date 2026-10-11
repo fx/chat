@@ -8,7 +8,8 @@
  * merge over the plain defaults, so a host overrides only what it styles.
  */
 import type { ComponentType, Context, ReactNode } from 'react'
-import { React, ink } from './runtime'
+import { React } from './runtime'
+import { Text } from './text'
 import {
   type InkAppearance,
   type InkGlyphs,
@@ -120,8 +121,8 @@ export function Styled({
 }) {
   const { theme } = useInkComponents()
   return (
-    <ink.Text {...appearanceProps(theme[tone])} {...(wrap ? { wrap } : {})}>
+    <Text {...appearanceProps(theme[tone])} {...(wrap ? { wrap } : {})}>
       {children}
-    </ink.Text>
+    </Text>
   )
 }

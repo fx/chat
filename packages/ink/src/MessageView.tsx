@@ -32,6 +32,7 @@ import type { ComponentType } from 'react'
 import { Row, clipLines, toJson } from './Row'
 import { Styled, useInkComponents } from './registry'
 import { React, hooks, ink } from './runtime'
+import { stripControlsDeep } from './sanitize'
 
 /** Props passed to a host renderer for a custom block kind. */
 export interface InkBlockRendererProps {
@@ -233,7 +234,7 @@ function GroupRow({ blocks, ctx }: { blocks: RenderableBlock[]; ctx: Ctx }) {
 }
 
 export function MessageView({
-  message,
+  message: original,
   isActive = false,
   expanded = false,
   minimal = false,
@@ -246,6 +247,8 @@ export function MessageView({
   liveFooter = false,
 }: MessageViewProps) {
   const { glyphs } = useInkComponents()
+  // Content is cleaned of terminal controls before anything (or a host's Markdown) draws it.
+  const message = stripControlsDeep(original)
   const live = isActive && liveFooter
   const now = hooks.useElapsedTimer({ startedAt: 0, isActive: live, intervalMs: 1000 })
   const tokensPerSecond = hooks.useLiveTokensPerSecond({

@@ -18,6 +18,8 @@ import {
 import type { ReactNode } from 'react'
 import { Styled, appearanceProps, useInkComponents } from '../registry'
 import { React, hooks, ink } from '../runtime'
+import { stripControls } from '../sanitize'
+import { Text } from '../text'
 import type { InkAppearance } from '../theme'
 import { type Measure, defaultMeasure, truncate } from './measure'
 
@@ -86,21 +88,21 @@ export function StatusLine({
       facts.push(slowHint.text)
     facts.push(...extras)
     const pulse = glyphs.pulse[ticks % glyphs.pulse.length] ?? ''
-    const factText = facts.join(glyphs.separator)
+    const factText = stripControls(facts.join(glyphs.separator))
     labelText = ` ${pulse} ${factText} `
     label = (
       <>
-        <ink.Text> </ink.Text>
-        <ink.Text {...appearanceProps(accent ?? theme.accent)}>{pulse}</ink.Text>
+        <Text> </Text>
+        <Text {...appearanceProps(accent ?? theme.accent)}>{pulse}</Text>
         <Styled tone="muted"> {factText} </Styled>
       </>
     )
   } else if (notice) {
-    const text = ` ${notice.tone === 'positive' ? glyphs.success : glyphs.error} ${notice.text} `
+    const text = ` ${notice.tone === 'positive' ? glyphs.success : glyphs.error} ${stripControls(notice.text)} `
     labelText = text
     label = <Styled tone={notice.tone}>{text}</Styled>
   } else if (idle || below > 0) {
-    labelText = ` ${[idle, below > 0 ? `↓ ${below} more` : undefined].filter(Boolean).join(glyphs.separator)} `
+    labelText = ` ${[idle && stripControls(idle), below > 0 ? `↓ ${below} more` : undefined].filter(Boolean).join(glyphs.separator)} `
     label = <Styled tone="muted">{labelText}</Styled>
   }
   const lead = rule.repeat(2)
@@ -108,20 +110,20 @@ export function StatusLine({
   if (measure(lead) + measure(labelText) > width) {
     return (
       <ink.Box height={1} overflow="hidden">
-        <ink.Text wrap="truncate">
+        <Text wrap="truncate">
           <Styled tone="chrome">{lead}</Styled>
           {truncate(labelText, Math.max(0, width - measure(lead)), measure)}
-        </ink.Text>
+        </Text>
       </ink.Box>
     )
   }
   return (
     <ink.Box height={1} overflow="hidden">
-      <ink.Text wrap="truncate">
+      <Text wrap="truncate">
         <Styled tone="chrome">{lead}</Styled>
         {label}
         <Styled tone="chrome">{rule.repeat(rest)}</Styled>
-      </ink.Text>
+      </Text>
     </ink.Box>
   )
 }
@@ -155,16 +157,16 @@ export function PendingRows({
       {shown.map((item, i) => {
         const more = i === 0 && hidden > 0 ? `+${hidden} · ` : ''
         const clip = item.attachments ? `${glyphs.attachment}${item.attachments} ` : ''
-        const text = `${more}${clip}${item.text.replace(/\s+/g, ' ').trim()}`
+        const text = `${more}${clip}${stripControls(item.text).replace(/\s+/g, ' ').trim()}`
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: queue rows are positional
           <ink.Box key={i} height={1} overflow="hidden">
-            <ink.Text wrap="truncate">
+            <Text wrap="truncate">
               <Styled tone="caution">{glyphs.pending} </Styled>
               <Styled tone="muted">
                 {truncate(text, Math.max(1, width - measure(glyphs.pending) - 1), measure)}
               </Styled>
-            </ink.Text>
+            </Text>
           </ink.Box>
         )
       })}
@@ -185,9 +187,9 @@ export function EmptyState({ title, subtitle, notes = [], accent }: EmptyStatePr
   const { theme } = useInkComponents()
   return (
     <ink.Box flexDirection="column" alignItems="center">
-      <ink.Text {...appearanceProps(accent ?? theme.accent)} bold>
+      <Text {...appearanceProps(accent ?? theme.accent)} bold>
         {title}
-      </ink.Text>
+      </Text>
       {subtitle ? <Styled tone="muted">{subtitle}</Styled> : null}
       {notes.map((note) => (
         <Styled key={note} tone="muted">

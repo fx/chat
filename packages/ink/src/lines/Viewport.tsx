@@ -41,6 +41,7 @@ import {
   type MouseEvent,
   type Point,
   copyText,
+  createReportReader,
   highlightLine,
   ordered,
   osc52,
@@ -479,10 +480,14 @@ export function TranscriptViewport(props: TranscriptViewportProps) {
     if (images?.query) writeRef.current(images.query)
   }, [images])
 
+  // Reports may arrive split across chunks; the reader joins them.
+  const [readReports] = React.useState(createReportReader)
   useTerminalData(
     (data) => {
-      if (images?.takeReply?.(data)) return
-      if (mouseActive) for (const e of parseMouse(data)) onMouse(e)
+      for (const report of readReports(data)) {
+        if (images?.takeReply?.(report)) continue
+        if (mouseActive) for (const e of parseMouse(report)) onMouse(e)
+      }
     },
     mouseActive || images?.takeReply !== undefined,
   )

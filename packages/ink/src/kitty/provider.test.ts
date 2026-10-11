@@ -222,6 +222,77 @@ describe('createKittyProvider', () => {
     ])
   })
 
+  it('stops reading an undeclared body at the cap instead of buffering it', async () => {
+    let pulled = 0
+    let cancelled = false
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++
+        controller.enqueue(new Uint8Array(16))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith('empty') ? new Response(null) : new Response(endless),
+    )
+    const provider = createKittyProvider({ write: vi.fn(), fetch, maxBytes: 50 })
+    provider.allow('https://x/endless')
+    provider.allow('https://x/empty')
+    await vi.waitFor(() =>
+      expect(provider.get('https://x/endless', box)).toEqual({
+        kind: 'failed',
+        error: 'too large',
+      }),
+    )
+    expect(cancelled).toBe(true)
+    expect(pulled).toBeLessThan(8)
+    // No body at all is no image.
+    expect(provider.get('https://x/empty', box)).toBeUndefined()
+  })
+
+  it('assembles a chunked body under the cap', async () => {
+    const bytes = png(9, 18, 40)
+    const chunked = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < bytes.length; i += 10) controller.enqueue(bytes.slice(i, i + 10))
+        controller.close()
+      },
+    })
+    const provider = createKittyProvider({
+      write: vi.fn(),
+      fetch: vi.fn(async () => new Response(chunked)),
+      maxBytes: 64,
+    })
+    provider.allow('https://x/chunked')
+    await vi.waitFor(() => expect(provider.get('https://x/chunked', box)?.kind).toBe('ready'))
+  })
+
+  it('refuses an oversize data URL before decoding it', async () => {
+    const from = vi.spyOn(Buffer, 'from')
+    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 30 })
+    const big = dataUrl(png(1, 1, 100)) // 124 bytes: two pads
+    const padded = dataUrl(png(1, 1, 8)) // 32 bytes: one pad
+    const exact = dataUrl(png(9, 18, 6)) // 30 bytes: no pad, at the cap
+    const text = `data:,${'x'.repeat(91)}`
+    for (const src of [big, padded, exact, text]) provider.get(src, box)
+    await flush()
+    expect(provider.get(big, box)).toEqual({ kind: 'failed', error: 'too large' })
+    expect(provider.get(padded, box)).toEqual({ kind: 'failed', error: 'too large' })
+    expect(provider.get(text, box)).toEqual({ kind: 'failed', error: 'too large' })
+    expect(provider.get(exact, box)?.kind).toBe('ready')
+    // A body whose floor fits but whose decoding does not still fails after decoding.
+    const raw = `data:,${'x'.repeat(40)}`
+    provider.get(raw, box)
+    await flush()
+    expect(provider.get(raw, box)).toEqual({ kind: 'failed', error: 'too large' })
+    const decoded = from.mock.calls.map(([body]) => body)
+    for (const src of [big, padded, text])
+      expect(decoded).not.toContain(src.slice(src.indexOf(',') + 1))
+    from.mockRestore()
+  })
+
   it('decodes other formats through the host, else declines them', async () => {
     const jpeg = dataUrl(new Uint8Array([0xff, 0xd8, 0xff]), 'image/jpeg')
     const declined = createKittyProvider({ write: vi.fn() })

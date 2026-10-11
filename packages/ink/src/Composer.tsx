@@ -47,7 +47,9 @@ import {
 import { type Measure, defaultMeasure, truncate } from './lines/measure'
 import { Styled, appearanceProps, useInkComponents } from './registry'
 import { React, ink } from './runtime'
+import { stripControls } from './sanitize'
 import { KITTY_POP, KITTY_PUSH, isTerminalReport } from './terminal'
+import { Text } from './text'
 
 /** The composer's content: text, caret offset and attachments. */
 export interface ComposerValue {
@@ -353,14 +355,14 @@ export function Composer({
           state = cleared
           setEditor(state, [])
         }
-      } else if (part) state = insert(state, part)
+      } else if (part) state = insert(state, stripControls(part))
     }
     edit(state)
   }
 
   const paste = (text: string) => {
     if (onPaste?.(text)) return
-    edit(insert(toEditor(valueRef.current), text.replace(/\r\n?/g, '\n')))
+    edit(insert(toEditor(valueRef.current), stripControls(text.replace(/\r\n?/g, '\n'))))
   }
 
   const stepThroughHistory = (direction: -1 | 1) => {
@@ -456,42 +458,42 @@ export function Composer({
   const empty = current.text === '' && current.attachments.length === 0
 
   const input = empty ? (
-    <ink.Text>
+    <Text>
       {focused ? (
         <>
-          <ink.Text {...appearanceProps(theme.cursor)}>{placeholder.slice(0, 1) || ' '}</ink.Text>
+          <Text {...appearanceProps(theme.cursor)}>{placeholder.slice(0, 1) || ' '}</Text>
           <Styled tone="muted">{placeholder.slice(1)}</Styled>
         </>
       ) : (
         <Styled tone="muted">{placeholder}</Styled>
       )}
-    </ink.Text>
+    </Text>
   ) : (
     shown.map((r, i) => {
       const text = current.text.slice(r.start, r.end)
       const caret = focused && top.current + i === row ? current.caret - r.start : undefined
       return (
         // biome-ignore lint/suspicious/noArrayIndexKey: rows have no identity beyond position
-        <ink.Text key={i} wrap={inner === undefined ? 'wrap' : 'truncate'}>
+        <Text key={i} wrap={inner === undefined ? 'wrap' : 'truncate'}>
           {caret === undefined ? (
             text || ' '
           ) : (
             <>
               {text.slice(0, caret)}
-              <ink.Text {...appearanceProps(theme.cursor)}>{text[caret] ?? ' '}</ink.Text>
+              <Text {...appearanceProps(theme.cursor)}>{text[caret] ?? ' '}</Text>
               {text.slice(caret + 1)}
             </>
           )}
-        </ink.Text>
+        </Text>
       )
     })
   )
 
   const attachments =
     current.attachments.length > 0 ? (
-      <ink.Text wrap="truncate">
+      <Text wrap="truncate">
         <Styled tone="link">{`${glyphs.attachment} `}</Styled>
-        <ink.Text dimColor>
+        <Text dimColor>
           {truncate(
             [
               current.attachments
@@ -504,20 +506,20 @@ export function Composer({
             Math.max(1, (width ?? Number.POSITIVE_INFINITY) - measure(`${glyphs.attachment} `)),
             measure,
           )}
-        </ink.Text>
-      </ink.Text>
+        </Text>
+      </Text>
     ) : null
 
   const promptTone = focused ? 'marker' : 'chrome'
   const below = completion ? (
     <ink.Box flexDirection="column" paddingLeft={2}>
       {completion.items.slice(0, maxItems).map((item, i) => (
-        <ink.Text key={item.id}>
-          <ink.Text {...(i === completion.active ? appearanceProps(theme.cursor) : {})}>
+        <Text key={item.id}>
+          <Text {...(i === completion.active ? appearanceProps(theme.cursor) : {})}>
             {item.label}
-          </ink.Text>
+          </Text>
           {item.description ? <Styled tone="muted"> {item.description}</Styled> : null}
-        </ink.Text>
+        </Text>
       ))}
     </ink.Box>
   ) : hint ? (

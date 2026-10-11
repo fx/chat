@@ -81,6 +81,25 @@ projection of it.
 - **WHEN** it is rendered by `@fx/chat` and by `@fx/chat-ink`
 - **THEN** both show the same group summary label and duration text.
 
+### Terminal Safety
+
+- The renderer MUST NOT pass terminal control sequences from content to the terminal. Every string
+  it draws that comes from a message, a tool, the model or a host prop (message text, markdown with
+  its code blocks, tables, links and image alt text, reasoning, tool names, input and output,
+  errors, attachments, status and footer facts, titles, the composer echo) MUST be stripped of ESC
+  sequences (CSI, OSC, DCS, SOS, PM, APC and others), C1 controls (U+0080–U+009F), DEL and C0
+  controls other than newline and tab before it is drawn; carriage returns are removed.
+- Content MUST be cleaned where it enters layout, so widths are measured on what is drawn; the
+  renderer's text component MUST clean string children again as a last guard. The renderer's own
+  styling travels as Ink props, never as escapes inside content.
+
+#### Scenario: A clipboard write in an answer stays inert
+
+- **GIVEN** an answer, a code block or a tool output containing `ESC ] 52 ; c ; … BEL`
+- **WHEN** the transcript renders it, inline or in the viewport
+- **THEN** nothing reaches the terminal but the sequence's printable remainder, and no line is wider
+  than the width it was laid out for.
+
 ### Composer
 
 - The composer MUST support multi-line input (newline via Alt+Enter, Shift+Enter where the terminal
@@ -115,3 +134,4 @@ projection of it.
 | 2026-10-10 | Initial spec created (planned) | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Implemented; registry roles, composer keys and chunked input specified | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Fullscreen hosts: line layout, frames, viewport, markdown, composer, mouse, images; roles and glyphs extended | [0028-ink-line-layout](../../changes/0028-ink-line-layout.md) |
+| 2026-10-11 | Terminal safety: content never drives the terminal; image size cap enforced while reading; split terminal reports joined | — |

@@ -12,6 +12,7 @@
 import type { ReactNode } from 'react'
 import { appearanceProps } from '../registry'
 import { React, ink } from '../runtime'
+import { Text } from '../text'
 import type { InkAppearance, InkTheme } from '../theme'
 import type { Line, Span } from './model'
 
@@ -88,15 +89,15 @@ function lineNode(line: Line, theme: InkTheme): ReactNode {
   const node = (
     <ink.Box height={1} overflow="hidden" flexShrink={0}>
       {line.spans.length === 0 ? (
-        <ink.Text> </ink.Text>
+        <Text> </Text>
       ) : (
         line.spans.flatMap((s, si) => {
           const props = spanProps(s, theme)
           return splitRuns(s.text).map((run, ri) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: runs have no identity beyond position
-            <ink.Text key={`${si}:${ri}`} wrap="truncate" {...props}>
+            <Text key={`${si}:${ri}`} wrap="truncate" {...props}>
               {run}
-            </ink.Text>
+            </Text>
           ))
         })
       )}
