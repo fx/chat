@@ -134,7 +134,8 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
 - New semantic icons MUST be added as OPTIONAL registry entries with a headless fallback, outside the
   original `IconName` set (as `OptionalIconName`), so host code typed against the earlier icon set
   (including `Record<IconName, …>` maps) keeps compiling and renders the fallback until it maps the
-  new name. The `checklist` icon (plan blocks) is the first such icon.
+  new name. The `checklist` icon (plan blocks) is the first such icon; `info` (the footer's
+  details control) the second.
 
 ### Markdown Contract
 
@@ -305,3 +306,4 @@ type IconName =
 | 2026-10-10 | Optional icons with headless fallback; `checklist` | [0024-plan-block](../../changes/0024-plan-block.md) |
 | 2026-10-11 | OPTIONAL `MessageDetails` presenter slot for the compact footer | — |
 | 2026-10-11 | OPTIONAL `ActivitySummary` presenter; `MessageDetails` gets the activity and a focus | — |
+| 2026-10-11 | Optional `info` icon | — |

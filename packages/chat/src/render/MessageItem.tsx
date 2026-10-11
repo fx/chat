@@ -188,6 +188,8 @@ export function MessageItem({
   const cn = useChatClassNames()
   const { MessageDetails, ActivitySummary, icons } = useChatComponents()
   const [details, setDetails] = useState<{ open: boolean; focusId?: string }>({ open: false })
+  // A finished message's activity left to the footer, shown again by its facts.
+  const [activityShown, setActivityShown] = useState(false)
   // Only the trailing block of an active message is the streaming one.
   const trailingBlock = message.blocks[message.blocks.length - 1]
   // Tokens/sec for the render context. While ACTIVE, the hook prefers an
@@ -246,7 +248,7 @@ export function MessageItem({
     minimal: minimalActive,
     ...(activityPlacement ? { activityPlacement } : {}),
     ...(liveTail !== undefined ? { liveTail } : {}),
-    ...(finishedActivity ? { finishedActivity } : {}),
+    ...(finishedActivity ? { finishedActivity: activityShown ? 'row' : finishedActivity } : {}),
     flat: flat || raw,
     showFooter: showFooter && !raw,
     overrides: behaviorOverrides,
@@ -479,7 +481,13 @@ export function MessageItem({
                 copyText={copyText}
                 compact={effectiveCompactFooter}
                 {...(ownsDetails ? { onOpenDetails: () => openDetails() } : {})}
-                {...(facts.length > 0 ? { activity: facts } : {})}
+                {...(facts.length > 0
+                  ? {
+                      activity: facts,
+                      activityShown,
+                      onToggleActivity: () => setActivityShown((shown) => !shown),
+                    }
+                  : {})}
                 {...(metrics ? { metrics } : {})}
                 {...(outcome ? { outcome } : {})}
                 {...(onRegenerate ? { onRegenerate } : {})}

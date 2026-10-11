@@ -556,15 +556,17 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   in either placement. Without a footer the rows stay. Hosts ask for it only while activity is
   collapsed. `MessageLog`/`MessageItem` take it as `finishedActivity`; the footer then shows the
   activity as facts — tool calls (and failures), thinking time (or size when untimed), plan
-  progress — each an icon and short text with a readable label, a button opening the message's
-  details when the registry has a `MessageDetails` presenter.
+  progress — each an icon and short text with a readable label. Each fact is a button that shows the
+  message's activity again where it was (as rows, or summaries), and hides it on the next press;
+  the facts' wrapper says whether it is shown (`data-expanded`).
 - **Activity summary.** With `activityDisplay="summary"` and a registry `ActivitySummary`
   presenter, each run of activity rows (groups and bare activity blocks, including the pending
   placeholder; a live tail's `earlier` row folds away) renders as one summary of plain items
   instead of rows; content keeps its place between runs. Without the presenter, rows render.
 - **Message details.** When the registry has a `MessageDetails` presenter and the message uses a
-  compact footer or summary display, the message (not the footer) owns it: the footer's kebab, its
-  activity facts and summary items open it, an item at its own block. It carries the message's
+  compact footer or summary display, the message (not the footer) owns it: the footer's details
+  control (an `info` glyph, labelled "Message details") and summary items open it, an item at its
+  own block. It carries the message's
   details, outcome, actions and copy text — none while the message is live — and its activity as
   rows, the focused item's row open.
 
@@ -927,3 +929,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | — |
 | 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | — |
+| 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | — |

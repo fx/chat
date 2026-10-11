@@ -56,6 +56,7 @@ describe('@fx/chat/headless entry', () => {
         'caretRight',
         'check',
         'checklist',
+        'info',
         'close',
         'copy',
         'dotsThree',

@@ -66,8 +66,12 @@ export interface MessageFooterProps {
    * renders no presenter of its own.
    */
   onOpenDetails?: () => void
-  /** A finished message's activity facts, shown as icons (opening details when it can). */
+  /** A finished message's activity facts, shown as icons. */
   activity?: ActivityFact[]
+  /** Whether the activity the facts stand for is shown (see `onToggleActivity`). */
+  activityShown?: boolean
+  /** Show or hide that activity; makes each fact a button. */
+  onToggleActivity?: () => void
 }
 
 /** The message actions a `MessageDetails` presenter offers, in footer order. */
@@ -193,11 +197,16 @@ function Metrics({ metrics }: { metrics: MessageMetrics }) {
   )
 }
 
-/** A finished message's activity facts as icons with their text; a button when they open details. */
+/**
+ * A finished message's activity facts, each an icon with its text. With
+ * `onToggle` each is a button showing (or hiding again) the activity the
+ * facts stand for; the wrapper carries whether it is shown.
+ */
 function ActivityFacts({
   facts,
-  onOpen,
-}: { facts: ActivityFact[]; onOpen?: (() => void) | undefined }) {
+  shown = false,
+  onToggle,
+}: { facts: ActivityFact[]; shown?: boolean | undefined; onToggle?: (() => void) | undefined }) {
   const { Button, icons } = useChatComponents()
   const cn = useChatClassNames()
   const iconFor = {
@@ -206,32 +215,43 @@ function ActivityFacts({
     // Optional in a registry, but the provider's merge always supplies it.
     plan: icons.checklist as IconComponent,
   }
-  const chips = facts.map((fact) => {
-    const Icon = iconFor[fact.key]
-    return (
-      <span
-        key={fact.key}
-        className={cx('chat-footer-fact', cn.footerFact)}
-        data-fact={fact.key}
-        {...(fact.failed ? { 'data-failed': String(fact.failed) } : {})}
-      >
-        <Icon className={cx('chat-footer-fact-icon', cn.footerFactIcon)} />
-        <span className={cx('chat-footer-fact-text', cn.footerFactText)}>{fact.text}</span>
-      </span>
-    )
-  })
-  const label = facts.map((fact) => fact.label).join(' · ')
-  return onOpen ? (
-    <Button
+  return (
+    <span
       className={cx('chat-footer-activity', cn.footerActivity)}
-      aria-label={label}
-      onClick={onOpen}
+      {...(onToggle ? { 'data-expanded': shown ? 'true' : 'false' } : {})}
     >
-      {chips}
-    </Button>
-  ) : (
-    <span className={cx('chat-footer-activity', cn.footerActivity)} title={label}>
-      {chips}
+      {facts.map((fact) => {
+        const Icon = iconFor[fact.key]
+        const content = [
+          <Icon key="icon" className={cx('chat-footer-fact-icon', cn.footerFactIcon)} />,
+          <span key="text" className={cx('chat-footer-fact-text', cn.footerFactText)}>
+            {fact.text}
+          </span>,
+        ]
+        const bodyClass = cx('chat-footer-fact-body', cn.footerFactBody)
+        return (
+          <span
+            key={fact.key}
+            className={cx('chat-footer-fact', cn.footerFact)}
+            data-fact={fact.key}
+            {...(fact.failed ? { 'data-failed': String(fact.failed) } : {})}
+          >
+            {onToggle ? (
+              <Button
+                className={bodyClass}
+                aria-label={`${shown ? 'Hide' : 'Show'} activity: ${fact.label}`}
+                onClick={onToggle}
+              >
+                {content}
+              </Button>
+            ) : (
+              <span className={bodyClass} title={fact.label}>
+                {content}
+              </span>
+            )}
+          </span>
+        )
+      })}
     </span>
   )
 }
@@ -247,6 +267,8 @@ export function MessageFooter({
   compact = false,
   onOpenDetails,
   activity,
+  activityShown,
+  onToggleActivity,
 }: MessageFooterProps) {
   const { Button, CopyButton, MessageDetails, icons } = useChatComponents()
   const cn = useChatClassNames()
@@ -254,6 +276,8 @@ export function MessageFooter({
   const RegenerateIcon = icons.regenerate
   const ForkIcon = icons.fork
   const ResetIcon = icons.reset
+  // Optional in a registry, but the provider's merge always supplies it.
+  const InfoIcon = icons.info as IconComponent
 
   // Copy is gated on non-whitespace content: a whitespace-only payload is as
   // uncopyable as an empty one. The raw `copyText` remains the copied value.
@@ -299,7 +323,7 @@ export function MessageFooter({
         </span>
       ) : null}
       {activity && activity.length > 0 ? (
-        <ActivityFacts facts={activity} onOpen={onOpenDetails} />
+        <ActivityFacts facts={activity} shown={activityShown} onToggle={onToggleActivity} />
       ) : null}
       {compact && hasRevealable ? (
         <Button
@@ -309,7 +333,12 @@ export function MessageFooter({
           }
           onClick={delegated ?? (() => setRevealed((v) => !v))}
         >
-          <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
+          {Presenter || delegated ? (
+            // Opens the message's details: an info glyph rather than "more".
+            <InfoIcon className={cx('chat-footer-icon', cn.footerIcon)} />
+          ) : (
+            <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
+          )}
         </Button>
       ) : null}
       {showCopy ? (

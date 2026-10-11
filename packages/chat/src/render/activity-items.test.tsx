@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../registry'
 import type { ActivitySummaryProps, MessageDetailsProps } from '../registry'
+import { MessageFooter } from './MessageFooter'
 import { MessageItem } from './MessageItem'
 import { activityFacts, activityItem } from './activity-items'
 import type { RenderableBlock } from './extensions'
@@ -303,7 +304,7 @@ describe('MessageItem finishedActivity="footer"', () => {
     { metrics: { model: 'gpt-x' } },
   )
 
-  it('drops the rows and shows facts that open the details', () => {
+  it('drops the rows; a fact shows them again (and hides them), the info control opens details', () => {
     const rec = recording()
     render(
       <ChatProvider components={rec.components}>
@@ -311,26 +312,39 @@ describe('MessageItem finishedActivity="footer"', () => {
       </ChatProvider>,
     )
     expect(document.querySelector('.chat-row')).toBeNull()
-    const facts = screen.getByLabelText('1 tool call, 1 failed · Thought for 4.0s')
+    const facts = document.querySelector('.chat-footer-activity') as HTMLElement
+    expect(facts).toHaveAttribute('data-expanded', 'false')
     expect(facts.querySelector('[data-fact=tools]')).toHaveAttribute('data-failed', '1')
-    expect(within(facts).getByText('4.0s')).toBeInTheDocument()
-    fireEvent.click(facts)
+    const tools = screen.getByRole('button', { name: 'Show activity: 1 tool call, 1 failed' })
+    expect(within(tools).getByText('1')).toBeInTheDocument()
+    fireEvent.click(tools)
+    // The activity is back in place (as rows here: no summary display), not in a sheet.
+    expect(document.querySelector('.chat-row')).not.toBeNull()
+    expect(screen.queryByTestId('details')).toBeNull()
+    expect(facts).toHaveAttribute('data-expanded', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Hide activity: Thought for 4.0s' }))
+    expect(document.querySelector('.chat-row')).toBeNull()
+    // Only the info control opens the details.
+    fireEvent.click(screen.getByLabelText('Message details'))
     expect(screen.getByTestId('details')).toBeInTheDocument()
     const last = rec.details.at(-1) as MessageDetailsProps
     expect(last.focusId).toBeUndefined()
     expect(last.copyText).toBe('done')
     expect(last.details).toEqual([{ key: 'model', label: 'Model', value: 'gpt-x' }])
-    // The kebab opens the same message-owned presenter.
-    act(() => last.onOpenChange(false))
-    fireEvent.click(screen.getByLabelText('Message details'))
-    expect(screen.getByTestId('details')).toBeInTheDocument()
   })
 
-  it('shows the facts as plain text without a details presenter', () => {
-    render(<MessageItem finishedActivity="footer" message={finished} />)
+  it('shows the facts as plain text when nothing toggles them', () => {
+    render(
+      <MessageFooter
+        copyText="x"
+        activity={[{ key: 'plan', text: '1/2', label: 'Plan: 1 of 2 done' }]}
+      />,
+    )
     const facts = document.querySelector('.chat-footer-activity') as HTMLElement
-    expect(facts.tagName).toBe('SPAN')
-    expect(facts).toHaveAttribute('title', '1 tool call, 1 failed · Thought for 4.0s')
+    expect(facts).not.toHaveAttribute('data-expanded')
+    const body = facts.querySelector('.chat-footer-fact-body') as HTMLElement
+    expect(body.tagName).toBe('SPAN')
+    expect(body).toHaveAttribute('title', 'Plan: 1 of 2 done')
   })
 
   it('passes an error outcome to the presenter', () => {

@@ -175,10 +175,12 @@ export interface ChatClassNames {
   footerReset?: string
   footerReveal?: string
   footerIcon?: string
-  /** A finished message's activity facts (`.chat-footer-activity`): a button when they open details. */
+  /** A finished message's activity facts (`.chat-footer-activity`, `data-expanded` when they toggle it). */
   footerActivity?: string
   /** One activity fact (`.chat-footer-fact`, `data-fact`, `data-failed`). */
   footerFact?: string
+  /** A fact's icon and text (`.chat-footer-fact-body`): a button when it toggles the activity. */
+  footerFactBody?: string
   footerFactIcon?: string
   footerFactText?: string
   /** The activity handed to a `MessageDetails` presenter (`.chat-details-activity`). */
@@ -387,7 +389,7 @@ export type IconName =
  * original set (`Record<IconName, …>`) keeps compiling; the provider's merge
  * supplies the headless glyph until the host maps them.
  */
-export type OptionalIconName = 'checklist'
+export type OptionalIconName = 'checklist' | 'info'
 
 /** The icon map: one component per {@link IconName}; optional icons may be omitted. */
 export type IconRegistry = Record<IconName, IconComponent> &

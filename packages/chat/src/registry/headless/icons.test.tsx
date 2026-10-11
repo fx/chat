@@ -6,6 +6,7 @@ import { HEADLESS_ICON_NAMES, headlessIcons } from './icons'
 
 const ALL_NAMES: Array<IconName | OptionalIconName> = [
   'checklist',
+  'info',
   'spinner',
   'check',
   'caretRight',
