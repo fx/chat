@@ -94,4 +94,57 @@ describe('renderer parity', () => {
       expect(term).toContain(expected)
     }
   })
+
+  it('agrees on the live tail’s earlier label and a lone activity block after content', () => {
+    const live: ChatMessage = {
+      id: 'l',
+      role: 'assistant',
+      createdAt: 1000,
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'hmm', durationMs: 400 },
+        { type: 'tool_call', id: 't1', name: 'a', arguments: {}, status: 'success' },
+        { type: 'text', id: 'x', text: 'hi' },
+        { type: 'tool_call', id: 't2', name: 'b', arguments: {}, status: 'running' },
+      ],
+    }
+    const domLive =
+      render(
+        <ChatProvider>
+          <MessageLog messages={[live]} isStreaming streamingMessageId="l" liveTail={1} />
+        </ChatProvider>,
+      ).container.textContent ?? ''
+    const termLive = renderToString(
+      <InkChatProvider>
+        <Transcript messages={[live]} isStreaming streamingMessageId="l" liveTail={1} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    expect(domLive).toContain('+2 earlier steps (1 tool call)')
+    expect(termLive).toContain('+2 earlier steps (1 tool call)')
+
+    const done: ChatMessage = {
+      id: 'd',
+      role: 'assistant',
+      blocks: [
+        { type: 'reasoning', id: 'r', text: 'hmm', durationMs: 400 },
+        { type: 'text', id: 'x', text: 'hi' },
+      ],
+    }
+    const domDone =
+      render(
+        <ChatProvider>
+          <MessageLog messages={[done]} activityPlacement="after-content" />
+        </ChatProvider>,
+      ).container.textContent ?? ''
+    const termDone = renderToString(
+      <InkChatProvider>
+        <Transcript messages={[done]} activityPlacement="after-content" />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    for (const out of [domDone, termDone]) {
+      expect(out.split('Thought for 0.4s')).toHaveLength(2)
+      expect(out).not.toContain('(+')
+    }
+  })
 })

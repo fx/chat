@@ -74,7 +74,8 @@ describe('layoutBody', () => {
       40,
       ctx(),
     )
-    expect(text(body)).toEqual(['▸ (+1) ⚒ Run tests', 'Done.'])
+    expect(text(body)).toEqual(['▸ (+1) ⚒ Run tests', '', 'Done.'])
+    expect(body[1]?.frame).toBe(true)
     const opened = {
       version: 1,
       isOpen: (b: string, p: string) => b === 'group-r' && p === ROW_PATH,
@@ -147,7 +148,7 @@ describe('layoutBody', () => {
       tool('t4', { status: 'running', startedAt: 15_000 }),
     ])
     const out = text(layoutBody(live, 50, ctx({ isActive: () => true })))
-    expect(out[0]).toBe('🔧 +2 earlier')
+    expect(out[0]).toBe('⋮ +2 earlier steps (1 tool call)')
     expect(out.at(-1)).toBe('… t4')
     const thinking = text(
       layoutBody(
@@ -198,9 +199,12 @@ describe('layoutBody', () => {
       '  ✓ Read the code',
       '  … Write',
       '  · Test',
+      '',
       '  ⚙ System prompt',
       '  Be brief.',
+      '',
       '  Generated',
+      '',
       'Sales',
       'note n 40',
       '✗ boom',
@@ -246,7 +250,7 @@ describe('layoutBody', () => {
         ctx({ placement: 'after-content' }),
       ),
     )
-    expect(out).toEqual(['one', '', 'two', '▸ ⚒ t'])
+    expect(out).toEqual(['one', '', 'two', '', '✓ t'])
   })
 })
 
@@ -460,7 +464,8 @@ describe('footer extras', () => {
     expect(footer('details')).toBe('1.2s · turn m · Esc close')
     expect(footer('collapsed')).toBe('1.2s')
     expect(layoutSignature(message, ctx({ detail: 'details', footerExtras }))).toContain('turn m')
-    expect(layoutSignature(message, ctx())).toContain('|row||')
+    expect(layoutSignature(message, ctx())).toContain('|row|s||')
+    expect(layoutSignature(message, ctx({ activitySpacing: false }))).toContain('|row|-||')
   })
 })
 
@@ -469,19 +474,102 @@ describe('finished activity', () => {
     id: 'm',
     role: 'assistant',
     blocks: [
+      { type: 'reasoning', id: 'r', text: 'hmm', durationMs: 5 },
       { type: 'text', id: 't', text: 'answer' },
       { type: 'tool_call', id: 'x', name: 'search', arguments: {}, status: 'success', result: 'r' },
+      { type: 'tool_call', id: 'y', name: 'fetch', arguments: {}, status: 'success' },
     ],
     metrics: { durationMs: 1000 },
   }
+  const lines = (extra: Partial<LayoutContext>) => text(layoutBody(message, 40, ctx(extra)))
+
   it('leaves a finished, collapsed answer’s activity to the footer when asked', () => {
-    const lines = (extra: Partial<LayoutContext>) =>
-      text(layoutBody(message, 40, ctx({ placement: 'after-content', ...extra })))
-    expect(lines({}).join('\n')).toContain('search')
+    expect(lines({})).toEqual(['▸ ∴ Thought for 0.0s', '', 'answer', '', '▸ (+1) ⚒ fetch'])
     expect(lines({ finishedActivity: 'footer' })).toEqual(['answer'])
+    expect(lines({ finishedActivity: 'footer', placement: 'after-content' })).toEqual(['answer'])
     expect(lines({ finishedActivity: 'footer', detail: 'details' }).join('\n')).toContain('search')
     expect(lines({ finishedActivity: 'footer', isActive: () => true }).join('\n')).toContain(
-      'search',
+      'fetch',
     )
+    expect(footerSpans(message, ctx({ finishedActivity: 'footer' }))?.[0]?.text).toBe(
+      '1.0s · ∴ 3 · ⚒ 2 tools',
+    )
+  })
+
+  it('draws one header for a single activity block after content', () => {
+    const one: ChatMessage = { ...message, blocks: (message.blocks as ContentBlock[]).slice(0, 2) }
+    expect(text(layoutBody(one, 40, ctx({ placement: 'after-content' })))).toEqual([
+      'answer',
+      '',
+      '▸ ∴ Thought for 0.0s',
+    ])
+  })
+})
+
+describe('activity spacing', () => {
+  const message = answer([
+    { type: 'text', id: 'a', text: 'one' },
+    tool('t1'),
+    tool('t2', { status: 'error' }),
+    { type: 'reasoning', id: 'r', text: 'x', durationMs: 1 },
+    { type: 'text', id: 'b', text: 'two' },
+  ])
+
+  it('sets content and activity apart on both sides', () => {
+    expect(text(layoutBody(message, 40, ctx({ detail: 'details' })))).toEqual([
+      'one',
+      '',
+      '▾ (+2) ∴ Thought for 0.0s',
+      '  ✓ t1',
+      '  ✗ t2',
+      '  ▾ ∴ Thought for 0.0s',
+      '    x',
+      '',
+      'two',
+    ])
+    expect(text(layoutBody(message, 40, ctx({ activitySpacing: false })))).toEqual([
+      'one',
+      '▸ (+2) ∴ Thought for 0.0s',
+      'two',
+    ])
+  })
+
+  it('draws the blank line as decoration inside either frame', () => {
+    const compact = layoutMessage(message, ctx())
+    expect(text(compact).slice(0, 4)).toEqual(['• one', '  ', '  ▸ (+2) ∴ Thought for 0.0s', '  '])
+    expect(compact[1]?.frame).toBe(true)
+    const threaded = layoutMessage(message, ctx({ frame: threadedFrame }))
+    expect(text(threaded).slice(0, 6)).toEqual([
+      '│',
+      '│ one',
+      '│ ',
+      '│ ▸ (+2) ∴ Thought for 0.0s',
+      '│ ',
+      '│ two',
+    ])
+    expect(threaded[2]?.frame).toBe(true)
+  })
+
+  it('keeps consecutive activity rows together, the earlier row with or without its marker', () => {
+    const live = answer([
+      { type: 'text', id: 'a', text: 'one' },
+      tool('t1'),
+      tool('t2'),
+      tool('t3', { status: 'running' }),
+    ])
+    const body = (extra: Partial<LayoutContext>) =>
+      text(layoutBody(live, 40, ctx({ isActive: () => true, liveTail: 1, ...extra })))
+    expect(body({})).toEqual(['one', '', '⋮ +2 earlier tool calls', '… t3'])
+    expect(body({ glyphs: { ...plainGlyphs, earlier: '' } })[2]).toBe('+2 earlier tool calls')
+  })
+})
+
+describe('threaded footer corner', () => {
+  it('closes the gutter with a bare corner when there are no footer facts', () => {
+    const hi = answer([{ type: 'text', id: 'x', text: 'hi' }])
+    expect(text(layoutMessage(hi, ctx({ frame: threadedFrame })))).toEqual(['│', '│ hi', '╰', ''])
+    expect(
+      text(layoutMessage({ ...hi, metrics: { model: 'm' } }, ctx({ frame: threadedFrame }))),
+    ).toEqual(['│', '│ hi', '│', '╰ m', ''])
   })
 })

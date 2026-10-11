@@ -50,6 +50,7 @@ export function layoutSignature(
     ctx.liveTail,
     ctx.liveFooter ? 'f' : '-',
     ctx.finishedActivity ?? 'row',
+    ctx.activitySpacing === false ? '-' : 's',
     ctx.footerExtras?.(message, ctx.detail).join('\u0000') ?? '',
     JSON.stringify(ctx.hints),
     JSON.stringify(resolveAccent(message, ctx)),

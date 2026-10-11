@@ -248,7 +248,7 @@ describe('layout branches', () => {
       text(
         layoutMessage(msg([{ type: 'text', id: 'x', text: 'hi' }]), ctx({ frame: threadedFrame })),
       ),
-    ).toEqual(['│', '│ hi', '│', '╰ ', ''])
+    ).toEqual(['│', '│ hi', '╰', ''])
     expect(
       text(
         layoutBody(

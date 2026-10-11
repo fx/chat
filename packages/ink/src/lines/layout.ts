@@ -8,13 +8,16 @@ import {
   type CustomBlock,
   type DetailLevel,
   type PlanBlock,
+  type PlannedRow,
   type RenderableBlock,
   type RenderableMessage,
   type ToolCallBlock,
   countActivity,
+  earlierLabel,
   formatDuration,
   formatElapsed,
   formatTokensPerSecond,
+  getBlockTimelineBehavior,
   isBlockActive,
   isCoreBlockType,
   lookupExtension,
@@ -112,10 +115,16 @@ export interface LayoutContext {
   /** Host facts after a message's own footer facts (e.g. `turn 42` in details). */
   footerExtras?: ((message: RenderableMessage, detail: DetailLevel) => string[]) | undefined
   /**
-   * A finished answer's folded activity when collapsed: its own row (default),
-   * or only the footer's counts.
+   * A finished answer's activity when collapsed: its own rows (default), or
+   * only the footer's counts (every activity row is dropped, in either
+   * placement, when the answer has a footer).
    */
   finishedActivity?: 'row' | 'footer' | undefined
+  /**
+   * A blank decoration line between content and an adjacent activity row or
+   * group (default true). Consecutive activity rows stay together.
+   */
+  activitySpacing?: boolean | undefined
 }
 
 /** What a frame needs to wrap a laid-out message. */
@@ -477,9 +486,8 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
       affordance: plan.isActive
         ? span(spinnerFrame(ctx), { role: 'marker' })
         : span(open ? ctx.glyphs.expanded : ctx.glyphs.collapsed, { role: 'marker' }),
-      ...(plan.hiddenCount > 0
-        ? { prefix: span(`(+${plan.hiddenCount})`, { role: 'marker' }) }
-        : {}),
+      // A planned group holds two or more blocks, so it always hides some.
+      prefix: span(`(+${plan.hiddenCount})`, { role: 'marker' }),
       ...(icon ? { icon } : {}),
       label: plan.summary.label,
       trailing: [timer, rate].filter(Boolean).join(' ') || undefined,
@@ -499,6 +507,14 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
   ]
 }
 
+/** Which side of the content/activity boundary a planned row is on. */
+function rowSide(row: PlannedRow): 'content' | 'activity' {
+  if (row.kind === 'bare') {
+    return getBlockTimelineBehavior(row.block).auxEligible ? 'activity' : 'content'
+  }
+  return row.kind === 'outcome' ? 'content' : 'activity'
+}
+
 /** Lay out a message's body (no frame) at `w` cells. */
 export function layoutBody(
   original: RenderableMessage,
@@ -512,10 +528,15 @@ export function layoutBody(
     isActive: live,
     activityPlacement: ctx.placement,
     ...(live && ctx.detail === 'collapsed' ? { liveTail: ctx.liveTail } : {}),
+    ...(ctx.detail === 'collapsed' && ctx.finishedActivity
+      ? { finishedActivity: ctx.finishedActivity }
+      : {}),
   })
   const b: BodyContext = { message, live, activeBlockId: plan.activeBlockId, width: w, ctx }
   const out: LineDraft[] = []
+  const spacing = ctx.activitySpacing ?? true
   let lastWasText = false
+  let lastSide: 'content' | 'activity' | undefined
   for (const row of plan.rows) {
     if (
       row.kind === 'bare' &&
@@ -526,6 +547,10 @@ export function layoutBody(
       out.push({ spans: [] })
     }
     lastWasText = row.kind === 'bare' && row.block.type === 'text'
+    const side = rowSide(row)
+    // Content and activity are set apart by a blank decoration line.
+    if (spacing && lastSide !== undefined && side !== lastSide) out.push({ spans: [], frame: true })
+    lastSide = side
     switch (row.kind) {
       case 'pending':
         out.push(
@@ -541,12 +566,17 @@ export function layoutBody(
         )
         break
       case 'group':
-        // A finished, collapsed answer may leave its activity to the footer's counts.
-        if (!live && ctx.detail === 'collapsed' && ctx.finishedActivity === 'footer') break
         out.push(...groupLines(row.key, row.blocks, b))
         break
       case 'earlier':
-        out.push({ spans: [span(`${ctx.glyphs.tool} +${row.count} earlier`, { role: 'muted' })] })
+        out.push({
+          spans: [
+            ...(ctx.glyphs.earlier
+              ? [span(`${ctx.glyphs.earlier} `, { role: 'marker', chrome: true })]
+              : []),
+            span(earlierLabel(row), { role: 'muted' }),
+          ],
+        })
         break
       case 'outcome':
         out.push(

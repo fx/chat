@@ -10,6 +10,7 @@ import {
   type RenderableBlock,
   type RenderableMessage,
   approxTokenCount,
+  earlierLabel,
   isBlockActive,
   isCoreBlockType,
   lookupExtension,
@@ -319,7 +320,7 @@ export function MessageView({
               <BlockRow key={row.block.id} block={row.block} ctx={ctx} />
             ) : row.kind === 'earlier' ? (
               <Styled key={row.key} tone="muted">
-                {glyphs.wrench} +{row.count} earlier
+                {glyphs.earlier ? `${glyphs.earlier} ${earlierLabel(row)}` : earlierLabel(row)}
               </Styled>
             ) : row.kind === 'outcome' ? (
               <Styled key="outcome" tone="danger">

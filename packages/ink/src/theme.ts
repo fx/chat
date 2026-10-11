@@ -96,8 +96,11 @@ export interface InkGlyphs {
   spinner: readonly string[]
   /** Between footer facts and status facts. */
   separator: string
-  /** Tool row status markers. */
+  /** @deprecated No longer drawn (the live tail's row uses `earlier`); kept for existing glyph sets. */
   tool: string
+  /** Before the live tail's row counting hidden earlier activity (empty: no marker). */
+  earlier: string
+  /** Tool row status markers. */
   toolSuccess: string
   toolError: string
   toolRunning: string
@@ -148,6 +151,7 @@ export const plainGlyphs: InkGlyphs = {
   spinner: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
   separator: ' · ',
   tool: '🔧',
+  earlier: '⋮',
   toolSuccess: '✓',
   toolError: '✗',
   toolRunning: '…',
@@ -194,6 +198,7 @@ export const asciiGlyphs: InkGlyphs = {
   spinner: ['|', '/', '-', '\\'],
   separator: ' | ',
   tool: '*',
+  earlier: '^',
   toolSuccess: '+',
   toolError: 'x',
   toolRunning: '~',

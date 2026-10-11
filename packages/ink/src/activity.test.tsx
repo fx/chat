@@ -119,12 +119,22 @@ describe('activity planning in the terminal', () => {
         <Transcript messages={[live]} isStreaming streamingMessageId="l" liveTail={1} liveFooter />
       </InkChatProvider>,
     )
-    expect(view.lastFrame()).toContain('⚒ +2 earlier')
+    expect(view.lastFrame()).toContain('⋮ +2 earlier steps (1 tool call)')
     expect(view.lastFrame()).toContain('12s · ∴ 3 · ⚒ 2 tools')
     await vi.advanceTimersByTimeAsync(1000)
     expect(view.lastFrame()).toContain('13s ·')
     view.unmount()
     vi.useRealTimers()
+  })
+
+  it('draws the earlier row without a marker when the glyph is empty', () => {
+    const out = renderToString(
+      <InkChatProvider components={{ glyphs: { earlier: '' } }}>
+        <MessageView message={live} isActive liveTail={1} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    expect(out).toContain('  +2 earlier steps (1 tool call)')
   })
 
   it('places activity after content and hides activity facts when expanded', () => {
