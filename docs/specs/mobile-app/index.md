@@ -61,6 +61,10 @@ visual theme) stays in `apps/mobile`.
   last activity. A new conversation MUST get an automatic title from its first user message.
 - Each conversation MUST remember the profile and model it uses; the user MUST be able to change the
   model for the next turn.
+- A conversation's transcript MUST only be sent to the endpoint of the profile it is bound to. When
+  that profile no longer exists, sending, regenerating and retrying MUST be withheld and the
+  conversation MUST say its profile is unavailable, until the user explicitly binds it to another
+  profile; the app MUST NOT fall back to the active profile.
 - An OPTIONAL per-app system prompt MUST be applied to every new turn.
 
 ### Agent Chat

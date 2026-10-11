@@ -63,6 +63,10 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const messages = state.messages[id]
   const run = state.runs[id]
   const error = state.errors[id]
+  // A conversation runs only against its own profile; when that is gone,
+  // every run-starting action is withheld until the user re-binds it.
+  const blocker = meta ? store.runBlocker(meta) : undefined
+  const blocked = Boolean(blocker)
   const approval = state.approvals.find((a) => a.conversationId === id)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -108,15 +112,17 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
               className="flex flex-col gap-2 rounded-md border border-destructive/50 p-3 text-sm"
             >
               <p className="text-destructive [overflow-wrap:anywhere]">{error.message}</p>
-              <SecondaryButton className="self-start" onClick={() => void store.regenerate(id)}>
-                <RotateCcw size={16} /> Retry
-              </SecondaryButton>
+              {blocked ? null : (
+                <SecondaryButton className="self-start" onClick={() => void store.regenerate(id)}>
+                  <RotateCcw size={16} /> Retry
+                </SecondaryButton>
+              )}
             </div>
           ),
         },
       ],
     }
-  }, [error, run, store, id])
+  }, [error, run, store, id, blocked])
 
   const onAddFiles = useCallback(async (files: File[]) => {
     const added = (await Promise.all(files.map(fileToAttachment))).filter(
@@ -139,8 +145,6 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
       </div>
     )
   }
-
-  const profile = state.settings.profiles.find((p) => p.id === meta.profileId)
 
   return (
     <div className="flex h-full flex-col">
@@ -179,7 +183,9 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
             {...(run ? { streamingMessageId: run.messageId } : {})}
             showFooter
             compactFooter
-            onRegenerate={(messageId) => void store.regenerate(id, messageId)}
+            {...(blocker
+              ? {}
+              : { onRegenerate: (messageId: string) => void store.regenerate(id, messageId) })}
             {...(extensions ? { extensions } : {})}
           />
         ) : null}
@@ -201,8 +207,8 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
           onAddFiles={(files) => void onAddFiles(files)}
           accept="image/*"
           maxLines={6}
-          placeholder={profile ? 'Message' : 'Add an endpoint in Settings first'}
-          disabled={!profile}
+          placeholder={blocker ?? 'Message'}
+          disabled={Boolean(blocker)}
         />
       </div>
 
@@ -249,8 +255,9 @@ function ModelSheet({
   const state = useAppState()
   const store = useStore()
   const meta = state.conversations.find((c) => c.id === conversationId)
-  const profile =
-    state.settings.profiles.find((p) => p.id === meta?.profileId) ?? store.activeProfile()
+  // Only the conversation's own profile: never list models from (or bind a
+  // model to) another endpoint without the user picking that profile.
+  const profile = meta ? store.conversationProfile(meta) : undefined
   const [models, setModels] = useState<string[]>()
   const [error, setError] = useState<string>()
   const [typed, setTyped] = useState('')
@@ -259,6 +266,8 @@ function ModelSheet({
     if (!open || !profile) return
     const controller = new AbortController()
     setError(undefined)
+    // Never offer the previous profile's models under the new one.
+    setModels(undefined)
     store
       .listModels(profile, controller.signal)
       .then(setModels)
@@ -276,7 +285,7 @@ function ModelSheet({
   return (
     <Sheet open={open} onClose={onClose} title="Model">
       <div className="flex flex-col gap-3">
-        {state.settings.profiles.length > 1 ? (
+        {state.settings.profiles.length > 1 || !profile ? (
           <div className="flex flex-wrap gap-2">
             {state.settings.profiles.map((p) => (
               <SecondaryButton
@@ -291,16 +300,19 @@ function ModelSheet({
           </div>
         ) : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        {models === undefined && !error ? (
+        {!profile ? (
+          <p className="text-sm text-muted-foreground">Choose a profile for this conversation.</p>
+        ) : null}
+        {profile && models === undefined && !error ? (
           <p className="text-sm text-muted-foreground">Loading models…</p>
         ) : null}
         <ul className="flex max-h-72 flex-col overflow-y-auto">
-          {(models ?? []).map((m) => (
+          {(profile ? (models ?? []) : []).map((m) => (
             <li key={m}>
               <button
                 type="button"
                 aria-pressed={m === meta?.model}
-                onClick={() => choose({ model: m })}
+                onClick={() => profile && choose({ profileId: profile.id, model: m })}
                 className="min-h-11 w-full truncate rounded-md px-3 text-left text-sm aria-pressed:bg-muted aria-pressed:font-medium"
               >
                 {m}
@@ -312,7 +324,7 @@ function ModelSheet({
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault()
-            if (typed.trim()) choose({ model: typed.trim() })
+            if (profile && typed.trim()) choose({ profileId: profile.id, model: typed.trim() })
           }}
         >
           <input

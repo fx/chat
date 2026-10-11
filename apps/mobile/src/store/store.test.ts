@@ -203,6 +203,44 @@ describe('AppStore', () => {
     expect(store.getState().errors[meta.id]?.message).toMatch(/Set up an endpoint/)
   })
 
+  it("never sends a conversation to another profile's endpoint", async () => {
+    const other: Profile = { ...profile, id: 'p2', baseUrl: 'https://other.test/v1' }
+    const { store, endpoint } = await ready([sseBody([{ content: 'a' }])], {
+      settings: { profiles: [profile, other], activeProfileId: 'p1' },
+    })
+    const meta = await store.createConversation()
+    await store.send(meta.id, 'q')
+    const transcript = store.getState().messages[meta.id]
+    expect(transcript).toHaveLength(2)
+    await store.updateSettings({ activeProfileId: 'p2' })
+    await store.deleteProfile('p1')
+    const sent = endpoint.requests.length
+
+    expect(store.conversationProfile({ ...meta, profileId: 'p1' })).toBeUndefined()
+    expect(await store.regenerate(meta.id)).toBeUndefined()
+    expect(await store.send(meta.id, 'again')).toBeUndefined()
+    expect(endpoint.requests).toHaveLength(sent)
+    // The blocked regenerate kept the answer it would have replaced.
+    expect(store.getState().messages[meta.id]).toEqual(transcript)
+    expect(store.getState().errors[meta.id]?.message).toMatch(/profile is unavailable/)
+
+    // An explicit re-bind is the only way back to a working conversation.
+    await store.updateConversation(meta.id, { profileId: 'p2', model: 'fake-2' })
+    await store.regenerate(meta.id)
+    expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')
+    expect(store.getState().errors[meta.id]).toBeUndefined()
+  })
+
+  it('asks for a profile when a conversation was never bound to one', async () => {
+    const { store, endpoint } = await ready([], {
+      settings: { profiles: [profile] },
+      conversations: [{ id: 'c1', title: 'Old', createdAt: 1, updatedAt: 1, model: 'fake-1' }],
+    })
+    expect(await store.send('c1', 'hi')).toBeUndefined()
+    expect(endpoint.requests).toHaveLength(0)
+    expect(store.getState().errors.c1?.message).toMatch(/Choose a profile/)
+  })
+
   it('regenerates the last turn or a given assistant message', async () => {
     const { store } = await ready(
       [

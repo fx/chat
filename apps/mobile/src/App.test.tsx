@@ -69,6 +69,46 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('HTTP 500'))
   })
 
+  it("withholds regenerate when a conversation's profile is gone, until re-bound", async () => {
+    const user = userEvent.setup()
+    const other = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }
+    const { store, endpoint } = setup([sseBody([{ content: 'answer' }])], {
+      settings: { profiles: [profile, other], activeProfileId: 'p2' },
+      conversations: [
+        { id: 'c1', title: 'Old chat', createdAt: 1, updatedAt: 1, profileId: 'gone' },
+      ],
+      'messages:c1': [
+        {
+          id: 'u1',
+          role: 'user',
+          blocks: [{ type: 'text', id: 't1', text: 'secret' }],
+          createdAt: 1,
+        },
+        {
+          id: 'a1',
+          role: 'assistant',
+          blocks: [{ type: 'text', id: 't2', text: 'reply' }],
+          createdAt: 2,
+        },
+      ],
+    })
+    await act(() => store.load())
+    await user.click(screen.getByText('Old chat'))
+    const textbox = await screen.findByPlaceholderText(/profile is unavailable/)
+    expect((textbox as HTMLTextAreaElement).disabled).toBe(true)
+    await screen.findByText('reply')
+    expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }))
+    expect(screen.getByText('Choose a profile for this conversation.')).toBeTruthy()
+    expect(endpoint.requests).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Other' }))
+    expect(store.conversation('c1')).toMatchObject({ profileId: 'p2', model: 'fake-1' })
+    await user.click(await screen.findByRole('button', { name: 'Regenerate' }))
+    await waitFor(() => expect(screen.getByText('answer')).toBeTruthy())
+    expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')
+  })
+
   it('lists conversations, opens settings, and navigates back', async () => {
     const user = userEvent.setup()
     const { store } = setup([], {

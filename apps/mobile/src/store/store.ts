@@ -144,6 +144,38 @@ export class AppStore {
     return profiles.find((p) => p.id === activeProfileId) ?? profiles[0]
   }
 
+  /**
+   * The profile a conversation is bound to. Never another profile: a
+   * conversation's transcript only ever goes to the endpoint it was bound to,
+   * so a deleted or missing binding resolves to nothing, not the active one.
+   */
+  conversationProfile(meta: ConversationMeta): Profile | undefined {
+    if (meta.profileId === undefined) return undefined
+    return this.state.settings.profiles.find((p) => p.id === meta.profileId)
+  }
+
+  /** Why a run cannot start for this conversation, or undefined when it can. */
+  runBlocker(meta: ConversationMeta): string | undefined {
+    const profile = this.conversationProfile(meta)
+    if (profile) {
+      return meta.model || profile.model ? undefined : 'Choose a model from the model menu first.'
+    }
+    if (this.state.settings.profiles.length === 0) {
+      return 'Set up an endpoint and model in Settings first.'
+    }
+    return meta.profileId === undefined
+      ? 'Choose a profile for this conversation from the model menu.'
+      : "This conversation's profile is unavailable. Choose another from the model menu."
+  }
+
+  /** Record why a run did not start; true when it was blocked. */
+  private blockRun(id: string, meta: ConversationMeta): boolean {
+    const message = this.runBlocker(meta)
+    if (!message) return false
+    this.set({ errors: { ...this.state.errors, [id]: { message, at: this.now() } } })
+    return true
+  }
+
   /** Insert or replace a profile; the first profile becomes active. */
   async saveProfile(profile: Profile): Promise<void> {
     const profiles = this.state.settings.profiles.some((p) => p.id === profile.id)
@@ -269,7 +301,7 @@ export class AppStore {
   ): Promise<RunResult | undefined> {
     await this.openConversation(id)
     const meta = this.conversation(id)
-    if (!meta || this.state.runs[id]) return undefined
+    if (!meta || this.state.runs[id] || this.blockRun(id, meta)) return undefined
     const user: ChatMessage = {
       id: newId('u'),
       role: 'user',
@@ -290,7 +322,9 @@ export class AppStore {
   /** Re-run the turn that produced assistant message `messageId` (or the last turn). */
   async regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
     await this.openConversation(id)
-    if (this.state.runs[id]) return undefined
+    const meta = this.conversation(id)
+    // Checked before cutting the transcript, so a blocked regenerate keeps it.
+    if (!meta || this.state.runs[id] || this.blockRun(id, meta)) return undefined
     const messages = this.state.messages[id] ?? []
     let cut = messageId ? messages.findIndex((m) => m.id === messageId) : -1
     if (cut === -1) {
@@ -311,19 +345,13 @@ export class AppStore {
     const meta = this.conversation(id)
     // Deleted while `send` awaited its own writes.
     if (!meta) return undefined
-    const profile =
-      this.state.settings.profiles.find((p) => p.id === meta.profileId) ?? this.activeProfile()
+    const profile = this.conversationProfile(meta)
     const model = meta.model || profile?.model
-    const { [id]: _previous, ...errors } = this.state.errors
     if (!profile || !model) {
-      this.set({
-        errors: {
-          ...errors,
-          [id]: { message: 'Set up an endpoint and model in Settings first.', at: this.now() },
-        },
-      })
+      this.blockRun(id, meta)
       return undefined
     }
+    const { [id]: _previous, ...errors } = this.state.errors
     const controller = new AbortController()
     const messageId = newId('a')
     this.controllers.set(id, controller)
