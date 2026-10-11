@@ -97,7 +97,8 @@ Related specs:
   applications, sharing one lockfile.
 - Each published library MUST live under its own directory in `packages/`: `packages/core/`
   (`@fx/chat-core`, see [chat-core](../chat-core/)), `packages/chat/` (`@fx/chat`, the React-DOM
-  renderers), and `packages/agent/` (`@fx/chat-agent`, see [chat-agent](../chat-agent/)).
+  renderers), `packages/agent/` (`@fx/chat-agent`, see [chat-agent](../chat-agent/)), and
+  `packages/ink/` (`@fx/chat-ink`, see [ink-renderer](../ink-renderer/)).
 - Reference applications MUST live under `apps/`: the Android app (see [mobile-app](../mobile-app/)).
   They are product code: they MAY carry features the libraries deliberately do not, MUST consume the
   libraries only through their public package names, and MUST NOT be published to npm.
@@ -160,10 +161,10 @@ Related specs:
 
 ```
 @fx/chat-core (packages/core)  pure model, transcript logic, completion contract, DOM-free hooks
-        ▲                         ▲
-@fx/chat (DOM)     @fx/chat-agent (OpenAI-compatible runs, tools)
-        ▲                         ▲
-   apps/mobile (Tauri v2 Android) — uses both
+        ▲            ▲                    ▲
+@fx/chat (DOM)     @fx/chat-ink (terminal)   @fx/chat-agent (OpenAI-compatible runs, tools)
+        ▲                                           ▲
+   apps/mobile (Tauri v2 Android) — uses @fx/chat and the agent
 
 Inside @fx/chat (modules marked * now live in @fx/chat-core and are re-exported):
 @fx/chat (packages/chat)
@@ -183,7 +184,7 @@ demos/ (one static app; design system switchable in place / side-by-side)  → d
     └── headless  the package's own unstyled defaults
 ```
 
-Layering rule: `@fx/chat-core` depends on nothing in this repository; `@fx/chat` and the agent
+Layering rule: `@fx/chat-core` depends on nothing in this repository; renderers and the agent
 depend on core; apps depend on public packages only. Within `@fx/chat`: `model` depends on nothing; `registry` depends on `model`; `render` and
 `input` depend on `model` + `registry`; demos depend on the public package only. No layer
 may import a host application module.
@@ -271,3 +272,4 @@ not in the rule.
 | 2026-10-10 | Two-package layout: `@fx/chat-core` extracted from `@fx/chat` | [0019-core-extraction](../../changes/0019-core-extraction.md) |
 | 2026-10-10 | `@fx/chat-agent` added | [0020-agent-runtime](../../changes/0020-agent-runtime.md) |
 | 2026-10-10 | `apps/` reference applications: the Android app (`apps/mobile`) | [0021-mobile-app](../../changes/0021-mobile-app.md) |
+| 2026-10-10 | `@fx/chat-ink` added | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |

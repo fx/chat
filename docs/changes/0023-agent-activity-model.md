@@ -6,7 +6,7 @@ Give the model a place for what agent hosts show: tool title, kind, input summar
 
 **Spec:** [message-model](../specs/message-model/), [message-rendering § Agent Activity](../specs/message-rendering/index.md#agent-activity), [chat-agent](../specs/chat-agent/)
 **Status:** draft
-**Depends On:** —
+**Depends On:** 0022
 
 ## Motivation
 
@@ -56,10 +56,10 @@ Plan blocks (0024), footer facts (0025), any change to existing footer gating be
 - [x] Helpers `summarizeToolInput`, `toolDisplayInput`, `toolResultText`; title in `summarizeBlock`; tests
 - [x] Liveness gating in `isBlockActive`; outcome planned row + footer gate; tests
 - [x] `@fx/chat`: tool label/input/approval qualifier, outcome row, classNames hooks; tests
-- [ ] `@fx/chat-ink`: same in rows and message view; parity test
+- [x] `@fx/chat-ink`: same in rows and message view; parity test
 - [x] `@fx/chat-agent`: approval, outcome, cost/context; tests
 - [ ] Apps: mobile and TUI use the outcome; tests
-- [ ] Specs/indexes
+- [x] Specs/indexes
 
 ## References
 

@@ -5,7 +5,7 @@
 Add the `plan` content block (an agent checklist) to the core union with its summary label and timeline behavior, render it in both renderers, and add the `checklist` icon as an optional registry icon with a headless fallback.
 
 **Spec:** [message-model § Content Blocks](../specs/message-model/index.md#content-blocks), [message-rendering § Agent Activity](../specs/message-rendering/index.md#agent-activity), [component-registry](../specs/component-registry/)
-**Status:** draft
+**Status:** complete
 **Depends On:** 0023
 
 ## Motivation
@@ -52,7 +52,7 @@ Producing plans from Chat Completions (no plan concept there); hosts map them.
 - [x] Core: `PlanBlock`, union, behavior, summary, assert/codec; tests
 - [x] Registry: optional `checklist` icon + headless glyph; demo/mobile untouched and compiling
 - [x] `@fx/chat`: PlanBlockView + classNames; tests
-- [ ] `@fx/chat-ink`: plan rows; parity
+- [x] `@fx/chat-ink`: plan rows; parity
 - [x] Specs/indexes
 
 ## References

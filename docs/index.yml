@@ -38,6 +38,10 @@ specs:
     path: specs/mobile-app/
     description: Android reference app (Tauri v2) — endpoint profiles, persisted conversations, agent chat, tools, injected theme
     status: active
+  - name: ink-renderer
+    path: specs/ink-renderer/
+    description: Terminal renderer on Ink — injected theme roles, glyphs and markdown; live turns; keyboard composer
+    status: active
 
 changes:
   - id: "0001"
@@ -187,26 +191,33 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0019", "0020"]
+  - id: "0022"
+    name: ink-renderer
+    path: changes/0022-ink-renderer.md
+    description: "@fx/chat-ink terminal renderer, plain-text registry, keyboard composer, example CLI"
+    spec: ink-renderer
+    status: draft
+    depends_on: ["0019", "0020"]
   - id: "0023"
     name: agent-activity-model
     path: changes/0023-agent-activity-model.md
     description: "Tool title/kind/input/approval, message outcome, cost/context, attachment description; liveness gating; agent producer"
     spec: message-model
     status: draft
-    depends_on: []
+    depends_on: ["0022"]
   - id: "0024"
     name: plan-block
     path: changes/0024-plan-block.md
     description: "Plan content block, checklist icon (optional, headless fallback), DOM and ink plan rendering"
     spec: message-model
-    status: draft
+    status: complete
     depends_on: ["0023"]
   - id: "0025"
     name: activity-planning
     path: changes/0025-activity-planning.md
     description: "Footer facts + formatters, opt-in live footer, activity counts, live phase, after-content placement, live tail"
     spec: message-rendering
-    status: draft
+    status: complete
     depends_on: ["0023", "0024"]
   - id: "0026"
     name: loose-json
@@ -220,12 +231,40 @@ changes:
     path: changes/0027-shared-clock.md
     description: "ClockProvider/useClock; timers/spinners on one clock; flash switch"
     spec: message-rendering
-    status: draft
+    status: complete
     depends_on: []
+  - id: "0028"
+    name: ink-line-layout
+    path: changes/0028-ink-line-layout.md
+    description: "Line model, injectable frames, block layouts, detail levels, cache, TranscriptViewport, status line, pending rows, empty state"
+    spec: ink-renderer
+    status: complete
+    depends_on: ["0023", "0024", "0025", "0026", "0027"]
+  - id: "0029"
+    name: terminal-markdown
+    path: changes/0029-terminal-markdown.md
+    description: "Dependency-free markdown line layout (blocks, inline, tables, images hook)"
+    spec: ink-renderer
+    status: complete
+    depends_on: ["0028"]
+  - id: "0030"
+    name: ink-composer-fullscreen
+    path: changes/0030-ink-composer-fullscreen.md
+    description: "Controlled composer, plain variant, soft wrap, visual rows, recall rule, key/paste routing, kitty keyboard"
+    spec: ink-renderer
+    status: complete
+    depends_on: ["0028"]
+  - id: "0031"
+    name: ink-mouse-and-images
+    path: changes/0031-ink-mouse-and-images.md
+    description: "Mouse select/copy/click and image provider contract + opt-in kitty provider"
+    spec: ink-renderer
+    status: complete
+    depends_on: ["0028", "0029"]
   - id: "0033"
     name: host-instances
     path: changes/0033-host-instances.md
     description: "Render with the host's React and Ink (createChatInk, core hooks factory); tx chat on tx's instances; embedding gaps"
-    spec: chat-core
+    spec: ink-renderer
     status: draft
-    depends_on: []
+    depends_on: ["0028", "0029", "0030", "0031"]

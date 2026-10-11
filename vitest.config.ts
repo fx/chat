@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
+    setupFiles: ['./vitest.setup.ts', './packages/ink/test-setup.ts'],
     // Streaming/timing logic is tested with fake timers — no real-clock sleeps.
     fakeTimers: {
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
@@ -24,6 +24,7 @@ export default defineConfig({
         'packages/core/src/**',
         'packages/chat/src/**',
         'packages/agent/src/**',
+        'packages/ink/src/**',
         'scripts/**/*.mjs',
       ],
       // Only meaningful source contributes to the threshold; CSS has no

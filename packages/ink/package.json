@@ -1,0 +1,71 @@
+{
+  "name": "@fx/chat-ink",
+  "version": "0.0.0",
+  "description": "Terminal (Ink) renderer for @fx/chat conversations: injected theme, glyphs and markdown; live agent turns; keyboard composer.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./kitty": {
+      "types": "./dist/kitty.d.ts",
+      "import": "./dist/kitty.js"
+    },
+    "./kitty-jpeg": {
+      "types": "./dist/kitty-jpeg.d.ts",
+      "import": "./dist/kitty-jpeg.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@fx/chat-core": "workspace:*",
+    "string-width": "8.3.0"
+  },
+  "peerDependencies": {
+    "ink": "^8.0.0",
+    "react": ">=19.3.0",
+    "fast-png": "^8.0.0",
+    "jpeg-js": "^0.4.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fx/chat.git",
+    "directory": "packages/ink"
+  },
+  "homepage": "https://github.com/fx/chat#readme",
+  "bugs": {
+    "url": "https://github.com/fx/chat/issues"
+  },
+  "peerDependenciesMeta": {
+    "fast-png": {
+      "optional": true
+    },
+    "jpeg-js": {
+      "optional": true
+    },
+    "ink": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "fast-png": "8.0.0",
+    "jpeg-js": "0.4.4"
+  }
+}

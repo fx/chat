@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "types": ["node"],
+    "lib": ["ES2022"],
+    "jsx": "react",
+    "jsxFactory": "React.createElement",
+    "jsxFragmentFactory": "React.Fragment"
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/test-helpers.ts",
+    "src/**/test-helpers.tsx",
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    }
+  ]
+}
