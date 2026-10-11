@@ -282,15 +282,63 @@ describe('createKittyProvider', () => {
     expect(provider.get(padded, box)).toEqual({ kind: 'failed', error: 'too large' })
     expect(provider.get(text, box)).toEqual({ kind: 'failed', error: 'too large' })
     expect(provider.get(exact, box)?.kind).toBe('ready')
-    // A body whose floor fits but whose decoding does not still fails after decoding.
-    const raw = `data:,${'x'.repeat(40)}`
-    provider.get(raw, box)
-    await flush()
-    expect(provider.get(raw, box)).toEqual({ kind: 'failed', error: 'too large' })
     const decoded = from.mock.calls.map(([body]) => body)
     for (const src of [big, padded, text])
       expect(decoded).not.toContain(src.slice(src.indexOf(',') + 1))
     from.mockRestore()
+  })
+
+  it('counts a percent-encoded body exactly and refuses it before decoding', async () => {
+    const decodeUri = vi.spyOn(globalThis, 'decodeURIComponent')
+    const encodeInto = vi.spyOn(TextEncoder.prototype, 'encodeInto')
+    const percent = (bytes: Uint8Array) =>
+      `data:image/png,${Array.from(bytes, (b) => `%${b.toString(16).padStart(2, '0')}`).join('')}`
+    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 30 })
+    // 31 escapes: 93 encoded characters, past the cap by one decoded byte.
+    const over = percent(png(1, 1, 7))
+    // 31 decoded bytes from 3-byte characters: under the old floor of a third, still over.
+    const wide = `data:,${'你'.repeat(10)}x`
+    const pair = `data:,${'🙂'.repeat(7)}xxx`
+    for (const src of [over, wide, pair]) provider.get(src, box)
+    await flush()
+    for (const src of [over, wide, pair])
+      expect(provider.get(src, box)).toEqual({ kind: 'failed', error: 'too large' })
+    expect(decodeUri).not.toHaveBeenCalled()
+    expect(encodeInto).not.toHaveBeenCalled()
+    decodeUri.mockRestore()
+    encodeInto.mockRestore()
+  })
+
+  it('percent-decodes to raw bytes, at the cap', async () => {
+    const decode = vi.fn(async () => undefined)
+    const provider = createKittyProvider({ write: vi.fn(), maxBytes: 30, decode })
+    // A PNG at the cap, its non-ASCII bytes escaped and its ASCII ones literal.
+    const bytes = png(9, 18, 6)
+    const body = Array.from(bytes, (b) =>
+      b >= 0x30 && b < 0x7b && /[\w]/.test(String.fromCharCode(b))
+        ? String.fromCharCode(b)
+        : `%${b.toString(16).toUpperCase().padStart(2, '0')}`,
+    ).join('')
+    const exact = `data:image/png,${body}`
+    provider.get(exact, box)
+    // Mixed text: a stray '%', a two-, three- and four-byte character, a lone surrogate.
+    const mixed = 'data:text/plain,a%zz%4é你🙂\ud800%41'
+    provider.get(mixed, box)
+    await flush()
+    expect(provider.get(exact, box)?.kind).toBe('ready')
+    expect(provider.get(mixed, box)).toBeUndefined()
+    const [mixedBytes] = decode.mock.calls[0] as unknown as [Uint8Array]
+    expect(Buffer.from(mixedBytes).toString('utf8')).toBe('a%zz%4é你🙂\ufffdA')
+  })
+
+  it('fails a data URL without a body', async () => {
+    const provider = createKittyProvider({ write: vi.fn() })
+    provider.get('data:image/png;base64', box)
+    await flush()
+    expect(provider.get('data:image/png;base64', box)).toEqual({
+      kind: 'failed',
+      error: 'malformed data URL',
+    })
   })
 
   it('decodes other formats through the host, else declines them', async () => {

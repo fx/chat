@@ -47,4 +47,8 @@ protocol, on its own subpath so hosts that do not use it never load it.
   NOT follow redirects; clicked fetches may. A timeout (default 15 s) and a size cap (default 20 MB)
   apply to both. The cap MUST hold before the bytes are held whole: a declared `Content-Length`
   above it fails at once, an undeclared body is read in chunks and cancelled once it passes the
-  cap, and a `data:` URL whose encoded length implies more than the cap fails before decoding.
+  cap, and a `data:` URL fails before decoding when its body decodes to more than the cap — counted
+  from the encoded body without decoding it (base64 by its length, never undercounting;
+  percent-encoding exactly, each valid `%XX` one byte and any other character its UTF-8 length).
+  A percent-encoded body decodes to raw bytes. The JPEG decoder refuses an image above a
+  megapixel bound (default 50) before allocating its pixels.

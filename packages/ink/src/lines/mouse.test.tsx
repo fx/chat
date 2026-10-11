@@ -58,6 +58,11 @@ describe('parseMouse', () => {
     ])
     expect(parseMouse('plain')).toEqual([])
   })
+
+  it('drops horizontal wheel reports, with or without modifiers', () => {
+    const events = parseMouse('\u001b[<66;1;1M\u001b[<67;1;1M\u001b[<82;1;1M\u001b[<68;1;1M')
+    expect(events.map((e) => [e.kind, e.shift])).toEqual([['wheel-up', true]])
+  })
 })
 
 describe('createReportReader', () => {
@@ -126,6 +131,41 @@ describe('copyText', () => {
       'two three',
     )
     expect(copyText(lines, { line: 9, col: 0 }, { line: 9, col: 3 }, defaultMeasure)).toBe('')
+  })
+})
+
+describe('wide graphemes at the selection ends', () => {
+  // '你' and '🙂' take two cells each: 'a' 0, '你' 1-2, 'b' 3, '🙂' 4-5, 'c' 6.
+  const wide = [line([span('a你b🙂c')]), line([span('你x')])]
+  const sel = plainTheme.selection
+
+  it('copies a wide grapheme whose second cell is the start, the end, or both', () => {
+    expect(copyText(wide, { line: 0, col: 2 }, { line: 0, col: 3 }, defaultMeasure)).toBe('你b')
+    expect(copyText(wide, { line: 0, col: 3 }, { line: 0, col: 5 }, defaultMeasure)).toBe('b🙂')
+    expect(copyText(wide, { line: 0, col: 2 }, { line: 0, col: 5 }, defaultMeasure)).toBe('你b🙂')
+    expect(copyText(wide, { line: 0, col: 5 }, { line: 0, col: 5 }, defaultMeasure)).toBe('🙂')
+    expect(copyText(wide, { line: 0, col: 4 }, { line: 1, col: 1 }, defaultMeasure)).toBe('🙂c\n你')
+    // Drag direction does not matter.
+    expect(copyText(wide, { line: 0, col: 5 }, { line: 0, col: 2 }, defaultMeasure)).toBe('你b🙂')
+  })
+
+  it('highlights exactly what it copies', () => {
+    const at = (start: number, end: number) =>
+      highlightLine(wide[0] as Line, start, end, sel, defaultMeasure)
+        .spans.filter((s) => s.style !== undefined)
+        .map((s) => s.text)
+        .join('')
+    expect(at(2, 3)).toBe('你b')
+    expect(at(3, 5)).toBe('b🙂')
+    expect(at(2, 5)).toBe('你b🙂')
+    expect(at(5, 5)).toBe('🙂')
+    expect(at(7, 7)).toBe(' ')
+  })
+
+  it('selects a zero-width grapheme at the start column', () => {
+    const zero = [line([span('a\u200bb')])]
+    const measure = (g: string) => (g === '\u200b' ? 0 : defaultMeasure(g))
+    expect(copyText(zero, { line: 0, col: 1 }, { line: 0, col: 1 }, measure)).toBe('\u200bb')
   })
 })
 

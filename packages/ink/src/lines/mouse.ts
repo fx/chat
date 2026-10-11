@@ -30,9 +30,13 @@ export interface MouseEvent {
 const BUTTONS = ['left', 'middle', 'right', 'none'] as const
 const SGR = new RegExp(`${ESC}\\[<(\\d+);(\\d+);(\\d+)([Mm])`, 'g')
 
-/** Every SGR mouse report in a chunk of terminal input. */
+/**
+ * Every SGR mouse report in a chunk of terminal input. Horizontal wheel
+ * reports (buttons 6 and 7) are dropped: the viewport only scrolls vertically.
+ */
 export function parseMouse(data: string): MouseEvent[] {
-  return Array.from(data.matchAll(SGR), (m) => {
+  const reports = Array.from(data.matchAll(SGR)).filter((m) => (Number(m[1]) & 66) !== 66)
+  return reports.map((m) => {
     const code = Number(m[1])
     const wheel = (code & 64) !== 0
     const motion = (code & 32) !== 0
@@ -134,6 +138,13 @@ function cells(line: Line, measure: Measure): Cell[] {
   return out
 }
 
+/**
+ * Whether a grapheme's cells overlap the columns `start`..`end` (inclusive):
+ * a point inside a wide grapheme's later cell still takes the whole grapheme.
+ */
+const within = (cell: Cell, start: number, end: number) =>
+  cell.start <= end && cell.start + Math.max(cell.width, 1) > start
+
 /** What a span's grapheme copies as: its replacement, nothing for chrome, else itself. */
 const copied = (cell: Cell) =>
   cell.span.copyEach !== undefined ? cell.span.copyEach : cell.span.chrome ? '' : cell.text
@@ -153,7 +164,7 @@ export function copyText(lines: readonly Line[], a: Point, b: Point, measure: Me
     const start = i === from.line ? from.col : 0
     const end = i === to.line ? to.col : Number.POSITIVE_INFINITY
     const text = cells(line, measure)
-      .filter((c) => c.start >= start && c.start <= end)
+      .filter((c) => within(c, start, end))
       .map(copied)
       .join('')
       .trimEnd()
@@ -180,7 +191,7 @@ export function highlightLine(
   const all = cells(line, measure)
   const runs: Array<{ span: Span; selected: boolean; text: string }> = []
   for (const cell of all) {
-    const selected = !cell.span.chrome && cell.start >= start && cell.start <= end
+    const selected = !cell.span.chrome && within(cell, start, end)
     const last = runs.at(-1)
     if (last && last.span === cell.span && last.selected === selected) last.text += cell.text
     else runs.push({ span: cell.span, selected, text: cell.text })

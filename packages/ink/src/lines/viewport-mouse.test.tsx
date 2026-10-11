@@ -118,6 +118,30 @@ describe('TranscriptViewport mouse', () => {
     expect(onCopy).not.toHaveBeenCalled()
   })
 
+  it('leaves Shift gestures to the terminal, but scrolls with a Shift wheel', async () => {
+    const { send, rowOf, onCopy, onScroll, rows } = setup()
+    const y = rowOf('alpha')
+    const before = rows().join('\n')
+    // A Shift press, drag and release neither select nor copy.
+    await send(sgr(4, 2, y), sgr(36, 9, y))
+    expect(rows().join('\n')).toBe(before)
+    await send(sgr(4, 9, y, true))
+    // A plain drag is not extended by Shift drags, nor ended by a Shift release.
+    await send(sgr(0, 2, y), sgr(36, 9, y), sgr(4, 9, y, true), sgr(0, 9, y, true))
+    expect(onCopy).not.toHaveBeenCalled()
+    // A Shift release abandons a pending press: no click is counted, so no double-click.
+    await send(
+      sgr(0, 2, y),
+      sgr(4, 2, y, true),
+      sgr(0, 2, y, true),
+      sgr(0, 2, y),
+      sgr(0, 2, y, true),
+    )
+    expect(onCopy).not.toHaveBeenCalled()
+    await send(sgr(68, 0, 0))
+    expect(onScroll).toHaveBeenCalledTimes(1)
+  })
+
   it('toggles a tool row and its JSON members with clicks', async () => {
     const [user, reply] = messages as [ChatMessage, ChatMessage]
     const oneTool = [user, { ...reply, blocks: reply.blocks.filter((b) => b.id !== 'plain') }]

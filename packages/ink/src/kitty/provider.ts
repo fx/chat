@@ -134,23 +134,83 @@ interface Entry {
   placed?: string | undefined
 }
 
-/** The fewest bytes a data URL's body decodes to (base64: exact bar whitespace; else a third). */
-function decodedFloor(body: string, base64: boolean): number {
-  if (!base64) return Math.ceil(body.length / 3)
+/** The byte a valid `%XX` escape at `i` stands for, else undefined. */
+function escapeAt(body: string, i: number): number | undefined {
+  if (body.charCodeAt(i) !== 0x25) return undefined
+  const hex = body.slice(i + 1, i + 3)
+  return /^[0-9a-f]{2}$/i.test(hex) ? Number.parseInt(hex, 16) : undefined
+}
+
+/**
+ * The exact bytes a percent-encoded body decodes to, counted without decoding
+ * it: a valid `%XX` is one byte, anything else its UTF-8 length (a stray `%`
+ * stays literal, a lone surrogate becomes U+FFFD).
+ */
+function percentLength(body: string): number {
+  let n = 0
+  for (let i = 0; i < body.length; i++) {
+    const code = body.charCodeAt(i)
+    if (escapeAt(body, i) !== undefined) {
+      n++
+      i += 2
+    } else if (code < 0x80) n++
+    else if (code < 0x800) n += 2
+    else if (code >= 0xd800 && code < 0xdc00 && (body.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
+      n += 4
+      i++
+    } else n += 3
+  }
+  return n
+}
+
+/** Percent-decode a body into the `length` raw bytes `percentLength` counted. */
+function percentDecode(body: string, length: number): Uint8Array {
+  const out = new Uint8Array(length)
+  const encoder = new TextEncoder()
+  let at = 0
+  let i = 0
+  while (i < body.length) {
+    const escaped = escapeAt(body, i)
+    if (escaped !== undefined) {
+      out[at++] = escaped
+      i += 3
+      continue
+    }
+    // A run up to the next escape; escapes are ASCII, so no surrogate pair is split.
+    let end = i + 1
+    while (end < body.length && escapeAt(body, end) === undefined) end++
+    at += encoder.encodeInto(body.slice(i, end), out.subarray(at)).written
+    i = end
+  }
+  return out
+}
+
+/**
+ * The most bytes a base64 body decodes to: exact for clean base64, more when
+ * it holds whitespace or other skipped characters, so it never undercounts.
+ */
+function base64Ceiling(body: string): number {
   const padding = body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0
   return Math.floor((body.length * 3) / 4) - padding
 }
 
-/** Decode a data URL, refusing before decoding one whose body implies more than `maxBytes`. */
+/**
+ * Decode a data URL, refusing one whose body decodes to more than `maxBytes`
+ * before allocating the decoded bytes.
+ */
 function decodeDataUrl(src: string, maxBytes: number): { bytes: Uint8Array; mediaType: string } {
   const comma = src.indexOf(',')
+  if (comma < 0) throw new Error('malformed data URL')
   const header = src.slice(5, comma)
   const body = src.slice(comma + 1)
   const mediaType = header.split(';')[0] || 'text/plain'
-  const base64 = header.endsWith(';base64')
-  if (decodedFloor(body, base64) > maxBytes) throw new Error('too large')
-  const bytes = base64 ? Buffer.from(body, 'base64') : Buffer.from(decodeURIComponent(body), 'utf8')
-  return { bytes: new Uint8Array(bytes), mediaType }
+  if (header.endsWith(';base64')) {
+    if (base64Ceiling(body) > maxBytes) throw new Error('too large')
+    return { bytes: new Uint8Array(Buffer.from(body, 'base64')), mediaType }
+  }
+  const length = percentLength(body)
+  if (length > maxBytes) throw new Error('too large')
+  return { bytes: percentDecode(body, length), mediaType }
 }
 
 /** Read a response body in chunks, cancelling it once it passes `maxBytes`. */
@@ -230,8 +290,8 @@ export function createKittyProvider(options: KittyOptions): KittyProvider {
   async function load(src: string, entry: Entry, clicked: boolean) {
     entry.state = 'loading'
     try {
+      // Every source is held to the cap before its bytes are held whole.
       const { bytes, mediaType } = await bytesOf(src, clicked)
-      if (bytes.length > maxBytes) throw new Error('too large')
       const png = isPng(bytes) ? bytes : await decode?.(bytes, mediaType)
       const px = png && pngSize(png)
       if (!png || !px) entry.state = 'declined'

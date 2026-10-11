@@ -442,6 +442,13 @@ export function TranscriptViewport(props: TranscriptViewportProps) {
       onScroll(scrollBy(scroll, e.kind === 'wheel-up' ? -step : step, geometry))
       return
     }
+    // Shift gestures belong to the terminal's own selection: a Shift press or
+    // drag neither starts nor extends one here, and a Shift release abandons
+    // a pending press without clicking or copying.
+    if (e.shift) {
+      if (e.kind === 'release') press.current = undefined
+      return
+    }
     if (e.button !== 'left' && e.kind !== 'release') return
     const point = pointAt(e)
     if (e.kind === 'press') {
