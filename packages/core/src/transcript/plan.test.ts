@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatMessage, ContentBlock } from '../model'
 import {
+  type ToolGroupCounts,
   formatFooterMetrics,
   isBlockActive,
   planGroupHeader,
   planMessage,
   shouldShowTimer,
   statusLabel,
+  toolGroupLabel,
+  toolSpanMs,
 } from './plan'
 
 const text = (id: string): ContentBlock => ({ type: 'text', id, text: id })
@@ -135,21 +138,168 @@ describe('planMessage outcomes', () => {
 })
 
 describe('planGroupHeader', () => {
-  it('heads with the latest eligible block and counts the rest', () => {
-    const plan = planGroupHeader([reasoning('r', { durationMs: 2400 }), tool('t')], {
-      startedAt: 100,
+  type Tool = Extract<ContentBlock, { type: 'tool_call' }>
+  const call = (id: string, extra: Partial<Tool> = {}): Tool => ({
+    ...(tool(id) as Tool),
+    ...extra,
+  })
+
+  it('is about the tool calls only: count and span when all succeeded', () => {
+    const blocks = [
+      reasoning('r0', { durationMs: 900 }),
+      call('a', { startedAt: 1000, durationMs: 2000 }),
+      reasoning('r1', { durationMs: 900 }),
+      call('b', { startedAt: 4000, durationMs: 1200 }),
+      { type: 'status', id: 's', phase: 'complete' } as ContentBlock,
+    ]
+    const plan = planGroupHeader(blocks, { startedAt: 100 })
+    expect(plan.kind).toBe('tools')
+    expect(plan.tools).toMatchObject({ total: 2, succeeded: 2, failed: 0 })
+    expect(plan.summary).toMatchObject({ iconName: 'wrench', label: '2 tool calls' })
+    expect(plan.hiddenCount).toBe(0)
+    expect(plan.durationMs).toBe(4200)
+    expect(plan.showTimer).toBe(true)
+    expect(plan.startedAt).toBe(1000)
+    expect(plan.showRate).toBe(false)
+    expect(toolGroupLabel(plan.tools as ToolGroupCounts, plan.durationMs)).toBe(
+      '2 tool calls · 4.2s',
+    )
+    expect(toolGroupLabel({ total: 1, succeeded: 1, failed: 0 })).toBe('1 tool call')
+  })
+
+  it('splits successes and failures, denied and unavailable counting as failed', () => {
+    const plan = planGroupHeader(
+      [
+        call('a', { durationMs: 1000 }),
+        call('b', { status: 'error', durationMs: 500 }),
+        call('c', { approval: { state: 'denied' } }),
+        call('d', { approval: { state: 'unavailable' }, status: 'error' }),
+        call('e', { durationMs: 100 }),
+      ],
+      {},
+    )
+    expect(plan.tools).toMatchObject({ total: 5, succeeded: 2, failed: 3 })
+    // No start times: the sum of the known durations.
+    expect(plan.durationMs).toBe(1600)
+    expect(plan.summary.label).toBe('5 tool calls · 2 ok · 3 failed')
+    expect('startedAt' in plan).toBe(false)
+  })
+
+  it('reads one call as its row: headline and duration', () => {
+    const plan = planGroupHeader(
+      [
+        reasoning('r', { durationMs: 1 }),
+        call('a', { title: 'Running', inputSummary: 'ls -la', durationMs: 300, startedAt: 9 }),
+      ],
+      {},
+    )
+    expect(plan.tools?.only?.id).toBe('a')
+    expect(plan.summary.label).toBe('Running ls -la')
+    expect(plan.durationMs).toBe(300)
+  })
+
+  it('spans parallel calls by wall clock, falls back to the sum, omits unknown time', () => {
+    const span = planGroupHeader(
+      [
+        call('a', { startedAt: 1000, durationMs: 3000 }),
+        call('b', { startedAt: 1500, durationMs: 1000 }),
+      ],
+      {},
+    )
+    expect(span.durationMs).toBe(3000)
+    expect(
+      toolSpanMs([call('a', { durationMs: 3000 }), call('b', { startedAt: 5, durationMs: 1000 })]),
+    ).toBe(4000)
+    expect(toolSpanMs([call('a'), call('b')])).toBeUndefined()
+    const untimed = planGroupHeader([call('a'), call('b')], {})
+    expect('durationMs' in untimed).toBe(false)
+    expect('durationMs' in untimed.summary).toBe(false)
+  })
+
+  it('shows the count so far, the running call and a live timer while live', () => {
+    const plan = planGroupHeader(
+      [
+        call('a', { startedAt: 2000, durationMs: 500 }),
+        reasoning('r', { durationMs: 10 }),
+        call('b', {
+          status: 'running',
+          title: 'Running',
+          inputSummary: 'sleep 2',
+          startedAt: 3000,
+        }),
+      ],
+      { isActive: true, startedAt: 1000 },
+    )
+    expect(plan.isActive).toBe(true)
+    expect(plan.tools?.running?.id).toBe('b')
+    expect(plan.summary.label).toBe('2 tool calls · Running sleep 2')
+    expect(plan.durationMs).toBeUndefined()
+    expect(plan.startedAt).toBe(2000)
+    expect(plan.summaryBlock.id).toBe('b')
+    const one = planGroupHeader([call('x', { status: 'running' }), status('s')], {
+      isActive: true,
+      activeBlockId: 's',
+      startedAt: 7,
     })
-    expect(plan.summaryBlock.id).toBe('t')
-    expect(plan.summary.label).toBe('tool-t')
-    expect(plan.hiddenCount).toBe(1)
-    expect(plan.isActive).toBe(false)
-    expect(plan.showTimer).toBe(false)
-    expect(plan.startedAt).toBe(100)
-    expect(plan.showRate).toBe(true)
+    expect(one.summary.label).toBe('tool-x')
+    expect(one.startedAt).toBe(7)
+  })
+
+  it('reads reasoning: one thought as its row, several as a truthful count', () => {
+    const one = planGroupHeader(
+      [reasoning('r', { durationMs: 2400 }), { type: 'status', id: 's', phase: 'complete' }],
+      {},
+    )
+    expect(one.kind).toBe('reasoning')
+    expect(one.summary.label).toBe('Thought for 2.4s')
+    expect(one.hiddenCount).toBe(0)
+    expect(one.showTimer).toBe(false)
+    const two = planGroupHeader(
+      [reasoning('a', { durationMs: 1000 }), reasoning('b', { durationMs: 2100 })],
+      {},
+    )
+    expect(two.reasoningCount).toBe(2)
+    expect(two.summary.label).toBe('Thought ×2 · 3.1s')
+    expect(two.hiddenCount).toBe(0)
+    expect(planGroupHeader([reasoning('a'), reasoning('b')], {}).summary.label).toBe('Reasoning ×2')
+  })
+
+  it('ticks live reasoning from its own start', () => {
+    const one = planGroupHeader([reasoning('r', { startedAt: 777 })], {
+      isActive: true,
+      activeBlockId: 'r',
+      startedAt: 1,
+    })
+    expect(one.summary.label).toBe('Thinking…')
+    expect(one.showTimer).toBe(true)
+    expect(one.startedAt).toBe(777)
+    const many = planGroupHeader(
+      [reasoning('a', { durationMs: 5 }), reasoning('b', { startedAt: 888 })],
+      { isActive: true, activeBlockId: 'b', startedAt: 1 },
+    )
+    expect(many.summary.label).toBe('Thinking… ×2')
+    expect(many.showTimer).toBe(true)
+    expect(many.durationMs).toBeUndefined()
+    expect(many.startedAt).toBe(888)
+    expect(planGroupHeader([reasoning('a'), reasoning('b')], {}).startedAt).toBeUndefined()
+  })
+
+  it('heads a plan group with the latest plan, counting the rest', () => {
+    const plan = planGroupHeader(
+      [
+        { type: 'plan', id: 'p1', entries: [] },
+        { type: 'plan', id: 'p2', entries: [{ content: 'x', status: 'completed' }] },
+        reasoning('r', { durationMs: 1 }),
+      ],
+      {},
+    )
+    expect(plan.kind).toBe('block')
+    expect(plan.summary.label).toBe('Plan 1/1')
+    expect(plan.hiddenCount).toBe(2)
   })
 
   it('keeps a trailing live status as the header with the message timer', () => {
-    const plan = planGroupHeader([tool('t'), status('s')], {
+    const plan = planGroupHeader([reasoning('r', { durationMs: 1 }), status('s')], {
       isActive: true,
       activeBlockId: 's',
       startedAt: 50,
@@ -159,29 +309,28 @@ describe('planGroupHeader', () => {
     expect(plan.showTimer).toBe(true)
     expect(plan.durationMs).toBe(900)
     expect(plan.showRate).toBe(true)
-    const idle = planGroupHeader([tool('t'), status('s')], { isActive: true, activeBlockId: 'zz' })
-    expect(idle.summaryBlock.id).toBe('t')
-    expect(idle.showRate).toBe(false)
-  })
-
-  it('ticks live reasoning from its own start', () => {
-    const plan = planGroupHeader([tool('t'), reasoning('r', { startedAt: 777 })], {
-      isActive: true,
-      activeBlockId: 'r',
-      startedAt: 1,
-    })
-    expect(plan.summary.label).toBe('Thinking…')
-    expect(plan.showTimer).toBe(true)
-    expect(plan.durationMs).toBeUndefined()
-    expect(plan.startedAt).toBe(777)
+    expect(plan.hiddenCount).toBe(1)
   })
 
   it('omits the anchor when nothing provides one, and status rate needs activity', () => {
-    const plan = planGroupHeader([tool('a'), tool('b')], {})
-    expect('startedAt' in plan).toBe(false)
     const statusHead = planGroupHeader([status('s'), status('s2')], { isActive: false })
     expect(statusHead.showRate).toBe(false)
     expect('durationMs' in statusHead).toBe(false)
+    expect('startedAt' in statusHead).toBe(false)
+    const custom = planGroupHeader(
+      [{ type: 'note', id: 'n1' } as never, { type: 'note', id: 'n2' } as never],
+      { isActive: true },
+    )
+    expect(custom.showRate).toBe(false)
+    // Reasoning beside a non-summary custom kind heads the group by the policy.
+    const mixed = planGroupHeader(
+      [reasoning('r', { startedAt: 5, durationMs: 1 }), { type: 'note', id: 'n' } as never],
+      { overrides: { note: { auxEligible: true } } },
+    )
+    expect(mixed.kind).toBe('block')
+    expect(mixed.summaryBlock.id).toBe('r')
+    expect(mixed.startedAt).toBe(5)
+    expect(mixed.hiddenCount).toBe(1)
   })
 })
 

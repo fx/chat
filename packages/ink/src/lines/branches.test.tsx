@@ -171,12 +171,12 @@ describe('layout branches', () => {
         ctx({ detail: 'details' }),
       ),
     )
-    expect(details[0]).toBe('▾ (+1) ✻ … 12.0 tok/s')
+    expect(details[0]).toBe('▾ ✻ Thou… 12.0 tok/s')
     expect(details[1]).toMatch(/^ {2}▾ ✻ Thought/)
     const collapsed = text(
       layoutBody(msg(blocks, { metrics: { durationMs: 4000, tokensPerSecond: 12 } }), 60, ctx()),
     )
-    expect(collapsed[0]).toBe('▸ (+1) ✻ Thought for 0.9s 12.0 tok/s')
+    expect(collapsed[0]).toBe('▸ ✻ Thought for 0.9s 12.0 tok/s')
     const statusOnly = text(
       layoutBody(
         msg(
@@ -201,7 +201,7 @@ describe('layout branches', () => {
         ctx({ isActive: () => true, detail: 'details' }),
       ),
     )
-    expect(liveGroup[0]).toMatch(/^. \(\+1\) 🔧?ƒ run$|^. \(\+1\) ƒ run$/)
+    expect(liveGroup[0]).toBe('⠋ ƒ run · 2s')
     const system = text(
       layoutBody(msg([{ type: 'system', id: 'sy', text: 'Be brief.' }]), 40, ctx()),
     )

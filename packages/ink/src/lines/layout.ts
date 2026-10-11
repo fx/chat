@@ -28,6 +28,7 @@ import {
   statusLabel,
   summarizeBlock,
   toolDisplayInput,
+  toolHeadline,
   toolLabel,
   toolResultText,
 } from '@fx/chat-core'
@@ -192,6 +193,8 @@ interface HeaderParts {
   prefix?: Span
   icon?: string
   label: string
+  /** Spans right after the label (exempt from truncation), before the detail. */
+  after?: Span[] | undefined
   detail?: string | undefined
   qualifier?: Span | undefined
   trailing?: string | undefined
@@ -207,14 +210,18 @@ function headerRow(parts: HeaderParts, w: number, ctx: LayoutContext): LineDraft
   const tail: Span[] = []
   if (parts.qualifier) tail.push(span(' '), parts.qualifier)
   if (parts.trailing) tail.push(span(` ${parts.trailing}`, { role: 'muted' }))
-  const budget = Math.max(1, w - width(fixed, ctx.measure) - width(tail, ctx.measure))
+  const after = parts.after ?? []
+  const budget = Math.max(
+    1,
+    w - width(fixed, ctx.measure) - width(after, ctx.measure) - width(tail, ctx.measure),
+  )
   const label = parts.label.replace(/\s+/g, ' ').trim()
   const detail = parts.detail ? parts.detail.replace(/\s+/g, ' ').trim() : undefined
   const full = detail ? `${label} ${detail}` : label
   const cut = truncate(full, budget, ctx.measure)
   const labelPart = cut.slice(0, Math.min(label.length, cut.length))
   const detailPart = cut.slice(labelPart.length)
-  const middle: Span[] = [span(labelPart, { role: parts.error ? 'danger' : 'strong' })]
+  const middle: Span[] = [span(labelPart, { role: parts.error ? 'danger' : 'strong' }), ...after]
   if (detailPart) middle.push(span(detailPart, { role: 'muted' }))
   return {
     spans: [...fixed, ...middle, ...tail],
@@ -262,6 +269,11 @@ const APPROVAL: Record<string, [string, InkThemeRole] | undefined> = {
   denied: ['· denied', 'danger'],
   unavailable: ['· refused', 'danger'],
   pending: ['· awaiting approval', 'caution'],
+}
+
+function approvalQualifier(tool: ToolCallBlock | undefined): Span | undefined {
+  const approval = tool?.approval ? APPROVAL[tool.approval.state] : undefined
+  return approval ? span(approval[0], { role: approval[1] }) : undefined
 }
 
 function toolOutput(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
@@ -330,13 +342,13 @@ function toolOutput(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
 
 function toolRow(tool: ToolCallBlock, b: BodyContext): LineDraft[] {
   const live = isBlockActive(tool, { isActive: b.live, outcome: b.message.outcome })
-  const approval = tool.approval ? APPROVAL[tool.approval.state] : undefined
   const row = headerRow(
     {
       affordance: toolGlyph(tool, live, b.ctx),
       label: toolLabel(tool) || 'tool',
       detail: toolDisplayInput(tool),
-      qualifier: approval ? span(approval[0], { role: approval[1] }) : undefined,
+      qualifier: approvalQualifier(tool),
+      trailing: liveTimer(positiveTimestamp(tool.startedAt), tool.durationMs, live, b.ctx),
       error: tool.status === 'error',
       target: { kind: 'row-toggle', rowKey: tool.id },
     },
@@ -471,6 +483,7 @@ function blockLines(block: RenderableBlock, b: BodyContext): LineDraft[] {
 
 function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): LineDraft[] {
   const { ctx } = b
+  const g = ctx.glyphs
   const plan = planGroupHeader(blocks, {
     isActive: b.live,
     activeBlockId: b.activeBlockId,
@@ -479,27 +492,67 @@ function groupLines(key: string, blocks: RenderableBlock[], b: BodyContext): Lin
     durationMs: b.message.metrics?.durationMs,
   })
   const open = ctx.detail !== 'collapsed' || ctx.opened.isOpen(key, ROW_PATH)
-  const icon = plan.summary.iconName ? ctx.glyphs[plan.summary.iconName] : undefined
+  const icon = plan.summary.iconName ? g[plan.summary.iconName] : undefined
   const rate =
     plan.showRate && !b.live ? formatTokensPerSecond(b.message.metrics?.tokensPerSecond) : undefined
   const timer = plan.showTimer
     ? liveTimer(plan.startedAt, plan.durationMs, plan.isActive, ctx)
     : undefined
-  const header = headerRow(
-    {
-      affordance: plan.isActive
-        ? span(spinnerFrame(ctx), { role: 'marker' })
-        : span(open ? ctx.glyphs.expanded : ctx.glyphs.collapsed, { role: 'marker' }),
-      // A planned group holds two or more blocks, so it always hides some.
-      prefix: span(`(+${plan.hiddenCount})`, { role: 'marker' }),
-      ...(icon ? { icon } : {}),
-      label: plan.summary.label,
-      trailing: [timer, rate].filter(Boolean).join(' ') || undefined,
-      target: { kind: 'row-toggle', rowKey: key },
-    },
-    b.width,
-    ctx,
-  )
+  const affordance = plan.isActive
+    ? span(spinnerFrame(ctx), { role: 'marker' })
+    : span(open ? g.expanded : g.collapsed, { role: 'marker' })
+  const target: LineTarget = { kind: 'row-toggle', rowKey: key }
+  let header: LineDraft
+  if (plan.tools) {
+    // About the tool calls only: one call as its row reads, else the count and
+    // outcome split with the glyphs, the running call, then the time.
+    const t = plan.tools
+    const sep = g.separator
+    const counts: Span[] =
+      !t.only && t.failed > 0
+        ? [
+            span(sep, { role: 'muted' }),
+            span(`${t.succeeded} ${g.success}`, { role: 'positive' }),
+            span(' '),
+            span(`${t.failed} ${g.error}`, { role: 'danger' }),
+          ]
+        : []
+    const detail = t.only
+      ? toolDisplayInput(t.only)
+      : t.running
+        ? `${sep.trimStart()}${toolHeadline(t.running)}`
+        : undefined
+    header = headerRow(
+      {
+        affordance,
+        icon: g.wrench,
+        label: t.only ? toolLabel(t.only) || 'tool' : `${t.total} tool calls`,
+        after: counts,
+        detail,
+        qualifier: approvalQualifier(t.only),
+        trailing: timer ? `${sep.trimStart()}${timer}` : undefined,
+        error: t.only !== undefined && t.failed > 0,
+        target,
+      },
+      b.width,
+      ctx,
+    )
+  } else {
+    header = headerRow(
+      {
+        affordance,
+        ...(plan.hiddenCount > 0
+          ? { prefix: span(`(+${plan.hiddenCount})`, { role: 'marker' }) }
+          : {}),
+        ...(icon ? { icon } : {}),
+        label: plan.summary.label,
+        trailing: [timer, rate].filter(Boolean).join(' ') || undefined,
+        target,
+      },
+      b.width,
+      ctx,
+    )
+  }
   if (!open) return [header]
   const inner = { ...b, width: Math.max(1, b.width - 2) }
   return [

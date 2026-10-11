@@ -8,7 +8,13 @@
  * Pure: no React, no DOM. The React-DOM and terminal renderers both project
  * these plans, so labels, timers, and gates cannot drift between them.
  */
-import type { ContentBlock, MessageMetrics, MessageOutcome, StatusBlock } from '../model'
+import type {
+  ContentBlock,
+  MessageMetrics,
+  MessageOutcome,
+  StatusBlock,
+  ToolCallBlock,
+} from '../model'
 import { type BlockSummary, summarizeBlock } from './blockSummary'
 import type { RenderableBlock, RenderableMessage } from './extensions'
 import { formatDuration, formatTokensPerSecond, positiveTimestamp } from './format'
@@ -19,6 +25,7 @@ import {
   selectHeaderSummary,
 } from './grouping'
 import { collapseTurnAux } from './minimalGrouping'
+import { toolHeadline } from './tool'
 
 type Overrides = Record<string, Partial<TimelineBehavior>> | undefined
 
@@ -284,11 +291,34 @@ export interface GroupHeaderContext extends ActivityContext {
   overrides?: Overrides
 }
 
+/** A group's tool calls, counted for its header (see {@link toolGroupLabel}). */
+export interface ToolGroupCounts {
+  total: number
+  /** Calls that finished successfully. */
+  succeeded: number
+  /** Calls that failed, including denied and unavailable ones. */
+  failed: number
+  /** The latest live call, while one runs. */
+  running?: ToolCallBlock
+  /** The call itself, when the group holds exactly one. */
+  only?: ToolCallBlock
+}
+
 export interface GroupHeaderPlan {
+  /**
+   * What the header is about: the group's tool calls (`tools`; reasoning and
+   * status rows are not mentioned), its reasoning (`reasoning`), or one
+   * summary block (`block`: a plan, a live status row, other kinds).
+   */
+  kind: 'tools' | 'reasoning' | 'block'
+  /** The counts a `tools` header states; renderers may format them with their own glyphs. */
+  tools?: ToolGroupCounts
+  /** How many reasoning blocks a `reasoning` header covers. */
+  reasoningCount?: number
   /** The block heading the group. */
   summaryBlock: RenderableBlock
   summary: BlockSummary
-  /** The `+N` count of other blocks in the group. */
+  /** The `+N` count of other blocks in the group; 0 when the label states what the group holds. */
   hiddenCount: number
   /** Whether any block in the group is live (spinner). */
   isActive: boolean
@@ -302,22 +332,153 @@ export interface GroupHeaderPlan {
   showRate: boolean
 }
 
+/** Whether a tool call failed: an error, or a denied or unavailable approval. */
+function toolFailed(tool: ToolCallBlock): boolean {
+  const approval = tool.approval?.state
+  return tool.status === 'error' || approval === 'denied' || approval === 'unavailable'
+}
+
 /**
- * Plan a collapsed group's header: the summary block (a trailing live status
- * row keeps its timer visible; else the latest header-eligible block), its
- * label and icon, the `+N` count, and the timer / rate gates.
+ * The wall-clock time of a group's tool calls: from the earliest start to the
+ * latest end of the calls with a duration (parallel calls overlap), or the sum
+ * of their durations when one lacks a start; undefined when none has one.
+ */
+export function toolSpanMs(tools: ToolCallBlock[]): number | undefined {
+  const timed = tools.filter((tool) => tool.durationMs !== undefined)
+  if (timed.length === 0) return undefined
+  const starts = timed.map((tool) => positiveTimestamp(tool.startedAt))
+  if (starts.every((start) => start !== undefined)) {
+    const first = Math.min(...(starts as number[]))
+    const last = Math.max(
+      ...timed.map((tool, i) => (starts[i] as number) + (tool.durationMs as number)),
+    )
+    return last - first
+  }
+  return timed.reduce((sum, tool) => sum + (tool.durationMs as number), 0)
+}
+
+/**
+ * A tool group's header as plain text: one call reads as its row does
+ * (`toolHeadline`); more read `5 tool calls`, then `4 ok · 1 failed` when any
+ * failed, then the running call's headline while one runs, then the duration
+ * when given. Renderers with glyphs may format {@link ToolGroupCounts} themselves.
+ */
+export function toolGroupLabel(tools: ToolGroupCounts, durationMs?: number): string {
+  const parts: string[] = []
+  if (tools.only) {
+    parts.push(toolHeadline(tools.only))
+  } else {
+    parts.push(`${tools.total} tool call${tools.total === 1 ? '' : 's'}`)
+    if (tools.failed > 0) parts.push(`${tools.succeeded} ok`, `${tools.failed} failed`)
+    if (tools.running) parts.push(toolHeadline(tools.running))
+  }
+  if (durationMs !== undefined) parts.push(formatDuration(durationMs))
+  return parts.join(' · ')
+}
+
+/**
+ * Plan a collapsed group's header.
+ *
+ * - A group with tool calls is about them only: their count (or the one
+ *   call's headline), how many failed, the running call while live, and their
+ *   time — the span of the calls, or a live timer from the earliest start.
+ * - Else a group of reasoning (and finished status rows): one block reads as
+ *   its row; two or more read `Thought ×N · <total>` (`Thinking… ×N` live).
+ * - Else a plan heads it (unless a live status row trails), else the grouping
+ *   policy's summary block (a trailing live status row keeps its timer; else
+ *   the latest header-eligible block), with the `+N` count.
  */
 export function planGroupHeader(
   blocks: RenderableBlock[],
   context: GroupHeaderContext,
 ): GroupHeaderPlan {
   const trailing = blocks[blocks.length - 1] as RenderableBlock
-  const { block: summaryBlock, hiddenCount } = selectHeaderSummary(
-    blocks,
-    isBlockActive(trailing, context),
-    context.overrides,
-  )
   const isActive = blocks.some((block) => isBlockActive(block, context))
+  const rate = isActive || !context.isActive
+
+  const tools = blocks.filter((block) => block.type === 'tool_call') as ToolCallBlock[]
+  if (tools.length > 0) {
+    const live = tools.filter((tool) => isBlockActive(tool, context))
+    const running = live[live.length - 1]
+    const counts: ToolGroupCounts = {
+      total: tools.length,
+      succeeded: tools.filter((tool) => tool.status === 'success' && !toolFailed(tool)).length,
+      failed: tools.filter(toolFailed).length,
+      ...(running ? { running } : {}),
+      ...(tools.length === 1 ? { only: tools[0] as ToolCallBlock } : {}),
+    }
+    const durationMs = isActive ? undefined : toolSpanMs(tools)
+    const starts = tools
+      .map((tool) => positiveTimestamp(tool.startedAt))
+      .filter((start): start is number => start !== undefined)
+    const startedAt = starts.length > 0 ? Math.min(...starts) : context.startedAt
+    return {
+      kind: 'tools',
+      tools: counts,
+      summaryBlock: running ?? (tools[tools.length - 1] as ToolCallBlock),
+      summary: {
+        iconName: 'wrench',
+        label: toolGroupLabel(counts),
+        ...(durationMs !== undefined ? { durationMs } : {}),
+        showTimer: true,
+      },
+      hiddenCount: 0,
+      isActive,
+      showTimer: true,
+      ...(durationMs !== undefined ? { durationMs } : {}),
+      ...(startedAt !== undefined ? { startedAt } : {}),
+      showRate: false,
+    }
+  }
+
+  const trailingLiveStatus = trailing.type === 'status' && isBlockActive(trailing, context)
+  const reasoning = blocks.filter((block) => block.type === 'reasoning') as Array<
+    Extract<ContentBlock, { type: 'reasoning' }>
+  >
+  const reasoningOnly =
+    reasoning.length > 0 &&
+    blocks.every((block) => block.type === 'reasoning' || block.type === 'status')
+  if (reasoningOnly && !trailingLiveStatus) {
+    const liveThought = reasoning.find((block) => isBlockActive(block, context))
+    const anchor = liveThought ?? (reasoning[reasoning.length - 1] as (typeof reasoning)[number])
+    const startedAt = positiveTimestamp(anchor.startedAt) ?? context.startedAt
+    let summary: BlockSummary
+    if (reasoning.length === 1) {
+      summary = summarizeBlock(anchor, { isActive: liveThought !== undefined })
+    } else if (liveThought) {
+      summary = { iconName: 'brain', label: `Thinking… ×${reasoning.length}`, showTimer: true }
+    } else {
+      const timed = reasoning.filter((block) => block.durationMs !== undefined)
+      const total = timed.reduce((sum, block) => sum + (block.durationMs as number), 0)
+      summary = {
+        iconName: 'brain',
+        label:
+          timed.length > 0
+            ? `Thought ×${reasoning.length} · ${formatDuration(total)}`
+            : `Reasoning ×${reasoning.length}`,
+        ...(timed.length > 0 ? { durationMs: total } : {}),
+        showTimer: false,
+      }
+    }
+    return {
+      kind: 'reasoning',
+      reasoningCount: reasoning.length,
+      summaryBlock: anchor,
+      summary,
+      hiddenCount: 0,
+      isActive,
+      // Only a live thought ticks; a finished one carries its time in the label.
+      showTimer: summary.showTimer,
+      ...(startedAt !== undefined ? { startedAt } : {}),
+      showRate: rate,
+    }
+  }
+
+  const plans = blocks.filter((block) => block.type === 'plan')
+  const latestPlan = trailingLiveStatus ? undefined : plans[plans.length - 1]
+  const { block: summaryBlock, hiddenCount } = latestPlan
+    ? { block: latestPlan, hiddenCount: blocks.length - 1 }
+    : selectHeaderSummary(blocks, isBlockActive(trailing, context), context.overrides)
   const summary = summarizeBlock(summaryBlock, { isActive: isBlockActive(summaryBlock, context) })
   const summaryIsStatus = summaryBlock.type === 'status'
   const showTimer = summaryIsStatus || summary.showTimer
@@ -329,6 +490,7 @@ export function planGroupHeader(
         : undefined,
     ) ?? context.startedAt
   return {
+    kind: 'block',
     summaryBlock,
     summary,
     hiddenCount,
@@ -338,7 +500,7 @@ export function planGroupHeader(
     ...(startedAt !== undefined ? { startedAt } : {}),
     // A status-headed group shows the rate only while live; otherwise while
     // live, or once the whole message has finished.
-    showRate: summaryIsStatus ? isActive : isActive || !context.isActive,
+    showRate: summaryIsStatus ? isActive : rate,
   }
 }
 

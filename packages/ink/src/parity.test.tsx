@@ -51,7 +51,7 @@ describe('renderer parity', () => {
     )
     // The footer's arrangement is each renderer's own (DOM keeps its metrics
     // line; the terminal draws planned facts), but every value agrees.
-    for (const expected of ['Thought for 0.4s', '(+2)', 'It is 42.', 'm-1', '3.2s', '21.5 tok/s']) {
+    for (const expected of ['calculator', '0.0s', 'It is 42.', 'm-1', '3.2s', '21.5 tok/s']) {
       expect(domText).toContain(expected)
       expect(term).toContain(expected)
     }
@@ -146,5 +146,47 @@ describe('renderer parity', () => {
       expect(out.split('Thought for 0.4s')).toHaveLength(2)
       expect(out).not.toContain('(+')
     }
+  })
+
+  it('agrees on a tool group header: count, failures and wall-clock time', () => {
+    const turn: ChatMessage[] = [
+      {
+        id: 'g',
+        role: 'assistant',
+        blocks: [
+          ...Array.from({ length: 5 }, (_, i): ChatMessage['blocks'] => [
+            { type: 'reasoning', id: `r${i}`, text: 'x', durationMs: 100 },
+            {
+              type: 'tool_call',
+              id: `t${i}`,
+              name: 'fetch',
+              arguments: {},
+              status: i === 0 ? 'error' : 'success',
+              startedAt: 1000 + i * 2000,
+              durationMs: 1200,
+            },
+          ]).flat(),
+          { type: 'text', id: 'x', text: 'done' },
+        ],
+      },
+    ]
+    const domText =
+      render(
+        <ChatProvider>
+          <MessageLog messages={turn} />
+        </ChatProvider>,
+      ).container.querySelector('.chat-group')?.textContent ?? ''
+    const term = renderToString(
+      <InkChatProvider>
+        <Transcript messages={turn} />
+      </InkChatProvider>,
+      { columns: 100 },
+    )
+    for (const out of [domText, term]) {
+      expect(out).toContain('5 tool calls')
+      expect(out).toContain('9.2s')
+      expect(out).not.toContain('(+')
+    }
+    expect(domText).toContain('4 ok · 1 failed')
   })
 })

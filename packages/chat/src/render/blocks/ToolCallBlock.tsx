@@ -101,6 +101,7 @@ export function ToolCallBlockView({ block, defaultOpen, isActive: live }: ToolCa
       isActive={isActive}
       startedAt={block.startedAt}
       durationMs={block.durationMs}
+      showTimer
       error={isError}
       defaultOpen={isError ? true : defaultOpen}
       alwaysShow

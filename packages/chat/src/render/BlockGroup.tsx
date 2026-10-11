@@ -1,8 +1,9 @@
 import { planGroupHeader } from '@fx/chat-core'
 /**
  * `BlockGroup` — renders a collapsed run of auxiliary blocks under one
- * disclosure, with a header summary chip selected by the grouping policy and a
- * plain muted `(+N)` text count of the hidden blocks.
+ * disclosure, with the header core plans (`planGroupHeader`): a tool group's
+ * count, outcome split and time; a reasoning group's thoughts; else a summary
+ * chip and a plain muted `(+N)` text count of the hidden blocks.
  *
  * The header summary text is derived from the chosen block's kind via the
  * grouping policy's selection (`selectHeaderSummary`), never via ad-hoc kind
@@ -43,7 +44,12 @@ export function BlockGroup({ blocks, context, defaultOpen, extensions }: BlockGr
     ) : null
 
   const label = (
-    <span className={cx('chat-group-summary', cn.groupSummary)}>
+    <span
+      className={cx('chat-group-summary', cn.groupSummary)}
+      {...(header.tools
+        ? { 'data-tools': header.tools.total, 'data-failed': header.tools.failed }
+        : {})}
+    >
       <span className={cx('chat-group-summary-label', cn.groupSummaryLabel)}>{summary.label}</span>
     </span>
   )

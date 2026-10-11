@@ -220,6 +220,26 @@ describe('ReasoningBlockView', () => {
 })
 
 describe('ToolCallBlockView', () => {
+  it('shows its duration, or a live timer from its start while it runs', () => {
+    vi.setSystemTime(5000)
+    const done: ToolCallBlock = {
+      type: 'tool_call',
+      id: 'tc',
+      name: 'search',
+      arguments: {},
+      status: 'success',
+      durationMs: 1500,
+    }
+    const { container, rerender } = render(<ToolCallBlockView block={done} />)
+    expect(container.querySelector('.chat-row-timer')?.textContent).toBe('1.5s')
+    rerender(
+      <ToolCallBlockView
+        block={{ ...done, status: 'running', durationMs: undefined, startedAt: 3000 } as never}
+      />,
+    )
+    expect(container.querySelector('.chat-row-timer')?.textContent).toBe('2.0s')
+  })
+
   it('shows the name and input, with no output when result is absent', () => {
     const block: ToolCallBlock = {
       type: 'tool_call',

@@ -142,7 +142,7 @@ describe('Row helpers', () => {
 describe('MessageView', () => {
   it('renders a finished turn collapsed with footer metrics', () => {
     expect(str(<MessageView message={finished} />)).toBe(
-      '• ▸ (+1) ƒ calc 42.0 tok/s\n  Answer\n  2.4s · ✻ 17 · ƒ 1 tool · m-1 · 42.0 tok/s',
+      '• ▸ ƒ calc {"x":1} 0.0s\n  Answer\n  2.4s · ✻ 17 · ƒ 1 tool · m-1 · 42.0 tok/s',
     )
   })
 
@@ -224,8 +224,8 @@ describe('MessageView', () => {
     }
     const out = str(<MessageView message={m} minimal expanded showFooter={false} />)
     expect(out).toContain('▾ § System prompt\n    Be brief.')
-    expect(out).toContain('(+1)')
-    expect(out).not.toContain('·')
+    expect(out).toContain('✻ Thought ×2 · 0.1s')
+    expect(out.split('\n').at(-1)).toBe('  ok')
   })
 
   it('renders custom blocks through host renderers or as an inert label', () => {
@@ -321,7 +321,7 @@ describe('MessageView edge cases', () => {
       ],
     }
     const out = str(<MessageView message={live} isActive expanded />)
-    expect(out).toContain('▾ (+1) ƒ calc')
+    expect(out).toContain('▾ ƒ calc')
     expect(out).not.toContain('tok/s')
     expect(out).toContain('⠋ ƒ slow')
     expect(out).not.toContain('output')

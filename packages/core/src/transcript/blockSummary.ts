@@ -48,9 +48,9 @@ export interface BlockSummaryContext {
  *   elapsed time; once finished, the "Thought for <dur>" label already embeds
  *   the duration, so a separate pill would duplicate it. (The tok/s pill is
  *   added by `BlockGroup`, not here.)
- * - tool_call → `wrench`; label is the tool name; carries `durationMs`, but NO
- *   timer pill — the bare `ToolCallBlockView` renders none, so the group header
- *   matches it.
+ * - tool_call → `wrench`; label is the tool name; carries `durationMs` and a
+ *   timer pill — its duration once finished, a live timer from `startedAt`
+ *   while it runs (renderers gate the pill with `shouldShowTimer`).
  * - system → `gear`; label "System prompt"; no timer.
  * - any other kind (status, custom) → label from its type, no icon, no timer. A
  *   custom kind MAY carry a host-supplied `label` string (see
@@ -104,9 +104,8 @@ export function summarizeBlock(
         iconName: 'wrench',
         label: toolLabel(tool),
         ...(tool.durationMs !== undefined ? { durationMs: tool.durationMs } : {}),
-        // No timer pill: the bare ToolCallBlockView renders none, so the group
-        // header matches it (avoids a standalone duration pill on tool rows).
-        showTimer: false,
+        // A tool row shows its time: the duration, or live elapsed while running.
+        showTimer: true,
       }
     }
     case 'system':

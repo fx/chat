@@ -137,6 +137,7 @@ function BlockRow({ block, ctx }: { block: RenderableBlock; ctx: Ctx }) {
           isActive={live}
           startedAt={core.startedAt}
           durationMs={core.durationMs}
+          showTimer
           error={isError}
           expanded={ctx.expanded}
         >

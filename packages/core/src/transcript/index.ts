@@ -42,6 +42,7 @@ export type {
   MessagePlan,
   MessagePlanOptions,
   PlannedRow,
+  ToolGroupCounts,
 } from './plan'
 export {
   earlierLabel,
@@ -51,6 +52,8 @@ export {
   planMessage,
   shouldShowTimer,
   statusLabel,
+  toolGroupLabel,
+  toolSpanMs,
 } from './plan'
 export {
   summarizeToolInput,
