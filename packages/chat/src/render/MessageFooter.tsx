@@ -1,5 +1,12 @@
 import type { MessageMetrics, MessageOutcome } from '@fx/chat-core'
-import { formatCost, formatElapsed, formatFooterMetrics } from '@fx/chat-core'
+import {
+  formatCost,
+  formatDuration,
+  formatElapsed,
+  formatFooterMetrics,
+  formatTokenCount,
+  formatTokensPerSecond,
+} from '@fx/chat-core'
 import { useElapsedTimer } from '@fx/chat-core/react'
 /**
  * `MessageFooter` — per-message affordances and metrics.
@@ -19,13 +26,15 @@ import { useElapsedTimer } from '@fx/chat-core/react'
  * visible but ICON-ONLY, sitting next to a kebab (`dotsThree`) toggle. The kebab
  * reveals the TEXT LABELS for those actions and the metrics line (model ·
  * duration · tokens/sec). Metrics render only when present and degrade
- * gracefully when absent.
+ * gracefully when absent. When the registry provides a `MessageDetails`
+ * presenter, the kebab opens it with the metrics, outcome, copy text and
+ * actions instead, and nothing is revealed inline.
  *
  * Every visual atom and icon comes from `useChatComponents()`.
  */
 import { useState } from 'react'
 import { cx } from '../cx'
-import { useChatClassNames, useChatComponents } from '../registry'
+import { type MessageDetail, useChatClassNames, useChatComponents } from '../registry'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
@@ -60,6 +69,46 @@ function metricsText(metrics?: MessageMetrics): string | undefined {
   const parts = [formatFooterMetrics(metrics), metrics?.cost ? formatCost(metrics.cost) : undefined]
   const text = parts.filter(Boolean).join(' · ')
   return text || undefined
+}
+
+/** The metrics as labelled facts for a `MessageDetails` presenter, present fields only. */
+export function messageDetails(metrics?: MessageMetrics): MessageDetail[] {
+  if (!metrics) return []
+  const out: MessageDetail[] = []
+  const add = (key: MessageDetail['key'], label: string, value: string | undefined) => {
+    if (value) out.push({ key, label, value })
+  }
+  add('model', 'Model', metrics.model)
+  add(
+    'duration',
+    'Duration',
+    metrics.durationMs !== undefined ? formatDuration(metrics.durationMs) : undefined,
+  )
+  add('rate', 'Speed', formatTokensPerSecond(metrics.tokensPerSecond))
+  const { prompt, completion, total } = metrics.usage ?? {}
+  const tokens = [
+    prompt !== undefined ? `${formatTokenCount(prompt)} in` : undefined,
+    completion !== undefined ? `${formatTokenCount(completion)} out` : undefined,
+  ].filter(Boolean)
+  add(
+    'tokens',
+    'Tokens',
+    tokens.length > 0
+      ? tokens.join(' · ')
+      : total !== undefined
+        ? formatTokenCount(total)
+        : undefined,
+  )
+  add('cost', 'Cost', metrics.cost ? formatCost(metrics.cost) : undefined)
+  const { context } = metrics
+  add(
+    'context',
+    'Context',
+    context
+      ? `${formatTokenCount(context.used)}${context.size !== undefined ? ` of ${formatTokenCount(context.size)}` : ''}`
+      : undefined,
+  )
+  return out
 }
 
 /**
@@ -116,7 +165,7 @@ export function MessageFooter({
   outcome,
   compact = false,
 }: MessageFooterProps) {
-  const { Button, CopyButton, icons } = useChatComponents()
+  const { Button, CopyButton, MessageDetails, icons } = useChatComponents()
   const cn = useChatClassNames()
   const [revealed, setRevealed] = useState(false)
   const RegenerateIcon = icons.regenerate
@@ -141,10 +190,12 @@ export function MessageFooter({
   // its gate holds (Copy needs non-whitespace `copyText`; regenerate/fork/reset
   // need their callback), but a rendered button's icon is visible in both modes —
   // compact mode only hides the labels, never the buttons.
-  const showLabels = !compact || revealed
+  // A host presenter takes over what the compact kebab reveals.
+  const Presenter = compact ? MessageDetails : undefined
+  const showLabels = !compact || (revealed && !Presenter)
   // The metrics line is always shown in the default layout, but in compact mode
   // it is part of what the kebab reveals.
-  const showMetrics = !compact || revealed
+  const showMetrics = showLabels
   // The kebab reveals action labels and the metrics line. In compact mode it is
   // only worth rendering when there is actually something to reveal: at least one
   // action callback (regenerate/fork/reset) OR metrics with renderable content.
@@ -165,7 +216,7 @@ export function MessageFooter({
       {compact && hasRevealable ? (
         <Button
           className={cx('chat-footer-reveal', cn.footerReveal)}
-          aria-label={revealed ? 'Hide actions' : 'Show actions'}
+          aria-label={Presenter ? 'Message details' : revealed ? 'Hide actions' : 'Show actions'}
           onClick={() => setRevealed((v) => !v)}
         >
           <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
@@ -209,6 +260,35 @@ export function MessageFooter({
         </Button>
       ) : null}
       {metrics && showMetrics && hasMetrics ? <Metrics metrics={metrics} /> : null}
+      {Presenter && hasRevealable ? (
+        <Presenter
+          open={revealed}
+          onOpenChange={setRevealed}
+          details={messageDetails(metrics)}
+          outcome={
+            outcome?.kind === 'error' ? { kind: 'error', message: outcome.message } : outcome
+          }
+          copyText={showCopy ? copyText : ''}
+          actions={[
+            ...(onRegenerate
+              ? [
+                  {
+                    id: 'regenerate' as const,
+                    label: 'Regenerate',
+                    icon: RegenerateIcon,
+                    onSelect: onRegenerate,
+                  },
+                ]
+              : []),
+            ...(onFork
+              ? [{ id: 'fork' as const, label: 'Fork', icon: ForkIcon, onSelect: onFork }]
+              : []),
+            ...(onReset
+              ? [{ id: 'reset' as const, label: 'Reset', icon: ResetIcon, onSelect: onReset }]
+              : []),
+          ]}
+        />
+      ) : null}
     </div>
   )
 }

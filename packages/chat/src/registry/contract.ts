@@ -245,6 +245,43 @@ export interface LightboxProps {
   className?: string
 }
 
+/** One labelled, ready-to-show fact about a message (e.g. `Duration` → `1.5s`). */
+export interface MessageDetail {
+  key: 'model' | 'duration' | 'rate' | 'tokens' | 'cost' | 'context'
+  label: string
+  value: string
+}
+
+/** A message action offered through {@link ChatComponents.MessageDetails}. */
+export interface MessageDetailsAction {
+  id: 'regenerate' | 'fork' | 'reset'
+  /** The action's label, as the footer would show it. */
+  label: string
+  /** The action's icon (from the icon registry). */
+  icon: IconComponent
+  onSelect: () => void
+}
+
+/**
+ * Props for the {@link ChatComponents.MessageDetails} presenter: everything a
+ * compact footer's reveal would show, handed to the host to present its own
+ * way (a bottom sheet, a popover). Controlled: shown while `open`; the host
+ * reports dismissal through `onOpenChange(false)` and SHOULD close after an
+ * action runs.
+ */
+export interface MessageDetailsProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** The message's metrics as labelled, formatted facts, in display order. */
+  details: MessageDetail[]
+  /** How the message ended, when it did not simply complete. */
+  outcome?: { kind: 'stopped' } | { kind: 'error'; message: string } | undefined
+  /** The message text to copy; empty when there is nothing to copy. */
+  copyText: string
+  /** The actions available on the message, in footer order. */
+  actions: MessageDetailsAction[]
+}
+
 /** Props every icon slot must accept. */
 export interface IconProps {
   className?: string
@@ -317,6 +354,13 @@ export interface ChatComponents {
    * to the headless default when a host omits it.
    */
   Lightbox?: ComponentType<LightboxProps>
+  /**
+   * OPTIONAL presenter for a compact footer's details and actions. When a host
+   * provides it, the compact footer's reveal control opens it instead of
+   * revealing labels and metrics inline. There is no headless default: absent,
+   * the footer reveals inline.
+   */
+  MessageDetails?: ComponentType<MessageDetailsProps>
   icons: IconRegistry
 }
 

@@ -415,7 +415,10 @@ scope** and MUST NOT appear in this package.
   renders (see the footer visibility gate below) — only when the message has non-whitespace
   copyable text (whitespace-only counts as empty; a tool-call-only turn has an empty copy
   payload, so no copy control).
-- A compact footer mode MUST be supported (icon-only with a reveal toggle).
+- A compact footer mode MUST be supported (icon-only with a reveal toggle). When the registry
+  provides a `MessageDetails` presenter, the toggle (labelled "Message details") MUST open it
+  with the message's details, outcome, copy text and actions, and MUST NOT reveal labels or
+  metrics inline; outside compact mode, or with nothing to reveal, the presenter is not used.
 - Footer metrics (model, duration, tokens/sec) MUST render only when present and MUST degrade
   gracefully when absent.
 - The footer MUST NOT render while the message is actively streaming (`isActive` — in
@@ -910,3 +913,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
 | 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | — |
