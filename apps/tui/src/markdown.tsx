@@ -15,7 +15,27 @@ import { type Token, type Tokens, lexer } from 'marked'
  * lexer for structure and draws every piece in a theme tone, so it follows the
  * tx theme like the rest of the transcript.
  */
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
+
+/**
+ * marked decodes numeric entities (`&#27;`, `&#x9b;`) into real control
+ * characters after the entry guard has run, so every string drawn here goes
+ * through this `ink.Text` wrapper, which strips them at the sink. Elements
+ * other than fragments draw their own strings through this wrapper too.
+ */
+function clean(node: ReactNode): ReactNode {
+  if (typeof node === 'string') return stripControls(node)
+  if (Array.isArray(node)) return node.map(clean)
+  if (React.isValidElement<{ children?: ReactNode }>(node) && node.type === React.Fragment)
+    return React.cloneElement(node, undefined, ...kids(node.props.children))
+  return node
+}
+const kids = (children: ReactNode): ReactNode[] =>
+  Array.isArray(children) ? children.map(clean) : [clean(children)]
+
+function Text({ children, ...props }: ComponentProps<typeof ink.Text>) {
+  return React.createElement(ink.Text, props, ...kids(children))
+}
 
 function Inline({ tokens }: { tokens: Token[] | undefined }): ReactNode {
   const { theme } = useInkComponents()
@@ -24,54 +44,54 @@ function Inline({ tokens }: { tokens: Token[] | undefined }): ReactNode {
     switch (token.type) {
       case 'strong':
         return (
-          <ink.Text key={key} bold>
+          <Text key={key} bold>
             <Inline tokens={(token as Tokens.Strong).tokens} />
-          </ink.Text>
+          </Text>
         )
       case 'em':
         return (
-          <ink.Text key={key} italic>
+          <Text key={key} italic>
             <Inline tokens={(token as Tokens.Em).tokens} />
-          </ink.Text>
+          </Text>
         )
       case 'del':
         return (
-          <ink.Text key={key} strikethrough>
+          <Text key={key} strikethrough>
             <Inline tokens={(token as Tokens.Del).tokens} />
-          </ink.Text>
+          </Text>
         )
       case 'codespan':
         return (
-          <ink.Text key={key} {...appearanceProps(theme.caution)}>
+          <Text key={key} {...appearanceProps(theme.caution)}>
             {(token as Tokens.Codespan).text}
-          </ink.Text>
+          </Text>
         )
       case 'link': {
         const link = token as Tokens.Link
         const label = link.text
         return (
-          <ink.Text key={key}>
-            <ink.Text underline>
+          <Text key={key}>
+            <Text underline>
               <Inline tokens={link.tokens} />
-            </ink.Text>
+            </Text>
             {label !== link.href ? (
-              <ink.Text {...appearanceProps(theme.muted)}> ({link.href})</ink.Text>
+              <Text {...appearanceProps(theme.muted)}> ({link.href})</Text>
             ) : null}
-          </ink.Text>
+          </Text>
         )
       }
       case 'br':
-        return <ink.Text key={key}>{'\n'}</ink.Text>
+        return <Text key={key}>{'\n'}</Text>
       case 'text': {
         const t = token as Tokens.Text
         return t.tokens ? (
           <Inline key={key} tokens={t.tokens} />
         ) : (
-          <ink.Text key={key}>{decode(t.text)}</ink.Text>
+          <Text key={key}>{decode(t.text)}</Text>
         )
       }
       default:
-        return <ink.Text key={key}>{decode((token as { raw: string }).raw)}</ink.Text>
+        return <Text key={key}>{decode((token as { raw: string }).raw)}</Text>
     }
   })
 }
@@ -95,9 +115,9 @@ function Block({ token }: { token: Token }): ReactNode {
       )
     case 'paragraph':
       return (
-        <ink.Text>
+        <Text>
           <Inline tokens={(token as Tokens.Paragraph).tokens} />
-        </ink.Text>
+        </Text>
       )
     case 'code': {
       const code = token as Tokens.Code
@@ -113,7 +133,7 @@ function Block({ token }: { token: Token }): ReactNode {
             borderDimColor
             paddingLeft={1}
           >
-            <ink.Text>{code.text}</ink.Text>
+            <Text>{code.text}</Text>
           </ink.Box>
         </ink.Box>
       )
@@ -160,7 +180,8 @@ function Block({ token }: { token: Token }): ReactNode {
     }
     case 'table': {
       const table = token as Tokens.Table
-      const cell = (c: Tokens.TableCell) => c.text
+      // Cleaned before measuring, so widths match what is drawn.
+      const cell = (c: Tokens.TableCell) => stripControls(c.text)
       const widths = table.header.map((h, i) =>
         Math.max(cell(h).length, ...table.rows.map((r) => (r[i] ? cell(r[i]).length : 0))),
       )
@@ -172,7 +193,7 @@ function Block({ token }: { token: Token }): ReactNode {
           <Styled tone="chrome">{widths.map((w) => '─'.repeat(w)).join('─┼─')}</Styled>
           {table.rows.map((row, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: rows have no identity beyond position
-            <ink.Text key={i}>{line(row.map(cell))}</ink.Text>
+            <Text key={i}>{line(row.map(cell))}</Text>
           ))}
         </ink.Box>
       )
@@ -185,10 +206,10 @@ function Block({ token }: { token: Token }): ReactNode {
       return null
     case 'text': {
       const t = token as Tokens.Text
-      return <ink.Text>{t.tokens ? <Inline tokens={t.tokens} /> : decode(t.text)}</ink.Text>
+      return <Text>{t.tokens ? <Inline tokens={t.tokens} /> : decode(t.text)}</Text>
     }
     default:
-      return <ink.Text>{(token as { raw: string }).raw.trimEnd()}</ink.Text>
+      return <Text>{(token as { raw: string }).raw.trimEnd()}</Text>
   }
 }
 
@@ -197,7 +218,7 @@ function Blocks({ tokens }: { tokens: Token[] }) {
 }
 
 export function TerminalMarkdown({ content }: InkMarkdownProps) {
-  // MessageView cleans content already; this slot draws with the host's raw `ink.Text`, so it guards itself too.
+  // MessageView cleans content already; this slot guards its input too, and `Text` cleans what marked decodes.
   const tokens = lexer(stripControls(content)).filter((t) => t.type !== 'space')
   return (
     <ink.Box flexDirection="column" gap={1}>

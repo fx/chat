@@ -1,4 +1,4 @@
-import { InkChatProvider } from '@fx/chat-ink'
+import { InkChatProvider, stripControls } from '@fx/chat-ink'
 import { renderToString } from 'ink'
 import { describe, expect, it } from 'vitest'
 import { TerminalMarkdown } from './markdown'
@@ -52,5 +52,17 @@ describe('TerminalMarkdown', () => {
     )
     expect(out).toContain('abc')
     for (const bad of ['\u009b', '\u007f', '\u009d', '\u001b]52']) expect(out).not.toContain(bad)
+  })
+
+  it('draws no controls that marked decodes from numeric entities', () => {
+    const entities = ['&#27;', '&#x1b;', '&#x9b;', '&#155;', '&#127;', '&#X1B;', '&#0027;']
+    for (const e of entities) {
+      const out = md(
+        `# h${e}[31m${e}]52;c;QQ==\u0007x\n\np${e}[2Jq x${e}[31my **b${e}b** <span>${e}</span>\n\n- li${e}[31m\n\n| a${e}[31m | b |\n|---|---|\n| c${e}[31m | d |\n\n[l${e}[31mk](https://x.test/${e}) ![al${e}t](https://i.test/${e}) \`c${e}d\`\n\n\`\`\`\nk${e}[31m\n\`\`\``,
+      )
+      expect(out).toContain('li')
+      // The test renderer draws no styling, so any control left is one the content smuggled in.
+      expect(stripControls(out)).toBe(out)
+    }
   })
 })
