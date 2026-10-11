@@ -13,6 +13,7 @@
 | [Chat Agent](specs/chat-agent/) | UI-free OpenAI-compatible agent runtime — streaming into ChatMessages, tool loop, approval, cancellation | active |
 | [Mobile App](specs/mobile-app/) | Android reference app (Tauri v2) — endpoint profiles, persisted conversations, agent chat, tools, injected theme | active |
 | [Ink Renderer](specs/ink-renderer/) | Terminal renderer on Ink — injected theme roles, glyphs and markdown; live turns; keyboard composer | active |
+| [Terminal App](specs/terminal-app/) | `tx chat` — terminal agent chat as a tx plugin: settings via tx config, tx theme, setup dialogs, slash commands | active |
 | [Message Rendering](specs/message-rendering/) | Message log, block renderers, streaming/timing hooks, auxiliary-block grouping, affordances | active |
 
 ## Changes
@@ -40,8 +41,8 @@
 | 0019 | [Core Extraction](changes/0019-core-extraction.md) | [Chat Core](specs/chat-core/) | complete | — |
 | 0020 | [Agent Runtime](changes/0020-agent-runtime.md) | [Chat Agent](specs/chat-agent/) | complete | 0019 |
 | 0021 | [Mobile App](changes/0021-mobile-app.md) | [Mobile App](specs/mobile-app/) | complete | 0019, 0020 |
-| 0022 | [Ink Renderer](changes/0022-ink-renderer.md) | [Ink Renderer](specs/ink-renderer/) | draft | 0019, 0020 |
-| 0023 | [Agent Activity Model](changes/0023-agent-activity-model.md) | [Message Model](specs/message-model/) | draft | 0022 |
+| 0022 | [Ink Renderer](changes/0022-ink-renderer.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0019, 0020 |
+| 0023 | [Agent Activity Model](changes/0023-agent-activity-model.md) | [Message Model](specs/message-model/) | complete | 0022 |
 | 0024 | [Plan Block](changes/0024-plan-block.md) | [Message Model](specs/message-model/) | complete | 0023 |
 | 0025 | [Activity Planning](changes/0025-activity-planning.md) | [Message Rendering](specs/message-rendering/) | complete | 0023, 0024 |
 | 0026 | [Loose Json](changes/0026-loose-json.md) | [Chat Core](specs/chat-core/) | complete | — |
@@ -50,4 +51,5 @@
 | 0029 | [Terminal Markdown](changes/0029-terminal-markdown.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028 |
 | 0030 | [Ink Composer Fullscreen](changes/0030-ink-composer-fullscreen.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028 |
 | 0031 | [Ink Mouse And Images](changes/0031-ink-mouse-and-images.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028, 0029 |
-| 0033 | [Host Instances](changes/0033-host-instances.md) | [Ink Renderer](specs/ink-renderer/) | draft | 0028, 0029, 0030, 0031 |
+| 0032 | [Tui Fullscreen](changes/0032-tui-fullscreen.md) | [Terminal App](specs/terminal-app/) | complete | 0028, 0029, 0030, 0031 |
+| 0033 | [Host Instances](changes/0033-host-instances.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028, 0029, 0030, 0031, 0032 |

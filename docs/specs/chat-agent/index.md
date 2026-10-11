@@ -117,7 +117,7 @@ receives an immutable snapshot after every applied delta.
 
 ### Built-in Tools
 
-- The package MUST offer the built-in tools agent hosts commonly share — current date/time, a
+- The package MUST offer the built-in tools the reference apps share — current date/time, a
   deterministic arithmetic calculator (a parser, never evaluating code; IEEE-754 double precision),
   and an HTTP GET page fetcher returning text, truncated to a fixed limit — each enabled per host,
   with network tools requiring approval by default.
@@ -206,4 +206,5 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-10-10 | Initial spec created | [0020-agent-runtime](../../changes/0020-agent-runtime.md) |
+| 2026-10-10 | Built-in tools moved in from the mobile app; abort honoured per event | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Approval state, message outcome, cost/context metrics | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |

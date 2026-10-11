@@ -5,8 +5,8 @@
 Render `@fx/chat-ink` with the React and Ink a host hands in (`createChatInk({ React, ink })`, core hooks as `createCoreHooks(React)` on `@fx/chat-core/hooks`), move `tx chat` onto tx's injected instances, and close the gaps another tx plugin (rc) hit embedding the renderer: sibling text runs, a status-line idle label, footer extras, footer-only finished activity, viewport-driven image query, an optional JPEG decoder subpath, reactive composer history and a composer height helper.
 
 **Spec:** [ink-renderer](../specs/ink-renderer/), [layout](../specs/ink-renderer/layout.md), [composer](../specs/ink-renderer/composer.md), [images](../specs/ink-renderer/images.md), [terminal-app](../specs/terminal-app/)
-**Status:** draft
-**Depends On:** 0028, 0029, 0030, 0031
+**Status:** complete
+**Depends On:** 0028, 0029, 0030, 0031, 0032
 
 ## Motivation
 
@@ -45,11 +45,11 @@ GIF/WebP decoding; per-instance isolation of two bindings in one process.
 
 - [x] Core hooks factory and `./hooks` subpath; React-free guard extended
 - [x] `createChatInk` runtime binding, classic JSX, lazy registry context, `ClockProvider`
-- [ ] `tx chat` on tx's instances; Ink version check; no React/Ink in the plugin bundle
+- [x] `tx chat` on tx's instances; Ink version check; no React/Ink in the plugin bundle
 - [x] Sibling text runs; status-line idle label; footer extras; footer-only finished activity
 - [x] Viewport writes the image query and routes replies; JPEG decoder subpath
 - [x] Composer history follows the host's list; `composerRows`
-- [ ] tmux verification with tx 2.0.0 (render, tool turn, Ink 7 refusal, mouse copy); specs/indexes
+- [x] tmux verification with tx 2.0.0 (render, tool turn, Ink 7 refusal, mouse copy); specs/indexes
 
 ## References
 

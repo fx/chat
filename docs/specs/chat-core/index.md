@@ -154,7 +154,7 @@ nothing in core depends on them.
 
 ## Open Questions
 
-- **Row view-model.** Resolved: render planning lives in core and `@fx/chat` uses it.
+- **Row view-model.** Resolved in change 0022: render planning lives in core and `@fx/chat` uses it.
 
 ## References
 
@@ -168,6 +168,7 @@ nothing in core depends on them.
 | Date | Change | Document |
 |------|--------|----------|
 | 2026-10-10 | Initial spec created | [0019-core-extraction](../../changes/0019-core-extraction.md) |
+| 2026-10-10 | Render planning (rows, group header, footer gate, labels) moved into core | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Agent-activity helpers | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
 | 2026-10-10 | Footer facts, counts, live phase, placement, live tail | [0025-activity-planning](../../changes/0025-activity-planning.md) |
 | 2026-10-10 | `./json` loose-JSON subpath | [0026-loose-json](../../changes/0026-loose-json.md) |

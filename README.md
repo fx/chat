@@ -20,6 +20,7 @@ packages/chat/   @fx/chat — the published React-DOM renderers (re-exports core
 packages/agent/  @fx/chat-agent — UI-free OpenAI-compatible agent runtime + built-in tools (optional)
 packages/ink/    @fx/chat-ink — terminal (Ink) renderer
 apps/mobile/     Android reference app (Tauri v2)
+apps/tui/        `tx chat` terminal reference app (tx plugin; .tx/config.json)
 demos/chat-demo/  static Vite + React demo (deployed to GitHub Pages under /chat/)
 docs/             specs and change documents
 scripts/          repository checks (no internal references)

@@ -22,6 +22,7 @@ Supplementary documents (normative, same ownership rules):
 - [Mouse](./mouse.md) — scrolling, selection, copy and click targets.
 - [Images](./images.md) — the image-provider contract and the opt-in kitty provider.
 
+The terminal reference app built on it is specified in [terminal-app](../terminal-app/).
 
 ## Background
 

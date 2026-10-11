@@ -42,6 +42,10 @@ specs:
     path: specs/ink-renderer/
     description: Terminal renderer on Ink — injected theme roles, glyphs and markdown; live turns; keyboard composer
     status: active
+  - name: terminal-app
+    path: specs/terminal-app/
+    description: "`tx chat` — terminal agent chat as a tx plugin: settings via tx config, tx theme, setup dialogs, slash commands"
+    status: active
 
 changes:
   - id: "0001"
@@ -196,14 +200,14 @@ changes:
     path: changes/0022-ink-renderer.md
     description: "@fx/chat-ink terminal renderer, plain-text registry, keyboard composer, example CLI"
     spec: ink-renderer
-    status: draft
+    status: complete
     depends_on: ["0019", "0020"]
   - id: "0023"
     name: agent-activity-model
     path: changes/0023-agent-activity-model.md
     description: "Tool title/kind/input/approval, message outcome, cost/context, attachment description; liveness gating; agent producer"
     spec: message-model
-    status: draft
+    status: complete
     depends_on: ["0022"]
   - id: "0024"
     name: plan-block
@@ -261,10 +265,17 @@ changes:
     spec: ink-renderer
     status: complete
     depends_on: ["0028", "0029"]
+  - id: "0032"
+    name: tui-fullscreen
+    path: changes/0032-tui-fullscreen.md
+    description: "tx chat fullscreen by default (viewport, status line, queue, mouse, images); --inline"
+    spec: terminal-app
+    status: complete
+    depends_on: ["0028", "0029", "0030", "0031"]
   - id: "0033"
     name: host-instances
     path: changes/0033-host-instances.md
     description: "Render with the host's React and Ink (createChatInk, core hooks factory); tx chat on tx's instances; embedding gaps"
     spec: ink-renderer
-    status: draft
-    depends_on: ["0028", "0029", "0030", "0031"]
+    status: complete
+    depends_on: ["0028", "0029", "0030", "0031", "0032"]

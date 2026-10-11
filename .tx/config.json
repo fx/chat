@@ -1,0 +1,4 @@
+{
+  "tx": "^2.0.0",
+  "plugins": [{ "name": "chat", "entry": "apps/tui/index.ts" }]
+}
