@@ -1,14 +1,25 @@
 package dev.fx.chat
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.view.View
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : TauriActivity() {
+  private var webView: WebView? = null
+
+  /** A spoken prompt the web app has not taken yet. */
+  private var assistPrompt: String? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
@@ -27,6 +38,62 @@ class MainActivity : TauriActivity() {
       WindowInsetsCompat.CONSUMED
     }
     requestLocalNetwork()
+    if (savedInstanceState == null) handleAssist(intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleAssist(intent)
+  }
+
+  override fun onWebViewCreate(webView: WebView) {
+    this.webView = webView
+    webView.addJavascriptInterface(AssistBridge(), "FxAssist")
+  }
+
+  /**
+   * As the device's digital assistant, the system starts this activity with
+   * ACTION_ASSIST (long-press power, corner swipe; hotwords stay Google's).
+   * Listen for one utterance, then hand it to the web app, which starts a new
+   * conversation with it.
+   */
+  private fun handleAssist(intent: Intent?) {
+    val action = intent?.action
+    if (action != Intent.ACTION_ASSIST && action != Intent.ACTION_VOICE_COMMAND) return
+    val listen = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+      .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+      .putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask anything")
+    try {
+      launchActivityForResult(listen) { result ->
+        val text = result
+          ?.takeIf { it.resultCode == Activity.RESULT_OK }
+          ?.data
+          ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+          ?.firstOrNull()
+          ?.trim()
+        if (!text.isNullOrEmpty()) deliverPrompt(text)
+      }
+    } catch (_: ActivityNotFoundException) {
+      // No speech recognizer: the app just opens.
+    }
+  }
+
+  /** Park the prompt for the web app and tell it one is waiting. */
+  private fun deliverPrompt(text: String) {
+    synchronized(this) { assistPrompt = text }
+    webView?.post {
+      webView?.evaluateJavascript("window.dispatchEvent(new Event('fx-assist'))", null)
+    }
+  }
+
+  /** `window.FxAssist` in the web app. */
+  private inner class AssistBridge {
+    /** The waiting spoken prompt, once; null when there is none. */
+    @JavascriptInterface
+    fun takePrompt(): String? = synchronized(this@MainActivity) {
+      assistPrompt.also { assistPrompt = null }
+    }
   }
 
   /**

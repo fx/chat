@@ -88,3 +88,25 @@ export function domHtmlToText(html: string): string {
   const body = (doc.body?.textContent ?? '').replace(/[ \t\f\v]+/g, ' ').replace(/\s*\n\s*/g, '\n')
   return [title, body.trim()].filter(Boolean).join('\n\n')
 }
+
+/** The bridge the Android shell installs as `window.FxAssist`. */
+interface AssistBridge {
+  takePrompt(): string | null
+}
+
+/**
+ * Handle prompts spoken to the app as the device's digital assistant. The
+ * shell parks each one and fires `fx-assist`; a prompt spoken before the app
+ * was listening (a cold start) is taken right away.
+ */
+export function onAssistPrompt(handler: (text: string) => void): Unlisten {
+  const bridge = (window as { FxAssist?: AssistBridge }).FxAssist
+  if (!bridge) return () => {}
+  const take = () => {
+    const text = bridge.takePrompt()
+    if (text) handler(text)
+  }
+  take()
+  window.addEventListener('fx-assist', take)
+  return () => window.removeEventListener('fx-assist', take)
+}

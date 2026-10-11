@@ -127,4 +127,26 @@ describe('App', () => {
     await user.click(screen.getByText('Old chat'))
     expect(await screen.findByRole('button', { name: 'Change model' })).toBeTruthy()
   })
+
+  it('starts a new chat with a prompt spoken to it as the assistant', async () => {
+    const parked: (string | null)[] = []
+    const w = window as { FxAssist?: unknown }
+    w.FxAssist = { takePrompt: () => parked.shift() ?? null }
+    try {
+      const { store, endpoint } = setup([sseBody([{ content: 'It is noon.' }])], {
+        settings: { profiles: [profile] },
+      })
+      await act(() => store.load())
+      parked.push('what time is it')
+      act(() => {
+        window.dispatchEvent(new Event('fx-assist'))
+      })
+      await waitFor(() => expect(screen.getByText('It is noon.')).toBeTruthy())
+      expect(screen.getAllByText('what time is it').length).toBeGreaterThan(0)
+      expect(store.getState().conversations).toHaveLength(1)
+      expect(endpoint.requests).toHaveLength(1)
+    } finally {
+      w.FxAssist = undefined
+    }
+  })
 })

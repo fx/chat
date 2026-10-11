@@ -7,7 +7,7 @@ import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
 import { Calculator, Clock, Globe } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Header } from './components/ui'
-import { onBackButton } from './platform'
+import { onAssistPrompt, onBackButton } from './platform'
 import { Conversation } from './screens/Conversation'
 import { ConversationList } from './screens/ConversationList'
 import { ProfileEditor } from './screens/ProfileEditor'
@@ -41,6 +41,17 @@ export function App() {
     const meta = await store.createConversation()
     setRoute({ name: 'chat', id: meta.id })
   }
+
+  // Invoked as the digital assistant: each spoken prompt starts a new chat.
+  const ready = state.loaded && state.settings.profiles.length > 0
+  useEffect(() => {
+    if (!ready) return
+    return onAssistPrompt(async (text) => {
+      const meta = await store.createConversation()
+      setRoute({ name: 'chat', id: meta.id })
+      await store.send(meta.id, text)
+    })
+  }, [ready, store])
 
   let screen: React.ReactNode
   if (!state.loaded) {

@@ -113,6 +113,19 @@ visual theme) stays in `apps/mobile`.
 - The app MUST follow the system light/dark preference.
 - All touch targets MUST be at least 44×44 CSS px.
 
+### Digital Assistant
+
+- The app MUST be selectable as the Android digital assistant app (it handles `ACTION_ASSIST`).
+- Invoked as the assistant, it MUST listen for one spoken prompt with the system speech recognizer
+  and start a new conversation with it on the active profile; a cancelled or empty recognition
+  MUST just open the app.
+
+#### Scenario: Ask by long-pressing power
+
+- **GIVEN** the app is the digital assistant and a profile is set up
+- **WHEN** the user long-presses power and says "what time is it"
+- **THEN** a new conversation opens with that prompt sent
+
 ### Styling Through Injection
 
 - The app's entire look MUST be supplied through the library's injection seams (component registry,
@@ -164,3 +177,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-10 | Initial spec created | [0021-mobile-app](../../changes/0021-mobile-app.md) |
 | 2026-10-11 | The app's shadcn registry, `classNames` theme, markdown slot and design tokens move into `@fx/chat-shadcn` (touch mode) | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
 | 2026-10-11 | App store built on `ChatController`; IndexedDB store moved into `@fx/chat-agent` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
+| 2026-10-11 | Digital assistant | — |
