@@ -3,7 +3,7 @@
  * navigation, with the Android back action mapped onto it.
  */
 import { ChatProvider } from '@fx/chat'
-import { createShadcnComponents, shadcnClassNames } from '@fx/chat-shadcn'
+import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
 import { useEffect, useState } from 'react'
 import { Header } from './components/ui'
 import { onBackButton } from './platform'
@@ -15,6 +15,7 @@ import { useAppState, useStore } from './store/context'
 
 /** Touch-tuned shadcn registry: longer tooltip delay, 44px disclosure rows. */
 const components = createShadcnComponents({ touch: true, tooltipDelay: 300 })
+const classNames = createShadcnClassNames({ touch: true })
 
 export type Route = { name: 'list' } | { name: 'chat'; id: string } | { name: 'settings' }
 
@@ -75,7 +76,7 @@ export function App() {
   }
 
   return (
-    <ChatProvider components={components} classNames={shadcnClassNames}>
+    <ChatProvider components={components} classNames={classNames}>
       {screen}
     </ChatProvider>
   )
