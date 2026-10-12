@@ -1,3 +1,4 @@
+import type { Attachment } from '@fx/chat'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -52,6 +53,78 @@ describe('usePickedImages', () => {
     } finally {
       restore()
     }
+  })
+})
+
+describe('usePickedImages with reads settling late', () => {
+  const att = (id: string) => ({ id, kind: 'image', url: `data:image/png,${id}` }) as Attachment
+  /** A reader whose reads settle when the test says so. */
+  function deferredReads() {
+    const pending: Array<(result: { added: Attachment[]; failed: number }) => void> = []
+    const read = vi.fn(
+      () =>
+        new Promise<{ added: Attachment[]; failed: number }>((resolve) => {
+          pending.push(resolve)
+        }),
+    )
+    return { read, pending }
+  }
+
+  it('drops a pick still being read when the message is sent', async () => {
+    const { read, pending } = deferredReads()
+    const { result } = renderHook(() => usePickedImages(read))
+    let picked!: Promise<void>
+    act(() => {
+      picked = result.current.add([])
+    })
+    act(() => result.current.clear())
+    await act(async () => {
+      pending[0]?.({ added: [att('a')], failed: 1 })
+      await picked
+    })
+    expect(result.current.attachments).toEqual([])
+    expect(result.current.error).toBeUndefined()
+  })
+
+  it('appends every pick, but shows only the newest pick’s notice', async () => {
+    const { read, pending } = deferredReads()
+    const { result } = renderHook(() => usePickedImages(read))
+    let older!: Promise<void>
+    let newer!: Promise<void>
+    act(() => {
+      older = result.current.add([])
+      newer = result.current.add([])
+    })
+    await act(async () => {
+      pending[1]?.({ added: [att('new')], failed: 1 })
+      await newer
+    })
+    expect(result.current.error).toBe(unreadable(1))
+    // The older pick read cleanly but settled last: its image still attaches,
+    // and it does not clear the newer pick's notice.
+    await act(async () => {
+      pending[0]?.({ added: [att('old')], failed: 0 })
+      await older
+    })
+    expect(result.current.attachments.map((a) => a.id)).toEqual(['new', 'old'])
+    expect(result.current.error).toBe(unreadable(1))
+  })
+
+  it('does not let an older failed pick raise a notice over a newer clean one', async () => {
+    const { read, pending } = deferredReads()
+    const { result } = renderHook(() => usePickedImages(read))
+    let older!: Promise<void>
+    let newer!: Promise<void>
+    act(() => {
+      older = result.current.add([])
+      newer = result.current.add([])
+    })
+    await act(async () => {
+      pending[1]?.({ added: [att('new')], failed: 0 })
+      pending[0]?.({ added: [], failed: 2 })
+      await Promise.all([older, newer])
+    })
+    expect(result.current.error).toBeUndefined()
   })
 })
 

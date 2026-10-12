@@ -49,16 +49,31 @@ export function unreadable(count: number): string {
  * The composer's picked images and the notice about any that could not be
  * read. The notice shows after a pick with unreadable images and clears on the
  * next pick that reads every image (picking again is the fix) or on send.
+ *
+ * Reading is async, so a pick can settle late. A pick's images append unless
+ * a send (`clear`) came after the pick started; the notice is the newest
+ * pick's, so an older pick settling later neither sets nor clears it.
  */
-export function usePickedImages() {
+export function usePickedImages(read = readAttachments) {
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [error, setError] = useState<string>()
-  const add = useCallback(async (files: File[]) => {
-    const { added, failed } = await readAttachments(files)
-    setAttachments((current) => [...current, ...added])
-    setError(failed > 0 ? unreadable(failed) : undefined)
-  }, [])
+  // Bumped by every send and every pick: a pick applies its images only while
+  // `sent` is unchanged, and its notice only while it is also the newest pick.
+  const sent = useRef(0)
+  const picks = useRef(0)
+  const add = useCallback(
+    async (files: File[]) => {
+      const draft = sent.current
+      const pick = ++picks.current
+      const { added, failed } = await read(files)
+      if (draft !== sent.current) return
+      setAttachments((current) => [...current, ...added])
+      if (pick === picks.current) setError(failed > 0 ? unreadable(failed) : undefined)
+    },
+    [read],
+  )
   const clear = useCallback(() => {
+    sent.current++
     setAttachments([])
     setError(undefined)
   }, [])

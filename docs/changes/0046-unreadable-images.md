@@ -25,6 +25,7 @@ This change MUST satisfy the project's standing testing rules (see
 - `readAttachments(files)` reads every picked file independently (`Promise.allSettled`) and returns the readable image attachments and the number of files that could not be read. Non-images are skipped, not counted as failures.
 - When any file could not be read, a `role="alert"` line above the composer says so: "Couldn’t read that image. Try picking it again." for one, "Couldn’t read N of those images. Try picking them again." for several (`unreadable(count)`).
 - The readable images attach as before. The line clears on the next pick that reads every image, or on send; a later pick with unreadable images replaces it with that pick's count.
+- A pick still being read when the message is sent attaches nothing and raises no notice. When picks overlap, each pick's images attach, and the notice reflects the newest pick only.
 
 ## Design
 
@@ -32,6 +33,7 @@ This change MUST satisfy the project's standing testing rules (see
 
 - **Count, don't throw.** A failed read is an expected outcome of the platform picker, so it is reported as data (`failed`) rather than as a rejection the screen would have to catch.
 - **Keep what was readable.** One bad file must not discard the others the user picked.
+- **Late reads are gated, not raced.** Reading and downscaling are async, so a pick can settle after a send or after a newer pick. A pick's images append unless a send came after the pick started (they would otherwise land on the next message); the notice belongs to the newest pick, so an older pick settling later neither sets nor clears it. Concurrent picks both append, in the order they settle.
 - **App-only.** Reading files (`readAttachments`, `usePickedImages`) and the error line live in `apps/mobile/src/screens/Conversation.tsx`; no package changes. The composer from `@fx/chat` is used unchanged through its public export.
 
 ### Non-Goals
@@ -41,5 +43,5 @@ Retrying reads automatically; attachment thumbnails; working around the picker's
 ## Tasks
 
 - [x] `readAttachments` with `Promise.allSettled`; `unreadable` message
-- [x] `role="alert"` line above the composer, cleared by a pick that reads every image or on send (`usePickedImages`)
+- [x] `role="alert"` line above the composer, cleared by a pick that reads every image or on send (`usePickedImages`); late reads gated by send and newest pick
 - [x] Tests (`Conversation.test.ts`); mobile-app spec and indexes
