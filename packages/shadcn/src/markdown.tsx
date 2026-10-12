@@ -43,7 +43,7 @@ function ExternalLink({ node: _node, ...props }: ComponentProps<'a'> & { node?: 
  * the user can open it in the browser.
  */
 function SafeImage({ node: _node, src, alt, title }: ComponentProps<'img'> & { node?: unknown }) {
-  if (src && DATA_IMAGE.test(src)) return <img src={src} alt={alt ?? ''} title={title} />
+  if (src && DATA_IMAGE.test(src)) return <img src={src} alt={alt} title={title} />
   const label = alt || 'image'
   const body = (
     <>

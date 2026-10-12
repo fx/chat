@@ -7,10 +7,10 @@
  * the thin adapters' only non-presentational logic.
  */
 import type { ChatComponents } from '@fx/chat'
+import { lucideIcons } from '@fx/chat-shadcn'
 import { HEADLESS_ICON_NAMES } from '@fx/chat/headless'
 import { describe, expect, it } from 'vitest'
 import { REGISTRIES, REGISTRY_IDS } from './index'
-import { lucideIcons } from './lucide-icons'
 
 /** The required slots every registry must populate. */
 const REQUIRED_SLOTS: (keyof ChatComponents)[] = [

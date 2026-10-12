@@ -119,7 +119,7 @@ demo (static Vite app)
 ├── fixtures/         local ChatMessage[] conversations (no backend)
 ├── registries/
 │   ├── fx-ui.tsx     ChatComponents mapped to @fx/ui + its icons
-│   ├── shadcn.tsx    ChatComponents mapped to shadcn/ui + lucide
+│   ├── (shadcn)      @fx/chat-shadcn's published registry (shadcn/ui + lucide)
 │   └── headless.tsx  re-export of @fx/chat/headless
 ├── App.tsx           controls strip + single/side-by-side panes
 └── deploy: GitHub Actions → Pages (base-path aware)
@@ -171,3 +171,4 @@ demo (static Vite app)
 | 2026-06-25 | Initial spec created | [0006-demos](../../changes/0006-demos.md) |
 | 2026-06-27 | Added a Minimal/density toggle to the controls strip, threaded to `MessageLog` across all three registries | [0011-minimal-density-mode](../../changes/0011-minimal-density-mode.md) |
 | 2026-06-29 | Package goes fully headless: each demo pane now supplies its OWN visual look via the `classNames` injection map onto the stable `.chat-*` hooks (the package ships no theme); the headless pane brings a demo-supplied `classNames` theme | [0013-headless-styling](../../changes/0013-headless-styling.md) |
+| 2026-10-11 | The shadcn registry and the shared `classNames` theme come from `@fx/chat-shadcn`; every pane is pinned light/dark by a `.light`/`.dark` class | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |

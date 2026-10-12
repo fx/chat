@@ -1,12 +1,13 @@
 /**
- * The app's `classNames` theme for `@fx/chat`.
+ * The shadcn `classNames` theme for `@fx/chat`.
  *
  * The library is headless — it ships no visual CSS, only the structural
  * mechanics in `@fx/chat/structure.css`. Every visual detail (colors, spacing,
  * radius, bubbles, density, composer, lightbox) is supplied here, applied onto
- * the stable `.chat-*` hooks. Classes resolve against the app's design tokens
- * (`--background`, `--primary`, `--muted`, `--border`, `--radius`, …) in
- * `index.css`, so the transcript follows the system light/dark theme.
+ * the stable `.chat-*` hooks. Classes resolve against the shadcn design tokens
+ * (`--background`, `--primary`, `--muted`, `--border`, `--radius`, …) defined
+ * by `@fx/chat-shadcn/theme.css`, so the transcript follows its light/dark
+ * theme. Hosts may override any key by spreading their own on top.
  *
  * State-variant styling (minimal density, compact footer, role bubbles) is
  * carried with Tailwind data-variants keyed on the data-attributes the package
@@ -15,7 +16,7 @@
  */
 import type { ChatClassNames } from '@fx/chat'
 
-export const appClassNames: ChatClassNames = {
+export const shadcnClassNames: ChatClassNames = {
   // ── Transcript: root + message containers ────────────────────────────────
   log: 'flex flex-col gap-3 data-[minimal=true]:gap-[0.625rem] text-foreground',
   message: 'group/msg flex flex-col gap-1.5 data-[minimal=true]:gap-[3px] text-foreground',
@@ -34,7 +35,7 @@ export const appClassNames: ChatClassNames = {
     'flex min-w-0 items-center gap-1.5 text-xs font-medium leading-[1.4] text-muted-foreground',
   rowIcon: 'size-[1em]',
   // Affordance spinner/check box. The spin animation itself comes from
-  // structure.css (imported in main.tsx), so only layout + the success tone
+  // structure.css (which the host imports), so only layout + the success tone
   // are set here.
   rowAffordance:
     'inline-flex size-[1em] items-center justify-center text-muted-foreground data-[affordance=success]:text-green-600',

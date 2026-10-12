@@ -12,9 +12,9 @@
  * surface, mention highlighting, and the reference completion popup.
  */
 import { ChatInput, type ChatMessage, ChatProvider, MessageLog, referenceProvider } from '@fx/chat'
+import { shadcnClassNames } from '@fx/chat-shadcn'
 import { useMemo, useState } from 'react'
 import type { RegistryEntry } from './registries'
-import { demoClassNames } from './registries/shared/class-names'
 
 /** Props for {@link Pane}. */
 export interface PaneProps {
@@ -56,22 +56,19 @@ export function Pane({
   const [sent, setSent] = useState<string[]>([])
   const attachments = useAttachments(messages)
 
-  // Every pane is styled by the shared Tailwind `classNames` theme, so dark mode
-  // is the `.dark` class on the surface (the demo tokens flip under it).
-  const wrapperClass = ['demo-pane-surface', theme === 'dark' ? 'dark' : '']
-    .filter(Boolean)
-    .join(' ')
-
+  // Every pane is styled by the shared Tailwind `classNames` theme, so the
+  // pane's scheme is a `.light`/`.dark` class (`@fx/chat-shadcn`'s tokens and
+  // `dark:` variant follow it for the whole subtree).
   return (
-    <section className="demo-pane" data-registry={registry.id} data-theme={theme}>
+    <section className={`demo-pane ${theme}`} data-registry={registry.id} data-theme={theme}>
       {showHeader ? (
         <header className="demo-pane-header">
           <span>{registry.label}</span>
         </header>
       ) : null}
 
-      <div className={wrapperClass}>
-        <ChatProvider components={registry.components} classNames={demoClassNames}>
+      <div className="demo-pane-surface">
+        <ChatProvider components={registry.components} classNames={shadcnClassNames}>
           <div className="demo-pane-log">
             <MessageLog
               messages={messages}

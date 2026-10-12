@@ -1,16 +1,14 @@
 /**
- * Demo stylesheet — Tailwind v4 + a self-contained shadcn-style token set.
+ * Demo stylesheet — Tailwind v4 + `@fx/chat-shadcn`'s design tokens.
  *
- * All three adapters render against these design tokens (`--background`,
- * `--primary`, `--muted`, …) via the shared `classNames` theme. Light values
- * live under `:root`; dark values under `.dark`, toggled by the theme control on
- * the pane wrapper. (The package itself ships no visual CSS — only the structural
- * mechanics in `@fx/chat/structure.css`, imported once in `App.tsx`.)
- *
- * Tokens are stored as HSL channel triplets and surfaced to Tailwind via
- * `@theme inline` so utilities like `bg-primary`/`text-muted-foreground` resolve.
+ * All three adapters render against the shadcn tokens (`--background`,
+ * `--primary`, `--muted`, …) via `@fx/chat-shadcn`'s `classNames` theme. The
+ * page is pinned light (`<html class="light">`); each pane carries `.light` or
+ * `.dark` from the theme control. (`@fx/chat` itself ships no visual CSS — only
+ * the structural mechanics in `@fx/chat/structure.css`, imported in `App.tsx`.)
  */
 @import "tailwindcss";
+@import "@fx/chat-shadcn/theme.css";
 
 /*
  * `@fx/ui` ships compiled components whose Tailwind utility classes
@@ -23,77 +21,6 @@
  * re-scanned.
  */
 @source "../node_modules/@fx/ui/dist/index.js";
-
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 42%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 72% 45%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 5.9% 10%;
-  --radius: 0.5rem;
-}
-
-.dark,
-.demo-pane[data-theme="dark"] {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 5.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 70%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 50%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
-}
-
-@theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --radius-md: var(--radius);
-}
 
 html,
 body,
@@ -180,12 +107,9 @@ body {
 }
 
 /*
- * The registry-bound content surface. It carries the `.dark` class for the
- * Tailwind panes (fx-ui, shadcn), so it MUST paint the design-token background
- * itself — otherwise nothing in the content chain is opaque and the first
- * opaque ancestor (`.demo-pane`) would win, leaving dark text on a light fill.
- * Painting `hsl(var(--background))` here means `.dark` resolves a dark surface
- * and body/tool text clears AA.
+ * The registry-bound content surface. It paints the design-token background
+ * itself so the surface is opaque under the pane's `.light`/`.dark` scheme and
+ * body/tool text clears AA.
  */
 .demo-pane-surface {
   display: flex;

@@ -8,5 +8,5 @@
   },
   "include": ["src", "vite.config.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "dist"],
-  "references": [{ "path": "../../packages/chat" }]
+  "references": [{ "path": "../../packages/chat" }, { "path": "../../packages/shadcn" }]
 }
