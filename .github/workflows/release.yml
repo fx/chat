@@ -102,16 +102,27 @@ jobs:
       - name: Upgrade npm to a trusted-publishing capable release
         run: npm install --global npm@^11.5.1
 
+      # `bun pm pack` pins `workspace:*` to the version `bun.lock` records for
+      # each workspace, and release-please bumps only the package.json files, so
+      # the lockfile is refreshed first.
+      - name: Refresh workspace versions in the lockfile
+        run: bun install
+        env:
+          # `.npmrc` authenticates the `@fx` GitHub Packages registry with this.
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # `npm publish` does not rewrite `workspace:*`, so each package is packed
       # with `bun pm pack` (which pins internal dependencies to the released
       # version) and the tarball is published with npm, which authenticates over
-      # OIDC and attaches provenance. Dependencies are published first; a
-      # version already on the registry is skipped so a failed run can be re-run.
+      # OIDC and attaches provenance. A tarball whose internal dependencies are
+      # not pinned to the released version fails the step before it is
+      # published. Dependencies are published first; a version already on the
+      # registry is skipped so a failed run can be re-run.
       - name: Publish to npm
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/pack"
           for dir in packages/core packages/chat packages/agent packages/ink packages/shadcn; do
+            rm -rf "$RUNNER_TEMP/pack" && mkdir -p "$RUNNER_TEMP/pack"
             name=$(node -p "require('./$dir/package.json').name")
             version=$(node -p "require('./$dir/package.json').version")
             if npm view "$name@$version" version >/dev/null 2>&1; then
@@ -120,6 +131,14 @@ jobs:
             fi
             (cd "$dir" && bun pm pack --destination "$RUNNER_TEMP/pack")
             tarball=$(ls "$RUNNER_TEMP/pack"/*.tgz)
+            tar -xOzf "$tarball" package/package.json | node -e "
+              const p = JSON.parse(require('fs').readFileSync(0, 'utf8'))
+              const deps = { ...p.dependencies, ...p.peerDependencies }
+              const bad = Object.entries(deps).filter(([n, v]) => n.startsWith('@fx-/') && v !== p.version)
+              if (bad.length) {
+                console.error(p.name + ': internal dependencies not pinned to ' + p.version + ': ' + JSON.stringify(Object.fromEntries(bad)))
+                process.exit(1)
+              }
+            "
             npm publish "$tarball"
-            rm "$tarball"
           done
