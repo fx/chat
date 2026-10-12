@@ -15,7 +15,7 @@ import type {
   ScrollAreaProps,
   TooltipProps,
 } from '@fx/chat'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createActivityTiles } from './activity-tiles'
 import { cn } from './cn'
 import { CodeBlock, JsonView } from './code'
@@ -157,6 +157,8 @@ export function createShadcnComponents({
 
     CopyButton: ({ value, className, 'aria-label': ariaLabel }: CopyButtonProps) => {
       const [copied, setCopied] = useState(false)
+      const reset = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+      useEffect(() => () => clearTimeout(reset.current), [])
       return (
         <Button
           variant="ghost"
@@ -167,7 +169,8 @@ export function createShadcnComponents({
           onClick={() => {
             const done = () => {
               setCopied(true)
-              if (copyResetMs > 0) setTimeout(() => setCopied(false), copyResetMs)
+              clearTimeout(reset.current)
+              if (copyResetMs > 0) reset.current = setTimeout(() => setCopied(false), copyResetMs)
             }
             const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
             if (clip?.writeText) clip.writeText(value).then(done, done)

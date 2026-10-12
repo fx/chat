@@ -166,6 +166,22 @@ describe('copy button', () => {
     expect(button).toHaveAttribute('data-copied', 'true')
   })
 
+  it('restarts the reset on a second copy and clears it on unmount', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('navigator', {})
+    const { unmount } = render(<CopyButton value="v" />)
+    const button = screen.getByRole('button', { name: 'Copy' })
+    fireEvent.click(button)
+    act(() => vi.advanceTimersByTime(1000))
+    fireEvent.click(button)
+    act(() => vi.advanceTimersByTime(1000))
+    // The first click's reset no longer fires; only the second's is pending.
+    expect(button).toHaveAttribute('data-copied', 'true')
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('confirms when there is no navigator at all', () => {
     vi.stubGlobal('navigator', undefined)
     render(<CopyButton value="v" />)

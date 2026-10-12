@@ -70,7 +70,10 @@ describe('MessageDetailsSheet', () => {
 
   it('says when the message was stopped', () => {
     sheet({ outcome: { kind: 'stopped' } })
-    expect(screen.getByText('Stopped before it finished')).not.toHaveClass('sr-only')
+    const status = screen.getByText('Stopped before it finished')
+    expect(status).not.toHaveClass('sr-only')
+    // Stopping is not a failure: no destructive tone.
+    expect(status).not.toHaveClass('text-destructive')
   })
 
   it('closes and runs an action', () => {
@@ -121,6 +124,67 @@ describe('MessageDetailsSheet', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(<MessageDetailsSheet {...props} open />)
     expect(screen.getByRole('button', { name: 'Copy text' })).toBeInTheDocument()
+  })
+})
+
+describe('MessageDetailsSheet close timer', () => {
+  function controlled() {
+    const props: MessageDetailsProps = {
+      open: true,
+      onOpenChange: vi.fn(),
+      details: [],
+      copyText: 'x',
+      actions: [],
+    }
+    const view = render(<MessageDetailsSheet {...props} />)
+    return { props, ...view }
+  }
+
+  it('drops a pending close when the sheet is closed another way, so a reopen stays open', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined })
+    const { props, rerender } = controlled()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy text' }))
+    // Closed by the overlay/Escape/swipe before the copy's close fires…
+    rerender(<MessageDetailsSheet {...props} open={false} />)
+    // …and reopened within the window.
+    rerender(<MessageDetailsSheet {...props} open />)
+    act(() => vi.advanceTimersByTime(COPIED_CLOSE_MS))
+    expect(props.onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('schedules nothing when the copy settles after the sheet closed', async () => {
+    vi.useFakeTimers()
+    let settle: () => void = () => {}
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settle = resolve
+        }),
+    )
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const { props, rerender } = controlled()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy text' }))
+    rerender(<MessageDetailsSheet {...props} open={false} />)
+    rerender(<MessageDetailsSheet {...props} open />)
+    // The copy was started by the sheet as it was; the reopened sheet is new.
+    rerender(<MessageDetailsSheet {...props} open={false} />)
+    await act(async () => settle())
+    rerender(<MessageDetailsSheet {...props} open />)
+    act(() => vi.advanceTimersByTime(COPIED_CLOSE_MS))
+    expect(props.onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Copy text' })).toBeInTheDocument()
+  })
+
+  it('clears a pending close on unmount', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined })
+    const { props, unmount } = controlled()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy text' }))
+    unmount()
+    act(() => vi.advanceTimersByTime(COPIED_CLOSE_MS))
+    expect(props.onOpenChange).not.toHaveBeenCalled()
   })
 })
 

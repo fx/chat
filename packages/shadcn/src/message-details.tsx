@@ -41,9 +41,22 @@ export function MessageDetailsSheet({
   const [copied, setCopied] = useState(false)
   const scroller = useRef<HTMLDivElement | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
+  // Whether the sheet is open now: a copy that settles after the sheet closed
+  // (or unmounted) must not schedule a close that would hit a reopened sheet.
+  const isOpen = useRef(open)
+  isOpen.current = open
+  useEffect(
+    () => () => {
+      isOpen.current = false
+      clearTimeout(timer.current)
+    },
+    [],
+  )
   useEffect(() => {
-    if (!open) setCopied(false)
+    if (open) return
+    // Closed by any means (overlay, Escape, swipe): drop a pending close.
+    clearTimeout(timer.current)
+    setCopied(false)
   }, [open])
   // Bring the item the sheet was opened for into view: when the sheet's
   // content mounts (the portal renders it a render after opening) and when
@@ -69,6 +82,7 @@ export function MessageDetailsSheet({
 
   const copy = () => {
     const done = () => {
+      if (!isOpen.current) return
       setCopied(true)
       clearTimeout(timer.current)
       timer.current = setTimeout(() => onOpenChange(false), COPIED_CLOSE_MS)
@@ -84,7 +98,9 @@ export function MessageDetailsSheet({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="truncate">{model ?? 'Message'}</DrawerTitle>
-          <DrawerDescription className={cn(!status && 'sr-only', outcome && 'text-destructive')}>
+          <DrawerDescription
+            className={cn(!status && 'sr-only', outcome?.kind === 'error' && 'text-destructive')}
+          >
             {status ?? 'Details and actions for this message'}
           </DrawerDescription>
         </DrawerHeader>
