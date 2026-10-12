@@ -20,8 +20,8 @@
     "@fx-/chat-core": "workspace:*"
   },
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "provenance": true
   },
   "repository": {
     "type": "git",
