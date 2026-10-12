@@ -1026,4 +1026,115 @@ describe('ChatController streamed updates', () => {
       expect(chat.getState().conversations).toHaveLength(2)
     })
   })
+
+  describe('host callbacks that throw', () => {
+    it.each(['send', 'regenerate'] as const)(
+      '%s: a throwing resolveRun is the conversation error',
+      async (action) => {
+        const { run } = heldRun()
+        const transcript: ChatMessage[] = [
+          { id: 'u1', role: 'user', blocks: [{ type: 'text', id: 't1', text: 'q' }] },
+        ]
+        const resolveRun = () => {
+          throw new Error('no config')
+        }
+        const { chat } = setup(
+          [],
+          {
+            conversations: [{ id: 'c1', title: 'C', createdAt: 1, updatedAt: 1 }],
+            'messages:c1': transcript,
+          },
+          { run, resolveRun },
+        )
+        await chat.load()
+        const result = action === 'send' ? chat.send('c1', 'x') : chat.regenerate('c1')
+        expect(await result).toBeUndefined()
+        expect(chat.getState().errors.c1?.message).toBe('Could not start this run: no config')
+        expect(chat.getState().messages.c1).toEqual(transcript)
+        expect(chat.getState().runs).toEqual({})
+        expect(run).not.toHaveBeenCalled()
+      },
+    )
+
+    it('a resolveRun answering a promise is an error, and its rejection is handled', async () => {
+      const { run } = heldRun()
+      const asyncResolve = (() => Promise.reject(new Error('later'))) as never
+      const { chat } = setup([], {}, { run, resolveRun: asyncResolve })
+      const meta = await chat.createConversation()
+      expect(await chat.send(meta.id, 'x')).toBeUndefined()
+      await vi.runAllTimersAsync()
+      expect(chat.getState().errors[meta.id]?.message).toBe(
+        'Could not start this run: resolveRun must answer synchronously',
+      )
+      expect(run).not.toHaveBeenCalled()
+    })
+
+    it('a queued send whose resolveRun throws is recorded, not unhandled', async () => {
+      const held = heldRun()
+      let calls = 0
+      const resolveOnce = () => {
+        calls++
+        if (calls > 1) throw new Error('gone')
+        return config
+      }
+      const { chat } = setup([], {}, { run: held.run, resolveRun: resolveOnce, queue: true })
+      const meta = await chat.createConversation()
+      const running = chat.send(meta.id, 'go')
+      await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
+      await chat.send(meta.id, 'queued')
+      held.finish()
+      await running
+      await vi.runAllTimersAsync()
+      expect(chat.getState().errors[meta.id]?.message).toBe('Could not start this run: gone')
+      expect(held.run).toHaveBeenCalledTimes(1)
+      expect(chat.getState().runs).toEqual({})
+    })
+
+    it.each([
+      [
+        'throws synchronously',
+        () => {
+          throw new Error('sync boom')
+        },
+      ],
+      ['rejects', () => Promise.reject(new Error('sync boom'))],
+    ])('a run that %s ends with its error', async (_, run) => {
+      const { chat } = setup([], {}, { run: run as never })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      expect(await chat.send(meta.id, 'x')).toBeUndefined()
+      expect(chat.getState().errors[meta.id]?.message).toBe('sync boom')
+      expect(chat.getState().runs).toEqual({})
+    })
+
+    it('a throwing listener neither stops the others nor the controller', async () => {
+      const thrown: unknown[] = []
+      vi.stubGlobal('queueMicrotask', (task: () => void) => {
+        try {
+          task()
+        } catch (error) {
+          thrown.push(error)
+        }
+      })
+      try {
+        const held = heldRun()
+        const { chat } = setup([], {}, { run: held.run })
+        const seen = vi.fn()
+        chat.subscribe(() => {
+          throw new Error('listener broke')
+        })
+        chat.subscribe(seen)
+        const meta = await chat.createConversation({ endpoint: 'ok' })
+        const running = chat.send(meta.id, 'go')
+        await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
+        held.finish()
+        expect((await running)?.outcome).toBe('complete')
+        expect(chat.getState().runs).toEqual({})
+        expect(seen).toHaveBeenCalled()
+        expect(thrown.length).toBeGreaterThan(0)
+        expect((thrown[0] as Error).message).toBe('listener broke')
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+  })
 })

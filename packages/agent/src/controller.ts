@@ -90,15 +90,21 @@ export interface ControllerState<M extends ConversationMeta = ConversationMeta> 
 export interface ControllerOptions<M extends ConversationMeta = ConversationMeta> {
   /** Transport for model endpoints and the fetch tool. */
   fetch: FetchLike
-  /** The run config for a conversation, or why it cannot run. */
+  /**
+   * The run config for a conversation, or why it cannot run. Must answer
+   * synchronously; a throw (or a promise) is recorded as the conversation's
+   * error and the run does not start.
+   */
   resolveRun: (meta: M) => RunResolution
   /** Persistence (default: in memory). */
   kv?: KeyValueStore | undefined
   /** HTML-to-text for the fetch tool (default: a tag stripper). */
   htmlToText?: ((html: string) => string) | undefined
+  /** Clock (default `Date.now`). Must not throw. */
   now?: (() => number) | undefined
+  /** Id factory (default {@link newId}). Must not throw. */
   newId?: ((prefix: string) => string) | undefined
-  /** The agent loop, injectable for tests. */
+  /** The agent loop, injectable for tests. A throw or rejection is the run's error. */
   run?: typeof runAgent | undefined
   /** Transcript writes are debounced by this much (default 400ms). */
   saveDelayMs?: number | undefined
@@ -115,6 +121,12 @@ export interface ControllerOptions<M extends ConversationMeta = ConversationMeta
 const CONVERSATIONS_KEY = 'conversations'
 const LOAD_FAILED = 'Could not load this conversation'
 const SAVE_FAILED = 'Could not save this conversation'
+const RESOLVE_FAILED = 'Could not start this run'
+
+function describe(thrown: unknown, context?: string): string {
+  const reason = thrown instanceof Error ? thrown.message : String(thrown)
+  return context ? `${context}: ${reason}` : reason
+}
 const messagesKey = (id: string) => `messages:${id}`
 const TITLE_LENGTH = 48
 
@@ -200,6 +212,11 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
 
   getState = (): ControllerState<M> => this.state
 
+  /**
+   * Listen for state changes. A listener that throws does not stop the others
+   * or the controller: its error is rethrown from a microtask, so the host
+   * sees it as an uncaught error.
+   */
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
@@ -207,7 +224,19 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
 
   private set(patch: Partial<ControllerState<M>>): void {
     this.state = { ...this.state, ...patch }
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      try {
+        listener()
+      } catch (error) {
+        queueMicrotask(() => {
+          throw error
+        })
+      }
+    }
+  }
+
+  private setError(id: string, message: string): void {
+    this.set({ errors: { ...this.state.errors, [id]: { message, at: this.now() } } })
   }
 
   // ── conversations ──────────────────────────────────────────────────────────
@@ -324,9 +353,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    */
   private fail(id: string, thrown: unknown, context?: string): void {
     if (this.disposed || this.deleted.has(id) || this.state.errors[id]) return
-    const reason = thrown instanceof Error ? thrown.message : String(thrown)
-    const message = context ? `${context}: ${reason}` : reason
-    this.set({ errors: { ...this.state.errors, [id]: { message, at: this.now() } } })
+    this.setError(id, describe(thrown, context))
   }
 
   /**
@@ -384,13 +411,24 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
 
   // ── runs ───────────────────────────────────────────────────────────────────
 
-  /** Why a run cannot start (recorded as the conversation's error), or the config. */
+  /**
+   * The config, or undefined with why the run cannot start recorded as the
+   * conversation's error: blocked, or `resolveRun` threw or answered a promise.
+   */
   private resolve(id: string, meta: M): Exclude<RunResolution, { blocked: string }> | undefined {
-    const resolution = this.options.resolveRun(meta)
+    let resolution: RunResolution
+    try {
+      resolution = this.options.resolveRun(meta)
+      if (resolution instanceof Promise) {
+        resolution.catch(() => {})
+        throw new TypeError('resolveRun must answer synchronously')
+      }
+    } catch (thrown) {
+      this.setError(id, describe(thrown, RESOLVE_FAILED))
+      return undefined
+    }
     if (!('blocked' in resolution)) return resolution
-    this.set({
-      errors: { ...this.state.errors, [id]: { message: resolution.blocked, at: this.now() } },
-    })
+    this.setError(id, resolution.blocked)
     return undefined
   }
 

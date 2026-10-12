@@ -27,6 +27,7 @@ The specs own the behavior. This change owns:
 - Runs are configured per conversation by the host's `resolveRun(meta)`, which returns a `RunConfig` or `{ blocked }` (surfaced as the conversation's run error).
 - Options: `kv` (persistence), `fetch`, `htmlToText`, `now`, `newId`, `run` (injectable `runAgent`), `saveDelayMs` (debounced transcript writes), `updateIntervalMs` (throttled stream updates, flushed before an approval and at run end) and `queue` (queue messages sent during a run, sent in order when it ends).
 - `dispose()` applies pending updates and starts pending saves, then stops every run; nothing runs or writes after it, including work that was awaiting storage or a run when it came.
+- Host callbacks never leave a run stuck or reject unhandled: a throwing `resolveRun` is recorded like a blocked run; a throwing subscriber is isolated.
 - Storage failures never leave a run stuck or reject unhandled: run-lifecycle failures become the conversation's error; direct calls reject to their caller.
 - `send` and `regenerate` start their run synchronously once the transcript is loaded, so the user message and the run are in state as soon as the call returns.
 - `KeyValueStore` with `memoryStore()` and a lazily opened `indexedDbStore(name?)` moves from the mobile app into `@fx/chat-agent`; tool calls left running by a killed app are marked failed when a transcript loads.
@@ -48,6 +49,8 @@ The specs own the behavior. This change owns:
 
 - **Storage failures end runs cleanly.** Third review fix: a rejected pre-start write left the run recorded (and its abort controller held) forever. Every rejection in a run's life (the pre-start list write, the agent, the list write and transcript flush at its end, a transcript load in `send` / `regenerate`) now ends or refuses the run and records the conversation's error. A failed write at run end also holds the queue. A failed debounced save records an error, and a save failing at dispose is dropped. Direct calls reject to their caller without wedging state.
 
+- **Host callbacks cannot wedge a run.** Fourth review fix: a throwing `resolveRun` rejected `send` / `regenerate` and made a queued dispatch an unhandled rejection. `resolveRun` failures (a throw or a promise) are now recorded like a blocked run. A synchronously throwing `run` is the run's error. Subscribers are isolated, with a listener's error rethrown from a microtask. `now` and `newId` are documented as must-not-throw.
+
 ### Non-Goals
 
 Changes to either app's look, settings or model selection; server-side conversation storage; sharing conversations between hosts.
@@ -60,4 +63,5 @@ Changes to either app's look, settings or model selection; server-side conversat
 - [x] `tx chat`: run sessions on `ChatController`
 - [x] Review fix: `dispose()` flushes pending saves and leaves nothing running or writing
 - [x] Review fix: storage failures end runs cleanly and surface as the conversation's error
+- [x] Review fix: throwing host callbacks (resolveRun, run, subscribers) are recorded or isolated
 - [x] Specs (chat-agent, mobile-app, terminal-app) and indexes

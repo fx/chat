@@ -207,6 +207,13 @@ receives an immutable snapshot after every applied delta.
   silently. Direct calls (`load`, `openConversation`, `createConversation`, `updateConversation`,
   `flush`, `deleteConversation`) reject to their caller, leaving state retryable;
   `deleteConversation` still takes the conversation off the list when its transcript delete fails.
+- Host callbacks MUST NOT wedge a run or reject unhandled. `resolveRun` must answer
+  synchronously: a throw (or a returned promise, whose rejection is handled) records
+  `Could not start this run: …` and starts no run, as a blocked run does, including for a queued
+  send. A `run` (agent loop) that throws or rejects ends the run with that error. A subscriber
+  that throws does not stop other subscribers or the controller; its error is rethrown from a
+  microtask. `fetch`, `htmlToText` and extra tools are called by the agent loop, which turns their
+  failures into tool or run outcomes. `now` and `newId` MUST NOT throw.
 - Conversation metadata is generic (`ChatController<M extends ConversationMeta>`): hosts extend it
   with their own fields (e.g. which endpoint a conversation is bound to).
 
