@@ -293,6 +293,7 @@ export const MessageItem = memo(function MessageItem({
     isActive,
     activeBlockId: context.activeBlockId,
     tokensPerSecond: isActive ? tokensPerSecond : undefined,
+    startedAt: message.createdAt,
   }
   // Only called in summary mode, which requires the registry's ActivitySummary.
   const Summary = ActivitySummary as ComponentType<ActivitySummaryProps>

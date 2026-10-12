@@ -20,6 +20,8 @@ export interface ActivityItemContext {
   activeBlockId?: string | undefined
   /** The live reasoning rate, while the message streams. */
   tokensPerSecond?: number | undefined
+  /** When the message started (its `createdAt`): the pending status item's clock. */
+  startedAt?: number | undefined
 }
 
 /** One activity block as a summary item. */
@@ -81,6 +83,7 @@ export function activityItem(block: RenderableBlock, context: ActivityItemContex
         kind: 'waiting',
         label: 'Starting',
         status: context.isActive ? 'running' : 'done',
+        ...(context.startedAt !== undefined ? { startedAt: context.startedAt } : {}),
       }
     default:
       return { id: block.id, kind: 'other', label: block.type, status: live ? 'running' : 'done' }

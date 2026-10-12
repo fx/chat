@@ -83,11 +83,14 @@ describe('activityItem', () => {
     })
     expect(activityItem(plan, idle).status).toBe('done')
     const status: Block = { type: 'status', id: 's', phase: 'pre-stream' }
-    expect(activityItem(status, { isActive: true })).toMatchObject({
+    expect(activityItem(status, { isActive: true })).toEqual({
+      id: 's',
       kind: 'waiting',
       label: 'Starting',
       status: 'running',
     })
+    // The message's start is the pending item's clock.
+    expect(activityItem(status, { isActive: true, startedAt: 5 }).startedAt).toBe(5)
     expect(activityItem(status, idle).status).toBe('done')
     const custom = { type: 'search_hit', id: 'h' } as unknown as RenderableBlock
     expect(activityItem(custom, idle)).toEqual({
