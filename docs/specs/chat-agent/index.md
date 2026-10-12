@@ -50,9 +50,13 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - The client MUST list available models from the endpoint's models listing and MUST surface a listing
   failure as an error rather than an empty list. Each listed model carries the request parameters it
   declares (the `supported_parameters` convention), when the endpoint says.
-- The client MUST NOT send tools to a model whose listing declares parameters without `tools`; it
-  reads the listing at most once per endpoint and key, and only for a request with tools or tool
-  history. A model the listing does not describe gets its tools; if the endpoint then rejects the
+- An explicit listing (`listModels()` / `listModelInfo()`) MUST always request the models listing
+  afresh; a successful one replaces the listing the tool-support check reads for that endpoint and
+  key.
+- The client MUST NOT send tools to a model whose listing declares parameters without `tools`. The
+  tool-support check fetches a listing only for a request with tools or tool history, and at most
+  once per endpoint and key (it reuses a listing already fetched, explicitly or by an earlier check).
+  A model the listing does not describe gets its tools; if the endpoint then rejects the
   request over tools (a 400/422 naming tools, tool choice or function calling), the client MUST retry
   it once without them and skip tools for that endpoint and model from then on.
 - A request sent without tools MUST carry its tool history as text: each call and result folds into
@@ -248,7 +252,8 @@ receives an immutable snapshot after every applied delta.
 
 ```
 createClient({ baseUrl, apiKey?, fetch? })
-  ├── listModels() / listModelInfo()   (listings cached per endpoint: tool support)
+  ├── listModels() / listModelInfo()   (always fetched; the latest listing per endpoint
+  │                                     and key is cached for the tool-support check)
   └── streamCompletion(request, signal) ──► SSE parser ──► normalized StreamEvent[]
 runAgent({ client, model, history, tools, approve?, maxSteps, signal, onUpdate })
   loop: encode(history + current turn) → stream → applyEvent* → execute tools → next step

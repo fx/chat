@@ -24,7 +24,7 @@ This change MUST satisfy the project's standing testing rules (see
 The spec owns the behavior. This change owns:
 
 - New `ModelInfo` type (`id`, optional `supportedParameters`) and `Client.listModelInfo(signal?)`, sorted by id; `listModels()` is derived from it.
-- The listing is read at most once per endpoint and key (a process-wide, bounded cache shared by every client), and only for a request that has tools or tool history. An aborted listing is not cached.
+- Explicit `listModelInfo()` / `listModels()` calls always request `/models`; a successful one replaces the cached listing for that endpoint and key, so a refresh updates tool support. The tool-support check fetches a listing only for a request that has tools or tool history, and at most once per endpoint and key (a process-wide, bounded cache shared by every client), reusing any listing already cached. An aborted check listing is not cached. A model remembered as rejecting tools stays tool-less for the process; a refreshed listing does not clear that.
 - A model whose listing declares parameters without `tools` gets no `tools` field and no tool history on the wire.
 - A model the listing does not describe gets its tools; a 400/422 whose message names tools, tool choice or function calling is retried once without them, and that endpoint and model skip tools from then on (bounded process-wide set). This composes with the existing one-shot `stream_options` retry: each feature is dropped at most once.
 - New export `flattenToolHistory(messages)`: each assistant tool call (`[called name(args)]`) and its result (`[name returned]\n…`) fold into the assistant turn as text; `tool` messages and `tool_calls` are dropped.

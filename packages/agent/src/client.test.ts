@@ -533,6 +533,21 @@ describe('createClient() tool capability', () => {
     ])
   })
 
+  it('lists afresh on every explicit call, refreshing what the tool check reads', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [{ id: 'm', supported_parameters: ['temperature'] }] }),
+      json({ data: [{ id: 'm', supported_parameters: ['tools'] }] }),
+      sseResponse(sse([])),
+    )
+    const client = createClient({ baseUrl: 'http://cap-refresh', fetch: fn })
+    await client.listModelInfo()
+    expect(await client.listModels()).toEqual(['m'])
+    await drain(client, { tools })
+    expect(calls.map((c) => c.url.split('/').pop())).toEqual(['models', 'models', 'completions'])
+    // The second listing replaced the first: the model now takes tools.
+    expect(body(calls[2]).tools).toEqual(tools)
+  })
+
   it('sends tools to a model declaring them, and to one the listing does not describe', async () => {
     const { fn, calls } = fakeFetch(
       json({ data: [{ id: 'm', supported_parameters: ['tools'] }] }),
