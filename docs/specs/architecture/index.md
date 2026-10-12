@@ -139,6 +139,11 @@ Related specs:
   npm trusted publishing (OIDC, with provenance) — no npm token is stored in the repository.
 - A published package MUST NOT carry the `workspace:` protocol: internal dependencies MUST be pinned
   to the released version in the published `package.json`.
+- The same release MUST attach the Android reference app's signed release APK
+  (`fx-chat-<version>.apk`, built from the release tag) to the GitHub release. release-please MUST
+  keep the app's version (`tauri.conf.json`, `Cargo.toml`, `Cargo.lock`) on the release version.
+  The signing key MUST live only in repository secrets; a build without it MUST still succeed,
+  unsigned, and the release job MUST fail rather than attach an unsigned or mis-versioned APK.
 
 #### Scenario: Static demo build
 
@@ -293,3 +298,4 @@ not in the rule.
 | 2026-10-11 | `@fx-/chat-shadcn` added (`packages/shadcn`); the demo's shadcn registry and the Android app consume it | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
 | 2026-10-12 | The terminal app leaves the workspace and installs the published libraries, so `tx marketplace add` works from a clone | [0048-tx-plugin-install](../../changes/0048-tx-plugin-install.md) |
 | 2026-10-12 | Libraries move to the `@fx-` npm scope and are released to npm in lockstep by release-please (trusted publishing); GitHub Packages publishing removed | [0047-npm-publishing](../../changes/0047-npm-publishing.md) |
+| 2026-10-12 | The Android app's signed release APK is attached to every GitHub release; release-please versions the app | [0049-android-release-apk](../../changes/0049-android-release-apk.md) |

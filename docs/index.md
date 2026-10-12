@@ -68,3 +68,4 @@
 | 0046 | [Unreadable Images](changes/0046-unreadable-images.md) | [Mobile App](specs/mobile-app/) | complete | 0021, 0045 |
 | 0047 | [npm Publishing](changes/0047-npm-publishing.md) | [Architecture](specs/architecture/) | complete | 0036 |
 | 0048 | [tx Plugin Install](changes/0048-tx-plugin-install.md) | [Terminal App](specs/terminal-app/) | complete | 0022, 0047 |
+| 0049 | [Android Release APK](changes/0049-android-release-apk.md) | [Mobile App](specs/mobile-app/) | complete | 0021, 0047 |

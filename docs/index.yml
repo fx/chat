@@ -384,3 +384,10 @@ changes:
     spec: terminal-app
     status: complete
     depends_on: ["0022", "0047"]
+  - id: "0049"
+    name: android-release-apk
+    path: changes/0049-android-release-apk.md
+    description: "Every GitHub release carries the Android app's signed universal APK (fx-chat-<version>.apk), built from the tag; release-please versions the app and a gitignored keystore.properties feeds the release signing config"
+    spec: mobile-app
+    status: complete
+    depends_on: ["0021", "0047"]

@@ -25,6 +25,11 @@ visual theme) stays in `apps/mobile`.
 
 - The app MUST build to an installable Android APK (min SDK 24) with one repository command, and its
   web UI MUST also run in a desktop browser for development.
+- Every release MUST carry a signed universal APK (arm64 + armv7) as a GitHub release asset named
+  `fx-chat-<version>.apk`. Its `versionName` MUST be the release version and its `versionCode` MUST
+  be derived from it, so each release installs as an upgrade of the previous one. Every release
+  MUST be signed with the same key, which is never committed to the repository; the release build's
+  application id is `dev.fx.chat`, distinct from the debug build's `dev.fx.chat.debug`.
 - The web UI MUST consume the libraries only through their public package names.
 - The app MUST NOT be published to npm and MUST NOT be part of the library's coverage gate; it has its
   own tests.
@@ -222,3 +227,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-12 | Disable endpoints | [0045-model-picker](../../changes/0045-model-picker.md) |
 | 2026-10-12 | Default model replaces the active endpoint | [0045-model-picker](../../changes/0045-model-picker.md) |
 | 2026-10-12 | Say when a picked image cannot be read | [0046-unreadable-images](../../changes/0046-unreadable-images.md) |
+| 2026-10-12 | Signed release APK attached to every GitHub release | [0049-android-release-apk](../../changes/0049-android-release-apk.md) |
