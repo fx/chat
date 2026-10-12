@@ -33,6 +33,7 @@ This change MUST satisfy the project's standing testing rules (see
 
 - **App-only.** Everything here is configuration of public `@fx/chat`, `@fx/chat-shadcn` and `@fx/chat-agent` APIs plus app CSS keyed on the stable `.chat-*` hooks and `data-message-id`; no package changes.
 - **Footer visibility is app CSS.** The selected/last message ids are written into a generated `<style>` rule (`conversationStyle`, ids escaped with `CSS.escape`) rather than a library prop, since which footers show is a touch-app decision.
+- **The finish transition starts after the effect.** React refuses `flushSync` while it runs an effect, so `useFinishTransition` queues `document.startViewTransition` in a microtask (cancelled if a new run starts first) and commits the end with `flushSync` inside its callback; otherwise both snapshots could hold the live tiles and the morph would not happen. This review fix differs from the source branch, which called `startViewTransition` straight from the effect.
 - **Throttling stays in the controller.** `ChatController` (0037) already implements `updateIntervalMs` (latest snapshot wins); the app only chooses the interval. No app-side throttle was added.
 
 ### Non-Goals
@@ -44,6 +45,6 @@ Any change to `@fx/chat`, `@fx/chat-core`, `@fx/chat-agent` or `@fx/chat-shadcn`
 - [x] Activity as tiles, finished activity in the footer; built-in tool tile icons
 - [x] One footer shown, on the tapped message; fade-in respecting reduced motion
 - [x] Live activity kept below the turn's latest text (`after-content`)
-- [x] Last answer's footer always shown; finished tiles morph into the footer
+- [x] Last answer's footer always shown; finished tiles morph into the footer (end committed inside the transition callback)
 - [x] Streamed updates applied at most every 50ms via the controller's `updateIntervalMs`
 - [x] Tests (`conversationStyle`, `selectionAfterTap`, `useFinishTransition`, app); index entries

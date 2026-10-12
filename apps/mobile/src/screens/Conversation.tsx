@@ -399,7 +399,19 @@ export function useFinishTransition<T>(run: T | undefined): T | undefined {
       setShown(undefined)
       return
     }
-    document.startViewTransition(() => flushSync(() => setShown(undefined)))
+    // React refuses `flushSync` while it is running an effect, so start the
+    // transition once the effect has returned: its callback must commit the
+    // end synchronously for the snapshot after it to show the footer.
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      document.startViewTransition(() => {
+        if (!cancelled) flushSync(() => setShown(undefined))
+      })
+    })
+    return () => {
+      cancelled = true
+    }
   }, [run, shown])
   return shown
 }
