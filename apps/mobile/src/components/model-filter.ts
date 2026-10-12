@@ -49,15 +49,17 @@ export function knownCapabilities(models: readonly ModelInfo[]): Capability[] {
 
 export interface ModelFilter {
   query: string
-  provider?: string | undefined
+  /** Any of these providers; none means all. */
+  providers?: readonly string[] | undefined
   capabilities: readonly Capability[]
 }
 
-/** The models matching every search term (in the id or name), the provider and all capabilities. */
+/** The models matching every search term (in the id or name), any chosen provider and all capabilities. */
 export function filterModels(models: readonly ModelInfo[], filter: ModelFilter): ModelInfo[] {
   const terms = filter.query.toLowerCase().split(/\s+/).filter(Boolean)
   return models.filter((model) => {
-    if (filter.provider && providerOf(model) !== filter.provider) return false
+    const chosen = filter.providers
+    if (chosen?.length && !chosen.includes(providerOf(model) as string)) return false
     if (filter.capabilities.some((c) => !declares(model, c))) return false
     const haystack = `${model.id} ${model.name ?? ''}`.toLowerCase()
     return terms.every((term) => haystack.includes(term))

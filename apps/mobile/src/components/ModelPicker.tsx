@@ -2,7 +2,7 @@
  * Pick an endpoint and one of its models: a search field with the common
  * capability filters as icon toggles (tools, reasoning, vision), and a
  * filters panel behind a sliders button for the rest — the endpoint to
- * browse and the provider. Typing an id the endpoint does not list is tucked
+ * browse and the providers. Typing an id the endpoint does not list is tucked
  * away as an advanced option (shown up front when the listing fails). Shared
  * by a conversation's model sheet and the assistant settings.
  */
@@ -56,7 +56,7 @@ export function ModelPicker({
   const [models, setModels] = useState<ModelInfo[]>()
   const [error, setError] = useState<string>()
   const [query, setQuery] = useState('')
-  const [provider, setProvider] = useState<string>()
+  const [chosen, setChosen] = useState<string[]>([])
   const [capabilities, setCapabilities] = useState<Capability[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -68,7 +68,7 @@ export function ModelPicker({
     setError(undefined)
     // Never offer the previous endpoint's models (or its providers) under this one.
     setModels(undefined)
-    setProvider(undefined)
+    setChosen([])
     store
       .listModelInfo(browsing, controller.signal)
       .then(setModels)
@@ -90,17 +90,17 @@ export function ModelPicker({
   const providerList = useMemo(() => providers(listed), [listed])
   const capabilityList = useMemo(() => knownCapabilities(listed), [listed])
   const shown = useMemo(
-    () => filterModels(listed, { query, provider, capabilities }),
-    [listed, query, provider, capabilities],
+    () => filterModels(listed, { query, providers: chosen, capabilities }),
+    [listed, query, chosen, capabilities],
   )
   const toggle = (capability: Capability) =>
     setCapabilities((on) =>
       on.includes(capability) ? on.filter((c) => c !== capability) : [...on, capability],
     )
   const choose = (id: string) => browsing && onChoose({ profileId: browsing.id, model: id })
-  const filtering = query.trim() !== '' || provider !== undefined || capabilities.length > 0
+  const filtering = query.trim() !== '' || chosen.length > 0 || capabilities.length > 0
   const current = browsing?.id === profile?.id ? model : undefined
-  const panelCount = (provider ? 1 : 0) + (browsing && browsing.id !== profile?.id ? 1 : 0)
+  const panelCount = chosen.length + (browsing && browsing.id !== profile?.id ? 1 : 0)
 
   if (filtersOpen || !browsing) {
     return (
@@ -109,8 +109,8 @@ export function ModelPicker({
         browsing={browsing}
         onBrowse={setBrowseId}
         providers={providerList}
-        provider={provider}
-        onProvider={setProvider}
+        chosen={chosen}
+        onChosen={setChosen}
         matches={browsing ? shown.length : undefined}
         onDone={() => setFiltersOpen(false)}
       />
@@ -181,7 +181,7 @@ export function ModelPicker({
         <p aria-live="polite" className="truncate px-3 text-xs text-muted-foreground">
           {[
             settings.profiles.length > 1 ? browsing.name : undefined,
-            provider,
+            chosen.length > 2 ? `${chosen.length} providers` : chosen.join(', '),
             models
               ? filtering
                 ? `${shown.length} of ${listed.length}`
@@ -222,14 +222,14 @@ export function ModelPicker({
   )
 }
 
-/** The in-depth filters: which endpoint to browse, and the provider. */
+/** The in-depth filters: which endpoint to browse, and which providers. */
 function FiltersPanel({
   profiles,
   browsing,
   onBrowse,
   providers,
-  provider,
-  onProvider,
+  chosen,
+  onChosen,
   matches,
   onDone,
 }: {
@@ -237,8 +237,8 @@ function FiltersPanel({
   browsing: Profile | undefined
   onBrowse: (id: string) => void
   providers: readonly string[]
-  provider: string | undefined
-  onProvider: (provider: string | undefined) => void
+  chosen: readonly string[]
+  onChosen: (providers: string[]) => void
   matches: number | undefined
   onDone: () => void
 }) {
@@ -274,11 +274,17 @@ function FiltersPanel({
             Provider
           </legend>
           <div className="flex flex-wrap gap-1.5">
-            <Chip pressed={provider === undefined} onClick={() => onProvider(undefined)}>
+            <Chip pressed={chosen.length === 0} onClick={() => onChosen([])}>
               All
             </Chip>
             {providers.map((p) => (
-              <Chip key={p} pressed={p === provider} onClick={() => onProvider(p)}>
+              <Chip
+                key={p}
+                pressed={chosen.includes(p)}
+                onClick={() =>
+                  onChosen(chosen.includes(p) ? chosen.filter((c) => c !== p) : [...chosen, p])
+                }
+              >
                 {p}
               </Chip>
             ))}
@@ -288,8 +294,8 @@ function FiltersPanel({
 
       {browsing ? (
         <div className="flex gap-2">
-          {provider ? (
-            <SecondaryButton className="flex-1" onClick={() => onProvider(undefined)}>
+          {chosen.length > 0 ? (
+            <SecondaryButton className="flex-1" onClick={() => onChosen([])}>
               Clear
             </SecondaryButton>
           ) : null}

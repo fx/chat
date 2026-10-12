@@ -59,9 +59,14 @@ describe('model filters', () => {
     expect(ids({ query: '', capabilities: [] })).toHaveLength(5)
     expect(ids({ query: ' ACME  pro ', capabilities: [] })).toEqual(['openrouter/acme/vision-pro'])
     expect(ids({ query: 'claude', capabilities: [] })).toEqual(['anthropic/claude'])
-    expect(ids({ query: '', provider: 'openrouter', capabilities: ['tools'] })).toEqual([
+    expect(ids({ query: '', providers: ['openrouter'], capabilities: ['tools'] })).toEqual([
       'openrouter/acme/vision-pro',
     ])
+    expect(ids({ query: '', providers: ['anthropic', 'llamacpp'], capabilities: [] })).toEqual([
+      'anthropic/claude',
+      'local-model',
+    ])
+    expect(ids({ query: '', providers: [], capabilities: [] })).toHaveLength(5)
     expect(ids({ query: '', capabilities: ['reasoning'] })).toEqual([
       'openrouter/acme/vision-pro',
       'anthropic/claude',
