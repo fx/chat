@@ -57,3 +57,4 @@
 | 0035 | [Terminal Markdown Element](changes/0035-terminal-markdown-element.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0029 |
 | 0036 | [Shadcn Package](changes/0036-shadcn-package.md) | [Architecture](specs/architecture/) | complete | 0006, 0013, 0021 |
 | 0038 | [Android Local Network](changes/0038-android-local-network.md) | [Mobile App](specs/mobile-app/) | complete | 0021 |
+| 0040 | [Activity Summaries](changes/0040-activity-summaries.md) | [Message Rendering](specs/message-rendering/) | complete | 0023, 0034 |

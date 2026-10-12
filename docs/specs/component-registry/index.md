@@ -304,6 +304,6 @@ type IconName =
 | 2026-06-28 | Required a visible, token-driven `:focus-visible` ring (via `--chat-accent`) on every focusable package control (button, copy, collapsible summary, attachment thumb/download, lightbox close); completion popup excluded (aria-activedescendant model) | [0009-visual-density-parity](../../changes/0009-visual-density-parity.md) |
 | 2026-06-29 | Package goes fully headless: the styling mechanism is the `classNames` injection map onto the stable `.chat-*` hooks (not shipped CSS-var theme tokens). The default theme (font, role bubbles, density, focus rings) is removed; visual styling — including focus rings — is host-supplied via `classNames` | [0013-headless-styling](../../changes/0013-headless-styling.md) |
 | 2026-10-10 | Optional icons with headless fallback; `checklist` | [0024-plan-block](../../changes/0024-plan-block.md) |
-| 2026-10-11 | OPTIONAL `MessageDetails` presenter slot for the compact footer | — |
-| 2026-10-11 | OPTIONAL `ActivitySummary` presenter; `MessageDetails` gets the activity and a focus | — |
-| 2026-10-11 | Optional `info` icon | — |
+| 2026-10-11 | OPTIONAL `MessageDetails` presenter slot for the compact footer | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | OPTIONAL `ActivitySummary` presenter; `MessageDetails` gets the activity and a focus | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | Optional `info` icon | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |

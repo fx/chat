@@ -307,3 +307,10 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0021"]
+  - id: "0040"
+    name: activity-summaries
+    path: changes/0040-activity-summaries.md
+    description: "Optional MessageDetails and ActivitySummary presenter slots; footer activity facts that toggle the activity; info icon; memoized messages"
+    spec: message-rendering
+    status: complete
+    depends_on: ["0023", "0034"]

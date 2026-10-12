@@ -929,7 +929,7 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
 | 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |
-| 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | — |
-| 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | — |
-| 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | — |
-| 2026-10-11 | Summarized activity shown from the footer renders inside it, after the facts | — |
+| 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | Summarized activity shown from the footer renders inside it, after the facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
