@@ -45,6 +45,26 @@ export function unreadable(count: number): string {
   return `Couldn’t read ${count === 1 ? 'that image' : `${count} of those images`}. Try picking ${count === 1 ? 'it' : 'them'} again.`
 }
 
+/**
+ * The composer's picked images and the notice about any that could not be
+ * read. The notice shows after a pick with unreadable images and clears on the
+ * next pick that reads every image (picking again is the fix) or on send.
+ */
+export function usePickedImages() {
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [error, setError] = useState<string>()
+  const add = useCallback(async (files: File[]) => {
+    const { added, failed } = await readAttachments(files)
+    setAttachments((current) => [...current, ...added])
+    setError(failed > 0 ? unreadable(failed) : undefined)
+  }, [])
+  const clear = useCallback(() => {
+    setAttachments([])
+    setError(undefined)
+  }, [])
+  return { attachments, setAttachments, error, add, clear }
+}
+
 /** Turn a picked image into a (downscaled) data-URL attachment. */
 export async function fileToAttachment(file: File): Promise<Attachment | undefined> {
   if (!file.type.startsWith('image/')) return undefined
@@ -96,8 +116,7 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const blocker = meta ? store.runBlocker(meta) : undefined
   const blocked = Boolean(blocker)
   const approval = state.approvals.find((a) => a.conversationId === id)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [attachError, setAttachError] = useState<string>()
+  const picked = usePickedImages()
   // A chat with no model (no default model yet) opens on the model picker.
   const [pickerOpen, setPickerOpen] = useState(() => meta !== undefined && !meta.model)
   // The one assistant message whose footer shows (tap a message to show it).
@@ -155,12 +174,6 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
       ],
     }
   }, [error, run, store, id, blocked])
-
-  const onAddFiles = useCallback(async (files: File[]) => {
-    const { added, failed } = await readAttachments(files)
-    setAttachments((current) => [...current, ...added])
-    setAttachError(failed > 0 ? unreadable(failed) : undefined)
-  }, [])
 
   if (!meta) {
     return (
@@ -239,23 +252,22 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
       {approval ? <ApprovalBar approval={approval} /> : null}
 
       <div className="safe-bottom shrink-0 border-t border-border bg-background px-3 pt-2 pb-2">
-        {attachError ? (
+        {picked.error ? (
           <p role="alert" className="px-1 pb-1.5 text-xs text-destructive">
-            {attachError}
+            {picked.error}
           </p>
         ) : null}
         <ChatInput
           onSend={(text, sent) => {
             followRef.current = true
-            setAttachments([])
-            setAttachError(undefined)
+            picked.clear()
             void store.send(id, text, sent)
           }}
           onStop={() => store.stop(id)}
           isStreaming={Boolean(run)}
-          attachments={attachments}
-          onAttachmentsChange={setAttachments}
-          onAddFiles={(files) => void onAddFiles(files)}
+          attachments={picked.attachments}
+          onAttachmentsChange={picked.setAttachments}
+          onAddFiles={(files) => void picked.add(files)}
           accept="image/*"
           maxLines={6}
           placeholder={blocker ?? 'Message'}

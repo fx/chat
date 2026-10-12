@@ -102,7 +102,8 @@ visual theme) stays in `apps/mobile`.
 - The user SHOULD be able to attach images from the device to a message; they MUST be sent to the
   endpoint as image inputs.
 - A picked image that cannot be read MUST NOT fail silently: the readable ones attach, and the app
-  MUST say how many could not be read until the next send.
+  MUST say how many could not be read. The notice clears on the next pick that reads every image, or
+  on send.
 
 #### Scenario: Stop mid-stream
 

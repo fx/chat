@@ -6,6 +6,7 @@ import {
   selectionAfterTap,
   unreadable,
   useFinishTransition,
+  usePickedImages,
 } from './Conversation'
 
 function transcript() {
@@ -22,6 +23,37 @@ function transcript() {
     selectionAfterTap({ target: at(selector), currentTarget: log }, current)
   return { tap }
 }
+
+describe('usePickedImages', () => {
+  it('says when a pick has unreadable images, and clears once a pick reads them all', async () => {
+    const restore = stubFileReading()
+    try {
+      const { result } = renderHook(() => usePickedImages())
+      await act(() => result.current.add([image(), broken()]))
+      expect(result.current.attachments).toHaveLength(1)
+      expect(result.current.error).toBe(unreadable(1))
+      // Picking again is the fix for a failed picker grant.
+      await act(() => result.current.add([image('c.png')]))
+      expect(result.current.attachments).toHaveLength(2)
+      expect(result.current.error).toBeUndefined()
+    } finally {
+      restore()
+    }
+  })
+
+  it('clears the images and the notice on send', async () => {
+    const restore = stubFileReading()
+    try {
+      const { result } = renderHook(() => usePickedImages())
+      await act(() => result.current.add([image(), broken()]))
+      act(() => result.current.clear())
+      expect(result.current.attachments).toEqual([])
+      expect(result.current.error).toBeUndefined()
+    } finally {
+      restore()
+    }
+  })
+})
 
 describe('selectionAfterTap', () => {
   it('selects the tapped assistant message, and moves to another', () => {
@@ -160,39 +192,49 @@ describe('useFinishTransition', () => {
   })
 })
 
+/**
+ * jsdom decodes no images (downscaling falls back to the original), and a file
+ * named `b.png` fails to read, as when the picker's grant failed.
+ */
+function stubFileReading() {
+  vi.stubGlobal(
+    'Image',
+    class {
+      onerror?: () => void
+      set src(_: string) {
+        queueMicrotask(() => this.onerror?.())
+      }
+    },
+  )
+  const original = FileReader.prototype.readAsDataURL
+  FileReader.prototype.readAsDataURL = function (this: FileReader, blob: Blob) {
+    if ((blob as File).name === 'b.png') {
+      Object.defineProperty(this, 'error', { value: new DOMException('gone', 'NotFoundError') })
+      queueMicrotask(() => this.onerror?.(new ProgressEvent('error')))
+      return
+    }
+    original.call(this, blob)
+  }
+  return () => {
+    FileReader.prototype.readAsDataURL = original
+    vi.unstubAllGlobals()
+  }
+}
+
+const image = (name = 'a.png') => new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' })
+const broken = () => new File([], 'b.png', { type: 'image/png' })
+
 describe('readAttachments', () => {
   it('reads images, skips other files, and counts the ones it cannot read', async () => {
-    const image = new File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' })
     const text = new File(['x'], 'a.txt', { type: 'text/plain' })
-    const broken = new File([], 'b.png', { type: 'image/png' })
-    // jsdom decodes no images: downscaling falls back to the original.
-    vi.stubGlobal(
-      'Image',
-      class {
-        onerror?: () => void
-        set src(_: string) {
-          queueMicrotask(() => this.onerror?.())
-        }
-      },
-    )
-    // The picker's grant failed: reading the file errors.
-    const original = FileReader.prototype.readAsDataURL
-    FileReader.prototype.readAsDataURL = function (this: FileReader, blob: Blob) {
-      if ((blob as File).name === 'b.png') {
-        Object.defineProperty(this, 'error', { value: new DOMException('gone', 'NotFoundError') })
-        queueMicrotask(() => this.onerror?.(new ProgressEvent('error')))
-        return
-      }
-      original.call(this, blob)
-    }
+    const restore = stubFileReading()
     try {
-      const { added, failed } = await readAttachments([image, text, broken])
+      const { added, failed } = await readAttachments([image(), text, broken()])
       expect(added).toHaveLength(1)
       expect(added[0]?.url).toMatch(/^data:image\/png/)
       expect(failed).toBe(1)
     } finally {
-      FileReader.prototype.readAsDataURL = original
-      vi.unstubAllGlobals()
+      restore()
     }
   })
 

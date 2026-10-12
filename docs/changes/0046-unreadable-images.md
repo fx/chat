@@ -2,7 +2,7 @@
 
 ## Summary
 
-When a picked image cannot be read, the Android app no longer fails silently. Picked files are read independently: the readable ones attach, and a line above the composer says how many could not be read and to pick them again. The line clears on the next send or on a pick that reads cleanly.
+When a picked image cannot be read, the Android app no longer fails silently. Picked files are read independently: the readable ones attach, and a line above the composer says how many could not be read and to pick them again. The line clears on the next pick that reads every image (picking again is the fix after a failed picker grant) or on send.
 
 **Spec:** [mobile-app](../specs/mobile-app/)
 **Status:** complete
@@ -24,7 +24,7 @@ This change MUST satisfy the project's standing testing rules (see
 
 - `readAttachments(files)` reads every picked file independently (`Promise.allSettled`) and returns the readable image attachments and the number of files that could not be read. Non-images are skipped, not counted as failures.
 - When any file could not be read, a `role="alert"` line above the composer says so: "Couldn’t read that image. Try picking it again." for one, "Couldn’t read N of those images. Try picking them again." for several (`unreadable(count)`).
-- The readable images attach as before. The line clears on send, and is replaced (or cleared) by the next pick.
+- The readable images attach as before. The line clears on the next pick that reads every image, or on send; a later pick with unreadable images replaces it with that pick's count.
 
 ## Design
 
@@ -32,7 +32,7 @@ This change MUST satisfy the project's standing testing rules (see
 
 - **Count, don't throw.** A failed read is an expected outcome of the platform picker, so it is reported as data (`failed`) rather than as a rejection the screen would have to catch.
 - **Keep what was readable.** One bad file must not discard the others the user picked.
-- **App-only.** Reading files and the error line live in `apps/mobile/src/screens/Conversation.tsx`; no package changes. The composer from `@fx/chat` is used unchanged through its public export.
+- **App-only.** Reading files (`readAttachments`, `usePickedImages`) and the error line live in `apps/mobile/src/screens/Conversation.tsx`; no package changes. The composer from `@fx/chat` is used unchanged through its public export.
 
 ### Non-Goals
 
@@ -41,5 +41,5 @@ Retrying reads automatically; attachment thumbnails; working around the picker's
 ## Tasks
 
 - [x] `readAttachments` with `Promise.allSettled`; `unreadable` message
-- [x] `role="alert"` line above the composer, cleared on send
+- [x] `role="alert"` line above the composer, cleared by a pick that reads every image or on send (`usePickedImages`)
 - [x] Tests (`Conversation.test.ts`); mobile-app spec and indexes
