@@ -1,6 +1,6 @@
 {
   "name": "@fx-/chat",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-light, design-system-agnostic React components for rendering and composing LLM chat conversations.",
   "license": "MIT",
   "type": "module",

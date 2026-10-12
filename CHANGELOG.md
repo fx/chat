@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/fx/chat/compare/v0.1.0...v0.1.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **release:** pin internal dependencies to the released version ([#47](https://github.com/fx/chat/issues/47)) ([22f15ac](https://github.com/fx/chat/commit/22f15ac48d492a6a89cd7d0f28b84cbb7285f860))
+
 ## 0.1.0 (2026-10-12)
 
 
