@@ -184,5 +184,5 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-10 | Initial spec created | [0021-mobile-app](../../changes/0021-mobile-app.md) |
 | 2026-10-11 | The app's shadcn registry, `classNames` theme, markdown slot and design tokens move into `@fx/chat-shadcn` (touch mode) | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
 | 2026-10-11 | App store built on `ChatController`; IndexedDB store moved into `@fx/chat-agent` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
-| 2026-10-11 | Digital assistant | — |
-| 2026-10-12 | Settings sub-menus; assistant model | — |
+| 2026-10-11 | Digital assistant | [0043-digital-assistant](../../changes/0043-digital-assistant.md) |
+| 2026-10-12 | Settings sub-menus; assistant model | [0043-digital-assistant](../../changes/0043-digital-assistant.md) |

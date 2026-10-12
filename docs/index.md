@@ -62,4 +62,5 @@
 | 0040 | [Activity Summaries](changes/0040-activity-summaries.md) | [Message Rendering](specs/message-rendering/) | complete | 0023, 0034 |
 | 0041 | [Touch Presenters](changes/0041-touch-presenters.md) | [Architecture](specs/architecture/) | complete | 0036, 0040 |
 | 0042 | [Mobile Activity Tiles](changes/0042-mobile-activity-tiles.md) | [Mobile App](specs/mobile-app/) | complete | 0037, 0040, 0041 |
+| 0043 | [Digital Assistant](changes/0043-digital-assistant.md) | [Mobile App](specs/mobile-app/) | complete | 0021, 0037, 0038 |
 | 0044 | [Model Listing Fields](changes/0044-model-listing-fields.md) | [Chat Agent](specs/chat-agent/) | complete | 0039 |
