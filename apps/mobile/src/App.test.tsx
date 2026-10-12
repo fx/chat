@@ -245,15 +245,16 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Settings' }))
     await user.click(screen.getByRole('button', { name: /Assistant Fake · fake-1/ }))
     fail = true
-    await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
+    await user.click(screen.getByRole('button', { name: /^Model Fake · fake-1/ }))
+    await user.click(await screen.findByRole('button', { name: /^fake-2/ }))
     expect((await screen.findByRole('alert')).textContent).toBe(
       "Couldn't save the assistant model: disk full",
     )
     // A later save clears it.
     fail = false
-    await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+    await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-    expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-2' })
+    expect(store.getState().settings.assistant).toEqual({})
   })
 
   it('sets the assistant model, and runs spoken prompts on it', async () => {
