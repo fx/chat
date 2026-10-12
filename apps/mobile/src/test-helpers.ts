@@ -31,7 +31,10 @@ export function sseResponse(body: string): Response {
  * small HTML page (for the fetch tool), and replays one completion body per
  * `/chat/completions` request, recording request bodies.
  */
-export function fakeEndpoint(completions: string[], models = ['fake-1', 'fake-2']) {
+export function fakeEndpoint(
+  completions: string[],
+  models: Array<string | Record<string, unknown>> = ['fake-1', 'fake-2'],
+) {
   const requests: Array<{ url: string; body: unknown; headers: Headers }> = []
   const fetch: FetchLike = async (url, init) => {
     requests.push({
@@ -39,7 +42,10 @@ export function fakeEndpoint(completions: string[], models = ['fake-1', 'fake-2'
       body: init?.body ? JSON.parse(init.body as string) : undefined,
       headers: new Headers(init?.headers),
     })
-    if (url.endsWith('/models')) return Response.json({ data: models.map((id) => ({ id })) })
+    if (url.endsWith('/models'))
+      return Response.json({
+        data: models.map((m) => (typeof m === 'string' ? { id: m } : m)),
+      })
     if (!url.endsWith('/chat/completions')) {
       return new Response('<title>Page</title><p>page text</p>', {
         headers: { 'content-type': 'text/html' },

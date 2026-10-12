@@ -1,10 +1,11 @@
 import { TOOL_INFO } from '@fx/chat-agent'
+import { cn } from '@fx/chat-shadcn'
 /**
  * Settings: a menu of sub-pages — endpoint profiles, system prompt, built-in
  * tools, the digital assistant, and about. The page shown is part of the app
  * route (`path`), so the Android back action walks back up the menu.
  */
-import { ArrowLeft, Check, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, RefreshCw } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { ModelPicker } from '../components/ModelPicker'
 import {
@@ -13,13 +14,14 @@ import {
   MenuRow,
   SecondaryButton,
   Section,
+  Sheet,
   TextArea,
   Toggle,
   errorText,
 } from '../components/ui'
 import { isAssistant, openAssistantSettings } from '../platform'
 import { useAppState, useStore } from '../store/context'
-import type { AssistantSettings } from '../store/types'
+import type { Profile } from '../store/types'
 import { ProfileEditor } from './ProfileEditor'
 
 export type SettingsPage = 'endpoints' | 'prompt' | 'tools' | 'assistant' | 'about'
@@ -95,20 +97,18 @@ export function Settings({
 function Menu({ onOpen }: { onOpen: (page: SettingsPage) => void }) {
   const { settings } = useAppState()
   const store = useStore()
-  const active = store.activeProfile()
   const assistant = store.assistantModel()
   const toolsOn = TOOL_INFO.filter((tool) => settings.tools[tool.id]).length
   const summaries: Record<SettingsPage, string> = {
-    endpoints: active
-      ? `${active.name} · ${active.model}`
-      : `${settings.profiles.length} endpoints`,
+    endpoints: settings.profiles.map((p) => p.name).join(', ') || 'None yet',
     prompt: settings.systemPrompt.trim() || 'None',
     tools: `${toolsOn} of ${TOOL_INFO.length} on`,
-    assistant: assistant ? `${assistant.profile.name} · ${assistant.model}` : 'No endpoint yet',
+    assistant: assistant ? `${assistant.profile.name} · ${assistant.model}` : 'No model yet',
     about: 'Privacy and version',
   }
   return (
     <nav aria-label="Settings">
+      <DefaultModel />
       {(Object.keys(TITLES) as SettingsPage[]).map((page) => (
         <MenuRow
           key={page}
@@ -121,10 +121,37 @@ function Menu({ onOpen }: { onOpen: (page: SettingsPage) => void }) {
   )
 }
 
+/** The model new chats start on, from any endpoint: a row that opens the picker. */
+function DefaultModel() {
+  const store = useStore()
+  useAppState() // re-render when settings change
+  const [picking, setPicking] = useState(false)
+  const target = store.defaultModel()
+  return (
+    <>
+      <MenuRow
+        title="Default model"
+        summary={target ? `${target.profile.name} · ${target.model}` : 'None: choose per chat'}
+        onClick={() => setPicking(true)}
+      />
+      <Sheet open={picking} onClose={() => setPicking(false)} title="Default model" tall>
+        <ModelPicker
+          profile={target?.profile}
+          model={target?.model}
+          active={picking}
+          onChoose={(choice) => {
+            void store.setDefaultModel(choice)
+            setPicking(false)
+          }}
+        />
+      </Sheet>
+    </>
+  )
+}
+
 function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
   const { settings } = useAppState()
   const store = useStore()
-  const active = store.activeProfile()
   return (
     <Section>
       <ul className="flex flex-col">
@@ -132,22 +159,28 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
           <li key={p.id} className="flex items-center gap-1">
             <button
               type="button"
-              className="flex min-h-14 min-w-0 flex-1 flex-col justify-center text-left"
+              className={cn(
+                'flex min-h-14 min-w-0 flex-1 flex-col justify-center text-left',
+                p.disabled && 'opacity-60',
+              )}
               onClick={() => onEdit(p.id)}
             >
               <span className="truncate text-sm font-medium">{p.name}</span>
               <span className="truncate text-xs text-muted-foreground">
-                {p.model} · {p.baseUrl}
+                {p.disabled ? 'Disabled · ' : ''}
+                {p.baseUrl}
               </span>
             </button>
-            <IconButton
-              label={p.id === active?.id ? `${p.name} is active` : `Use ${p.name}`}
-              aria-pressed={p.id === active?.id}
-              onClick={() => void store.updateSettings({ activeProfileId: p.id })}
-              className={p.id === active?.id ? 'text-primary' : 'text-muted-foreground'}
-            >
-              <Check size={18} className={p.id === active?.id ? undefined : 'opacity-30'} />
-            </IconButton>
+            {p.disabled ? (
+              <SecondaryButton
+                aria-label={`Enable ${p.name}`}
+                onClick={() => void store.setProfileDisabled(p.id, false)}
+              >
+                Enable
+              </SecondaryButton>
+            ) : (
+              <RefreshModels profile={p} />
+            )}
           </li>
         ))}
       </ul>
@@ -155,9 +188,54 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
         <Plus size={16} /> Add endpoint
       </SecondaryButton>
       <p className="text-xs text-muted-foreground">
-        The active endpoint is used for new chats; each chat remembers its own.
+        Every endpoint’s models are offered together; each chat remembers the model (and so the
+        endpoint) it uses.
       </p>
     </Section>
+  )
+}
+
+/** Refresh an endpoint's cached model listing; says how many it lists, or why it failed. */
+function RefreshModels({ profile }: { profile: Profile }) {
+  const store = useStore()
+  const [state, setState] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [count, setCount] = useState<number>()
+  useEffect(() => {
+    let current = true
+    void store.cachedModels(profile).then((cached) => {
+      if (current) setCount(cached?.models.length)
+    })
+    return () => {
+      current = false
+    }
+  }, [store, profile])
+  const label =
+    state === 'loading'
+      ? `Refreshing ${profile.name} models`
+      : state === 'failed'
+        ? `Refreshing ${profile.name} models failed; try again`
+        : `Refresh ${profile.name} models${count === undefined ? '' : ` (${count} listed)`}`
+  return (
+    <IconButton
+      label={label}
+      disabled={state === 'loading'}
+      className={state === 'failed' ? 'text-destructive' : 'text-muted-foreground'}
+      onClick={() => {
+        setState('loading')
+        store.refreshModels(profile).then(
+          (catalog) => {
+            setCount(catalog.models.length)
+            setState('idle')
+          },
+          () => setState('failed'),
+        )
+      }}
+    >
+      <RefreshCw
+        size={18}
+        className={state === 'loading' ? 'motion-safe:animate-spin' : undefined}
+      />
+    </IconButton>
   )
 }
 
@@ -251,18 +329,18 @@ function useAssistantRole(): boolean | undefined {
 }
 
 function Assistant() {
-  const { settings } = useAppState()
   const store = useStore()
+  useAppState() // re-render when settings change
   const held = useAssistantRole()
-  const { assistant } = settings
+  const [picking, setPicking] = useState(false)
   const target = store.assistantModel()
-  const custom = settings.profiles.some((p) => p.id === assistant.profileId)
+  const same = store.assistantMatchesNewChats()
   // The choice applies at once; a failed write would silently revert it on
   // the next launch, so say so.
   const [saveError, setSaveError] = useState<string>()
-  const save = (next: AssistantSettings) => {
+  const save = (write: Promise<void>) => {
     setSaveError(undefined)
-    store.updateSettings({ assistant: next }).catch((error: unknown) => {
+    write.catch((error: unknown) => {
       setSaveError(`Couldn't save the assistant model: ${errorText(error)}`)
     })
   }
@@ -280,25 +358,36 @@ function Assistant() {
           </SecondaryButton>
         </Section>
       ) : null}
-      <Section title="Model">
+      <MenuRow
+        title="Model"
+        summary={target ? `${target.profile.name} · ${target.model}` : 'No model yet'}
+        onClick={() => setPicking(true)}
+      />
+      <div className="border-b border-border px-4">
         <Toggle
           label="Same as new chats"
-          description={target ? `${target.profile.name} · ${target.model}` : 'No endpoint yet'}
-          checked={!custom}
-          onChange={(same) => {
-            const profile = target?.profile
-            save(same || !profile ? {} : { profileId: profile.id, model: target.model })
-          }}
+          description="Follow the default model."
+          checked={same}
+          // On: follow new chats again. Off means choosing a different model.
+          onChange={(on) => (on ? save(store.updateSettings({ assistant: {} })) : setPicking(true))}
         />
-        {custom ? (
-          <ModelPicker profile={target?.profile} model={target?.model} onChoose={save} />
-        ) : null}
         {saveError ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="pb-3 text-xs text-destructive">
             {saveError}
           </p>
         ) : null}
-      </Section>
+      </div>
+      <Sheet open={picking} onClose={() => setPicking(false)} title="Assistant model" tall>
+        <ModelPicker
+          profile={target?.profile}
+          model={target?.model}
+          active={picking}
+          onChoose={(choice) => {
+            save(store.setAssistantModel(choice))
+            setPicking(false)
+          }}
+        />
+      </Sheet>
     </>
   )
 }

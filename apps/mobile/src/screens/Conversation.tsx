@@ -75,7 +75,8 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const blocked = Boolean(blocker)
   const approval = state.approvals.find((a) => a.conversationId === id)
   const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [pickerOpen, setPickerOpen] = useState(false)
+  // A chat with no model (no default model yet) opens on the model picker.
+  const [pickerOpen, setPickerOpen] = useState(() => meta !== undefined && !meta.model)
   // The one assistant message whose footer shows (tap a message to show it).
   const [selected, setSelected] = useState<string>()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -281,13 +282,13 @@ function ModelSheet({
   // model to) another endpoint without the user picking that profile.
   const profile = meta ? store.conversationProfile(meta) : undefined
   return (
-    <Sheet open={open} onClose={onClose} title="Model">
+    <Sheet open={open} onClose={onClose} title="Model" tall>
       <ModelPicker
         profile={profile}
         model={meta?.model}
         active={open}
         onChoose={(choice) => {
-          void store.updateConversation(conversationId, choice)
+          void store.chooseModel(conversationId, choice)
           onClose()
         }}
       />

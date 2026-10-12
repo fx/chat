@@ -1,7 +1,7 @@
 import { memoryStore } from '@fx/chat-agent'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeEndpoint, sseBody } from '../test-helpers'
-import { AppStore } from './store'
+import { AppStore, migrate } from './store'
 import type { Profile } from './types'
 
 const profile: Profile = {
@@ -9,8 +9,9 @@ const profile: Profile = {
   name: 'Fake',
   baseUrl: 'https://fake.test/v1',
   apiKey: 'sk-1',
-  model: 'fake-1',
 }
+
+const onFake = { profileId: 'p1', model: 'fake-1' }
 
 async function ready(completions: string[] = [], kvInit: Record<string, unknown> = {}) {
   const kv = memoryStore(kvInit)
@@ -40,59 +41,176 @@ describe('AppStore', () => {
     expect(state.settings.tools).toEqual({ current_time: true, calculator: true, fetch_url: true })
     expect(state.settings.approvals.fetch_url).toBe(true)
     expect(state.conversations.map((c) => c.id)).toEqual(['b', 'a'])
-    expect(store.activeProfile()).toEqual(profile)
+    expect(store.defaultModel()).toBeUndefined()
   })
 
-  it('manages profiles and the active profile', async () => {
+  it('migrates the active endpoint and its model into the default model', async () => {
+    const legacy = { ...profile, model: 'old-1' }
+    const other = { ...profile, id: 'p2', model: 'old-2' }
+    const { store } = await ready([], {
+      settings: {
+        profiles: [legacy, other],
+        activeProfileId: 'p2',
+        assistant: { profileId: 'p1' },
+      },
+    })
+    const { settings } = store.getState()
+    expect(settings.defaultModel).toEqual({ profileId: 'p2', model: 'old-2' })
+    expect(settings).not.toHaveProperty('activeProfileId')
+    expect(settings.assistant).toEqual({ profileId: 'p1', model: 'old-1' })
+    // No active endpoint: the first; no model on it: no default.
+    expect(
+      migrate({ ...settings, defaultModel: undefined, profiles: [legacy] }).defaultModel,
+    ).toEqual({ profileId: 'p1', model: 'old-1' })
+    expect(
+      migrate({ ...settings, defaultModel: undefined, profiles: [profile] }).defaultModel,
+    ).toBe(undefined)
+  })
+
+  it('stores migrated settings at load, without the legacy fields', async () => {
+    const { kv } = await ready([], {
+      settings: {
+        profiles: [{ ...profile, model: 'old-1' }],
+        activeProfileId: 'p1',
+        assistant: {},
+      },
+    })
+    const stored = kv.data.get('settings') as Record<string, unknown>
+    expect(stored).not.toHaveProperty('activeProfileId')
+    expect(stored.profiles).toEqual([profile])
+    expect(stored.defaultModel).toEqual({ profileId: 'p1', model: 'old-1' })
+  })
+
+  it('does not write current settings at load', async () => {
+    const kv = memoryStore({ settings: { profiles: [profile], defaultModel: onFake } })
+    const set = vi.spyOn(kv, 'set')
+    await new AppStore({ kv, fetch: fakeEndpoint([]).fetch }).load()
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('still loads migrated settings when storing them fails', async () => {
+    const kv = memoryStore({
+      settings: { profiles: [{ ...profile, model: 'old-1' }], activeProfileId: 'p1' },
+    })
+    vi.spyOn(kv, 'set').mockRejectedValue(new Error('quota'))
+    const store = new AppStore({ kv, fetch: fakeEndpoint([]).fetch })
+    await store.load()
+    expect(store.getState().loaded).toBe(true)
+    expect(store.getState().settings.defaultModel).toEqual({ profileId: 'p1', model: 'old-1' })
+    expect(store.getState().settings.profiles).toEqual([profile])
+  })
+
+  it('manages profiles, and drops what referred to a deleted one', async () => {
     const { store, kv } = await ready()
     const listener = vi.fn()
     const unsubscribe = store.subscribe(listener)
     await store.saveProfile(profile)
     await store.saveProfile({ ...profile, id: 'p2', name: 'Two' })
     await store.saveProfile({ ...profile, name: 'Renamed' })
-    expect(store.getState().settings.activeProfileId).toBe('p1')
     expect(store.getState().settings.profiles.map((p) => p.name)).toEqual(['Renamed', 'Two'])
-    await store.deleteProfile('p2')
-    expect(store.getState().settings.activeProfileId).toBe('p1')
+    await store.setDefaultModel({ profileId: 'p2', model: 'm2' })
+    await store.setAssistantModel({ profileId: 'p1', model: 'm1' })
     await store.deleteProfile('p1')
-    expect(store.getState().settings.activeProfileId).toBeUndefined()
-    expect(store.activeProfile()).toBeUndefined()
+    expect(store.getState().settings.assistant).toEqual({})
+    expect(store.defaultModel()?.model).toBe('m2')
+    await store.deleteProfile('p2')
+    expect(store.getState().settings.defaultModel).toBeUndefined()
     expect(listener).toHaveBeenCalled()
     unsubscribe()
     expect((kv.data.get('settings') as { profiles: unknown[] }).profiles).toEqual([])
   })
 
-  it('runs the assistant on its own model, else on the active endpoint', async () => {
+  it('starts new chats on the default model, from any endpoint, or on none', async () => {
+    const { store } = await ready()
+    await store.saveProfile(profile)
+    await store.saveProfile({ ...profile, id: 'p2' })
+    expect((await store.createConversation()).model).toBeUndefined()
+    // With no default yet, the first model chosen for a chat becomes it.
+    const first = await store.createConversation()
+    await store.chooseModel(first.id, { profileId: 'p2', model: 'm2' })
+    expect(store.conversation(first.id)).toMatchObject({ profileId: 'p2', model: 'm2' })
+    expect(store.defaultModel()).toEqual({ profile: { ...profile, id: 'p2' }, model: 'm2' })
+    await store.chooseModel(first.id, { profileId: 'p1', model: 'm1' })
+    expect(store.defaultModel()?.model).toBe('m2')
+    expect(await store.createConversation()).toMatchObject({ profileId: 'p2', model: 'm2' })
+  })
+
+  it('leaves disabled endpoints out of new chats and the assistant', async () => {
+    const { store } = await ready()
+    await store.saveProfile(profile)
+    await store.saveProfile({ ...profile, id: 'p2' })
+    await store.setDefaultModel({ profileId: 'p1', model: 'm1' })
+    await store.setAssistantModel({ profileId: 'p2', model: 'm2' })
+    await store.setProfileDisabled('p2', true)
+    expect(store.getState().settings.profiles[1]?.disabled).toBe(true)
+    // The assistant's own endpoint is disabled: it follows new chats.
+    expect(store.assistantModel()?.model).toBe('m1')
+    await store.setProfileDisabled('p1', true)
+    expect(store.defaultModel()).toBeUndefined()
+    expect(store.assistantModel()).toBeUndefined()
+    expect((await store.createConversation()).profileId).toBeUndefined()
+    await store.setProfileDisabled('p2', false)
+    expect(store.getState().settings.profiles[1]).not.toHaveProperty('disabled', true)
+    expect(store.assistantModel()?.model).toBe('m2')
+  })
+
+  it('runs the assistant on its own model, else on the default model', async () => {
     const { store } = await ready()
     expect(store.assistantModel()).toBeUndefined()
     await store.saveProfile(profile)
-    await store.saveProfile({ ...profile, id: 'p2', model: 'm2' })
-    expect(store.assistantModel()).toEqual({ profile, model: profile.model })
-    await store.updateSettings({ assistant: { profileId: 'p2' } })
-    expect(store.assistantModel()?.model).toBe('m2')
-    await store.updateSettings({ assistant: { profileId: 'p2', model: 'm3' } })
+    await store.saveProfile({ ...profile, id: 'p2' })
+    await store.setDefaultModel({ profileId: 'p1', model: 'm1' })
+    expect(store.assistantModel()).toEqual({ profile, model: 'm1' })
+    await store.setAssistantModel({ profileId: 'p1', model: 'm1' })
+    expect(store.getState().settings.assistant).toEqual({})
+    expect(store.assistantMatchesNewChats()).toBe(true)
+    await store.setAssistantModel({ profileId: 'p2', model: 'm3' })
+    expect(store.assistantMatchesNewChats()).toBe(false)
     expect(await store.createAssistantConversation()).toMatchObject({
       profileId: 'p2',
       model: 'm3',
     })
-    // Deleting its endpoint puts it back on the active one.
+    // Deleting its endpoint puts it back on the default model.
     await store.deleteProfile('p2')
     expect(store.getState().settings.assistant).toEqual({})
     await store.deleteProfile('p1')
     expect(await store.createAssistantConversation()).toMatchObject({ profileId: undefined })
   })
 
-  it('runs the assistant on the active endpoint when its stored endpoint is gone', async () => {
+  it('runs the assistant on the default model when its stored endpoint is gone', async () => {
     const kv = memoryStore({
-      settings: { profiles: [profile], assistant: { profileId: 'gone', model: 'm9' } },
+      settings: {
+        profiles: [profile],
+        defaultModel: onFake,
+        assistant: { profileId: 'gone', model: 'm9' },
+      },
     })
     const store = new AppStore({ kv, fetch: fakeEndpoint([]).fetch })
     await store.load()
-    expect(store.assistantModel()).toEqual({ profile, model: profile.model })
-    expect(await store.createAssistantConversation()).toMatchObject({
-      profileId: profile.id,
-      model: profile.model,
-    })
+    expect(store.assistantModel()).toEqual({ profile, model: 'fake-1' })
+    expect(await store.createAssistantConversation()).toMatchObject(onFake)
+  })
+
+  it('caches model listings per endpoint and key, dropping them with the profile', async () => {
+    const { store, kv, endpoint } = await ready()
+    await store.saveProfile(profile)
+    expect(await store.cachedModels(profile)).toBeUndefined()
+    const fresh = await store.refreshModels(profile)
+    expect(fresh.models.map((m) => m.id)).toEqual(['fake-1', 'fake-2'])
+    expect(await store.cachedModels(profile)).toEqual(fresh)
+    // Read back from storage by a new store.
+    const again = new AppStore({ kv, fetch: endpoint.fetch })
+    expect(await again.cachedModels(profile)).toEqual(fresh)
+    // Another URL or key is another endpoint.
+    expect(await store.cachedModels({ ...profile, apiKey: 'sk-2' })).toBeUndefined()
+    await store.toggleFavorite(profile.id, 'fake-2')
+    await store.toggleFavorite(profile.id, 'fake-1')
+    await store.toggleFavorite(profile.id, 'fake-2')
+    expect(store.getState().settings.favorites).toEqual({ [profile.id]: ['fake-1'] })
+    await store.deleteProfile(profile.id)
+    expect(store.getState().settings.favorites).toEqual({})
+    expect(kv.data.has(`models:${profile.id}`)).toBe(false)
+    expect(await store.cachedModels(profile)).toBeUndefined()
   })
 
   it('lists models through the injected fetch with the key', async () => {
@@ -104,7 +222,9 @@ describe('AppStore', () => {
   })
 
   it('creates, renames and deletes conversations', async () => {
-    const { store, kv } = await ready([], { settings: { profiles: [profile] } })
+    const { store, kv } = await ready([], {
+      settings: { profiles: [profile], defaultModel: onFake },
+    })
     const meta = await store.createConversation()
     expect(meta).toMatchObject({ title: 'New chat', profileId: 'p1', model: 'fake-1' })
     await store.updateConversation(meta.id, { title: 'Renamed' })
@@ -118,7 +238,7 @@ describe('AppStore', () => {
   it('sends a message, streams the answer, titles the chat and persists it', async () => {
     const { store, kv, endpoint } = await ready(
       [sseBody([{ reasoning_content: 'hmm' }, { content: 'Hello!' }])],
-      { settings: { profiles: [profile], systemPrompt: 'Be nice.' } },
+      { settings: { profiles: [profile], defaultModel: onFake, systemPrompt: 'Be nice.' } },
     )
     const meta = await store.createConversation()
     const result = await store.send(meta.id, 'Hi there', [
@@ -163,13 +283,12 @@ describe('AppStore', () => {
   it("never sends a conversation to another profile's endpoint", async () => {
     const other: Profile = { ...profile, id: 'p2', baseUrl: 'https://other.test/v1' }
     const { store, endpoint } = await ready([sseBody([{ content: 'a' }])], {
-      settings: { profiles: [profile, other], activeProfileId: 'p1' },
+      settings: { profiles: [profile, other], defaultModel: { profileId: 'p1', model: 'fake-1' } },
     })
     const meta = await store.createConversation()
     await store.send(meta.id, 'q')
     const transcript = store.getState().messages[meta.id]
     expect(transcript).toHaveLength(2)
-    await store.updateSettings({ activeProfileId: 'p2' })
     await store.deleteProfile('p1')
     const sent = endpoint.requests.length
 
@@ -188,13 +307,24 @@ describe('AppStore', () => {
     expect(store.getState().errors[meta.id]).toBeUndefined()
   })
 
-  it('asks for a profile when a conversation was never bound to one', async () => {
+  it('asks for a model when a conversation was never bound to one', async () => {
     const { store, endpoint } = await ready([], {
       settings: { profiles: [profile] },
       conversations: [{ id: 'c1', title: 'Old', createdAt: 1, updatedAt: 1, model: 'fake-1' }],
     })
     expect(await store.send('c1', 'hi')).toBeUndefined()
     expect(endpoint.requests).toHaveLength(0)
-    expect(store.getState().errors.c1?.message).toMatch(/Choose a profile/)
+    expect(store.getState().errors.c1?.message).toMatch(/Choose a model/)
+    await store.updateConversation('c1', { profileId: 'p1', model: undefined })
+    expect(
+      store.runBlocker({ id: 'c1', title: '', createdAt: 1, updatedAt: 1, profileId: 'p1' }),
+    ).toBe('Choose a model from the model menu first.')
+  })
+
+  it('asks for an endpoint when there is none', async () => {
+    const { store } = await ready()
+    expect(store.runBlocker({ id: 'c', title: '', createdAt: 1, updatedAt: 1 })).toBe(
+      'Set up an endpoint in Settings first.',
+    )
   })
 })

@@ -1,4 +1,4 @@
-import { memoryStore } from '@fx/chat-agent'
+import { type FetchLike, memoryStore } from '@fx/chat-agent'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -46,19 +46,27 @@ describe('App', () => {
 
     expect(screen.getByText('Connect a model')).toBeTruthy()
     await user.type(screen.getByLabelText('Base URL'), 'https://fake.test/v1/')
-    await user.click(screen.getByRole('button', { name: 'Load models' }))
-    await waitFor(() => expect(screen.getByText('2 models available')).toBeTruthy())
+    await user.click(screen.getByRole('button', { name: 'Test connection' }))
+    await waitFor(() => expect(screen.getByText('Connected: 2 models available.')).toBeTruthy())
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
+    // No default model yet: the new chat opens on the model picker, and the
+    // first model chosen becomes the default.
+    await user.click(await screen.findByRole('button', { name: 'fake-1' }))
+    expect(store.getState().settings.defaultModel).toEqual({
+      profileId: store.getState().settings.profiles[0]?.id,
+      model: 'fake-1',
+    })
     const textbox = await screen.findByRole('textbox', { name: 'Message' })
     await user.type(textbox, 'Hi{Enter}')
 
     await waitFor(() => expect(screen.getByText('there')).toBeTruthy())
     expect(screen.getAllByText('Hi').length).toBeGreaterThan(0)
     const saved = store.getState().settings.profiles[0]
-    expect(saved).toMatchObject({
+    expect(saved).toEqual({
+      id: expect.any(String),
       baseUrl: 'https://fake.test/v1',
-      model: 'fake-1',
+      apiKey: '',
       name: 'fake.test',
     })
     expect(endpoint.requests.at(-1)?.url).toBe('https://fake.test/v1/chat/completions')
@@ -84,7 +92,7 @@ describe('App', () => {
     const user = userEvent.setup()
     const other = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }
     const { store, endpoint } = setup([sseBody([{ content: 'answer' }])], {
-      settings: { profiles: [profile, other], activeProfileId: 'p2' },
+      settings: { profiles: [profile, other], defaultModel: { profileId: 'p2', model: 'fake-1' } },
       conversations: [
         { id: 'c1', title: 'Old chat', createdAt: 1, updatedAt: 1, profileId: 'gone' },
       ],
@@ -110,10 +118,9 @@ describe('App', () => {
     await user.click(await screen.findByText('reply'))
     expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
 
+    // Every endpoint's models are listed; each row says which endpoint it is on.
     await user.click(screen.getByRole('button', { name: 'Change model' }))
-    expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
-    expect(endpoint.requests).toHaveLength(0)
-    await user.click(screen.getByRole('button', { name: 'Other' }))
+    await user.click(await screen.findByRole('button', { name: 'fake-1 Other' }))
     expect(store.conversation('c1')).toMatchObject({ profileId: 'p2', model: 'fake-1' })
     // Still selected from the tap above: its footer now offers regenerate.
     await user.click(await screen.findByRole('button', { name: 'Regenerate' }))
@@ -131,7 +138,12 @@ describe('App', () => {
     expect(screen.getByText('Old chat')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Settings' }))
     const menu = screen.getByRole('navigation', { name: 'Settings' })
-    expect(within(menu).getByRole('button', { name: /Endpoints Fake · fake-1/ })).toBeTruthy()
+    // The default model (migrated from the old active endpoint) opens the picker.
+    await user.click(within(menu).getByRole('button', { name: /Default model Fake · fake-1/ }))
+    await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+    expect(store.getState().settings.defaultModel).toEqual({ profileId: 'p1', model: 'fake-2' })
+    expect(within(menu).getByRole('button', { name: /Default model Fake · fake-2/ })).toBeTruthy()
+    expect(within(menu).getByRole('button', { name: /Endpoints Fake/ })).toBeTruthy()
     await user.click(within(menu).getByRole('button', { name: /Tools 2 of 3 on/ }))
     await user.click(screen.getByRole('switch', { name: /Fetch web page/ }))
     expect(store.getState().settings.tools.fetch_url).toBe(true)
@@ -139,8 +151,21 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /Tools 3 of 3 on/ }))
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await user.click(screen.getByRole('button', { name: /Endpoints/ }))
-    await user.click(screen.getByRole('button', { name: /^Fake fake-1/ }))
+    // Each endpoint row refreshes its model listing.
+    await user.click(screen.getByRole('button', { name: /^Refresh Fake models/ }))
+    expect(
+      await screen.findByRole('button', { name: 'Refresh Fake models (2 listed)' }),
+    ).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: /^Fake https/ }))
     expect(screen.getByRole('heading', { name: 'Edit endpoint' })).toBeTruthy()
+    // Disable it from its editor, then enable it again from the list.
+    await user.click(screen.getByRole('switch', { name: /Enabled/ }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(store.getState().settings.profiles[0]?.disabled).toBe(true)
+    expect(screen.getByText(/^Disabled · https/)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Enable Fake' }))
+    expect(store.getState().settings.profiles[0]?.disabled).toBeUndefined()
+    await user.click(screen.getByRole('button', { name: /^Fake https/ }))
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await user.click(screen.getByRole('button', { name: 'Add endpoint' }))
     expect(screen.getByRole('heading', { name: 'Add endpoint' })).toBeTruthy()
@@ -210,6 +235,49 @@ describe('App', () => {
     }
   })
 
+  it('drops a connection test result once the URL or key changes', async () => {
+    const user = userEvent.setup()
+    const endpoint = fakeEndpoint([])
+    // Listings wait for `release` while `hold` is set.
+    let hold = false
+    let release = () => {}
+    const fetch: FetchLike = async (url, init) => {
+      if (hold)
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+      return endpoint.fetch(url, init)
+    }
+    const store = new AppStore({ kv: memoryStore(), fetch })
+    render(
+      <StoreProvider store={store}>
+        <App />
+      </StoreProvider>,
+    )
+    await act(() => store.load())
+    const url = screen.getByLabelText('Base URL')
+    const test = screen.getByRole('button', { name: 'Test connection' })
+    await user.type(url, 'https://fake.test/v1')
+    await user.click(test)
+    await screen.findByText('Connected: 2 models available.')
+    // Editing the URL, or the key, drops the result.
+    await user.type(url, '/')
+    expect(screen.queryByText(/Connected/)).toBeNull()
+    await user.click(test)
+    await screen.findByText('Connected: 2 models available.')
+    await user.type(screen.getByLabelText('API key'), 'k')
+    expect(screen.queryByText(/Connected/)).toBeNull()
+    // A test still running when the key changes never shows its result.
+    hold = true
+    await user.click(test)
+    await waitFor(() => expect(test).toBeDisabled())
+    await user.type(screen.getByLabelText('API key'), 'x')
+    expect(test).toBeEnabled()
+    hold = false
+    await act(async () => release())
+    expect(screen.queryByText(/Connected/)).toBeNull()
+  })
+
   it('says when the assistant model could not be saved', async () => {
     const user = userEvent.setup()
     let fail = false
@@ -220,15 +288,16 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Settings' }))
     await user.click(screen.getByRole('button', { name: /Assistant Fake · fake-1/ }))
     fail = true
-    await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
+    await user.click(screen.getByRole('button', { name: /^Model Fake · fake-1/ }))
+    await user.click(await screen.findByRole('button', { name: /^fake-2/ }))
     expect((await screen.findByRole('alert')).textContent).toBe(
       "Couldn't save the assistant model: disk full",
     )
     // A later save clears it.
     fail = false
-    await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+    await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-    expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-2' })
+    expect(store.getState().settings.assistant).toEqual({})
   })
 
   it('sets the assistant model, and runs spoken prompts on it', async () => {
@@ -259,11 +328,21 @@ describe('App', () => {
       })
       expect(screen.getByRole('button', { name: 'Change assistant app' })).toBeTruthy()
 
-      await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
-      expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-1' })
-      await user.click(screen.getByRole('button', { name: 'Other' }))
-      await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+      // Choosing the new-chat model keeps following new chats.
+      const same = () => screen.getByRole('switch', { name: /Same as new chats/ })
+      expect(same()).toBeChecked()
+      await user.click(screen.getByRole('button', { name: /^Model Fake · fake-1/ }))
+      await user.click(await screen.findByRole('button', { name: 'fake-1 Fake' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(store.getState().settings.assistant).toEqual({})
+      // Turning it off opens the picker; another model turns it off for real.
+      await user.click(same())
+      expect(same()).toBeChecked()
+      await user.click(await screen.findByRole('button', { name: 'fake-2 Other' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
       expect(store.getState().settings.assistant).toEqual({ profileId: 'p2', model: 'fake-2' })
+      expect(same()).not.toBeChecked()
+      expect(screen.getByRole('button', { name: /^Model Other · fake-2/ })).toBeTruthy()
 
       parked.push('hello')
       act(() => {
@@ -272,6 +351,11 @@ describe('App', () => {
       await waitFor(() => expect(screen.getByText('Sure.')).toBeTruthy())
       expect(store.getState().conversations[0]).toMatchObject({ profileId: 'p2', model: 'fake-2' })
       expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')
+      // A default model that matches the assistant's choice: "same" again.
+      await act(() => store.setDefaultModel({ profileId: 'p2', model: 'fake-1' }))
+      expect(store.assistantMatchesNewChats()).toBe(false)
+      await act(() => store.setDefaultModel({ profileId: 'p2', model: 'fake-2' }))
+      expect(store.assistantMatchesNewChats()).toBe(true)
     } finally {
       w.FxAssist = undefined
     }

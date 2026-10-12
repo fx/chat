@@ -13,12 +13,29 @@ export interface Profile {
   baseUrl: string
   /** Stored on-device only; sent only to `baseUrl`. */
   apiKey: string
-  /** Default model for new conversations. */
+  /**
+   * Legacy: each endpoint once had its own default model (and one endpoint
+   * was "active"). Read only to migrate into `Settings.defaultModel`.
+   */
+  model?: string | undefined
+  /**
+   * Left out of the model picker and never used for new chats (or the
+   * assistant); conversations already on it keep working.
+   */
+  disabled?: boolean | undefined
+}
+
+/** A model on an endpoint. */
+export interface ModelRef {
+  profileId: string
   model: string
 }
 
 export interface Settings {
   profiles: Profile[]
+  /** What new chats start on, from any endpoint; unset: choose per chat. */
+  defaultModel?: ModelRef | undefined
+  /** Legacy: the endpoint new chats used. Read only to migrate. */
   activeProfileId?: string | undefined
   /** Applied to every new turn when non-blank. */
   systemPrompt: string
@@ -26,13 +43,15 @@ export interface Settings {
   tools: Record<ToolId, boolean>
   /** Per-tool approval requirement. */
   approvals: Record<ToolId, boolean>
+  /** Starred model ids, per profile id: listed first, and filterable. */
+  favorites: Record<string, string[]>
   /** What prompts spoken to the app as the digital assistant run on. */
   assistant: AssistantSettings
 }
 
 /**
- * The assistant's endpoint and model. Unset (or bound to a deleted endpoint)
- * means the same as a new chat: the active endpoint and its model.
+ * The assistant's endpoint and model. Unset (or on a deleted or disabled
+ * endpoint) means the same as a new chat: the default model.
  */
 export interface AssistantSettings {
   profileId?: string | undefined
@@ -56,5 +75,6 @@ export const DEFAULT_SETTINGS: Settings = {
   systemPrompt: '',
   tools: { current_time: true, calculator: true, fetch_url: false },
   approvals: { current_time: false, calculator: false, fetch_url: true },
+  favorites: {},
   assistant: {},
 }
