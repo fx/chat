@@ -13,8 +13,11 @@ export interface Profile {
   baseUrl: string
   /** Stored on-device only; sent only to `baseUrl`. */
   apiKey: string
-  /** Default model for new conversations. */
-  model: string
+  /**
+   * Legacy: each endpoint once had its own default model (and one endpoint
+   * was "active"). Read only to migrate into `Settings.defaultModel`.
+   */
+  model?: string | undefined
   /**
    * Left out of the model picker and never used for new chats (or the
    * assistant); conversations already on it keep working.
@@ -22,8 +25,17 @@ export interface Profile {
   disabled?: boolean | undefined
 }
 
+/** A model on an endpoint. */
+export interface ModelRef {
+  profileId: string
+  model: string
+}
+
 export interface Settings {
   profiles: Profile[]
+  /** What new chats start on, from any endpoint; unset: choose per chat. */
+  defaultModel?: ModelRef | undefined
+  /** Legacy: the endpoint new chats used. Read only to migrate. */
   activeProfileId?: string | undefined
   /** Applied to every new turn when non-blank. */
   systemPrompt: string
@@ -38,8 +50,8 @@ export interface Settings {
 }
 
 /**
- * The assistant's endpoint and model. Unset (or bound to a deleted endpoint)
- * means the same as a new chat: the active endpoint and its model.
+ * The assistant's endpoint and model. Unset (or on a deleted or disabled
+ * endpoint) means the same as a new chat: the default model.
  */
 export interface AssistantSettings {
   profileId?: string | undefined

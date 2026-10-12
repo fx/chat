@@ -31,8 +31,12 @@ visual theme) stays in `apps/mobile`.
 
 ### Endpoint Settings
 
-- The user MUST be able to configure one or more endpoint profiles, each with a name, base URL,
-  OPTIONAL API key, and default model, and choose the active profile.
+- The user MUST be able to configure one or more endpoint profiles, each with a name, base URL and
+  OPTIONAL API key, and test the connection (it lists the endpoint's models). There is no active or
+  default endpoint: the user MUST be able to choose one default model, from any endpoint, that new
+  chats start on. Without one (or with its endpoint deleted or disabled) a new chat opens on the
+  model picker, and the first model chosen becomes the default. Settings from before this (an
+  active endpoint with its own default model) MUST migrate to that endpoint and model.
 - The app MUST offer the endpoint's model list for selection, and MUST allow typing a model id when
   listing fails or the endpoint does not support listing.
 - The model picker MUST list the models of every endpoint at once, each row naming its endpoint
@@ -82,7 +86,7 @@ visual theme) stays in `apps/mobile`.
 - A conversation's transcript MUST only be sent to the endpoint of the profile it is bound to. When
   that profile no longer exists, sending, regenerating and retrying MUST be withheld and the
   conversation MUST say its profile is unavailable, until the user explicitly binds it to another
-  profile; the app MUST NOT fall back to the active profile.
+  profile; the app MUST NOT fall back to the default model's endpoint.
 - An OPTIONAL per-app system prompt MUST be applied to every new turn.
 
 ### Agent Chat
@@ -138,8 +142,8 @@ visual theme) stays in `apps/mobile`.
   and start a new conversation with it; a cancelled or empty recognition MUST just open the app.
 - A spoken prompt that cannot start a conversation MUST be shown to the user with the error, not
   dropped.
-- The assistant MUST run on the endpoint and model chosen in its settings, or on the active
-  endpoint and its model when none is chosen or the chosen endpoint was deleted. "Same as new
+- The assistant MUST run on the endpoint and model chosen in its settings, or on the default model
+  when none is chosen or the chosen endpoint was deleted or disabled. "Same as new
   chats" MUST reflect whether the two match, not a separate setting: choosing the new-chat model
   keeps following new chats, choosing another turns it off.
 - Its settings MUST say whether the app is the digital assistant and open the system picker.
@@ -213,3 +217,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-12 | Model favorites | — |
 | 2026-10-12 | One model list across all endpoints | — |
 | 2026-10-12 | Disable endpoints | — |
+| 2026-10-12 | Default model replaces the active endpoint | — |

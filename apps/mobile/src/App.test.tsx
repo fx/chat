@@ -46,19 +46,27 @@ describe('App', () => {
 
     expect(screen.getByText('Connect a model')).toBeTruthy()
     await user.type(screen.getByLabelText('Base URL'), 'https://fake.test/v1/')
-    await user.click(screen.getByRole('button', { name: 'Load models' }))
-    await waitFor(() => expect(screen.getByText('2 models available')).toBeTruthy())
+    await user.click(screen.getByRole('button', { name: 'Test connection' }))
+    await waitFor(() => expect(screen.getByText('Connected: 2 models available.')).toBeTruthy())
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
+    // No default model yet: the new chat opens on the model picker, and the
+    // first model chosen becomes the default.
+    await user.click(await screen.findByRole('button', { name: 'fake-1' }))
+    expect(store.getState().settings.defaultModel).toEqual({
+      profileId: store.getState().settings.profiles[0]?.id,
+      model: 'fake-1',
+    })
     const textbox = await screen.findByRole('textbox', { name: 'Message' })
     await user.type(textbox, 'Hi{Enter}')
 
     await waitFor(() => expect(screen.getByText('there')).toBeTruthy())
     expect(screen.getAllByText('Hi').length).toBeGreaterThan(0)
     const saved = store.getState().settings.profiles[0]
-    expect(saved).toMatchObject({
+    expect(saved).toEqual({
+      id: expect.any(String),
       baseUrl: 'https://fake.test/v1',
-      model: 'fake-1',
+      apiKey: '',
       name: 'fake.test',
     })
     expect(endpoint.requests.at(-1)?.url).toBe('https://fake.test/v1/chat/completions')
@@ -84,7 +92,7 @@ describe('App', () => {
     const user = userEvent.setup()
     const other = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }
     const { store, endpoint } = setup([sseBody([{ content: 'answer' }])], {
-      settings: { profiles: [profile, other], activeProfileId: 'p2' },
+      settings: { profiles: [profile, other], defaultModel: { profileId: 'p2', model: 'fake-1' } },
       conversations: [
         { id: 'c1', title: 'Old chat', createdAt: 1, updatedAt: 1, profileId: 'gone' },
       ],
@@ -130,7 +138,12 @@ describe('App', () => {
     expect(screen.getByText('Old chat')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Settings' }))
     const menu = screen.getByRole('navigation', { name: 'Settings' })
-    expect(within(menu).getByRole('button', { name: /Endpoints Fake · fake-1/ })).toBeTruthy()
+    // The default model (migrated from the old active endpoint) opens the picker.
+    await user.click(within(menu).getByRole('button', { name: /Default model Fake · fake-1/ }))
+    await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+    expect(store.getState().settings.defaultModel).toEqual({ profileId: 'p1', model: 'fake-2' })
+    expect(within(menu).getByRole('button', { name: /Default model Fake · fake-2/ })).toBeTruthy()
+    expect(within(menu).getByRole('button', { name: /Endpoints Fake/ })).toBeTruthy()
     await user.click(within(menu).getByRole('button', { name: /Tools 2 of 3 on/ }))
     await user.click(screen.getByRole('switch', { name: /Fetch web page/ }))
     expect(store.getState().settings.tools.fetch_url).toBe(true)
@@ -139,20 +152,20 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await user.click(screen.getByRole('button', { name: /Endpoints/ }))
     // Each endpoint row refreshes its model listing.
-    await user.click(screen.getByRole('button', { name: 'Refresh Fake models' }))
+    await user.click(screen.getByRole('button', { name: /^Refresh Fake models/ }))
     expect(
       await screen.findByRole('button', { name: 'Refresh Fake models (2 listed)' }),
     ).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: /^Fake fake-1/ }))
+    await user.click(screen.getByRole('button', { name: /^Fake https/ }))
     expect(screen.getByRole('heading', { name: 'Edit endpoint' })).toBeTruthy()
     // Disable it from its editor, then enable it again from the list.
     await user.click(screen.getByRole('switch', { name: /Enabled/ }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(store.getState().settings.profiles[0]?.disabled).toBe(true)
-    expect(screen.getByText(/^Disabled · fake-1/)).toBeTruthy()
+    expect(screen.getByText(/^Disabled · https/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Enable Fake' }))
     expect(store.getState().settings.profiles[0]?.disabled).toBeUndefined()
-    await user.click(screen.getByRole('button', { name: /^Fake fake-1/ }))
+    await user.click(screen.getByRole('button', { name: /^Fake https/ }))
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await user.click(screen.getByRole('button', { name: 'Add endpoint' }))
     expect(screen.getByRole('heading', { name: 'Add endpoint' })).toBeTruthy()
@@ -294,10 +307,10 @@ describe('App', () => {
       await waitFor(() => expect(screen.getByText('Sure.')).toBeTruthy())
       expect(store.getState().conversations[0]).toMatchObject({ profileId: 'p2', model: 'fake-2' })
       expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')
-      await act(() => store.updateSettings({ activeProfileId: 'p2' }))
-      // Now new chats use p2's default (fake-1), which differs from fake-2.
+      // A default model that matches the assistant's choice: "same" again.
+      await act(() => store.setDefaultModel({ profileId: 'p2', model: 'fake-1' }))
       expect(store.assistantMatchesNewChats()).toBe(false)
-      await act(() => store.saveProfile({ ...other, model: 'fake-2' }))
+      await act(() => store.setDefaultModel({ profileId: 'p2', model: 'fake-2' }))
       expect(store.assistantMatchesNewChats()).toBe(true)
     } finally {
       w.FxAssist = undefined

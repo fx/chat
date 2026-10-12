@@ -5,7 +5,7 @@ import { cn } from '@fx/chat-shadcn'
  * tools, the digital assistant, and about. The page shown is part of the app
  * route (`path`), so the Android back action walks back up the menu.
  */
-import { ArrowLeft, Check, Plus, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Plus, RefreshCw } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { ModelPicker } from '../components/ModelPicker'
 import {
@@ -97,20 +97,18 @@ export function Settings({
 function Menu({ onOpen }: { onOpen: (page: SettingsPage) => void }) {
   const { settings } = useAppState()
   const store = useStore()
-  const active = store.activeProfile()
   const assistant = store.assistantModel()
   const toolsOn = TOOL_INFO.filter((tool) => settings.tools[tool.id]).length
   const summaries: Record<SettingsPage, string> = {
-    endpoints: active
-      ? `${active.name} · ${active.model}`
-      : `${settings.profiles.length} endpoints`,
+    endpoints: settings.profiles.map((p) => p.name).join(', ') || 'None yet',
     prompt: settings.systemPrompt.trim() || 'None',
     tools: `${toolsOn} of ${TOOL_INFO.length} on`,
-    assistant: assistant ? `${assistant.profile.name} · ${assistant.model}` : 'No endpoint yet',
+    assistant: assistant ? `${assistant.profile.name} · ${assistant.model}` : 'No model yet',
     about: 'Privacy and version',
   }
   return (
     <nav aria-label="Settings">
+      <DefaultModel />
       {(Object.keys(TITLES) as SettingsPage[]).map((page) => (
         <MenuRow
           key={page}
@@ -123,10 +121,37 @@ function Menu({ onOpen }: { onOpen: (page: SettingsPage) => void }) {
   )
 }
 
+/** The model new chats start on, from any endpoint: a row that opens the picker. */
+function DefaultModel() {
+  const store = useStore()
+  useAppState() // re-render when settings change
+  const [picking, setPicking] = useState(false)
+  const target = store.defaultModel()
+  return (
+    <>
+      <MenuRow
+        title="Default model"
+        summary={target ? `${target.profile.name} · ${target.model}` : 'None: choose per chat'}
+        onClick={() => setPicking(true)}
+      />
+      <Sheet open={picking} onClose={() => setPicking(false)} title="Default model" tall>
+        <ModelPicker
+          profile={target?.profile}
+          model={target?.model}
+          active={picking}
+          onChoose={(choice) => {
+            void store.setDefaultModel(choice)
+            setPicking(false)
+          }}
+        />
+      </Sheet>
+    </>
+  )
+}
+
 function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
   const { settings } = useAppState()
   const store = useStore()
-  const active = store.activeProfile()
   return (
     <Section>
       <ul className="flex flex-col">
@@ -143,7 +168,7 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
               <span className="truncate text-sm font-medium">{p.name}</span>
               <span className="truncate text-xs text-muted-foreground">
                 {p.disabled ? 'Disabled · ' : ''}
-                {p.model} · {p.baseUrl}
+                {p.baseUrl}
               </span>
             </button>
             {p.disabled ? (
@@ -154,17 +179,7 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
                 Enable
               </SecondaryButton>
             ) : (
-              <>
-                <RefreshModels profile={p} />
-                <IconButton
-                  label={p.id === active?.id ? `${p.name} is active` : `Use ${p.name}`}
-                  aria-pressed={p.id === active?.id}
-                  onClick={() => void store.updateSettings({ activeProfileId: p.id })}
-                  className={p.id === active?.id ? 'text-primary' : 'text-muted-foreground'}
-                >
-                  <Check size={18} className={p.id === active?.id ? undefined : 'opacity-30'} />
-                </IconButton>
-              </>
+              <RefreshModels profile={p} />
             )}
           </li>
         ))}
@@ -173,7 +188,8 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
         <Plus size={16} /> Add endpoint
       </SecondaryButton>
       <p className="text-xs text-muted-foreground">
-        The active endpoint is used for new chats; each chat remembers its own.
+        Every endpoint’s models are offered together; each chat remembers the model (and so the
+        endpoint) it uses.
       </p>
     </Section>
   )
@@ -344,13 +360,13 @@ function Assistant() {
       ) : null}
       <MenuRow
         title="Model"
-        summary={target ? `${target.profile.name} · ${target.model}` : 'No endpoint yet'}
+        summary={target ? `${target.profile.name} · ${target.model}` : 'No model yet'}
         onClick={() => setPicking(true)}
       />
       <div className="border-b border-border px-4">
         <Toggle
           label="Same as new chats"
-          description="Follow the active endpoint and its model."
+          description="Follow the default model."
           checked={same}
           // On: follow new chats again. Off means choosing a different model.
           onChange={(on) => (on ? save(store.updateSettings({ assistant: {} })) : setPicking(true))}

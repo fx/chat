@@ -21,6 +21,7 @@ import {
   type AppState,
   type ConversationMeta,
   DEFAULT_SETTINGS,
+  type ModelRef,
   type Profile,
   type Settings,
 } from './types'
@@ -42,6 +43,34 @@ export const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000
 /** A cached listing, tied to the URL and key it came from. */
 interface StoredCatalog extends ModelCatalog {
   endpoint: string
+}
+
+/** A model on an enabled endpoint. */
+export interface ModelTarget {
+  profile: Profile
+  model: string
+}
+
+/**
+ * Settings from before the default model: one endpoint was "active", with
+ * its own default model, and the assistant's choice could name only an
+ * endpoint. The active endpoint's model becomes the default model.
+ */
+export function migrate(settings: Settings): Settings {
+  const { activeProfileId, ...rest } = settings
+  const modelOf = (id: string | undefined) => settings.profiles.find((p) => p.id === id)?.model
+  const active = settings.profiles.find((p) => p.id === activeProfileId) ?? settings.profiles[0]
+  const { assistant } = settings
+  return {
+    ...rest,
+    defaultModel:
+      settings.defaultModel ??
+      (active?.model ? { profileId: active.id, model: active.model } : undefined),
+    assistant:
+      assistant.profileId && !assistant.model
+        ? { ...assistant, model: modelOf(assistant.profileId) }
+        : assistant,
+  }
 }
 
 const catalogKey = (profileId: string) => `models:${profileId}`
@@ -123,6 +152,7 @@ export class AppStore {
       favorites: { ...DEFAULT_SETTINGS.favorites, ...settings?.favorites },
       assistant: { ...DEFAULT_SETTINGS.assistant, ...settings?.assistant },
     }
+    this.settings = migrate(this.settings)
     this.settingsLoaded = true
     this.publish()
   }
@@ -135,10 +165,21 @@ export class AppStore {
     await this.deps.kv.set(SETTINGS_KEY, this.settings)
   }
 
-  activeProfile(): Profile | undefined {
-    const { profiles, activeProfileId } = this.settings
-    const enabled = profiles.filter((p) => !p.disabled)
-    return enabled.find((p) => p.id === activeProfileId) ?? enabled[0]
+  /** A model on an enabled endpoint, or undefined. */
+  private resolve(
+    ref: { profileId?: string | undefined; model?: string | undefined } | undefined,
+  ): ModelTarget | undefined {
+    const profile = this.settings.profiles.find((p) => p.id === ref?.profileId && !p.disabled)
+    return profile && ref?.model ? { profile, model: ref.model } : undefined
+  }
+
+  /** What new chats start on: the default model, unless its endpoint is gone or disabled. */
+  defaultModel(): ModelTarget | undefined {
+    return this.resolve(this.settings.defaultModel)
+  }
+
+  setDefaultModel(choice: ModelRef): Promise<void> {
+    return this.updateSettings({ defaultModel: choice })
   }
 
   /**
@@ -154,15 +195,11 @@ export class AppStore {
   /** Why a run cannot start for this conversation, or undefined when it can. */
   runBlocker(meta: ConversationMeta): string | undefined {
     const profile = this.conversationProfile(meta)
-    if (profile) {
-      return meta.model || profile.model ? undefined : 'Choose a model from the model menu first.'
-    }
-    if (this.settings.profiles.length === 0) {
-      return 'Set up an endpoint and model in Settings first.'
-    }
+    if (profile) return meta.model ? undefined : 'Choose a model from the model menu first.'
+    if (this.settings.profiles.length === 0) return 'Set up an endpoint in Settings first.'
     return meta.profileId === undefined
-      ? 'Choose a profile for this conversation from the model menu.'
-      : "This conversation's profile is unavailable. Choose another from the model menu."
+      ? 'Choose a model from the model menu first.'
+      : "This conversation's profile is unavailable. Choose another model from the model menu."
   }
 
   private resolveRun(meta: ConversationMeta): RunResolution {
@@ -173,33 +210,28 @@ export class AppStore {
     return {
       baseUrl: profile.baseUrl,
       apiKey: profile.apiKey || undefined,
-      model: meta.model || profile.model,
+      model: meta.model as string,
       system: this.settings.systemPrompt,
       tools: this.settings.tools,
       approvals: this.settings.approvals,
     }
   }
 
-  /** Insert or replace a profile; the first profile becomes active. */
+  /** Insert or replace a profile. */
   async saveProfile(profile: Profile): Promise<void> {
     const profiles = this.settings.profiles.some((p) => p.id === profile.id)
       ? this.settings.profiles.map((p) => (p.id === profile.id ? profile : p))
       : [...this.settings.profiles, profile]
-    await this.updateSettings({
-      profiles,
-      activeProfileId: this.settings.activeProfileId ?? profile.id,
-    })
+    await this.updateSettings({ profiles })
   }
 
   async deleteProfile(id: string): Promise<void> {
     const profiles = this.settings.profiles.filter((p) => p.id !== id)
-    const activeProfileId =
-      this.settings.activeProfileId === id ? profiles[0]?.id : this.settings.activeProfileId
-    const { assistant } = this.settings
+    const { assistant, defaultModel } = this.settings
     const { [id]: _dropped, ...favorites } = this.settings.favorites
     await this.updateSettings({
       profiles,
-      activeProfileId,
+      defaultModel: defaultModel?.profileId === id ? undefined : defaultModel,
       assistant: assistant.profileId === id ? {} : assistant,
       favorites,
     })
@@ -269,38 +301,43 @@ export class AppStore {
     return this.chat.conversation(id)
   }
 
-  /** Start a conversation bound to the active profile and its model. */
+  /** Start a conversation on the default model (or none, to choose). */
   createConversation(): Promise<ConversationMeta> {
-    const profile = this.activeProfile()
-    return this.chat.createConversation({ profileId: profile?.id, model: profile?.model })
-  }
-
-  /** The endpoint and model the assistant runs on (see `AssistantSettings`). */
-  assistantModel(): { profile: Profile; model: string } | undefined {
-    const { profileId, model } = this.settings.assistant
-    const bound = this.settings.profiles.find((p) => p.id === profileId && !p.disabled)
-    if (bound) return { profile: bound, model: model || bound.model }
-    const active = this.activeProfile()
-    return active && { profile: active, model: active.model }
+    const target = this.defaultModel()
+    return this.chat.createConversation({ profileId: target?.profile.id, model: target?.model })
   }
 
   /**
-   * Whether the assistant runs on what new chats do (the active endpoint and
-   * its model): by default, or because its own choice is the same.
+   * Put a conversation on a model (and its endpoint). With no default model
+   * yet, the first one chosen becomes it.
+   */
+  async chooseModel(id: string, choice: ModelRef): Promise<void> {
+    await this.updateConversation(id, choice)
+    if (!this.defaultModel()) await this.setDefaultModel(choice)
+  }
+
+  /** The endpoint and model the assistant runs on (see `AssistantSettings`). */
+  assistantModel(): ModelTarget | undefined {
+    return this.resolve(this.settings.assistant) ?? this.defaultModel()
+  }
+
+  /**
+   * Whether the assistant runs on what new chats do (the default model): by
+   * default, or because its own choice is the same.
    */
   assistantMatchesNewChats(): boolean {
     const target = this.assistantModel()
-    const active = this.activeProfile()
-    return target?.profile.id === active?.id && target?.model === active?.model
+    const fallback = this.defaultModel()
+    return target?.profile.id === fallback?.profile.id && target?.model === fallback?.model
   }
 
   /**
    * Run the assistant on this endpoint and model. The same as new chats
    * stores no choice, so the assistant keeps following new chats.
    */
-  setAssistantModel(choice: { profileId: string; model: string }): Promise<void> {
-    const active = this.activeProfile()
-    const same = choice.profileId === active?.id && choice.model === active.model
+  setAssistantModel(choice: ModelRef): Promise<void> {
+    const fallback = this.defaultModel()
+    const same = choice.profileId === fallback?.profile.id && choice.model === fallback.model
     return this.updateSettings({ assistant: same ? {} : choice })
   }
 
