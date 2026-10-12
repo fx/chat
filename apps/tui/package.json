@@ -4,15 +4,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@fx-/chat-agent": "workspace:*",
-    "@fx-/chat-core": "workspace:*",
-    "@fx-/chat-ink": "workspace:*",
+    "@fx-/chat-agent": "0.1.1",
+    "@fx-/chat-core": "0.1.1",
+    "@fx-/chat-ink": "0.1.1",
     "fast-png": "8.0.0",
     "jpeg-js": "0.4.4"
-  },
-  "devDependencies": {
-    "@fx/tx": "2.0.0",
-    "ink": "8.0.0",
-    "react": "19.3.0"
   }
 }

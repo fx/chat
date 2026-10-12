@@ -7,6 +7,10 @@
       "devDependencies": {
         "@biomejs/biome": "1.9.4",
         "@fx-/chat": "workspace:*",
+        "@fx-/chat-agent": "workspace:*",
+        "@fx-/chat-core": "workspace:*",
+        "@fx-/chat-ink": "workspace:*",
+        "@fx/tx": "2.0.0",
         "@testing-library/jest-dom": "6.6.3",
         "@testing-library/react": "16.1.0",
         "@testing-library/user-event": "14.6.1",
@@ -16,8 +20,10 @@
         "@vitejs/plugin-react": "4.3.4",
         "@vitest/coverage-v8": "2.1.8",
         "fake-indexeddb": "6.2.5",
+        "fast-png": "8.0.0",
         "ink": "8.0.0",
         "ink-testing-library": "4.0.0",
+        "jpeg-js": "0.4.4",
         "jsdom": "25.0.1",
         "react": "19.3.0",
         "react-dom": "19.3.0",
@@ -49,22 +55,6 @@
         "vite": "6.3.5",
       },
     },
-    "apps/tui": {
-      "name": "chat-tui",
-      "version": "0.0.0",
-      "dependencies": {
-        "@fx-/chat-agent": "workspace:*",
-        "@fx-/chat-core": "workspace:*",
-        "@fx-/chat-ink": "workspace:*",
-        "fast-png": "8.0.0",
-        "jpeg-js": "0.4.4",
-      },
-      "devDependencies": {
-        "@fx/tx": "2.0.0",
-        "ink": "8.0.0",
-        "react": "19.3.0",
-      },
-    },
     "demos/chat-demo": {
       "name": "chat-demo",
       "version": "0.0.0",
@@ -84,14 +74,14 @@
     },
     "packages/agent": {
       "name": "@fx-/chat-agent",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@fx-/chat-core": "workspace:*",
       },
     },
     "packages/chat": {
       "name": "@fx-/chat",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@fx-/chat-core": "workspace:*",
       },
@@ -102,7 +92,7 @@
     },
     "packages/core": {
       "name": "@fx-/chat-core",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "peerDependencies": {
         "react": "^18.2.0 || ^19.0.0",
       },
@@ -112,7 +102,7 @@
     },
     "packages/ink": {
       "name": "@fx-/chat-ink",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@fx-/chat-core": "workspace:*",
         "string-width": "8.3.0",
@@ -136,7 +126,7 @@
     },
     "packages/shadcn": {
       "name": "@fx-/chat-shadcn",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@radix-ui/react-avatar": "1.1.2",
         "@radix-ui/react-collapsible": "1.1.2",
@@ -746,8 +736,6 @@
     "chat-demo": ["chat-demo@workspace:demos/chat-demo"],
 
     "chat-mobile": ["chat-mobile@workspace:apps/mobile"],
-
-    "chat-tui": ["chat-tui@workspace:apps/tui"],
 
     "check-error": ["check-error@2.1.3", "", {}, "sha512-PAJdDJusoxnwm1VwW07VWwUN1sl7smmC3OKggvndJFadxxDRyFJBX/ggnu/KE4kQAB7a3Dp8f/YXC1FlUprWmA=="],
 

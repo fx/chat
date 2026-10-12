@@ -10,3 +10,6 @@ coverage/
 
 # Workspace-local Android/Tauri toolchain (see .toolchain/env.sh)
 .toolchain/
+
+# The tx plugin installs standalone (outside the workspace); tx resolves it fresh.
+apps/tui/bun.lock

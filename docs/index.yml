@@ -377,3 +377,10 @@ changes:
     spec: architecture
     status: complete
     depends_on: ["0036"]
+  - id: "0048"
+    name: tx-plugin-install
+    path: changes/0048-tx-plugin-install.md
+    description: "tx marketplace add fx/chat works: apps/tui leaves the workspace and installs the published @fx-/chat-core, -agent and -ink pinned at the release version"
+    spec: terminal-app
+    status: complete
+    depends_on: ["0022", "0047"]

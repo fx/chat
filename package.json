@@ -7,7 +7,7 @@
   "workspaces": [
     "packages/*",
     "demos/*",
-    "apps/*"
+    "apps/mobile"
   ],
   "scripts": {
     "build": "bun run --filter '@fx-/chat-core' build && bun run --filter '@fx-/chat' --filter '@fx-/chat-agent' --filter '@fx-/chat-ink' build && bun run --filter '@fx-/chat-shadcn' build",
@@ -30,6 +30,10 @@
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@fx-/chat": "workspace:*",
+    "@fx-/chat-agent": "workspace:*",
+    "@fx-/chat-core": "workspace:*",
+    "@fx-/chat-ink": "workspace:*",
+    "@fx/tx": "2.0.0",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.1.0",
     "@testing-library/user-event": "14.6.1",
@@ -39,8 +43,10 @@
     "@vitejs/plugin-react": "4.3.4",
     "@vitest/coverage-v8": "2.1.8",
     "fake-indexeddb": "6.2.5",
+    "fast-png": "8.0.0",
     "ink": "8.0.0",
     "ink-testing-library": "4.0.0",
+    "jpeg-js": "0.4.4",
     "jsdom": "25.0.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",

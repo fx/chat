@@ -94,7 +94,8 @@ Related specs:
 ### Repository Layout
 
 - The repository MUST be a monorepo containing the libraries, the demo, and the reference
-  applications, sharing one lockfile.
+  applications, sharing one lockfile. The terminal app is the one exception: it is not a workspace
+  member, because tx installs it from a clone (see [terminal-app](../terminal-app/)).
 - Each published library MUST live under its own directory in `packages/`: `packages/core/`
   (`@fx-/chat-core`, see [chat-core](../chat-core/)), `packages/chat/` (`@fx-/chat`, the React-DOM
   renderers), `packages/agent/` (`@fx-/chat-agent`, see [chat-agent](../chat-agent/)),
@@ -290,4 +291,5 @@ not in the rule.
 | 2026-10-10 | `apps/` reference applications: the Android app (`apps/mobile`) | [0021-mobile-app](../../changes/0021-mobile-app.md) |
 | 2026-10-10 | `@fx-/chat-ink` and the `tx chat` terminal app (`apps/tui`, root `.tx/config.json`) added | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-11 | `@fx-/chat-shadcn` added (`packages/shadcn`); the demo's shadcn registry and the Android app consume it | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
+| 2026-10-12 | The terminal app leaves the workspace and installs the published libraries, so `tx marketplace add` works from a clone | [0048-tx-plugin-install](../../changes/0048-tx-plugin-install.md) |
 | 2026-10-12 | Libraries move to the `@fx-` npm scope and are released to npm in lockstep by release-please (trusted publishing); GitHub Packages publishing removed | [0047-npm-publishing](../../changes/0047-npm-publishing.md) |

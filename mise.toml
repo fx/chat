@@ -39,5 +39,11 @@ description = "Boot the test emulator"
 run = "emulator -avd fxchat -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect"
 
 [tasks."tui:install"]
-description = "Build the libraries and add this repo as the `chat` tx marketplace (tx chat)"
-run = "bun run build && tx marketplace add \"$PWD\" --name chat"
+description = "Build the libraries, add this repo as the `chat` tx marketplace (tx chat) and link the local builds into it"
+# tx installs apps/tui's own package.json, which pins the published libraries;
+# the local builds are linked over them so `tx chat` runs this checkout's code.
+run = """
+bun run build
+tx marketplace add "$PWD" --name chat
+for p in core agent ink; do rm -rf "apps/tui/node_modules/@fx-/chat-$p" && ln -s "$PWD/packages/$p" "apps/tui/node_modules/@fx-/chat-$p"; done
+"""
