@@ -132,6 +132,12 @@ Related specs:
   backend calls at runtime — all demo conversation data MUST be local fixtures.
 - The demo build MUST be deployable to GitHub Pages from a subpath base (the repository's
   Pages URL), i.e. asset paths MUST be base-path aware.
+- The published libraries MUST be released to the public npm registry under the `@fx-` scope,
+  in lockstep (one version for all of them), by release-please: merging its release pull request
+  tags the release, and only a tagged release is published. Publishing MUST authenticate through
+  npm trusted publishing (OIDC, with provenance) — no npm token is stored in the repository.
+- A published package MUST NOT carry the `workspace:` protocol: internal dependencies MUST be pinned
+  to the released version in the published `package.json`.
 
 #### Scenario: Static demo build
 
@@ -284,3 +290,4 @@ not in the rule.
 | 2026-10-10 | `apps/` reference applications: the Android app (`apps/mobile`) | [0021-mobile-app](../../changes/0021-mobile-app.md) |
 | 2026-10-10 | `@fx-/chat-ink` and the `tx chat` terminal app (`apps/tui`, root `.tx/config.json`) added | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-11 | `@fx-/chat-shadcn` added (`packages/shadcn`); the demo's shadcn registry and the Android app consume it | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
+| 2026-10-12 | Libraries move to the `@fx-` npm scope and are released to npm in lockstep by release-please (trusted publishing); GitHub Packages publishing removed | [0047-npm-publishing](../../changes/0047-npm-publishing.md) |

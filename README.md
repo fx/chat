@@ -43,6 +43,17 @@ bun run test             # Vitest unit tests with 100% coverage gate
 bun run check:no-internal-refs  # fail on any private-application reference
 ```
 
+## Releases
+
+The `@fx-/chat*` packages are published to npm in lockstep by
+[release-please](https://github.com/googleapis/release-please): conventional commits on `main`
+keep a release pull request up to date, and merging it tags the release and publishes every
+package at the same version (npm trusted publishing, with provenance).
+
+```sh
+npm install @fx-/chat
+```
+
 ## Public entry points
 
 `@fx-/chat` exposes three subpath exports:

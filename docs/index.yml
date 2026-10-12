@@ -370,3 +370,10 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0021", "0045"]
+  - id: "0047"
+    name: npm-publishing
+    path: changes/0047-npm-publishing.md
+    description: "Libraries renamed to the @fx- scope and published publicly to npm in lockstep by release-please (trusted publishing with provenance), replacing the GitHub Packages workflow"
+    spec: architecture
+    status: complete
+    depends_on: ["0036"]
