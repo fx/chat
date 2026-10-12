@@ -3,7 +3,7 @@
  * dynamic imports), so the same UI runs unchanged in a desktop browser for
  * development and inside the Android shell.
  */
-import type { FetchLike } from '@fx/chat-agent'
+import type { FetchLike } from '@fx-/chat-agent'
 
 /** True inside the Tauri shell (desktop or mobile). */
 export function isTauri(): boolean {

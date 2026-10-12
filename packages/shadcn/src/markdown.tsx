@@ -10,7 +10,7 @@
  * linking to the image (only inline `data:` images are drawn), and links open
  * only when the user taps them.
  */
-import type { MarkdownProps } from '@fx/chat'
+import type { MarkdownProps } from '@fx-/chat'
 import { ImageOff } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import ReactMarkdown, { type UrlTransform, defaultUrlTransform } from 'react-markdown'

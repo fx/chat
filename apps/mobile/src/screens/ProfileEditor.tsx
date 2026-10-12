@@ -1,5 +1,5 @@
-import { newId } from '@fx/chat-agent'
-import { cn } from '@fx/chat-shadcn'
+import { newId } from '@fx-/chat-agent'
+import { cn } from '@fx-/chat-shadcn'
 /**
  * Create or edit an endpoint profile: base URL, API key (masked), name, and
  * whether it is enabled, with a connection test that lists its models.

@@ -1,5 +1,5 @@
-import { mentionsToSegments } from '@fx/chat-core'
-import type { TextBlock } from '@fx/chat-core'
+import { mentionsToSegments } from '@fx-/chat-core'
+import type { TextBlock } from '@fx-/chat-core'
 /**
  * `TextBlockView` — renders a `text` content block.
  *

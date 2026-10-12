@@ -15,7 +15,7 @@ import {
   type ReasoningBlock,
   type ToolCallBlock,
   approxTokenCount,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 import type { ReasoningField, StreamEvent, Usage } from './types'
 
 /** `meta` key holding the runtime's per-turn bookkeeping. */

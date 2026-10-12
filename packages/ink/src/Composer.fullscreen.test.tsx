@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { Attachment } from '@fx/chat-core'
+import type { Attachment } from '@fx-/chat-core'
 import { createRef, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {

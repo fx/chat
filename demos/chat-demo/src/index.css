@@ -1,14 +1,14 @@
 /**
- * Demo stylesheet — Tailwind v4 + `@fx/chat-shadcn`'s design tokens.
+ * Demo stylesheet — Tailwind v4 + `@fx-/chat-shadcn`'s design tokens.
  *
  * All three adapters render against the shadcn tokens (`--background`,
- * `--primary`, `--muted`, …) via `@fx/chat-shadcn`'s `classNames` theme. The
+ * `--primary`, `--muted`, …) via `@fx-/chat-shadcn`'s `classNames` theme. The
  * page is pinned light (`<html class="light">`); each pane carries `.light` or
- * `.dark` from the theme control. (`@fx/chat` itself ships no visual CSS — only
- * the structural mechanics in `@fx/chat/structure.css`, imported in `App.tsx`.)
+ * `.dark` from the theme control. (`@fx-/chat` itself ships no visual CSS — only
+ * the structural mechanics in `@fx-/chat/structure.css`, imported in `App.tsx`.)
  */
 @import "tailwindcss";
-@import "@fx/chat-shadcn/theme.css";
+@import "@fx-/chat-shadcn/theme.css";
 
 /*
  * `@fx/ui` ships compiled components whose Tailwind utility classes

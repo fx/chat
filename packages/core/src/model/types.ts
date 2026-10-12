@@ -1,5 +1,5 @@
 /**
- * Normalized, transport-agnostic message model for `@fx/chat`.
+ * Normalized, transport-agnostic message model for `@fx-/chat`.
  *
  * This module is **pure data**: type declarations only, no runtime code, no
  * React, no DOM. Every renderer and the composer consume these types. Hosts map

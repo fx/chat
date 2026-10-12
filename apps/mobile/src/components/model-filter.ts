@@ -4,7 +4,7 @@
  * from the standard listing fields. Models that declare nothing only match
  * when no capability filter is on.
  */
-import type { ModelInfo } from '@fx/chat-agent'
+import type { ModelInfo } from '@fx-/chat-agent'
 
 export type Capability = 'tools' | 'reasoning' | 'vision'
 

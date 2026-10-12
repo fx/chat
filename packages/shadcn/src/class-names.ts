@@ -1,12 +1,12 @@
 /**
- * The shadcn `classNames` theme for `@fx/chat`.
+ * The shadcn `classNames` theme for `@fx-/chat`.
  *
  * The library is headless — it ships no visual CSS, only the structural
- * mechanics in `@fx/chat/structure.css`. Every visual detail (colors, spacing,
+ * mechanics in `@fx-/chat/structure.css`. Every visual detail (colors, spacing,
  * radius, bubbles, density, composer, lightbox) is supplied here, applied onto
  * the stable `.chat-*` hooks. Classes resolve against the shadcn design tokens
  * (`--background`, `--primary`, `--muted`, `--border`, `--radius`, …) defined
- * by `@fx/chat-shadcn/theme.css`, so the transcript follows its light/dark
+ * by `@fx-/chat-shadcn/theme.css`, so the transcript follows its light/dark
  * theme. Hosts may override any key by spreading their own on top.
  *
  * State-variant styling (minimal density, compact footer, role bubbles) is
@@ -14,7 +14,7 @@
  * emits — `data-[minimal=true]`/`data-[compact=true]` directly on the element,
  * and the `group/msg` + `group/aff` markers for descendant state.
  */
-import type { ChatClassNames } from '@fx/chat'
+import type { ChatClassNames } from '@fx-/chat'
 import { cn } from './cn'
 import { TILE, TILE_ICON } from './tile'
 

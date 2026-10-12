@@ -2,7 +2,7 @@
 
 ## Overview
 
-This spec defines how `@fx/chat` renders a conversation: the `MessageLog` container, the
+This spec defines how `@fx-/chat` renders a conversation: the `MessageLog` container, the
 per-block renderers, the shared collapsible primitive, the streaming/timing state machine, the
 auxiliary-block grouping (collapsing a turn's reasoning/tool/status metadata under one
 disclosure), and the user-facing affordances (copy, regenerate, fork, reset). All renderers
@@ -476,7 +476,7 @@ scope** and MUST NOT appear in this package.
 ### Agent Activity
 
 How every renderer shows an agent's work. The decisions live in the shared render plan in
-`@fx/chat-core`, so the DOM and terminal renderers show the same labels, counts, and gates.
+`@fx-/chat-core`, so the DOM and terminal renderers show the same labels, counts, and gates.
 
 - **Tool headline.** Where a tool call is named in one line outside its row (a live phase label),
   it MUST read as its row does — the label, then the input when it adds something
@@ -934,7 +934,7 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
-| 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx-/chat`; footer activity facts; message-owned details with activity | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
 | 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
 | 2026-10-11 | Summarized activity shown from the footer renders inside it, after the facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
 | 2026-10-12 | Footer-only finished activity and the footer gate are one decision: activity facts count as footer content, and rows are left to the footer only when it renders with facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |

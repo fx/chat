@@ -1,7 +1,7 @@
 {
-  "name": "@fx/chat-ink",
+  "name": "@fx-/chat-ink",
   "version": "0.0.0",
-  "description": "Terminal (Ink) renderer for @fx/chat conversations: injected theme, glyphs and markdown; live agent turns; keyboard composer.",
+  "description": "Terminal (Ink) renderer for @fx-/chat conversations: injected theme, glyphs and markdown; live agent turns; keyboard composer.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -25,7 +25,7 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@fx/chat-core": "workspace:*",
+    "@fx-/chat-core": "workspace:*",
     "string-width": "8.3.0"
   },
   "peerDependencies": {
@@ -38,8 +38,8 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "provenance": true
   },
   "repository": {
     "type": "git",

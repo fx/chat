@@ -12,7 +12,7 @@ import {
   type IconComponent,
   formatDuration,
   formatTokensPerSecond,
-} from '@fx/chat'
+} from '@fx-/chat'
 import { useEffect, useState } from 'react'
 import { cn } from './cn'
 import { lucideIcons } from './icons'

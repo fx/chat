@@ -1,5 +1,5 @@
 /**
- * Pins `@fx/chat`'s runtime export surface across the `@fx/chat-core`
+ * Pins `@fx-/chat`'s runtime export surface across the `@fx-/chat-core`
  * extraction (change 0019): every name exported before the move MUST still be
  * exported, so no existing host import breaks. The snapshot was recorded from
  * the pre-extraction build; extend it deliberately when adding exports.

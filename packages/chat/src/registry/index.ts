@@ -1,7 +1,7 @@
 /**
  * Public surface of the component registry: the contract types, the provider +
  * hook, and the headless default registry. Re-exported from the package root so
- * `import { ChatProvider, useChatComponents } from '@fx/chat'` works.
+ * `import { ChatProvider, useChatComponents } from '@fx-/chat'` works.
  */
 export type {
   ActivityFact,

@@ -1,6 +1,6 @@
-import type { ReasoningBlock } from '@fx/chat-core'
-import { summarizeBlock } from '@fx/chat-core'
-import { positiveTimestamp } from '@fx/chat-core'
+import type { ReasoningBlock } from '@fx-/chat-core'
+import { summarizeBlock } from '@fx-/chat-core'
+import { positiveTimestamp } from '@fx-/chat-core'
 /**
  * `ReasoningBlockView` — a collapsible "thinking" block.
  *

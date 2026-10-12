@@ -6,7 +6,7 @@
  * so render/input components can import it WITHOUT pulling in — or creating an
  * import cycle through — the root barrel, which itself re-exports the render and
  * input layers. The barrel re-exports `cx` + `ClassValue` so the public surface
- * (`import { cx } from '@fx/chat'`) is unchanged.
+ * (`import { cx } from '@fx-/chat'`) is unchanged.
  */
 
 /** A value accepted by {@link cx}: a string, a falsy value, or a nested array. */

@@ -8,8 +8,8 @@
  * option (shown up front when nothing is listed). Shared by a conversation's
  * model sheet and the assistant settings.
  */
-import type { ModelInfo } from '@fx/chat-agent'
-import { cn } from '@fx/chat-shadcn'
+import type { ModelInfo } from '@fx-/chat-agent'
+import { cn } from '@fx-/chat-shadcn'
 import {
   Brain,
   ChevronLeft,

@@ -1,4 +1,4 @@
-import type { SystemBlock } from '@fx/chat-core'
+import type { SystemBlock } from '@fx-/chat-core'
 /**
  * `SystemBlockView` — a collapsible "system prompt" block.
  */

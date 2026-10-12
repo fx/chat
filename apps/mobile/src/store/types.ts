@@ -3,7 +3,7 @@ import type {
   ControllerState,
   PendingApproval,
   ToolId,
-} from '@fx/chat-agent'
+} from '@fx-/chat-agent'
 
 /** An OpenAI-compatible endpoint the user configured. */
 export interface Profile {

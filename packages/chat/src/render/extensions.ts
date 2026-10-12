@@ -3,7 +3,7 @@
  *
  * The renderer-agnostic data types (custom blocks, renderable messages,
  * timeline-behavior overrides, the timeline-item base) and their pure helpers
- * live in `@fx/chat-core`; this module adds what only a React renderer can own:
+ * live in `@fx-/chat-core`; this module adds what only a React renderer can own:
  * the block/tool renderer component types, `TimelineItem` specialized with a
  * `ReactNode`-returning inline renderer, and the `ChatExtensions` object.
  */
@@ -13,7 +13,7 @@ import type {
   CustomRenderProps,
   CustomTimelineBehavior,
   ToolCallBlock,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 import type { ComponentType, ReactNode } from 'react'
 
 export type {
@@ -23,8 +23,8 @@ export type {
   RenderableBlock,
   RenderableMessage,
   TimelineItemBase,
-} from '@fx/chat-core'
-export { isCoreBlockType, lookupExtension, NON_AUX_BEHAVIOR } from '@fx/chat-core'
+} from '@fx-/chat-core'
+export { isCoreBlockType, lookupExtension, NON_AUX_BEHAVIOR } from '@fx-/chat-core'
 
 /** A host block renderer for a custom `type`. */
 export type CustomBlockRenderer = ComponentType<CustomRenderProps<CustomBlock>>

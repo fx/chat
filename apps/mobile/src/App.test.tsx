@@ -1,4 +1,4 @@
-import { type FetchLike, memoryStore } from '@fx/chat-agent'
+import { type FetchLike, memoryStore } from '@fx-/chat-agent'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'

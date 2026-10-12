@@ -1,5 +1,5 @@
 /**
- * `@fx/chat-ink` renders with the React and Ink a host hands it; tests hand
+ * `@fx-/chat-ink` renders with the React and Ink a host hands it; tests hand
  * it the installed ones — both the source (the package's tests) and the
  * built package (the terminal app's tests import it by name).
  */

@@ -1,4 +1,4 @@
-import { stripControls } from '@fx/chat-ink'
+import { stripControls } from '@fx-/chat-ink'
 
 /**
  * The tool-call arguments as the approval prompt shows them. They come from

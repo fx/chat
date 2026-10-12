@@ -2,7 +2,7 @@
  * Transcript layout with a per-message cache: finished messages are laid out
  * once per signature, so a streamed delta only lays out the live message.
  */
-import type { RenderableMessage } from '@fx/chat-core'
+import type { RenderableMessage } from '@fx-/chat-core'
 import { type LayoutContext, layoutMessage, resolveAccent, showsSomething } from './layout'
 import type { Line } from './model'
 

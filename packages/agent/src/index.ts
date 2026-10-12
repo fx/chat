@@ -1,8 +1,8 @@
 /**
- * `@fx/chat-agent` — a UI-free agent runtime for `@fx/chat`.
+ * `@fx-/chat-agent` — a UI-free agent runtime for `@fx-/chat`.
  *
  * Streams any OpenAI-compatible Chat Completions endpoint into
- * `@fx/chat-core` `ChatMessage`s (text, reasoning, tool calls, metrics), runs
+ * `@fx-/chat-core` `ChatMessage`s (text, reasoning, tool calls, metrics), runs
  * the tool loop with optional approval, and encodes conversations back into
  * request messages. No UI, no backend: the HTTP transport is injectable.
  * `ChatController` adds the conversation mechanics apps share: transcripts,

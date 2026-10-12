@@ -2,7 +2,7 @@
 
 ## Overview
 
-`@fx/chat-core` is the renderer-agnostic foundation shared by every `@fx/chat` renderer (the
+`@fx-/chat-core` is the renderer-agnostic foundation shared by every `@fx-/chat` renderer (the
 React-DOM package and the Ink terminal package) and by the agent runtime. It holds the
 message model and codec, the pure transcript logic (grouping, timeline merge, block summaries,
 formatting, mentions, URL safety), the completion-provider contract, and the React hooks that need
@@ -10,7 +10,7 @@ React but not a DOM. It MUST NOT render anything and MUST NOT touch a DOM, a ter
 
 ## Background
 
-Until change 0019 all of this lived inside `@fx/chat`, intermixed with the React-DOM renderers. A
+Until change 0019 all of this lived inside `@fx-/chat`, intermixed with the React-DOM renderers. A
 terminal renderer cannot import that package: React-DOM host elements (`<div>`, `<span>`) throw under
 Ink, and the registry contract is DOM-shaped (`className`, `aria-*`, tooltips). Extracting the pure
 layer lets each renderer be a thin projection of one shared behavior, so grouping, labels, timers and
@@ -29,8 +29,8 @@ lives here is still owned by the feature specs, which are not restated:
 
 ### Package Identity
 
-- The package MUST be named `@fx/chat-core`, live at `packages/core/`, ship ESM + `.d.ts`, and be
-  published alongside `@fx/chat` with the same version.
+- The package MUST be named `@fx-/chat-core`, live at `packages/core/`, ship ESM + `.d.ts`, and be
+  published alongside `@fx-/chat` with the same version.
 - The root entry (`.`) MUST have zero runtime dependencies and MUST NOT import `react`, `react-dom`,
   `ink`, or any DOM, Node-only, or network API — not even type-only.
 - A `./react` subpath MUST expose the DOM-free React hooks. `react` MUST be an OPTIONAL peer
@@ -41,7 +41,7 @@ lives here is still owned by the feature specs, which are not restated:
 
 #### Scenario: Root entry is React-free
 
-- **GIVEN** the built `@fx/chat-core` root entry
+- **GIVEN** the built `@fx-/chat-core` root entry
 - **WHEN** its module graph (including type imports) is resolved
 - **THEN** no `react`, `react-dom`, or `ink` specifier appears in it.
 
@@ -112,21 +112,21 @@ each renderer package MUST specialize it.
 #### Scenario: Renderer specializes a core slot
 
 - **GIVEN** a completion item type in core with an icon slot of type `unknown`
-- **WHEN** `@fx/chat` re-exports it
-- **THEN** `@fx/chat`'s `CompletionItem` has a React-node icon, and the core reference provider
-  (whose items carry no icon) is assignable to `@fx/chat`'s provider type without a cast.
+- **WHEN** `@fx-/chat` re-exports it
+- **THEN** `@fx-/chat`'s `CompletionItem` has a React-node icon, and the core reference provider
+  (whose items carry no icon) is assignable to `@fx-/chat`'s provider type without a cast.
 
-### Compatibility with `@fx/chat`
+### Compatibility with `@fx-/chat`
 
-- `@fx/chat` MUST depend on `@fx/chat-core` and MUST continue to export every name it exported before
+- `@fx-/chat` MUST depend on `@fx-/chat-core` and MUST continue to export every name it exported before
   the extraction, with compatible types, so no existing host import breaks.
-- `@fx/chat` MUST NOT duplicate core logic; it re-exports or specializes core.
+- `@fx-/chat` MUST NOT duplicate core logic; it re-exports or specializes core.
 
 #### Scenario: Existing host imports keep working
 
-- **GIVEN** the list of named exports of `@fx/chat` and `@fx/chat/headless` before change 0019
+- **GIVEN** the list of named exports of `@fx-/chat` and `@fx-/chat/headless` before change 0019
 - **WHEN** the same names are imported after the extraction
-- **THEN** every name resolves, and the existing `@fx/chat` test suite passes unchanged apart from
+- **THEN** every name resolves, and the existing `@fx-/chat` test suite passes unchanged apart from
   import paths of moved test files.
 
 ## Design
@@ -134,14 +134,14 @@ each renderer package MUST specialize it.
 ### Architecture
 
 ```
-@fx/chat-core (packages/core)
+@fx-/chat-core (packages/core)
 ├── .          model + codec, grouping, minimal grouping, mergeTimeline, blockSummary,
 │              format, url, mentions, extension data types, completion contract + reference
 ├── ./react    useElapsedTimer, useLiveTokensPerSecond, useFlashComplete, usePrefersReducedMotion
 ├── ./hooks    createCoreHooks factory: the same hooks over an injected React instance
 └── ./json     loose-JSON detection, parsing, layout
         ▲                                   ▲                          ▲
-@fx/chat (DOM renderers; re-exports core)   @fx/chat-ink (terminal)    @fx/chat-agent (no UI; root entry only)
+@fx-/chat (DOM renderers; re-exports core)   @fx-/chat-ink (terminal)    @fx-/chat-agent (no UI; root entry only)
 ```
 
 Layering rule: core depends on nothing in this repository. Renderers and the agent depend on core;
@@ -155,7 +155,7 @@ nothing in core depends on them.
 
 ## Open Questions
 
-- **Row view-model.** Resolved in change 0022: render planning lives in core and `@fx/chat` uses it.
+- **Row view-model.** Resolved in change 0022: render planning lives in core and `@fx-/chat` uses it.
 
 ## References
 

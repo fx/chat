@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage, LivePhase } from '@fx/chat-core'
+import type { ChatMessage, LivePhase } from '@fx-/chat-core'
 import { renderToString } from 'ink'
 import { cleanup, render } from 'ink-testing-library'
 import { act } from 'react'

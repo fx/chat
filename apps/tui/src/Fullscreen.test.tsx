@@ -1,4 +1,4 @@
-import { InkChatProvider } from '@fx/chat-ink'
+import { InkChatProvider } from '@fx-/chat-ink'
 import { cleanup, render } from 'ink-testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Fullscreen, type FullscreenProps } from './Fullscreen'

@@ -2,8 +2,8 @@
  * App shell: first-launch setup, then list ⇄ conversation ⇄ settings
  * navigation, with the Android back action mapped onto it.
  */
-import { ChatProvider } from '@fx/chat'
-import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
+import { ChatProvider } from '@fx-/chat'
+import { createShadcnClassNames, createShadcnComponents } from '@fx-/chat-shadcn'
 import { Calculator, Clock, Globe } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Header, Notice, errorText } from './components/ui'

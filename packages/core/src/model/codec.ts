@@ -1,5 +1,5 @@
 /**
- * Pure, synchronous codec for the `@fx/chat` message model.
+ * Pure, synchronous codec for the `@fx-/chat` message model.
  *
  * The codec maps a generic host message shape into the normalized model
  * ({@link ChatMessage}): it orders content into discriminated blocks, unwraps

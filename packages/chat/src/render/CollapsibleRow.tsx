@@ -3,8 +3,8 @@ import {
   formatDuration,
   formatTokensPerSecond,
   shouldShowTimer,
-} from '@fx/chat-core'
-import { useElapsedTimer, useFlashComplete } from '@fx/chat-core/react'
+} from '@fx-/chat-core'
+import { useElapsedTimer, useFlashComplete } from '@fx-/chat-core/react'
 /**
  * `CollapsibleRow` — the shared substrate over the registry `Collapsible` used
  * by every collapsible block (reasoning, tool_call, system, grouped runs).

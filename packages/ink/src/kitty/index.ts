@@ -1,5 +1,5 @@
 /**
- * `@fx/chat-ink/kitty` — an opt-in image provider for terminals implementing
+ * `@fx-/chat-ink/kitty` — an opt-in image provider for terminals implementing
  * the kitty graphics protocol. Hosts that do not draw images never load it.
  */
 export { DIACRITICS } from './diacritics'

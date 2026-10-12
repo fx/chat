@@ -11,8 +11,8 @@
  * pane state) because the demo has no backend — it exists to show the composer
  * surface, mention highlighting, and the reference completion popup.
  */
-import { ChatInput, type ChatMessage, ChatProvider, MessageLog, referenceProvider } from '@fx/chat'
-import { shadcnClassNames } from '@fx/chat-shadcn'
+import { ChatInput, type ChatMessage, ChatProvider, MessageLog, referenceProvider } from '@fx-/chat'
+import { shadcnClassNames } from '@fx-/chat-shadcn'
 import { useMemo, useState } from 'react'
 import type { RegistryEntry } from './registries'
 
@@ -57,7 +57,7 @@ export function Pane({
   const attachments = useAttachments(messages)
 
   // Every pane is styled by the shared Tailwind `classNames` theme, so the
-  // pane's scheme is a `.light`/`.dark` class (`@fx/chat-shadcn`'s tokens and
+  // pane's scheme is a `.light`/`.dark` class (`@fx-/chat-shadcn`'s tokens and
   // `dark:` variant follow it for the whole subtree).
   return (
     <section className={`demo-pane ${theme}`} data-registry={registry.id} data-theme={theme}>

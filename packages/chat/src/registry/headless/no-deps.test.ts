@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 /**
- * Structural guarantee: importing `@fx/chat/headless` pulls in no UI-kit, icon
+ * Structural guarantee: importing `@fx-/chat/headless` pulls in no UI-kit, icon
  * set, or markdown engine. We assert this over the actual source of the headless
  * registry and everything it imports — every bare-package import across that
  * subtree must be `react`/`react-dom` only, never a forbidden family.
  */
 const here = dirname(fileURLToPath(import.meta.url))
-// Scan both the registry subtree and the published `@fx/chat/headless`
+// Scan both the registry subtree and the published `@fx-/chat/headless`
 // entrypoint (`src/headless.ts`) so the real export graph behind the entry is
 // covered, not just the registry folder.
 const registryDir = join(here, '..')
@@ -58,7 +58,7 @@ function collectSources(dir: string): string[] {
  * Extract bare-package specifiers (not relative `.`/`..`) from real
  * `import`/`export … from '…'` statements AND from side-effect-only imports
  * (`import '…'`). Anchored at line start so prose in doc comments (which may
- * contain `from '@fx/chat'`) is never matched.
+ * contain `from '@fx-/chat'`) is never matched.
  */
 function bareImports(source: string): string[] {
   const specs: string[] = []
@@ -76,7 +76,7 @@ function bareImports(source: string): string[] {
   return specs
 }
 
-describe('@fx/chat/headless dependency surface', () => {
+describe('@fx-/chat/headless dependency surface', () => {
   it('imports no UI-kit, icon set, or markdown engine across the registry source', () => {
     const files = [...collectSources(registryDir), headlessEntry]
     expect(files.length).toBeGreaterThan(0)

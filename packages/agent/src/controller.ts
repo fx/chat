@@ -8,7 +8,7 @@
  * same mechanics. Endpoints, models and tool settings stay app-owned: the app
  * answers {@link ControllerOptions.resolveRun} for each run.
  */
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
+import type { ChatMessage, ToolCallBlock } from '@fx-/chat-core'
 import { type FetchLike, createClient } from './client'
 import { type RunResult, errorMessage, runAgent } from './run'
 import { type KeyValueStore, memoryStore } from './storage'

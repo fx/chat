@@ -1,4 +1,4 @@
-import { referenceProvider } from '@fx/chat-core'
+import { referenceProvider } from '@fx-/chat-core'
 /**
  * `CompletionPopup` tests.
  *

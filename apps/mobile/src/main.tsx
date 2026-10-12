@@ -1,6 +1,6 @@
-import '@fx/chat/structure.css'
+import '@fx-/chat/structure.css'
 import './index.css'
-import { indexedDbStore, memoryStore } from '@fx/chat-agent'
+import { indexedDbStore, memoryStore } from '@fx-/chat-agent'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'

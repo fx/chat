@@ -1,8 +1,8 @@
 /**
- * One conversation: the live transcript (rendered by `@fx/chat`), the
+ * One conversation: the live transcript (rendered by `@fx-/chat`), the
  * composer, tool approvals, run errors with retry, and the model picker.
  */
-import { type Attachment, type ChatExtensions, ChatInput, MessageLog } from '@fx/chat'
+import { type Attachment, type ChatExtensions, ChatInput, MessageLog } from '@fx-/chat'
 import { ArrowLeft, ChevronDown, RotateCcw, ShieldQuestion } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'

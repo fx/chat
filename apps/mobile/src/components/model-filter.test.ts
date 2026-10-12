@@ -1,4 +1,4 @@
-import type { ModelInfo } from '@fx/chat-agent'
+import type { ModelInfo } from '@fx-/chat-agent'
 import { describe, expect, it } from 'vitest'
 import {
   declares,

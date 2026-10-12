@@ -9,7 +9,7 @@ import {
   formatElapsed,
   livePhase,
   toolHeadline,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 /**
  * Fullscreen chrome around the viewport: the status line, queued (pending)
  * message rows, and an empty state. All look comes from the injected theme and

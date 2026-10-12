@@ -9,7 +9,7 @@
  * status row, and a markdown answer; and a separately-built actively-streaming
  * message driven from synthetic timestamps.
  */
-import type { ChatMessage, StatusBlock, TextBlock } from '@fx/chat'
+import type { ChatMessage, StatusBlock, TextBlock } from '@fx-/chat'
 
 /**
  * A fixed wall-clock anchor (epoch ms) all fixture timestamps derive from, so a

@@ -50,10 +50,10 @@ describe('scanForInternalRefs', () => {
     expect(v[0].label).toContain('@/')
   })
 
-  it('does not flag scoped packages like @fx/chat', () => {
+  it('does not flag scoped packages like @fx-/chat', () => {
     writeFileSync(
       join(root, 'demos', 'chat-demo', 'src', 'b.ts'),
-      "import { cx } from '@fx/chat'\n",
+      "import { cx } from '@fx-/chat'\n",
     )
     expect(scanForInternalRefs(root, SCAN_DIRS)).toEqual([])
   })

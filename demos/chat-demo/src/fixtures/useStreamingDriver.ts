@@ -12,7 +12,7 @@
  * run an interval — it jumps straight to the finalized end state — so no motion
  * is produced.
  */
-import { usePrefersReducedMotion } from '@fx/chat'
+import { usePrefersReducedMotion } from '@fx-/chat'
 import { useEffect, useRef, useState } from 'react'
 import { STREAM_DURATION_MS, buildStreamingConversation } from './conversation'
 

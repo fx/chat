@@ -13,7 +13,7 @@
  * The renderer NEVER parses content strings to discover structure; it switches on
  * the discriminant only.
  */
-import { type ContentBlock, type MessageOutcome, isBlockActive } from '@fx/chat-core'
+import { type ContentBlock, type MessageOutcome, isBlockActive } from '@fx-/chat-core'
 import type { ChatExtensions, CustomBlock, RenderableBlock, RenderableMessage } from '../extensions'
 import { isCoreBlockType, lookupExtension } from '../extensions'
 import { InertBlockView } from './InertBlock'

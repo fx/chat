@@ -6,7 +6,7 @@ import {
   formatDuration,
   formatTokenCount,
   isBlockActive,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 /**
  * A message's activity as plain data for the optional `ActivitySummary`
  * presenter and the footer's activity facts — what the rows say, without the

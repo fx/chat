@@ -1,4 +1,4 @@
-import type { MessageMetrics } from '@fx/chat-core'
+import type { MessageMetrics } from '@fx-/chat-core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../registry'

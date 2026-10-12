@@ -1,5 +1,5 @@
-import { formatClockTime } from '@fx/chat-core'
-import { mergeTimeline } from '@fx/chat-core'
+import { formatClockTime } from '@fx-/chat-core'
+import { mergeTimeline } from '@fx-/chat-core'
 /**
  * `MessageLog` — renders an ordered `ChatMessage[]`.
  *

@@ -1,4 +1,4 @@
-import type { MessageMetrics, MessageOutcome } from '@fx/chat-core'
+import type { MessageMetrics, MessageOutcome } from '@fx-/chat-core'
 import {
   formatCost,
   formatDuration,
@@ -6,8 +6,8 @@ import {
   formatFooterMetrics,
   formatTokenCount,
   formatTokensPerSecond,
-} from '@fx/chat-core'
-import { useElapsedTimer } from '@fx/chat-core/react'
+} from '@fx-/chat-core'
+import { useElapsedTimer } from '@fx-/chat-core/react'
 /**
  * `MessageFooter` — per-message affordances and metrics.
  *

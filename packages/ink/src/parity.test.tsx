@@ -1,10 +1,10 @@
 /**
- * Cross-renderer parity: the same conversation rendered by `@fx/chat` (DOM)
- * and `@fx/chat-ink` (terminal) shows the same group summaries, durations and
+ * Cross-renderer parity: the same conversation rendered by `@fx-/chat` (DOM)
+ * and `@fx-/chat-ink` (terminal) shows the same group summaries, durations and
  * footer metrics — both project the shared core render plan.
  */
-import { ChatProvider, MessageLog } from '@fx/chat'
-import type { ChatMessage } from '@fx/chat-core'
+import { ChatProvider, MessageLog } from '@fx-/chat'
+import type { ChatMessage } from '@fx-/chat-core'
 import { render } from '@testing-library/react'
 import { renderToString } from 'ink'
 import { describe, expect, it } from 'vitest'

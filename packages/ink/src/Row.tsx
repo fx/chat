@@ -2,10 +2,10 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 
-import type { SummaryIconName } from '@fx/chat-core'
-import { formatDuration, formatTokensPerSecond, shouldShowTimer } from '@fx/chat-core'
+import type { SummaryIconName } from '@fx-/chat-core'
+import { formatDuration, formatTokensPerSecond, shouldShowTimer } from '@fx-/chat-core'
 /**
- * One collapsible row — the terminal counterpart of `@fx/chat`'s
+ * One collapsible row — the terminal counterpart of `@fx-/chat`'s
  * CollapsibleRow: affordance (spinner while live, a brief ✓ when it finishes,
  * else a disclosure caret when it has a body), optional `+N` prefix, kind
  * glyph, label, error marker, timer, and tokens/sec. The body shows when

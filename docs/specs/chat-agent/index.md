@@ -2,10 +2,10 @@
 
 ## Overview
 
-`@fx/chat-agent` is an optional, UI-free runtime that drives agent-style conversations against any
-OpenAI-compatible Chat Completions endpoint and produces `@fx/chat-core` `ChatMessage`s as it goes.
+`@fx-/chat-agent` is an optional, UI-free runtime that drives agent-style conversations against any
+OpenAI-compatible Chat Completions endpoint and produces `@fx-/chat-core` `ChatMessage`s as it goes.
 It streams text, reasoning and tool calls, executes host-registered tools (with optional approval),
-and loops until the model stops calling tools. Every renderer (`@fx/chat`, `@fx/chat-ink`) can display
+and loops until the model stops calling tools. Every renderer (`@fx-/chat`, `@fx-/chat-ink`) can display
 its output unchanged. It MUST NOT render UI and MUST NOT require a backend: it runs entirely in the
 client (browser, webview, Node).
 
@@ -24,8 +24,8 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 
 ### Package Boundary
 
-- The package MUST be named `@fx/chat-agent`, live at `packages/agent/`, ship ESM + `.d.ts`, and
-  depend only on `@fx/chat-core`.
+- The package MUST be named `@fx-/chat-agent`, live at `packages/agent/`, ship ESM + `.d.ts`, and
+  depend only on `@fx-/chat-core`.
 - It MUST NOT import React, any renderer, or any platform API other than the injected `fetch`.
   The one exception is the opt-in `indexedDbStore()` persistence adapter, which touches
   `indexedDB` only when a host chooses it and first reads or writes through it.

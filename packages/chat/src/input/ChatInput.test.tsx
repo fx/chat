@@ -1,5 +1,5 @@
-import type { Attachment } from '@fx/chat-core'
-import { referenceProvider } from '@fx/chat-core'
+import type { Attachment } from '@fx-/chat-core'
+import { referenceProvider } from '@fx-/chat-core'
 /**
  * `ChatInput` composer tests.
  *

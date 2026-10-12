@@ -3,7 +3,7 @@
  * and the operations keys map to. No Ink, no React — every edit is a function
  * from state to state, so it is tested without a terminal.
  */
-import type { Attachment } from '@fx/chat-core'
+import type { Attachment } from '@fx-/chat-core'
 import { type Measure, defaultMeasure, firstGrapheme, graphemes } from './lines/measure'
 
 export interface EditorState {

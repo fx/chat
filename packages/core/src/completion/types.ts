@@ -2,7 +2,7 @@
  * Completion-provider contract — DOM-free and safe to import outside the
  * browser (server, edge, tests). This module declares ONLY types: there is no
  * runtime code, no React, no DOM. The `icon` slot is generic (`TIcon`,
- * default `unknown`); renderer packages specialize it (`@fx/chat` uses
+ * default `unknown`); renderer packages specialize it (`@fx-/chat` uses
  * `ReactNode`) so the contract never depends on a UI framework.
  *
  * A provider is a small, self-contained strategy object that the completion

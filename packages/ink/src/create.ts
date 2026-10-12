@@ -1,4 +1,4 @@
-import type { ClockProviderProps } from '@fx/chat-core/hooks'
+import type { ClockProviderProps } from '@fx-/chat-core/hooks'
 /**
  * `createChatInk({ React, ink })` — the entry point. It binds the package to
  * the host's React and Ink (see `runtime.ts`) and returns the renderer: the

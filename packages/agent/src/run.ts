@@ -6,7 +6,7 @@
  * {@link AgentOutcome} and the turn's final message; every intermediate
  * snapshot is delivered through `onUpdate`.
  */
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
+import type { ChatMessage, ToolCallBlock } from '@fx-/chat-core'
 import {
   type TurnState,
   applyEvent,

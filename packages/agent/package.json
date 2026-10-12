@@ -1,7 +1,7 @@
 {
-  "name": "@fx/chat-agent",
+  "name": "@fx-/chat-agent",
   "version": "0.0.0",
-  "description": "UI-free agent runtime for @fx/chat: streams any OpenAI-compatible endpoint into ChatMessages and runs the tool loop.",
+  "description": "UI-free agent runtime for @fx-/chat: streams any OpenAI-compatible endpoint into ChatMessages and runs the tool loop.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -17,11 +17,11 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@fx/chat-core": "workspace:*"
+    "@fx-/chat-core": "workspace:*"
   },
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "provenance": true
   },
   "repository": {
     "type": "git",

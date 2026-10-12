@@ -1,5 +1,5 @@
 /**
- * `@fx/chat-core/json` — tolerant JSON for laying out tool output.
+ * `@fx-/chat-core/json` — tolerant JSON for laying out tool output.
  *
  * Tool output is often JSON, often JSON inside a string (a tool's
  * `content[].text`), and often a capped preview cut off mid-value. These

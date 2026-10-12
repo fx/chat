@@ -1,5 +1,5 @@
 /**
- * The `@fx/chat-core` root entry MUST stay free of React, React-DOM, and Ink —
+ * The `@fx-/chat-core` root entry MUST stay free of React, React-DOM, and Ink —
  * not even type-only imports — so non-React consumers (the agent runtime, a
  * future non-React renderer) can depend on it. Only `src/react/**` (the
  * `./react` subpath) may import React. `src/hooks/**` (the `./hooks` factory)

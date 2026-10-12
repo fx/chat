@@ -5,7 +5,7 @@
  * live timer and a tokens/sec pill while active. It is never collapsible: it has
  * no body, so the substrate renders it as a static row.
  */
-import { type StatusBlock, statusLabel } from '@fx/chat-core'
+import { type StatusBlock, statusLabel } from '@fx-/chat-core'
 import { CollapsibleRow } from '../CollapsibleRow'
 
 /** Props for {@link StatusBlockView}. */

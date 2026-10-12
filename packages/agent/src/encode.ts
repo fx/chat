@@ -6,7 +6,7 @@
  * the field it arrived on) followed by one `tool` message per call. Status and
  * custom blocks are never sent; reasoning parsed from think tags is not sent.
  */
-import type { ChatMessage, ContentBlock, ToolCallBlock } from '@fx/chat-core'
+import type { ChatMessage, ContentBlock, ToolCallBlock } from '@fx-/chat-core'
 import { type StepMeta, readAgentMeta } from './accumulate'
 import type { ReasoningField, WireContentPart, WireMessage } from './types'
 

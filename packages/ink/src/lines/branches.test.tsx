@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage, ContentBlock } from '@fx/chat-core'
+import type { ChatMessage, ContentBlock } from '@fx-/chat-core'
 import { Text, renderToString } from 'ink'
 import { describe, expect, it } from 'vitest'
 import { InkChatProvider } from '../registry'

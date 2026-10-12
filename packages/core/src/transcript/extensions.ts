@@ -9,7 +9,7 @@
  * is byte-for-byte unchanged.
  *
  * Pure data + pure functions: no React, no DOM. This is the renderer-agnostic
- * half of the extension API; each renderer package (e.g. `@fx/chat`) adds the
+ * half of the extension API; each renderer package (e.g. `@fx-/chat`) adds the
  * renderer-bound half — the block/tool renderer component types, the
  * `ChatExtensions` object, and a `TimelineItem` specialized with its inline
  * render function.
@@ -90,7 +90,7 @@ export interface TimelineItemBase {
  * omits both at compile time.
  *
  * @typeParam TNode - what the inline `render` returns; renderer packages
- *   specialize it (`@fx/chat` uses `ReactNode`). Core never calls `render`.
+ *   specialize it (`@fx-/chat` uses `ReactNode`). Core never calls `render`.
  */
 export type TimelineItem<TNode = unknown> =
   | (TimelineItemBase & {

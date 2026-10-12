@@ -1,4 +1,4 @@
-import type { FetchLike } from '@fx/chat-agent'
+import type { FetchLike } from '@fx-/chat-agent'
 /** @jsxRuntime classic */
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
@@ -7,10 +7,10 @@ import type { FetchLike } from '@fx/chat-agent'
  * when needed), resolve tx's theme for stdout, and render the app. `/setup`
  * exits the app, re-runs setup, and starts a fresh session.
  */
-import { React, ink } from '@fx/chat-ink'
-import { InkChatProvider, TerminalMarkdown } from '@fx/chat-ink'
-import { createKittyProvider, detectKitty } from '@fx/chat-ink/kitty'
-import { createJpegDecoder } from '@fx/chat-ink/kitty-jpeg'
+import { React, ink } from '@fx-/chat-ink'
+import { InkChatProvider, TerminalMarkdown } from '@fx-/chat-ink'
+import { createKittyProvider, detectKitty } from '@fx-/chat-ink/kitty'
+import { createJpegDecoder } from '@fx-/chat-ink/kitty-jpeg'
 import type { Config } from '@fx/tx/config'
 import type { Dialogs } from '@fx/tx/dialogs'
 import type { Theming } from '@fx/tx/theme'

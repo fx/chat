@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
+import type { ChatMessage, ToolCallBlock } from '@fx-/chat-core'
 import { describe, expect, it, vi } from 'vitest'
 import type { Client, CompletionRequest } from './client'
 import { runAgent } from './run'

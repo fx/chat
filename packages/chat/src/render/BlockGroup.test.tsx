@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@fx/chat-core'
+import type { ContentBlock } from '@fx-/chat-core'
 import { act, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockGroup } from './BlockGroup'

@@ -1,5 +1,5 @@
 /**
- * The input surface of `@fx/chat`: the headless `ChatInput` composer, the
+ * The input surface of `@fx-/chat`: the headless `ChatInput` composer, the
  * caret-anchored `CompletionPopup`, the DOM-free completion-provider contract,
  * and the single reference provider.
  *
@@ -17,7 +17,7 @@ export {
   REFERENCE_ITEMS,
   REFERENCE_TRIGGER,
   referenceProvider,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 export type {
   CompletionApplyResult,
   CompletionItem,

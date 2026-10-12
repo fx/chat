@@ -3,7 +3,7 @@
  * summary (`Plan d/t`, checklist icon) heads it, and the body lists one entry
  * per row with its status as `data-status` for host styling.
  */
-import { type PlanBlock, summarizeBlock } from '@fx/chat-core'
+import { type PlanBlock, summarizeBlock } from '@fx-/chat-core'
 import { cx } from '../../cx'
 import { useChatClassNames } from '../../registry'
 import { CollapsibleRow } from '../CollapsibleRow'

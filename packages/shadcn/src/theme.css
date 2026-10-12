@@ -1,11 +1,11 @@
 /**
- * `@fx/chat-shadcn/theme.css` — the shadcn design tokens and the Tailwind v4
- * wiring for `@fx/chat-shadcn`.
+ * `@fx-/chat-shadcn/theme.css` — the shadcn design tokens and the Tailwind v4
+ * wiring for `@fx-/chat-shadcn`.
  *
- * Import it after Tailwind, alongside `@fx/chat`'s structural CSS:
+ * Import it after Tailwind, alongside `@fx-/chat`'s structural CSS:
  *
  *   @import "tailwindcss";
- *   @import "@fx/chat-shadcn/theme.css";
+ *   @import "@fx-/chat-shadcn/theme.css";
  *
  * Dark mode follows the system by default. A `.dark` or `.light` class on any
  * element forces that scheme for its subtree (so a page can offer a toggle or

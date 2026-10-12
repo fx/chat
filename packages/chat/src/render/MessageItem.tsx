@@ -1,6 +1,11 @@
-import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from '@fx/chat-core'
-import { type PlannedRow, earlierLabel, getBlockTimelineBehavior, planMessage } from '@fx/chat-core'
-import { useLiveTokensPerSecond } from '@fx/chat-core/react'
+import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from '@fx-/chat-core'
+import {
+  type PlannedRow,
+  earlierLabel,
+  getBlockTimelineBehavior,
+  planMessage,
+} from '@fx-/chat-core'
+import { useLiveTokensPerSecond } from '@fx-/chat-core/react'
 /**
  * `MessageItem` — renders one `ChatMessage`, wrapped with the `data-message-id`
  * anchor contract.

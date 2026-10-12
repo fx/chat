@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@fx/chat-core'
+import type { ChatMessage } from '@fx-/chat-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ChatController,

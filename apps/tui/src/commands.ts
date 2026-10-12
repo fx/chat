@@ -3,7 +3,7 @@
  * at the start of the input lists commands, and `/model ` lists the
  * endpoint's models (fetched once, filtered as you type).
  */
-import type { CompletionItem, CompletionProvider } from '@fx/chat-core'
+import type { CompletionItem, CompletionProvider } from '@fx-/chat-core'
 
 export interface SlashCommand {
   name: string
