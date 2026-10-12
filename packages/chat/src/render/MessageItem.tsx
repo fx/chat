@@ -1,5 +1,5 @@
 import { approxTokenCount, createClockGutterDeduper, positiveTimestamp } from '@fx/chat-core'
-import { type PlannedRow, earlierLabel, planMessage } from '@fx/chat-core'
+import { type PlannedRow, earlierLabel, getBlockTimelineBehavior, planMessage } from '@fx/chat-core'
 import { useLiveTokensPerSecond } from '@fx/chat-core/react'
 /**
  * `MessageItem` — renders one `ChatMessage`, wrapped with the `data-message-id`
@@ -31,13 +31,20 @@ import { useLiveTokensPerSecond } from '@fx/chat-core/react'
  * no forced compact footer, and no `data-minimal` attribute (an explicitly
  * passed `compactFooter` prop is still honored).
  */
-import type { ReactNode } from 'react'
+import { type ComponentType, type ReactNode, memo, useState } from 'react'
 import { cx } from '../cx'
-import { useChatClassNames } from '../registry'
+import { type ActivitySummaryProps, useChatClassNames, useChatComponents } from '../registry'
 import { BlockGroup } from './BlockGroup'
 import { GutterRow } from './GutterRow'
 import { MessageAttachments } from './MessageAttachments'
-import { LiveFooter, MessageFooter, hasFooterContent } from './MessageFooter'
+import {
+  LiveFooter,
+  MessageFooter,
+  detailsActions,
+  hasFooterContent,
+  messageDetails,
+} from './MessageFooter'
+import { activityFacts, activityItem } from './activity-items'
 import { RawJsonBlockView } from './blocks'
 import { BlockView } from './blocks'
 import type { BlockRenderContext } from './blocks'
@@ -78,6 +85,16 @@ export interface MessageItemProps {
   activityPlacement?: 'inline' | 'after-content'
   /** While live, show only the newest N activity blocks after an `N earlier` row. */
   liveTail?: number
+  /**
+   * A finished message's activity: its rows (`row`, default) or only the
+   * footer's activity facts (`footer`; see core `planMessage`).
+   */
+  finishedActivity?: 'row' | 'footer'
+  /**
+   * `summary`: each run of activity rows renders through the registry's
+   * `ActivitySummary` presenter (when it provides one) instead of as rows.
+   */
+  activityDisplay?: 'rows' | 'summary'
   /** Show a footer with whole-second elapsed time while the message is live (opt-in). */
   liveFooter?: boolean
   /** Optional render-layer extensions (custom block/tool renderers + grouping). */
@@ -112,9 +129,34 @@ function blockTimestamp(block: RenderableBlock): number | undefined {
  * where the run began). `undefined` when no row block carries one.
  */
 type GroupedRow = Exclude<PlannedRow, { kind: 'pending' }>
+/** A run of activity shown through the `ActivitySummary` presenter. */
+type SummaryRow = { kind: 'summary'; key: string; blocks: RenderableBlock[] }
+type DisplayRow = GroupedRow | SummaryRow
 
-function groupedItemTimestamp(item: GroupedRow): number | undefined {
+/** Fold each run of activity rows into one summary row (dropping `earlier` rows). */
+function summarize(rows: GroupedRow[], isAux: (block: RenderableBlock) => boolean): DisplayRow[] {
+  const out: DisplayRow[] = []
+  let run: RenderableBlock[] = []
+  const flush = () => {
+    const first = run[0]
+    if (first) out.push({ kind: 'summary', key: `summary-${first.id}`, blocks: run })
+    run = []
+  }
+  for (const row of rows) {
+    if (row.kind === 'group') run.push(...row.blocks)
+    else if (row.kind === 'bare' && isAux(row.block)) run.push(row.block)
+    else if (row.kind !== 'earlier') {
+      flush()
+      out.push(row)
+    }
+  }
+  flush()
+  return out
+}
+
+function groupedItemTimestamp(item: DisplayRow): number | undefined {
   if (item.kind === 'bare') return blockTimestamp(item.block)
+  if (item.kind === 'summary') return blockTimestamp(item.blocks[0] as RenderableBlock)
   if (item.kind === 'outcome' || item.kind === 'earlier') return undefined
   // Groups are always non-empty by construction (every group has at least one
   // block), but they are NOT limited to runs of length >= 2 — in minimal mode
@@ -122,8 +164,12 @@ function groupedItemTimestamp(item: GroupedRow): number | undefined {
   return blockTimestamp(item.blocks[0] as RenderableBlock)
 }
 
-/** Renders a single message and its footer. */
-export function MessageItem({
+/**
+ * Renders a single message and its footer. Memoized: a message re-renders
+ * only when its own props change (a settled message stays put while another
+ * streams), so callers should pass stable callbacks (`MessageLog` does).
+ */
+export const MessageItem = memo(function MessageItem({
   message,
   isActive = false,
   flat = false,
@@ -131,6 +177,8 @@ export function MessageItem({
   minimal = false,
   activityPlacement,
   liveTail,
+  finishedActivity,
+  activityDisplay = 'rows',
   liveFooter = false,
   defaultOpen,
   showFooter = true,
@@ -142,6 +190,18 @@ export function MessageItem({
   onReset,
 }: MessageItemProps) {
   const cn = useChatClassNames()
+  const { MessageDetails, ActivitySummary, icons } = useChatComponents()
+  const [details, setDetails] = useState<{ open: boolean; focusId?: string }>({ open: false })
+  // A finished message's activity left to the footer, shown again by its
+  // facts: as summaries inside the footer (beside the facts), else as rows
+  // back in place.
+  const [activityShown, setActivityShown] = useState(false)
+  const expandInFooter =
+    activityDisplay === 'summary' &&
+    ActivitySummary !== undefined &&
+    finishedActivity === 'footer' &&
+    !flat &&
+    !raw
   // Only the trailing block of an active message is the streaming one.
   const trailingBlock = message.blocks[message.blocks.length - 1]
   // Tokens/sec for the render context. While ACTIVE, the hook prefers an
@@ -189,24 +249,87 @@ export function MessageItem({
   // forced compact footer, and the `data-minimal` attribute).
   const minimalActive = minimal && !flat && !raw
   const effectiveCompactFooter = minimalActive || compactFooter
+  const assistant = message.role === 'assistant'
+  const isAux = (block: RenderableBlock) =>
+    getBlockTimelineBehavior(block, behaviorOverrides).auxEligible
+  // Activity as a summary: each run of activity rows (groups and bare activity
+  // blocks; a live tail's `earlier` row folds away) becomes one summary row.
+  const summary = activityDisplay === 'summary' && ActivitySummary !== undefined && !flat && !raw
+  // The message owns its details presenter (so live activity can open it too)
+  // when the registry provides one and something opens it.
+  const ownsDetails =
+    MessageDetails !== undefined && assistant && !raw && (effectiveCompactFooter || summary)
+  // The activity blocks, walked only where something shows them (never on the
+  // flat and raw paths, which consult no timeline behavior).
+  const auxBlocks =
+    !flat && !raw && (summary || ownsDetails || finishedActivity === 'footer')
+      ? blocks.filter(isAux)
+      : []
+  // What a settled assistant footer would carry, decided ONCE before planning
+  // so the plan's footer and the rendered footer can never disagree: the plan
+  // hides activity rows only for a footer that renders (`hasFooterContent`,
+  // the zero-affordance gate) AND carries facts standing in for them. Only a
+  // footer candidate (settled assistant turn, footers on, not raw) walks the
+  // content for copy text and facts.
+  const footerCandidate = showFooter && !raw && assistant && !isActive
+  const copyText = footerCandidate ? messageCopyText(message) : ''
+  const facts =
+    footerCandidate && finishedActivity === 'footer' && !flat ? activityFacts(auxBlocks) : []
+  const footerHasContent =
+    footerCandidate &&
+    hasFooterContent({
+      copyText,
+      onRegenerate,
+      onFork,
+      onReset,
+      metrics: message.metrics,
+      outcome: message.outcome,
+      activity: facts,
+    })
   // Row + footer planning is shared with every renderer (`planMessage` in
   // core). The flat and raw paths plan no grouping — so they perform no
-  // timeline-behavior lookups — and raw never shows a footer. The footer gate is
-  // short-circuited so the content-block walk only runs when a footer could
-  // render: a completed assistant turn with at least one content (non-aux)
-  // block; an aux-only turn is part of the answer that follows.
+  // timeline-behavior lookups — and raw never shows a footer. `planMessage`
+  // adds its own gate (a content block or an outcome; an aux-only turn is part
+  // of the answer that follows), so `plan.showFooter` is the single decision.
+  // Activity is left to the footer only while it has facts to toggle it back
+  // and is not shown again as rows.
   const plan = planMessage(message, {
     isActive,
     minimal: minimalActive,
     ...(activityPlacement ? { activityPlacement } : {}),
     ...(liveTail !== undefined ? { liveTail } : {}),
+    ...(finishedActivity
+      ? {
+          finishedActivity:
+            facts.length > 0 && !(activityShown && !expandInFooter) ? 'footer' : 'row',
+        }
+      : {}),
     flat: flat || raw,
-    showFooter: showFooter && !raw,
+    showFooter: footerHasContent,
     overrides: behaviorOverrides,
   })
   const showContentFooter = plan.showFooter
-  const groupedItems =
+  const plannedRows =
     !flat && !raw ? plan.rows.filter((row): row is GroupedRow => row.kind !== 'pending') : []
+  const groupedItems: DisplayRow[] = summary ? summarize(plannedRows, isAux) : plannedRows
+  const openDetails = (focusId?: string) =>
+    setDetails({ open: true, ...(focusId !== undefined ? { focusId } : {}) })
+  const itemContext = {
+    isActive,
+    activeBlockId: context.activeBlockId,
+    tokensPerSecond: isActive ? tokensPerSecond : undefined,
+    startedAt: message.createdAt,
+  }
+  // Only called in summary mode, which requires the registry's ActivitySummary.
+  const Summary = ActivitySummary as ComponentType<ActivitySummaryProps>
+  const summaryNode = (key: string, summarized: RenderableBlock[]): ReactNode => (
+    <Summary
+      key={key}
+      items={summarized.map((block) => activityItem(block, itemContext))}
+      live={isActive}
+      {...(ownsDetails ? { onActivate: (id: string) => openDetails(id) } : {})}
+    />
+  )
   // Flat mode renders blocks directly, so its outcome row trails them.
   const flatOutcome = flat && !raw ? plan.rows.find((row) => row.kind === 'outcome') : undefined
 
@@ -253,7 +376,7 @@ export function MessageItem({
     )
 
   const groupedRows = (
-    renderRow: (item: GroupedRow) => { node: ReactNode; key: string },
+    renderRow: (item: DisplayRow) => { node: ReactNode; key: string },
   ): ReactNode =>
     groupedItems.map((item) => {
       const { node, key } = renderRow(item)
@@ -277,7 +400,9 @@ export function MessageItem({
 
   const pendingStatusRow = (): ReactNode => {
     const pendingId = `${message.id}:pending`
-    const row = (
+    const row = summary ? (
+      summaryNode(pendingId, [{ type: 'status', id: pendingId, phase: 'pre-stream' }])
+    ) : (
       <BlockView
         key={pendingId}
         block={{ type: 'status', id: pendingId, phase: 'pre-stream' }}
@@ -327,6 +452,8 @@ export function MessageItem({
                   }
                   if (item.kind === 'outcome')
                     return { key: 'outcome', node: outcomeNode(item.outcome.message) }
+                  if (item.kind === 'summary')
+                    return { key: item.key, node: summaryNode(item.key, item.blocks) }
                   if (item.kind === 'earlier') {
                     return {
                       key: item.key,
@@ -377,21 +504,26 @@ export function MessageItem({
       ) : null}
       {showContentFooter
         ? (() => {
-            const copyText = messageCopyText(message)
-            // Gate the ENTIRE branch — including the gutter-row wrapper below —
-            // on the footer having something to render. `MessageFooter` would
-            // return null anyway (zero-affordance early return), but without
-            // this gate a timestamp-gutter layout would still emit an empty
-            // `.chat-gutter-row` with a blank clock cell around it.
+            // `showContentFooter` already holds only for a footer with content
+            // (`hasFooterContent`), so no empty footer — or, with the gutter on,
+            // empty `.chat-gutter-row` — is ever emitted.
             const metrics = message.metrics
             const outcome = message.outcome
-            if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics, outcome })) {
-              return null
-            }
             const footer = (
               <MessageFooter
                 copyText={copyText}
                 compact={effectiveCompactFooter}
+                {...(ownsDetails ? { onOpenDetails: () => openDetails() } : {})}
+                {...(facts.length > 0
+                  ? {
+                      activity: facts,
+                      activityShown,
+                      onToggleActivity: () => setActivityShown((shown) => !shown),
+                      ...(expandInFooter && activityShown
+                        ? { activityItems: summaryNode('footer-activity', auxBlocks) }
+                        : {}),
+                    }
+                  : {})}
                 {...(metrics ? { metrics } : {})}
                 {...(outcome ? { outcome } : {})}
                 {...(onRegenerate ? { onRegenerate } : {})}
@@ -404,6 +536,56 @@ export function MessageItem({
             return timestampGutter ? wrapRow('footer', undefined, footer, true) : footer
           })()
         : null}
+      {ownsDetails && MessageDetails ? (
+        <MessageDetails
+          open={details.open}
+          onOpenChange={(open) => setDetails((current) => ({ ...current, open }))}
+          details={messageDetails(message.metrics)}
+          outcome={
+            message.outcome?.kind === 'error'
+              ? { kind: 'error', message: message.outcome.message }
+              : message.outcome
+          }
+          // A live message offers no copy or actions until it settles.
+          copyText={isActive ? '' : messageCopyText(message).trim() ? messageCopyText(message) : ''}
+          actions={
+            isActive
+              ? []
+              : detailsActions(icons, {
+                  ...(onRegenerate ? { onRegenerate } : {}),
+                  ...(onFork ? { onFork } : {}),
+                  ...(onReset ? { onReset } : {}),
+                })
+          }
+          {...(auxBlocks.length > 0
+            ? {
+                activity: (
+                  <div className={cx('chat-details-activity', cn.detailsActivity)}>
+                    {auxBlocks.map((block) => (
+                      <div
+                        key={block.id}
+                        className={cx('chat-details-activity-item', cn.detailsActivityItem)}
+                        data-block-id={block.id}
+                        {...(block.id === details.focusId ? { 'data-focused': 'true' } : {})}
+                      >
+                        <BlockView
+                          block={block}
+                          context={
+                            block.id === details.focusId
+                              ? { ...context, defaultOpen: true }
+                              : context
+                          }
+                          {...(extensions ? { extensions } : {})}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ),
+              }
+            : {})}
+          {...(details.focusId !== undefined ? { focusId: details.focusId } : {})}
+        />
+      ) : null}
     </div>
   )
-}
+})

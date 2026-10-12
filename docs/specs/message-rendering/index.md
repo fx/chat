@@ -415,7 +415,10 @@ scope** and MUST NOT appear in this package.
   renders (see the footer visibility gate below) — only when the message has non-whitespace
   copyable text (whitespace-only counts as empty; a tool-call-only turn has an empty copy
   payload, so no copy control).
-- A compact footer mode MUST be supported (icon-only with a reveal toggle).
+- A compact footer mode MUST be supported (icon-only with a reveal toggle). When the registry
+  provides a `MessageDetails` presenter, the toggle (labelled "Message details") MUST open it
+  with the message's details, outcome, copy text and actions, and MUST NOT reveal labels or
+  metrics inline; outside compact mode, or with nothing to reveal, the presenter is not used.
 - Footer metrics (model, duration, tokens/sec) MUST render only when present and MUST degrade
   gracefully when absent.
 - The footer MUST NOT render while the message is actively streaming (`isActive` — in
@@ -423,12 +426,14 @@ scope** and MUST NOT appear in this package.
   has ZERO blocks (e.g. a just-created streaming placeholder). The footer affordances are
   completion actions; they render only once the assistant turn has settled and has content.
   The footer also renders NOTHING when it has no renderable affordances or metrics to show —
-  no copyable (non-whitespace) text, no action callbacks, and no renderable metrics — so a
-  settled turn with nothing actionable gets no empty footer chrome. This gate applies to the
+  no outcome, no copyable (non-whitespace) text, no action callbacks, no renderable metrics and
+  no activity facts — so a settled turn with nothing actionable gets no empty footer chrome. This gate applies to the
   footer's WRAPPER chrome too: with `timestampGutter` enabled, `MessageItem` MUST NOT emit the
   footer's `.chat-gutter-row` (blank clock cell) when the footer has nothing to render. The
   zero-affordance decision is the exported pure predicate `hasFooterContent`, shared by
-  `MessageItem`'s branch gate and `MessageFooter`'s safety-net early return.
+  `MessageItem`'s branch gate and `MessageFooter`'s safety-net early return. `MessageItem`
+  decides it once, before planning, and passes it to `planMessage` as `showFooter`, so the
+  plan's footer (which drops finished activity rows) and the rendered footer are one decision.
 - **Host responsibilities:** hosts MUST eventually clear `isStreaming`/`streamingMessageId`
   (terminalize runs, including on error) — a permanently-active message never shows a footer,
   by design. A failed or stopped turn is described by the message `outcome` (see Agent Activity),
@@ -551,7 +556,25 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   footer's counts: for a non-live assistant message whose footer shows, the plan then holds no
   activity rows — neither bare activity blocks nor groups, by the timeline behaviour of each block —
   in either placement. Without a footer the rows stay. Hosts ask for it only while activity is
-  collapsed.
+  collapsed. `MessageLog`/`MessageItem` take it as `finishedActivity`; the footer then shows the
+  activity as facts — tool calls (and failures), thinking time (or size when untimed), plan
+  progress — each an icon and short text with a readable label. Rows are left to the footer only
+  when that footer renders and carries at least one fact; otherwise (no footer content, or only
+  activity no fact stands for) the activity keeps its rows, so it is never lost. Each fact is a button that shows the
+  message's activity again, and hides it on the next press: as rows back where they were, or — with
+  summary display — as summaries inside the footer right after the facts
+  (`.chat-footer-activity-items`), so the footer stays one run of controls. The facts' wrapper says
+  whether it is shown (`data-expanded`).
+- **Activity summary.** With `activityDisplay="summary"` and a registry `ActivitySummary`
+  presenter, each run of activity rows (groups and bare activity blocks, including the pending
+  placeholder; a live tail's `earlier` row folds away) renders as one summary of plain items
+  instead of rows; content keeps its place between runs. Without the presenter, rows render.
+- **Message details.** When the registry has a `MessageDetails` presenter and the message uses a
+  compact footer or summary display, the message (not the footer) owns it: the footer's details
+  control (an `info` glyph, labelled "Message details") and summary items open it, an item at its
+  own block. It carries the message's
+  details, outcome, actions and copy text — none while the message is live — and its activity as
+  rows, the focused item's row open and marked `data-focused`.
 
 #### Scenario: Title wins over name
 
@@ -910,3 +933,8 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-10 | Shared clock; flash switch | [0027-shared-clock](../../changes/0027-shared-clock.md) |
 | 2026-10-11 | Lone after-content activity block bare; earlier row breakdown and label (only older, non-reasoning activity); footer-only finished activity; tool headline | [0034-activity-layout](../../changes/0034-activity-layout.md) |
 | 2026-10-11 | Group headers say what the group holds: tool calls (count, outcome split, wall-clock time), several thoughts (`Thought ×N`), plans; `+N` only where the label does not; tool rows show their time | [0034-activity-layout](../../changes/0034-activity-layout.md) |
+| 2026-10-11 | Compact footer opens an optional `MessageDetails` presenter instead of revealing inline | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-11 | Summarized activity shown from the footer renders inside it, after the facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-12 | Footer-only finished activity and the footer gate are one decision: activity facts count as footer content, and rows are left to the footer only when it renders with facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |

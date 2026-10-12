@@ -4,6 +4,9 @@
  * `import { ChatProvider, useChatComponents } from '@fx/chat'` works.
  */
 export type {
+  ActivityFact,
+  ActivityItem,
+  ActivitySummaryProps,
   AvatarProps,
   BadgeProps,
   BadgeTone,
@@ -20,6 +23,9 @@ export type {
   IconRegistry,
   JsonViewProps,
   LightboxProps,
+  MessageDetail,
+  MessageDetailsAction,
+  MessageDetailsProps,
   MarkdownProps,
   PartialChatComponents,
   ScrollAreaProps,

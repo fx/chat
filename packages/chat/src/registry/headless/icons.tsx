@@ -49,6 +49,13 @@ const Checklist = (props: IconProps) => (
   </Svg>
 )
 
+const Info = (props: IconProps) => (
+  <Svg {...props}>
+    <circle cx="8" cy="8" r="6.5" />
+    <path d="M8 7.5v3.5M8 5h.01" />
+  </Svg>
+)
+
 const Check = (props: IconProps) => (
   <Svg {...props}>
     <path d="M3 8.5l3 3 7-7" />
@@ -211,6 +218,7 @@ export const headlessIcons: IconRegistry = Object.freeze({
   download: Download,
   expand: Expand,
   checklist: Checklist,
+  info: Info,
 }) as IconRegistry
 
 /** Ordered list of every icon name the headless set ships. */

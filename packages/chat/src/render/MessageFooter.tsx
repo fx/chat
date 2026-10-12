@@ -1,5 +1,12 @@
 import type { MessageMetrics, MessageOutcome } from '@fx/chat-core'
-import { formatCost, formatElapsed, formatFooterMetrics } from '@fx/chat-core'
+import {
+  formatCost,
+  formatDuration,
+  formatElapsed,
+  formatFooterMetrics,
+  formatTokenCount,
+  formatTokensPerSecond,
+} from '@fx/chat-core'
 import { useElapsedTimer } from '@fx/chat-core/react'
 /**
  * `MessageFooter` — per-message affordances and metrics.
@@ -19,13 +26,23 @@ import { useElapsedTimer } from '@fx/chat-core/react'
  * visible but ICON-ONLY, sitting next to a kebab (`dotsThree`) toggle. The kebab
  * reveals the TEXT LABELS for those actions and the metrics line (model ·
  * duration · tokens/sec). Metrics render only when present and degrade
- * gracefully when absent.
+ * gracefully when absent. When the registry provides a `MessageDetails`
+ * presenter, the kebab opens it with the metrics, outcome, copy text and
+ * actions instead, and nothing is revealed inline.
  *
  * Every visual atom and icon comes from `useChatComponents()`.
  */
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { cx } from '../cx'
-import { useChatClassNames, useChatComponents } from '../registry'
+import {
+  type ActivityFact,
+  type IconComponent,
+  type IconRegistry,
+  type MessageDetail,
+  type MessageDetailsAction,
+  useChatClassNames,
+  useChatComponents,
+} from '../registry'
 
 /** Props for {@link MessageFooter}. */
 export interface MessageFooterProps {
@@ -43,6 +60,45 @@ export interface MessageFooterProps {
   compact?: boolean
   /** How the message ended, when it did not simply complete (shown as a marker). */
   outcome?: MessageOutcome
+  /**
+   * Opens the message's `MessageDetails` presenter, owned by the caller (the
+   * message). When set, a compact footer's kebab calls it and the footer
+   * renders no presenter of its own.
+   */
+  onOpenDetails?: () => void
+  /** A finished message's activity facts, shown as icons. */
+  activity?: ActivityFact[]
+  /** Whether the activity the facts stand for is shown (see `onToggleActivity`). */
+  activityShown?: boolean
+  /** Show or hide that activity; makes each fact a button. */
+  onToggleActivity?: () => void
+  /**
+   * The shown activity, when it belongs in the footer (summaries): rendered
+   * right after the facts in `.chat-footer-activity-items`.
+   */
+  activityItems?: ReactNode
+}
+
+/** The message actions a `MessageDetails` presenter offers, in footer order. */
+export function detailsActions(
+  icons: IconRegistry,
+  {
+    onRegenerate,
+    onFork,
+    onReset,
+  }: Pick<MessageFooterProps, 'onRegenerate' | 'onFork' | 'onReset'>,
+): MessageDetailsAction[] {
+  const actions: MessageDetailsAction[] = []
+  if (onRegenerate)
+    actions.push({
+      id: 'regenerate',
+      label: 'Regenerate',
+      icon: icons.regenerate,
+      onSelect: onRegenerate,
+    })
+  if (onFork) actions.push({ id: 'fork', label: 'Fork', icon: icons.fork, onSelect: onFork })
+  if (onReset) actions.push({ id: 'reset', label: 'Reset', icon: icons.reset, onSelect: onReset })
+  return actions
 }
 
 /**
@@ -62,9 +118,50 @@ function metricsText(metrics?: MessageMetrics): string | undefined {
   return text || undefined
 }
 
+/** The metrics as labelled facts for a `MessageDetails` presenter, present fields only. */
+export function messageDetails(metrics?: MessageMetrics): MessageDetail[] {
+  if (!metrics) return []
+  const out: MessageDetail[] = []
+  const add = (key: MessageDetail['key'], label: string, value: string | undefined) => {
+    if (value) out.push({ key, label, value })
+  }
+  add('model', 'Model', metrics.model)
+  add(
+    'duration',
+    'Duration',
+    metrics.durationMs !== undefined ? formatDuration(metrics.durationMs) : undefined,
+  )
+  add('rate', 'Speed', formatTokensPerSecond(metrics.tokensPerSecond))
+  const { prompt, completion, total } = metrics.usage ?? {}
+  const tokens = [
+    prompt !== undefined ? `${formatTokenCount(prompt)} in` : undefined,
+    completion !== undefined ? `${formatTokenCount(completion)} out` : undefined,
+  ].filter(Boolean)
+  add(
+    'tokens',
+    'Tokens',
+    tokens.length > 0
+      ? tokens.join(' · ')
+      : total !== undefined
+        ? formatTokenCount(total)
+        : undefined,
+  )
+  add('cost', 'Cost', metrics.cost ? formatCost(metrics.cost) : undefined)
+  const { context } = metrics
+  add(
+    'context',
+    'Context',
+    context
+      ? `${formatTokenCount(context.used)}${context.size !== undefined ? ` of ${formatTokenCount(context.size)}` : ''}`
+      : undefined,
+  )
+  return out
+}
+
 /**
- * Whether the footer has ANYTHING to render: non-whitespace copyable text, at
- * least one action callback, or renderable metrics. This is the single source
+ * Whether the footer has ANYTHING to render: an outcome, non-whitespace
+ * copyable text, at least one action callback, renderable metrics, or activity
+ * facts. This is the single source
  * of truth for the zero-affordance decision — `MessageFooter` uses it for its
  * own early return (safety net), and parents (e.g. `MessageItem`'s timestamp-
  * gutter wrapper) use it to skip the footer branch entirely so no empty
@@ -77,12 +174,16 @@ function metricsText(metrics?: MessageMetrics): string | undefined {
  * `exactOptionalPropertyTypes`.
  */
 export function hasFooterContent(
-  props: { outcome?: MessageOutcome | undefined } & {
+  props: {
+    outcome?: MessageOutcome | undefined
+    activity?: readonly ActivityFact[] | undefined
+  } & {
     [K in 'copyText' | 'onRegenerate' | 'onFork' | 'onReset' | 'metrics']: MessageFooterProps[K]
   },
 ): boolean {
   return Boolean(
     props.outcome ||
+      (props.activity !== undefined && props.activity.length > 0) ||
       props.copyText.trim().length > 0 ||
       props.onRegenerate ||
       props.onFork ||
@@ -106,6 +207,65 @@ function Metrics({ metrics }: { metrics: MessageMetrics }) {
   )
 }
 
+/**
+ * A finished message's activity facts, each an icon with its text. With
+ * `onToggle` each is a button showing (or hiding again) the activity the
+ * facts stand for; the wrapper carries whether it is shown.
+ */
+function ActivityFacts({
+  facts,
+  shown = false,
+  onToggle,
+}: { facts: ActivityFact[]; shown?: boolean | undefined; onToggle?: (() => void) | undefined }) {
+  const { Button, icons } = useChatComponents()
+  const cn = useChatClassNames()
+  const iconFor = {
+    tools: icons.wrench,
+    reasoning: icons.brain,
+    // Optional in a registry, but the provider's merge always supplies it.
+    plan: icons.checklist as IconComponent,
+  }
+  return (
+    <span
+      className={cx('chat-footer-activity', cn.footerActivity)}
+      {...(onToggle ? { 'data-expanded': shown ? 'true' : 'false' } : {})}
+    >
+      {facts.map((fact) => {
+        const Icon = iconFor[fact.key]
+        const content = [
+          <Icon key="icon" className={cx('chat-footer-fact-icon', cn.footerFactIcon)} />,
+          <span key="text" className={cx('chat-footer-fact-text', cn.footerFactText)}>
+            {fact.text}
+          </span>,
+        ]
+        const bodyClass = cx('chat-footer-fact-body', cn.footerFactBody)
+        return (
+          <span
+            key={fact.key}
+            className={cx('chat-footer-fact', cn.footerFact)}
+            data-fact={fact.key}
+            {...(fact.failed ? { 'data-failed': String(fact.failed) } : {})}
+          >
+            {onToggle ? (
+              <Button
+                className={bodyClass}
+                aria-label={`${shown ? 'Hide' : 'Show'} activity: ${fact.label}`}
+                onClick={onToggle}
+              >
+                {content}
+              </Button>
+            ) : (
+              <span className={bodyClass} title={fact.label}>
+                {content}
+              </span>
+            )}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 /** Renders the message footer affordances + metrics. */
 export function MessageFooter({
   copyText,
@@ -115,24 +275,31 @@ export function MessageFooter({
   metrics,
   outcome,
   compact = false,
+  onOpenDetails,
+  activity,
+  activityShown,
+  onToggleActivity,
+  activityItems,
 }: MessageFooterProps) {
-  const { Button, CopyButton, icons } = useChatComponents()
+  const { Button, CopyButton, MessageDetails, icons } = useChatComponents()
   const cn = useChatClassNames()
   const [revealed, setRevealed] = useState(false)
   const RegenerateIcon = icons.regenerate
   const ForkIcon = icons.fork
   const ResetIcon = icons.reset
+  // Optional in a registry, but the provider's merge always supplies it.
+  const InfoIcon = icons.info as IconComponent
 
   // Copy is gated on non-whitespace content: a whitespace-only payload is as
   // uncopyable as an empty one. The raw `copyText` remains the copied value.
   const showCopy = copyText.trim().length > 0
   const hasMetrics = hasMetricsContent(metrics)
 
-  // Nothing to show at all — no copyable text, no action callbacks, and no
-  // renderable metrics — so render no footer chrome whatsoever. `MessageItem`
+  // Nothing to show at all — no outcome, copyable text, action callbacks,
+  // renderable metrics or activity facts — so render no footer chrome whatsoever. `MessageItem`
   // gates its footer branch (and its gutter-row wrapper) on the same predicate;
   // this early return remains as the safety net for direct consumers.
-  if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics, outcome })) {
+  if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics, outcome, activity })) {
     return null
   }
 
@@ -141,10 +308,14 @@ export function MessageFooter({
   // its gate holds (Copy needs non-whitespace `copyText`; regenerate/fork/reset
   // need their callback), but a rendered button's icon is visible in both modes —
   // compact mode only hides the labels, never the buttons.
-  const showLabels = !compact || revealed
+  // A presenter takes over what the compact kebab reveals: the caller's (the
+  // message's, via `onOpenDetails`) or, standalone, the footer's own.
+  const delegated = compact && onOpenDetails ? onOpenDetails : undefined
+  const Presenter = compact && !delegated ? MessageDetails : undefined
+  const showLabels = !compact || (revealed && !Presenter && !delegated)
   // The metrics line is always shown in the default layout, but in compact mode
   // it is part of what the kebab reveals.
-  const showMetrics = !compact || revealed
+  const showMetrics = showLabels
   // The kebab reveals action labels and the metrics line. In compact mode it is
   // only worth rendering when there is actually something to reveal: at least one
   // action callback (regenerate/fork/reset) OR metrics with renderable content.
@@ -162,13 +333,28 @@ export function MessageFooter({
           {outcome.kind === 'stopped' ? 'Stopped' : 'Failed'}
         </span>
       ) : null}
+      {activity && activity.length > 0 ? (
+        <ActivityFacts facts={activity} shown={activityShown} onToggle={onToggleActivity} />
+      ) : null}
+      {activityItems ? (
+        <span className={cx('chat-footer-activity-items', cn.footerActivityItems)}>
+          {activityItems}
+        </span>
+      ) : null}
       {compact && hasRevealable ? (
         <Button
           className={cx('chat-footer-reveal', cn.footerReveal)}
-          aria-label={revealed ? 'Hide actions' : 'Show actions'}
-          onClick={() => setRevealed((v) => !v)}
+          aria-label={
+            Presenter || delegated ? 'Message details' : revealed ? 'Hide actions' : 'Show actions'
+          }
+          onClick={delegated ?? (() => setRevealed((v) => !v))}
         >
-          <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
+          {Presenter || delegated ? (
+            // Opens the message's details: an info glyph rather than "more".
+            <InfoIcon className={cx('chat-footer-icon', cn.footerIcon)} />
+          ) : (
+            <icons.dotsThree className={cx('chat-footer-icon', cn.footerIcon)} />
+          )}
         </Button>
       ) : null}
       {showCopy ? (
@@ -209,6 +395,22 @@ export function MessageFooter({
         </Button>
       ) : null}
       {metrics && showMetrics && hasMetrics ? <Metrics metrics={metrics} /> : null}
+      {Presenter && hasRevealable ? (
+        <Presenter
+          open={revealed}
+          onOpenChange={setRevealed}
+          details={messageDetails(metrics)}
+          outcome={
+            outcome?.kind === 'error' ? { kind: 'error', message: outcome.message } : outcome
+          }
+          copyText={showCopy ? copyText : ''}
+          actions={detailsActions(icons, {
+            ...(onRegenerate ? { onRegenerate } : {}),
+            ...(onFork ? { onFork } : {}),
+            ...(onReset ? { onReset } : {}),
+          })}
+        />
+      ) : null}
     </div>
   )
 }

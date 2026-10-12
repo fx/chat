@@ -2,8 +2,8 @@ import type { MessageMetrics } from '@fx/chat-core'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../registry'
-import type { PartialChatComponents } from '../registry'
-import { MessageFooter, hasFooterContent } from './MessageFooter'
+import type { MessageDetailsProps, PartialChatComponents } from '../registry'
+import { MessageFooter, hasFooterContent, messageDetails } from './MessageFooter'
 
 const none = {
   copyText: '',
@@ -195,6 +195,139 @@ describe('MessageFooter compact mode', () => {
     render(<MessageFooter copyText="x" compact metrics={metrics} />)
     expect(screen.queryByLabelText('Show actions')).toBeNull()
     expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+  })
+})
+
+describe('MessageFooter with a MessageDetails presenter', () => {
+  function withPresenter(ui: React.ReactElement) {
+    const seen: MessageDetailsProps[] = []
+    const MessageDetails = (props: MessageDetailsProps) => {
+      seen.push(props)
+      return props.open ? (
+        <div data-testid="details">
+          {props.actions.map((a) => (
+            <button key={a.id} type="button" onClick={a.onSelect}>
+              <a.icon />
+              {a.label}
+            </button>
+          ))}
+          <button type="button" onClick={() => props.onOpenChange(false)}>
+            close
+          </button>
+        </div>
+      ) : null
+    }
+    render(<ChatProvider components={{ MessageDetails }}>{ui}</ChatProvider>)
+    return seen
+  }
+
+  it('opens the presenter from the compact kebab instead of revealing inline', () => {
+    const metrics: MessageMetrics = { model: 'gpt-x', durationMs: 1500 }
+    const onRegenerate = vi.fn()
+    const onFork = vi.fn()
+    const onReset = vi.fn()
+    const seen = withPresenter(
+      <MessageFooter
+        copyText="hello"
+        compact
+        metrics={metrics}
+        outcome={{ kind: 'stopped' }}
+        onRegenerate={onRegenerate}
+        onFork={onFork}
+        onReset={onReset}
+      />,
+    )
+    expect(screen.queryByTestId('details')).toBeNull()
+    fireEvent.click(screen.getByLabelText('Message details'))
+    expect(screen.getByTestId('details')).toBeInTheDocument()
+    // Nothing is revealed inline.
+    expect(screen.queryByTestId('chat-footer-metrics')).toBeNull()
+    expect(screen.queryByText('Regenerate', { selector: '.chat-footer-label' })).toBeNull()
+    const last = seen.at(-1) as MessageDetailsProps
+    expect(last).toMatchObject({
+      open: true,
+      details: [
+        { key: 'model', label: 'Model', value: 'gpt-x' },
+        { key: 'duration', label: 'Duration', value: '1.5s' },
+      ],
+      outcome: { kind: 'stopped' },
+      copyText: 'hello',
+    })
+    expect(last.actions.map((a) => [a.id, a.label])).toEqual([
+      ['regenerate', 'Regenerate'],
+      ['fork', 'Fork'],
+      ['reset', 'Reset'],
+    ])
+    fireEvent.click(within(screen.getByTestId('details')).getByText('Fork'))
+    expect(onFork).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByText('close'))
+    expect(screen.queryByTestId('details')).toBeNull()
+  })
+
+  it('passes an error outcome with its message', () => {
+    const seen = withPresenter(
+      <MessageFooter
+        copyText="x"
+        compact
+        onRegenerate={vi.fn()}
+        outcome={{ kind: 'error', message: 'boom', retryable: true }}
+      />,
+    )
+    expect(seen.at(-1)?.outcome).toEqual({ kind: 'error', message: 'boom' })
+  })
+
+  it('opens for metrics alone, with no actions', () => {
+    const seen = withPresenter(<MessageFooter copyText="x" compact metrics={{ model: 'm' }} />)
+    expect(seen.at(-1)?.actions).toEqual([])
+    expect(seen.at(-1)?.details).toEqual([{ key: 'model', label: 'Model', value: 'm' }])
+  })
+
+  it('passes no copy text when there is nothing to copy', () => {
+    const seen = withPresenter(<MessageFooter copyText="  " compact onRegenerate={vi.fn()} />)
+    expect(seen.at(-1)?.copyText).toBe('')
+    expect(seen.at(-1)?.actions.map((a) => a.id)).toEqual(['regenerate'])
+  })
+
+  it('is not used outside compact mode, nor without anything to reveal', () => {
+    const seen = withPresenter(<MessageFooter copyText="x" onRegenerate={vi.fn()} />)
+    expect(seen).toHaveLength(0)
+    expect(screen.getByText('Regenerate', { selector: '.chat-footer-label' })).toBeInTheDocument()
+    const none = withPresenter(<MessageFooter copyText="x" compact />)
+    expect(none).toHaveLength(0)
+  })
+})
+
+describe('messageDetails', () => {
+  it('labels and formats every present metric, in order', () => {
+    expect(
+      messageDetails({
+        model: 'm',
+        durationMs: 61_000,
+        tokensPerSecond: 12.34,
+        usage: { prompt: 1200, completion: 340, total: 1540 },
+        cost: { amount: 0.0123 },
+        context: { used: 5400, size: 200_000 },
+      }),
+    ).toEqual([
+      { key: 'model', label: 'Model', value: 'm' },
+      { key: 'duration', label: 'Duration', value: expect.any(String) },
+      { key: 'rate', label: 'Speed', value: '12.3 tok/s' },
+      { key: 'tokens', label: 'Tokens', value: '1.2k in · 340 out' },
+      { key: 'cost', label: 'Cost', value: '$0.01' },
+      { key: 'context', label: 'Context', value: '5.4k of 200k' },
+    ])
+  })
+
+  it('falls back to the total, omits absent fields, and handles no metrics', () => {
+    expect(messageDetails(undefined)).toEqual([])
+    expect(messageDetails({ usage: { total: 99 }, context: { used: 10 } })).toEqual([
+      { key: 'tokens', label: 'Tokens', value: '99' },
+      { key: 'context', label: 'Context', value: '10' },
+    ])
+    expect(messageDetails({ usage: { completion: 5 } })).toEqual([
+      { key: 'tokens', label: 'Tokens', value: '5 out' },
+    ])
+    expect(messageDetails({ usage: {} })).toEqual([])
   })
 })
 

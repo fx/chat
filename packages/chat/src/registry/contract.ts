@@ -175,6 +175,20 @@ export interface ChatClassNames {
   footerReset?: string
   footerReveal?: string
   footerIcon?: string
+  /** A finished message's activity facts (`.chat-footer-activity`, `data-expanded` when they toggle it). */
+  footerActivity?: string
+  /** One activity fact (`.chat-footer-fact`, `data-fact`, `data-failed`). */
+  footerFact?: string
+  /** A fact's icon and text (`.chat-footer-fact-body`): a button when it toggles the activity. */
+  footerFactBody?: string
+  /** The shown activity's summaries inside the footer (`.chat-footer-activity-items`). */
+  footerActivityItems?: string
+  footerFactIcon?: string
+  footerFactText?: string
+  /** The activity handed to a `MessageDetails` presenter (`.chat-details-activity`). */
+  detailsActivity?: string
+  /** One activity block in it (`.chat-details-activity-item`, `data-block-id`, `data-focused` for the item opened). */
+  detailsActivityItem?: string
   attachments?: string
   attachmentGrid?: string
   attachmentGridItem?: string
@@ -245,6 +259,97 @@ export interface LightboxProps {
   className?: string
 }
 
+/** One labelled, ready-to-show fact about a message (e.g. `Duration` → `1.5s`). */
+export interface MessageDetail {
+  key: 'model' | 'duration' | 'rate' | 'tokens' | 'cost' | 'context'
+  label: string
+  value: string
+}
+
+/** A message action offered through {@link ChatComponents.MessageDetails}. */
+export interface MessageDetailsAction {
+  id: 'regenerate' | 'fork' | 'reset'
+  /** The action's label, as the footer would show it. */
+  label: string
+  /** The action's icon (from the icon registry). */
+  icon: IconComponent
+  onSelect: () => void
+}
+
+/**
+ * Props for the {@link ChatComponents.MessageDetails} presenter: everything a
+ * compact footer's reveal would show, handed to the host to present its own
+ * way (a bottom sheet, a popover). Controlled: shown while `open`; the host
+ * reports dismissal through `onOpenChange(false)` and SHOULD close after an
+ * action runs.
+ */
+export interface MessageDetailsProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** The message's metrics as labelled, formatted facts, in display order. */
+  details: MessageDetail[]
+  /** How the message ended, when it did not simply complete. */
+  outcome?: { kind: 'stopped' } | { kind: 'error'; message: string } | undefined
+  /** The message text to copy; empty when there is nothing to copy. */
+  copyText: string
+  /** The actions available on the message, in footer order. */
+  actions: MessageDetailsAction[]
+  /**
+   * The message's activity (reasoning, tool calls, plans) as the package's own
+   * rows, each in a `.chat-details-activity-item` carrying `data-block-id` (and
+   * `data-focused` on the `focusId` item, whose row is open); absent when the
+   * message has none.
+   */
+  activity?: ReactNode
+  /** The activity item the presenter was opened for, to bring into view. */
+  focusId?: string | undefined
+}
+
+/** One piece of a message's activity, as plain data for {@link ActivitySummaryProps}. */
+export interface ActivityItem {
+  /** The block's id (pass it back to `onActivate`). */
+  id: string
+  /** `waiting` is the placeholder before the first token. */
+  kind: 'reasoning' | 'tool' | 'plan' | 'waiting' | 'other'
+  /** The tool's name, `Thinking`, `Plan`, `Starting`, or the block type. */
+  label: string
+  /** For a tool, its name (for a host icon mapping). */
+  name?: string | undefined
+  /** `awaiting`: a tool call blocked on the user's approval. */
+  status: 'running' | 'done' | 'error' | 'awaiting'
+  /** Epoch ms the item started, when known (a host ticks live time from it). */
+  startedAt?: number | undefined
+  /** How long it took, once finished and known. */
+  durationMs?: number | undefined
+  /** Live reasoning speed, while thinking. */
+  tokensPerSecond?: number | undefined
+  /** A short extra, e.g. a plan's `2/5`. */
+  detail?: string | undefined
+}
+
+/**
+ * Props for the {@link ChatComponents.ActivitySummary} presenter: a run of a
+ * message's activity as items, in order, replacing its rows.
+ */
+export interface ActivitySummaryProps {
+  items: ActivityItem[]
+  /** Whether the message is still streaming. */
+  live: boolean
+  /** Open the message's details at an item; absent when there is no details presenter. */
+  onActivate?: ((id: string) => void) | undefined
+}
+
+/** A fact about a finished message's activity, for footer icons. */
+export interface ActivityFact {
+  key: 'tools' | 'reasoning' | 'plan'
+  /** Short text: `3` tools, `5s` (or a size) of thinking, `2/5` of a plan. */
+  text: string
+  /** A readable form, e.g. `3 tool calls, 1 failed`. */
+  label: string
+  /** For tools: how many failed. */
+  failed?: number | undefined
+}
+
 /** Props every icon slot must accept. */
 export interface IconProps {
   className?: string
@@ -287,7 +392,7 @@ export type IconName =
  * original set (`Record<IconName, …>`) keeps compiling; the provider's merge
  * supplies the headless glyph until the host maps them.
  */
-export type OptionalIconName = 'checklist'
+export type OptionalIconName = 'checklist' | 'info'
 
 /** The icon map: one component per {@link IconName}; optional icons may be omitted. */
 export type IconRegistry = Record<IconName, IconComponent> &
@@ -317,6 +422,19 @@ export interface ChatComponents {
    * to the headless default when a host omits it.
    */
   Lightbox?: ComponentType<LightboxProps>
+  /**
+   * OPTIONAL presenter for a compact footer's details and actions. When a host
+   * provides it, the compact footer's reveal control opens it instead of
+   * revealing labels and metrics inline. There is no headless default: absent,
+   * the footer reveals inline.
+   */
+  MessageDetails?: ComponentType<MessageDetailsProps>
+  /**
+   * OPTIONAL compact presenter for a message's activity (e.g. icon tiles). Used
+   * only when the host asks for `activityDisplay="summary"`; there is no
+   * headless default: absent, activity renders as rows.
+   */
+  ActivitySummary?: ComponentType<ActivitySummaryProps>
   icons: IconRegistry
 }
 

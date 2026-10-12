@@ -17,6 +17,7 @@ import {
   Download,
   FileText,
   GitFork,
+  Info,
   ListChecks,
   Loader2,
   type LucideIcon,
@@ -42,6 +43,7 @@ function wrap(Icon: LucideIcon) {
 
 const MAP: Record<IconName | OptionalIconName, LucideIcon> = {
   checklist: ListChecks,
+  info: Info,
   spinner: Loader2,
   check: Check,
   caretRight: ChevronRight,
