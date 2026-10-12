@@ -287,4 +287,4 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 | 2026-10-10 | Built-in tools moved in from the mobile app; abort honoured per event | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Approval state, message outcome, cost/context metrics | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
 | 2026-10-11 | `ChatController` conversation controller; `KeyValueStore` with memory and IndexedDB stores | [0037-chat-controller](../../changes/0037-chat-controller.md) |
-| 2026-10-11 | Tool capability: `supported_parameters` from the listing, retry without tools on rejection, tool history as text | — |
+| 2026-10-11 | Tool capability: `supported_parameters` from the listing, retry without tools on rejection, tool history as text | [0039-model-tool-support](../../changes/0039-model-tool-support.md) |
