@@ -342,3 +342,10 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0037", "0040", "0041"]
+  - id: "0044"
+    name: model-listing-fields
+    path: changes/0044-model-listing-fields.md
+    description: "@fx/chat-agent ModelInfo keeps the standard listing fields: name, owned_by, created, context_length, architecture.input_modalities, each validated by type"
+    spec: chat-agent
+    status: complete
+    depends_on: ["0039"]

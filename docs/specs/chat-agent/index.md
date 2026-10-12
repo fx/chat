@@ -49,7 +49,9 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
   `/v1` segment supplied by the user (it is used as given; paths are appended to it).
 - The client MUST list available models from the endpoint's models listing and MUST surface a listing
   failure as an error rather than an empty list. Each listed model carries the request parameters it
-  declares (the `supported_parameters` convention), when the endpoint says.
+  declares (the `supported_parameters` convention), and its name, owner, creation time, context
+  length and input modalities (OpenAI and OpenRouter listing fields), each only when the endpoint
+  gives it with the expected type.
 - An explicit listing (`listModels()` / `listModelInfo()`) MUST always request the models listing
   afresh; a successful one replaces the listing the tool-support check reads for that endpoint and
   key.
@@ -293,3 +295,4 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 | 2026-10-10 | Approval state, message outcome, cost/context metrics | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
 | 2026-10-11 | `ChatController` conversation controller; `KeyValueStore` with memory and IndexedDB stores | [0037-chat-controller](../../changes/0037-chat-controller.md) |
 | 2026-10-11 | Tool capability: `supported_parameters` from the listing, retry without tools on rejection, tool history as text | [0039-model-tool-support](../../changes/0039-model-tool-support.md) |
+| 2026-10-12 | Model listings keep name, owner, created, context length, input modalities | [0044-model-listing-fields](../../changes/0044-model-listing-fields.md) |
