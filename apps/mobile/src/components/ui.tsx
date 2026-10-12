@@ -1,4 +1,5 @@
 import { cn } from '@fx/chat-shadcn'
+import { ChevronRight } from 'lucide-react'
 /**
  * App-shell primitives (headers, buttons, sheets, form fields). These are the
  * app's own chrome — the transcript itself is styled only through the
@@ -217,13 +218,62 @@ export function Sheet({
   )
 }
 
-export function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2 border-b border-border px-4 py-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-      </h2>
+      {title ? (
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h2>
+      ) : null}
       {children}
     </section>
+  )
+}
+
+/** A row that opens a sub-page: its title, a one-line summary, a chevron. */
+export function MenuRow({
+  title,
+  summary,
+  onClick,
+}: {
+  title: string
+  summary?: ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-16 w-full items-center gap-3 border-b border-border px-4 py-2 text-left active:bg-muted"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{title}</span>
+        {summary ? (
+          <span className="block truncate text-xs text-muted-foreground">{summary}</span>
+        ) : null}
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
+    </button>
+  )
+}
+
+/** A thrown value as text for a notice. */
+export function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/** A dismissible error banner (the caller places it). */
+export function Notice({ children, onDismiss }: { children: ReactNode; onDismiss: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded-md border border-destructive/50 bg-background p-3 text-sm shadow-lg"
+    >
+      <p className="min-w-0 flex-1 text-destructive [overflow-wrap:anywhere]">{children}</p>
+      <SecondaryButton className="shrink-0" onClick={onDismiss}>
+        Dismiss
+      </SecondaryButton>
+    </div>
   )
 }

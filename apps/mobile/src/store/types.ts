@@ -26,6 +26,17 @@ export interface Settings {
   tools: Record<ToolId, boolean>
   /** Per-tool approval requirement. */
   approvals: Record<ToolId, boolean>
+  /** What prompts spoken to the app as the digital assistant run on. */
+  assistant: AssistantSettings
+}
+
+/**
+ * The assistant's endpoint and model. Unset (or bound to a deleted endpoint)
+ * means the same as a new chat: the active endpoint and its model.
+ */
+export interface AssistantSettings {
+  profileId?: string | undefined
+  model?: string | undefined
 }
 
 /** A conversation, bound to the profile (endpoint) it was started on. */
@@ -45,4 +56,5 @@ export const DEFAULT_SETTINGS: Settings = {
   systemPrompt: '',
   tools: { current_time: true, calculator: true, fetch_url: false },
   approvals: { current_time: false, calculator: false, fetch_url: true },
+  assistant: {},
 }

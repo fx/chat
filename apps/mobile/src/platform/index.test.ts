@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { domHtmlToText, tauriFetchInit } from './index'
+import { describe, expect, it, vi } from 'vitest'
+import { domHtmlToText, onAssistPrompt, tauriFetchInit } from './index'
 
 describe('domHtmlToText', () => {
   it('keeps the title and body text, dropping scripts and styles', () => {
@@ -28,5 +28,34 @@ describe('tauriFetchInit', () => {
     const headers = new Headers()
     expect(tauriFetchInit(undefined, headers)).toEqual({ headers })
     expect(tauriFetchInit({ redirect: 'follow' }, headers)).not.toHaveProperty('maxRedirections')
+  })
+})
+
+describe('onAssistPrompt', () => {
+  it('takes a parked prompt at once and each one announced later, until unlistened', () => {
+    const parked = ['first', null, 'second']
+    const w = window as { FxAssist?: unknown }
+    w.FxAssist = { takePrompt: () => parked.shift() ?? null }
+    try {
+      const heard: string[] = []
+      const stop = onAssistPrompt((text) => heard.push(text))
+      expect(heard).toEqual(['first'])
+      window.dispatchEvent(new Event('fx-assist'))
+      window.dispatchEvent(new Event('fx-assist'))
+      expect(heard).toEqual(['first', 'second'])
+      stop()
+      parked.push('late')
+      window.dispatchEvent(new Event('fx-assist'))
+      expect(heard).toEqual(['first', 'second'])
+    } finally {
+      w.FxAssist = undefined
+    }
+  })
+
+  it('does nothing outside the Android shell', () => {
+    const handler = vi.fn()
+    onAssistPrompt(handler)()
+    window.dispatchEvent(new Event('fx-assist'))
+    expect(handler).not.toHaveBeenCalled()
   })
 })

@@ -5,13 +5,13 @@
 import { ChatProvider } from '@fx/chat'
 import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
 import { Calculator, Clock, Globe } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Header } from './components/ui'
-import { onBackButton } from './platform'
+import { useEffect, useRef, useState } from 'react'
+import { Header, Notice, errorText } from './components/ui'
+import { onAssistPrompt, onBackButton } from './platform'
 import { Conversation } from './screens/Conversation'
 import { ConversationList } from './screens/ConversationList'
 import { ProfileEditor } from './screens/ProfileEditor'
-import { Settings } from './screens/Settings'
+import { Settings, type SettingsPath, parentPath } from './screens/Settings'
 import { useAppState, useStore } from './store/context'
 
 /** Touch-tuned shadcn registry: longer tooltip delay, 44px disclosure rows. */
@@ -23,24 +23,60 @@ const components = createShadcnComponents({
 })
 const classNames = createShadcnClassNames({ touch: true })
 
-export type Route = { name: 'list' } | { name: 'chat'; id: string } | { name: 'settings' }
+export type Route =
+  | { name: 'list' }
+  | { name: 'chat'; id: string }
+  | { name: 'settings'; path: SettingsPath }
+
+/** Where the back action goes: up the settings menu, else to the list. */
+export function parentRoute(route: Route): Route {
+  const up = route.name === 'settings' ? parentPath(route.path) : undefined
+  return up ? { name: 'settings', path: up } : { name: 'list' }
+}
 
 export function App() {
   const state = useAppState()
   const store = useStore()
   const [route, setRoute] = useState<Route>({ name: 'list' })
+  // Failures no screen shows (spoken prompts that could not start a chat),
+  // each kept until dismissed so a second one never hides the first.
+  const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
+  const noticeId = useRef(0)
 
-  // Back goes to the list from anywhere else; on the list the default (exit)
-  // applies because no handler is registered.
+  // Back goes up a level; on the list the default (exit) applies because no
+  // handler is registered.
+  const atList = route.name === 'list'
   useEffect(() => {
-    if (route.name === 'list') return
-    return onBackButton(() => setRoute({ name: 'list' }))
-  }, [route.name])
+    if (atList) return
+    return onBackButton(() => setRoute(parentRoute))
+  }, [atList])
 
   const newChat = async () => {
     const meta = await store.createConversation()
     setRoute({ name: 'chat', id: meta.id })
   }
+
+  // Invoked as the digital assistant: each spoken prompt starts a new chat.
+  const ready = state.loaded && state.settings.profiles.length > 0
+  useEffect(() => {
+    if (!ready) return
+    const ask = async (text: string) => {
+      const meta = await store.createAssistantConversation()
+      setRoute({ name: 'chat', id: meta.id })
+      await store.send(meta.id, text)
+    }
+    // The bridge ignores the handler's result, so a failure (storage, say)
+    // is caught here and shown, with the prompt, instead of vanishing.
+    return onAssistPrompt((text) => {
+      ask(text).catch((error: unknown) => {
+        const notice = {
+          id: noticeId.current++,
+          text: `Couldn't start a chat for “${text}”: ${errorText(error)}`,
+        }
+        setNotices((all) => [...all, notice])
+      })
+    })
+  }, [ready, store])
 
   let screen: React.ReactNode
   if (!state.loaded) {
@@ -70,13 +106,19 @@ export function App() {
   } else if (route.name === 'chat') {
     screen = <Conversation key={route.id} id={route.id} onBack={() => setRoute({ name: 'list' })} />
   } else if (route.name === 'settings') {
-    screen = <Settings onBack={() => setRoute({ name: 'list' })} />
+    screen = (
+      <Settings
+        path={route.path}
+        onNavigate={(path) => setRoute({ name: 'settings', path })}
+        onBack={() => setRoute({ name: 'list' })}
+      />
+    )
   } else {
     screen = (
       <ConversationList
         onOpen={(id) => setRoute({ name: 'chat', id })}
         onNew={() => void newChat()}
-        onSettings={() => setRoute({ name: 'settings' })}
+        onSettings={() => setRoute({ name: 'settings', path: [] })}
       />
     )
   }
@@ -84,6 +126,18 @@ export function App() {
   return (
     <ChatProvider components={components} classNames={classNames}>
       {screen}
+      {notices.length > 0 ? (
+        <div className="safe-bottom fixed inset-x-3 bottom-3 z-50 flex flex-col gap-2">
+          {notices.map((notice) => (
+            <Notice
+              key={notice.id}
+              onDismiss={() => setNotices((all) => all.filter((n) => n !== notice))}
+            >
+              {notice.text}
+            </Notice>
+          ))}
+        </div>
+      ) : null}
     </ChatProvider>
   )
 }

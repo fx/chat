@@ -342,6 +342,13 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0037", "0040", "0041"]
+  - id: "0043"
+    name: digital-assistant
+    path: changes/0043-digital-assistant.md
+    description: "Android app selectable as the digital assistant (spoken prompt starts a new chat); settings sub-menus with back going up a level; assistant model"
+    spec: mobile-app
+    status: complete
+    depends_on: ["0021", "0037", "0038"]
   - id: "0044"
     name: model-listing-fields
     path: changes/0044-model-listing-fields.md
