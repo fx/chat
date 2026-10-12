@@ -10,13 +10,23 @@ uses tx for settings storage, the theme, and setup dialogs. See the
 This repository is a tx marketplace (`.tx/config.json` at the root declares the `chat` plugin):
 
 ```sh
-mise run tui:install   # builds the @fx-/chat-* packages, adds this marketplace
+tx marketplace add fx/chat   # installs the plugin with the published @fx-/chat-* libraries
 tx chat
 ```
 
-`tui:install` runs `bun run build` (the plugin imports the built `@fx-/chat-*` packages) and
-`tx marketplace add "$PWD" --name chat`, a live reference: edits apply on the next run (rebuild
-the packages after changing them). `mise install` installs the released tx 2.0.0 that
+`apps/tui` is not part of the bun workspace: tx runs `bun install` in it, and its `package.json`
+pins the published `@fx-/chat-core`, `@fx-/chat-agent` and `@fx-/chat-ink` at the current release.
+
+To run this checkout's code instead:
+
+```sh
+mise run tui:install   # builds the libraries, adds this checkout, links the local builds
+tx chat
+```
+
+`tui:install` runs `bun run build`, `tx marketplace add "$PWD" --name chat` (a live reference:
+edits apply on the next run; rebuild the packages after changing them), and then links
+`packages/core`, `packages/agent` and `packages/ink` over the published copies tx installed. `mise install` installs the released tx 2.0.0 that
 `mise.toml` pins; the manifest declares support for tx `^2.0.0` (the plugin needs tx 2's Ink 8).
 
 ## Use

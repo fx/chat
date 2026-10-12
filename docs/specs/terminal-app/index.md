@@ -26,6 +26,14 @@ Related: [ink-renderer](../ink-renderer/), [chat-agent](../chat-agent/),
   is `apps/tui/index.ts`.
 - The manifest MUST declare the tx releases the plugin supports (`^2.0.0`), so a tx outside
   that range refuses it with a diagnostic instead of loading it.
+- `tx marketplace add` installs the plugin by running `bun install` beside its entry, in a clone of
+  the repository. `apps/tui` MUST therefore NOT be a workspace member: its own `package.json` MUST
+  pin `@fx-/chat-core`, `@fx-/chat-agent` and `@fx-/chat-ink` at the current release version (bumped
+  by release-please with the libraries) and MUST NOT depend on anything behind registry
+  authentication. React, Ink and `@fx/tx` are not dependencies: tx injects React and Ink, and
+  `@fx/tx` is imported for types only.
+- `mise run tui:install` MUST add this checkout as a live marketplace and link the local library
+  builds over the published ones, so `tx chat` runs the checkout's code.
 - The plugin MUST register exactly the `tx chat` namespace, MUST write only through the streams tx
   provides, and MUST report failures by throwing rather than exiting the process.
 - The plugin MUST read tx's config and theme capabilities inside its command action and fail with a
@@ -156,3 +164,4 @@ fails with a message naming the version it needs. This repository pins the relea
 | 2026-10-10 | Fullscreen mode (viewport, status line, queue, mouse copy, images) by default; `--inline` | [0032-tui-fullscreen](../../changes/0032-tui-fullscreen.md) |
 | 2026-10-11 | The inline mode uses the package's `TerminalMarkdown`; the `marked` renderer is gone | [0035-terminal-markdown-element](../../changes/0035-terminal-markdown-element.md) |
 | 2026-10-11 | Sessions run on `@fx-/chat-agent`'s `ChatController` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
+| 2026-10-12 | The plugin installs standalone from the published libraries, outside the workspace | [0048-tx-plugin-install](../../changes/0048-tx-plugin-install.md) |

@@ -45,5 +45,5 @@ description = "Build the libraries, add this repo as the `chat` tx marketplace (
 run = """
 bun run build
 tx marketplace add "$PWD" --name chat
-for p in core agent ink; do ln -sfn "$PWD/packages/$p" "apps/tui/node_modules/@fx-/chat-$p"; done
+for p in core agent ink; do rm -rf "apps/tui/node_modules/@fx-/chat-$p" && ln -s "$PWD/packages/$p" "apps/tui/node_modules/@fx-/chat-$p"; done
 """
