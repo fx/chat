@@ -62,6 +62,24 @@ describe('AppStore', () => {
     expect((kv.data.get('settings') as { profiles: unknown[] }).profiles).toEqual([])
   })
 
+  it('leaves disabled endpoints out of new chats and the assistant', async () => {
+    const { store } = await ready()
+    await store.saveProfile(profile)
+    await store.saveProfile({ ...profile, id: 'p2', model: 'm2' })
+    await store.updateSettings({ assistant: { profileId: 'p2' } })
+    await store.setProfileDisabled('p1', true)
+    expect(store.getState().settings.profiles[0]?.disabled).toBe(true)
+    expect(store.activeProfile()?.id).toBe('p2')
+    await store.setProfileDisabled('p2', true)
+    expect(store.activeProfile()).toBeUndefined()
+    expect(store.assistantModel()).toBeUndefined()
+    await store.setProfileDisabled('p1', false)
+    expect(store.getState().settings.profiles[0]).not.toHaveProperty('disabled', true)
+    expect(store.activeProfile()?.id).toBe('p1')
+    // The assistant's own endpoint is disabled: it follows new chats.
+    expect(store.assistantModel()?.profile.id).toBe('p1')
+  })
+
   it('runs the assistant on its own model, else on the active endpoint', async () => {
     const { store } = await ready()
     expect(store.assistantModel()).toBeUndefined()

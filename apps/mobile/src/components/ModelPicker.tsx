@@ -136,7 +136,8 @@ export function ModelPicker({
 }) {
   const { settings } = useAppState()
   const store = useStore()
-  const { profiles } = settings
+  // Disabled endpoints are left out entirely.
+  const profiles = useMemo(() => settings.profiles.filter((p) => !p.disabled), [settings.profiles])
   const { listings, refresh } = useListings(profiles, active)
   const [query, setQuery] = useState('')
   const [endpoints, setEndpoints] = useState<string[]>([])
@@ -213,7 +214,13 @@ export function ModelPicker({
     profiles[0]
 
   if (profiles.length === 0) {
-    return <p className="text-sm text-muted-foreground">Set up an endpoint in Settings first.</p>
+    return (
+      <p className="text-sm text-muted-foreground">
+        {settings.profiles.length > 0
+          ? 'Every endpoint is disabled. Enable one in Settings.'
+          : 'Set up an endpoint in Settings first.'}
+      </p>
+    )
   }
 
   if (filtersOpen) {
@@ -378,6 +385,14 @@ export function ModelPicker({
               className="min-h-9 shrink-0 px-2 font-medium underline-offset-4 active:underline"
             >
               Retry
+            </button>
+            <button
+              type="button"
+              aria-label={`Disable ${p.name}`}
+              onClick={() => void store.setProfileDisabled(p.id, true)}
+              className="min-h-9 shrink-0 px-2 font-medium underline-offset-4 active:underline"
+            >
+              Disable
             </button>
           </p>
         ))}

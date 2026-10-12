@@ -1,4 +1,5 @@
 import { TOOL_INFO } from '@fx/chat-agent'
+import { cn } from '@fx/chat-shadcn'
 /**
  * Settings: a menu of sub-pages — endpoint profiles, system prompt, built-in
  * tools, the digital assistant, and about. The page shown is part of the app
@@ -133,23 +134,38 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
           <li key={p.id} className="flex items-center gap-1">
             <button
               type="button"
-              className="flex min-h-14 min-w-0 flex-1 flex-col justify-center text-left"
+              className={cn(
+                'flex min-h-14 min-w-0 flex-1 flex-col justify-center text-left',
+                p.disabled && 'opacity-60',
+              )}
               onClick={() => onEdit(p.id)}
             >
               <span className="truncate text-sm font-medium">{p.name}</span>
               <span className="truncate text-xs text-muted-foreground">
+                {p.disabled ? 'Disabled · ' : ''}
                 {p.model} · {p.baseUrl}
               </span>
             </button>
-            <RefreshModels profile={p} />
-            <IconButton
-              label={p.id === active?.id ? `${p.name} is active` : `Use ${p.name}`}
-              aria-pressed={p.id === active?.id}
-              onClick={() => void store.updateSettings({ activeProfileId: p.id })}
-              className={p.id === active?.id ? 'text-primary' : 'text-muted-foreground'}
-            >
-              <Check size={18} className={p.id === active?.id ? undefined : 'opacity-30'} />
-            </IconButton>
+            {p.disabled ? (
+              <SecondaryButton
+                aria-label={`Enable ${p.name}`}
+                onClick={() => void store.setProfileDisabled(p.id, false)}
+              >
+                Enable
+              </SecondaryButton>
+            ) : (
+              <>
+                <RefreshModels profile={p} />
+                <IconButton
+                  label={p.id === active?.id ? `${p.name} is active` : `Use ${p.name}`}
+                  aria-pressed={p.id === active?.id}
+                  onClick={() => void store.updateSettings({ activeProfileId: p.id })}
+                  className={p.id === active?.id ? 'text-primary' : 'text-muted-foreground'}
+                >
+                  <Check size={18} className={p.id === active?.id ? undefined : 'opacity-30'} />
+                </IconButton>
+              </>
+            )}
           </li>
         ))}
       </ul>

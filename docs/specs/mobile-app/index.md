@@ -39,6 +39,9 @@ visual theme) stays in `apps/mobile`.
   when there are several, and choosing one MUST bind the conversation to that endpoint. An
   endpoint that cannot be listed MUST NOT hide the others' models; it is named with a retry. The
   filters MUST include the endpoints (any of several; all by default).
+- An endpoint MUST be able to be disabled (from its editor, or from the picker's notice that it
+  cannot be listed) and enabled again from the endpoint list: a disabled endpoint is left out of
+  the model picker and never used for new chats or the assistant; chats already on it keep working.
 - The model picker MUST be searchable (every term, in the id or name) and SHOULD filter by provider
   and by the capabilities models declare in the listing (tools, reasoning, vision), offering a
   filter only when some model declares it. A filters panel MUST show every filter in effect,
@@ -209,3 +212,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-12 | Cached, refreshable model listings; windowed picker list | — |
 | 2026-10-12 | Model favorites | — |
 | 2026-10-12 | One model list across all endpoints | — |
+| 2026-10-12 | Disable endpoints | — |

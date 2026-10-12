@@ -183,6 +183,28 @@ describe('ModelPicker', () => {
     expect(screen.queryByText(/Couldn’t list/)).toBeNull()
   })
 
+  it('disables an endpoint that cannot be listed, leaving it out', async () => {
+    const user = userEvent.setup()
+    const other: Profile = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }
+    const ok = fakeEndpoint([], listing)
+    const fetch: typeof ok.fetch = async (url, init) =>
+      url.startsWith('https://other.test')
+        ? Response.json({ error: { message: 'offline' } }, { status: 503 })
+        : ok.fetch(url, init)
+    const { store } = await setup(fetch, [profile, other])
+    await user.click(await screen.findByRole('button', { name: 'Disable Other' }))
+    expect(store.getState().settings.profiles[1]?.disabled).toBe(true)
+    expect(screen.queryByText(/Couldn’t list/)).toBeNull()
+    // With one endpoint left, rows no longer name it.
+    expect(rows()).toEqual([
+      'llama',
+      'openrouter/acme/plain',
+      'Acme Visionopenrouter/acme/vision · 131K',
+    ])
+    await act(() => store.setProfileDisabled('p1', true))
+    expect(screen.getByText('Every endpoint is disabled. Enable one in Settings.')).toBeTruthy()
+  })
+
   it('tucks typing an id away, and uses it', async () => {
     const user = userEvent.setup()
     const { onChoose } = await setup()

@@ -5,7 +5,14 @@ import { newId } from '@fx/chat-agent'
  */
 import { Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { Field, IconButton, PrimaryButton, SecondaryButton, TextInput } from '../components/ui'
+import {
+  Field,
+  IconButton,
+  PrimaryButton,
+  SecondaryButton,
+  TextInput,
+  Toggle,
+} from '../components/ui'
 import { useStore } from '../store/context'
 import type { Profile } from '../store/types'
 
@@ -38,6 +45,7 @@ export function ProfileEditor({
   const [apiKey, setApiKey] = useState(profile?.apiKey ?? '')
   const [showKey, setShowKey] = useState(false)
   const [model, setModel] = useState(profile?.model ?? '')
+  const [enabled, setEnabled] = useState(!profile?.disabled)
   const [models, setModels] = useState<string[]>([])
   const [modelsError, setModelsError] = useState<string>()
   const [loading, setLoading] = useState(false)
@@ -87,6 +95,7 @@ export function ProfileEditor({
       baseUrl: baseUrl.trim().replace(/\/+$/, ''),
       apiKey: apiKey.trim(),
       model: model.trim(),
+      ...(enabled ? {} : { disabled: true }),
     })
   }
 
@@ -197,6 +206,15 @@ export function ProfileEditor({
           />
         )}
       </Field>
+
+      {profile ? (
+        <Toggle
+          label="Enabled"
+          description="Disabled endpoints are left out of the model list and never used for new chats; chats already on it keep working."
+          checked={enabled}
+          onChange={setEnabled}
+        />
+      ) : null}
 
       <div className="flex flex-wrap gap-2 pt-2">
         <PrimaryButton type="submit" className="flex-1">

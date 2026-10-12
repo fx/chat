@@ -137,7 +137,8 @@ export class AppStore {
 
   activeProfile(): Profile | undefined {
     const { profiles, activeProfileId } = this.settings
-    return profiles.find((p) => p.id === activeProfileId) ?? profiles[0]
+    const enabled = profiles.filter((p) => !p.disabled)
+    return enabled.find((p) => p.id === activeProfileId) ?? enabled[0]
   }
 
   /**
@@ -206,6 +207,15 @@ export class AppStore {
     await this.deps.kv.delete(catalogKey(id))
   }
 
+  /** Disable an endpoint (or enable it again). */
+  setProfileDisabled(id: string, disabled: boolean): Promise<void> {
+    return this.updateSettings({
+      profiles: this.settings.profiles.map((p) =>
+        p.id === id ? { ...p, disabled: disabled || undefined } : p,
+      ),
+    })
+  }
+
   /** Star or unstar a model of a profile's endpoint. */
   toggleFavorite(profileId: string, model: string): Promise<void> {
     const starred = this.settings.favorites[profileId] ?? []
@@ -268,7 +278,7 @@ export class AppStore {
   /** The endpoint and model the assistant runs on (see `AssistantSettings`). */
   assistantModel(): { profile: Profile; model: string } | undefined {
     const { profileId, model } = this.settings.assistant
-    const bound = this.settings.profiles.find((p) => p.id === profileId)
+    const bound = this.settings.profiles.find((p) => p.id === profileId && !p.disabled)
     if (bound) return { profile: bound, model: model || bound.model }
     const active = this.activeProfile()
     return active && { profile: active, model: active.model }

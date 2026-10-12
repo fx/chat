@@ -15,6 +15,11 @@ export interface Profile {
   apiKey: string
   /** Default model for new conversations. */
   model: string
+  /**
+   * Left out of the model picker and never used for new chats (or the
+   * assistant); conversations already on it keep working.
+   */
+  disabled?: boolean | undefined
 }
 
 export interface Settings {
