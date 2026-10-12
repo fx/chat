@@ -1,9 +1,16 @@
-import { type AgentTool, type FetchLike, buildTools, createClient, runAgent } from '@fx/chat-agent'
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
+import {
+  ChatController,
+  type FetchLike,
+  type PendingApproval,
+  type QueuedMessage,
+  createClient,
+} from '@fx/chat-agent'
+import type { ChatMessage } from '@fx/chat-core'
 /**
  * The `tx chat` session, shared by the fullscreen and inline views: settings,
- * the conversation, the running turn, tool approvals, slash commands and the
- * queue of messages typed while an answer streams.
+ * slash commands and notices over one `ChatController` conversation, which
+ * owns the transcript, the running turn, tool approvals and the queue of
+ * messages typed while an answer streams.
  */
 import { React, ink, stripControls } from '@fx/chat-ink'
 import { COMMANDS, commandProvider, modelProvider, parseCommand } from './commands'
@@ -29,13 +36,14 @@ export interface SessionOptions {
   newId?: ((prefix: string) => string) | undefined
 }
 
-export interface Approval {
-  call: ToolCallBlock
-  resolve: (approved: boolean) => void
-}
+export type Approval = PendingApproval
 
+/** The session's one conversation (in memory; tx chat keeps no history). */
+const CONVERSATION = 'tui'
 /** At most one transcript update per frame while streaming. */
 const FRAME_MS = 33
+const NO_MESSAGES: ChatMessage[] = []
+const NO_QUEUE: QueuedMessage[] = []
 
 let counter = 0
 const defaultId = (prefix: string) =>
@@ -54,48 +62,36 @@ export function useChatSession({
 }: SessionOptions) {
   const { exit } = ink.useApp()
   const [settings, setSettings] = React.useState(initial)
-  const [messages, setMessages] = React.useState<ChatMessage[]>([])
-  const [run, setRun] = React.useState<{ messageId: string; startedAt: number }>()
-  const [approval, setApproval] = React.useState<Approval>()
   const [notice, setNotice] = React.useState<string[]>([])
   const [expanded, setExpanded] = React.useState(false)
   const [epoch, setEpoch] = React.useState(0)
-  const [queued, setQueued] = React.useState<string[]>([])
-  const controller = React.useRef<AbortController | null>(null)
   const history = React.useRef<string[]>([])
 
-  // Stream updates arrive far faster than a terminal can show them; apply
-  // them at most once a frame (the latest state of each message wins).
-  const pending = React.useRef(new Map<string, ChatMessage>())
-  const flushTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const lastFlush = React.useRef(0)
-  const flush = React.useCallback(() => {
-    clearTimeout(flushTimer.current)
-    flushTimer.current = undefined
-    if (pending.current.size === 0) return
-    const updates = [...pending.current.values()]
-    pending.current.clear()
-    lastFlush.current = performance.now()
-    setMessages((current) => {
-      let next = current
-      for (const message of updates) {
-        const index = next.findIndex((m) => m.id === message.id)
-        next = index === -1 ? [...next, message] : next.map((m, i) => (i === index ? message : m))
-      }
-      return next
+  // Runs read the settings current when they start (/model, /system, /tools).
+  const current = React.useRef(settings)
+  current.current = settings
+  const [chat] = React.useState(() => {
+    const controller = new ChatController({
+      fetch,
+      now,
+      newId,
+      queue: queueing,
+      updateIntervalMs: FRAME_MS,
+      resolveRun: () => {
+        const { baseUrl, apiKey, model, system, tools } = current.current
+        return { baseUrl, apiKey, model, system, tools: tools ?? DEFAULT_TOOLS }
+      },
     })
-  }, [])
-  const queueUpdate = React.useCallback(
-    (message: ChatMessage) => {
-      pending.current.set(message.id, message)
-      if (flushTimer.current !== undefined) return
-      const wait = FRAME_MS - (performance.now() - lastFlush.current)
-      if (wait <= 0) flush()
-      else flushTimer.current = setTimeout(flush, wait)
-    },
-    [flush],
-  )
-  React.useEffect(() => () => clearTimeout(flushTimer.current), [])
+    void controller.createConversation({ id: CONVERSATION })
+    return controller
+  })
+  React.useEffect(() => () => chat.dispose(), [chat])
+  const state = React.useSyncExternalStore(chat.subscribe, chat.getState)
+  const messages = state.messages[CONVERSATION] ?? NO_MESSAGES
+  const run = state.runs[CONVERSATION]
+  const approval = state.approvals[0]
+  const queue = state.queued[CONVERSATION] ?? NO_QUEUE
+  const queued = React.useMemo(() => queue.map((q) => q.text), [queue])
 
   const client = React.useMemo(
     () => createClient({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, fetch }),
@@ -119,17 +115,18 @@ export function useChatSession({
   }
 
   const update = (next: ChatSettings) => {
+    current.current = next
     setSettings(next)
     void save(next)
   }
 
   const quit = (reason: ExitReason) => {
-    controller.current?.abort()
+    chat.dispose()
     onExit?.(reason)
     exit()
   }
 
-  const stop = () => controller.current?.abort()
+  const stop = () => void chat.stop(CONVERSATION)
 
   /**
    * Ctrl+C: the first press stops a running turn (a pending approval settles
@@ -137,100 +134,29 @@ export function useChatSession({
    * still winding down, quits.
    */
   const interrupt = () => {
-    const current = controller.current
-    if (current && !current.signal.aborted) current.abort()
-    else quit('quit')
+    if (!chat.stop(CONVERSATION)) quit('quit')
   }
 
   /** A turn is running: /retry and /new would race it. */
   const busy = () => {
-    if (!controller.current) return false
+    if (!chat.getState().runs[CONVERSATION]) return false
     setNotice(['An answer is running. Stop it first (Esc or Ctrl+C).'])
     return true
   }
 
-  const startRun = React.useCallback(
-    async (turnHistory: ChatMessage[]) => {
-      const abort = new AbortController()
-      controller.current = abort
-      const messageId = newId('a')
-      setRun({ messageId, startedAt: now() })
-      try {
-        const tools: AgentTool[] = buildTools(settings.tools ?? DEFAULT_TOOLS, {}, { fetch })
-        await runAgent({
-          client,
-          model: settings.model,
-          history: turnHistory,
-          system: settings.system,
-          tools,
-          signal: abort.signal,
-          messageId,
-          now,
-          approve: (call, signal) =>
-            new Promise<boolean>((resolve) => {
-              flush()
-              const settle = (approved: boolean) => {
-                setApproval(undefined)
-                resolve(approved)
-              }
-              signal.addEventListener('abort', () => settle(false), { once: true })
-              setApproval({ call, resolve: settle })
-            }),
-          onUpdate: queueUpdate,
-        })
-      } catch (error) {
-        setNotice([`Could not start the answer: ${failure(error)}`])
-      }
-      flush()
-      controller.current = null
-      setRun(undefined)
-    },
-    [
-      client,
-      fetch,
-      flush,
-      queueUpdate,
-      newId,
-      now,
-      settings.model,
-      settings.system,
-      settings.tools,
-    ],
-  )
-
-  const send = (text: string, base = messages) => {
-    const user: ChatMessage = {
-      id: newId('u'),
-      role: 'user',
-      blocks: [{ type: 'text', id: newId('t'), text }],
-      createdAt: now(),
-    }
-    const next = [...base, user]
-    setMessages(next)
-    setNotice([])
-    void startRun(next)
-  }
-
-  // Send the oldest queued message once the answer before it finishes.
-  const sendRef = React.useRef(send)
-  sendRef.current = send
+  // A run that could not start (it throws, unlike a failed answer).
+  const error = state.errors[CONVERSATION]
   React.useEffect(() => {
-    if (run || queued.length === 0) return
-    const [next, ...rest] = queued as [string, ...string[]]
-    setQueued(rest)
-    sendRef.current(next)
-  }, [run, queued])
+    if (error) setNotice([`Could not start the answer: ${stripControls(error.message)}`])
+  }, [error])
 
   const retry = () => {
     if (busy()) return
-    let cut = messages.length
-    while (cut > 0 && messages[cut - 1]?.role !== 'user') cut--
-    if (cut === 0) return setNotice(['Nothing to retry.'])
-    const turn = messages.slice(0, cut)
-    setMessages(turn)
+    if (!messages.some((m) => m.role === 'user')) return setNotice(['Nothing to retry.'])
+    // Cuts the transcript back to the last user message synchronously.
+    void chat.regenerate(CONVERSATION)
     clearScreen?.()
     setEpoch((e) => e + 1)
-    void startRun(turn)
   }
 
   const command = (name: string, arg: string) => {
@@ -261,9 +187,8 @@ export function useChatSession({
         return retry()
       case 'new':
         if (busy()) return
-        setMessages([])
+        chat.clear(CONVERSATION)
         setNotice([])
-        setQueued([])
         clearScreen?.()
         return setEpoch((e) => e + 1)
       case 'setup':
@@ -284,17 +209,14 @@ export function useChatSession({
   const submit = (text: string) => {
     history.current.push(text)
     const parsed = parseCommand(text)
-    if (parsed) command(parsed.name, parsed.arg)
-    else if (!run) send(text)
-    else if (queueing) setQueued((q) => [...q, text])
+    if (parsed) return command(parsed.name, parsed.arg)
+    // While an answer streams the controller queues the message (or drops it).
+    if (!chat.getState().runs[CONVERSATION]) setNotice([])
+    void chat.send(CONVERSATION, text)
   }
 
   /** Take the newest queued message back (for editing); undefined when none. */
-  const unqueue = (): string | undefined => {
-    const last = queued.at(-1)
-    if (last !== undefined) setQueued(queued.slice(0, -1))
-    return last
-  }
+  const unqueue = (): string | undefined => chat.unqueue(CONVERSATION)?.text
 
   return {
     settings,

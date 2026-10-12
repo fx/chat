@@ -300,6 +300,13 @@ changes:
     spec: architecture
     status: complete
     depends_on: ["0006", "0013", "0021"]
+  - id: "0037"
+    name: chat-controller
+    path: changes/0037-chat-controller.md
+    description: "ChatController in @fx/chat-agent: shared UI-free conversation controller with injected persistence; mobile store and tx chat run on it"
+    spec: chat-agent
+    status: complete
+    depends_on: ["0020", "0021", "0032"]
   - id: "0038"
     name: android-local-network
     path: changes/0038-android-local-network.md

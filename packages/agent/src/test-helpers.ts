@@ -40,3 +40,34 @@ export function sseResponse(body: string, splitEvery?: number): Response {
     headers: { 'Content-Type': 'text/event-stream' },
   })
 }
+
+/** SSE text for one completion of choice deltas, ending with `finish`. */
+export function sseBody(deltas: Array<Record<string, unknown>>, finish = 'stop'): string {
+  return sse([...deltas.map((d) => delta(d)), delta({}, finish)])
+}
+
+/**
+ * A fetch that serves `/models`, answers any other non-completion URL with a
+ * small HTML page (for the fetch tool), and replays one completion body per
+ * `/chat/completions` request, recording requests.
+ */
+export function fakeEndpoint(completions: string[], models = ['fake-1', 'fake-2']) {
+  const requests: Array<{ url: string; body: unknown; headers: Headers }> = []
+  const fetch = async (url: string, init?: RequestInit): Promise<Response> => {
+    requests.push({
+      url,
+      body: init?.body ? JSON.parse(init.body as string) : undefined,
+      headers: new Headers(init?.headers),
+    })
+    if (url.endsWith('/models')) return Response.json({ data: models.map((id) => ({ id })) })
+    if (!url.endsWith('/chat/completions')) {
+      return new Response('<title>Page</title><p>page text</p>', {
+        headers: { 'content-type': 'text/html' },
+      })
+    }
+    const next = completions.shift()
+    if (next === undefined) return Response.json({ error: { message: 'no more' } }, { status: 500 })
+    return sseResponse(next)
+  }
+  return { fetch, requests }
+}

@@ -1,58 +1,30 @@
-import { type FetchLike, type RunResult, buildTools, createClient, runAgent } from '@fx/chat-agent'
+import {
+  ChatController,
+  type FetchLike,
+  type KeyValueStore,
+  type RunResolution,
+  type RunResult,
+  createClient,
+  type runAgent,
+} from '@fx/chat-agent'
 /**
- * The app store: settings, conversations, transcripts, active runs, and the
- * tool-approval queue, persisted to a key-value store.
+ * The app store: settings and endpoint profiles on top of `@fx/chat-agent`'s
+ * `ChatController`, which owns conversations, transcripts, runs and the
+ * tool-approval queue. Both persist to the same key-value store.
  *
  * Framework-free (subscribe / getState) so it is testable without React; the
  * UI binds to it with `useSyncExternalStore`.
  */
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
-import type { KeyValueStore } from '../platform/storage'
+import type { ChatMessage } from '@fx/chat-core'
 import {
   type AppState,
   type ConversationMeta,
   DEFAULT_SETTINGS,
-  type PendingApproval,
   type Profile,
   type Settings,
 } from './types'
 
 const SETTINGS_KEY = 'settings'
-const CONVERSATIONS_KEY = 'conversations'
-const messagesKey = (id: string) => `messages:${id}`
-const SAVE_DELAY_MS = 400
-const TITLE_LENGTH = 48
-
-/** A random id that does not need a secure context. */
-export function newId(prefix = ''): string {
-  const random = Math.random().toString(36).slice(2, 10)
-  return `${prefix}${Date.now().toString(36)}${random}`
-}
-
-/** A conversation title from the first user message. */
-export function titleFrom(text: string): string {
-  const line = text.replace(/\s+/g, ' ').trim()
-  if (!line) return 'New chat'
-  return line.length > TITLE_LENGTH ? `${line.slice(0, TITLE_LENGTH - 1).trimEnd()}…` : line
-}
-
-/** Tool calls left running when the app was killed can never finish. */
-function settleInterrupted(messages: ChatMessage[]): ChatMessage[] {
-  return messages.map((message) =>
-    message.blocks.some(
-      (b) => b.type === 'tool_call' && (b.status === 'pending' || b.status === 'running'),
-    )
-      ? {
-          ...message,
-          blocks: message.blocks.map((b) =>
-            b.type === 'tool_call' && (b.status === 'pending' || b.status === 'running')
-              ? { ...b, status: 'error' as const, result: b.result ?? { error: 'Interrupted.' } }
-              : b,
-          ),
-        }
-      : message,
-  )
-}
 
 export interface StoreDeps {
   kv: KeyValueStore
@@ -65,30 +37,23 @@ export interface StoreDeps {
 }
 
 export class AppStore {
-  private state: AppState = {
-    loaded: false,
-    settings: DEFAULT_SETTINGS,
-    conversations: [],
-    messages: {},
-    runs: {},
-    errors: {},
-    approvals: [],
-  }
+  private readonly chat: ChatController<ConversationMeta>
+  private settings: Settings = DEFAULT_SETTINGS
+  private settingsLoaded = false
+  private state: AppState
   private listeners = new Set<() => void>()
-  private controllers = new Map<string, AbortController>()
-  private saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  /**
-   * Conversations deleted this session. A run, load or save still in flight
-   * when its conversation is deleted must not bring it back in memory or in
-   * storage, so every write path checks this set.
-   */
-  private deleted = new Set<string>()
-  private readonly now: () => number
-  private readonly run: typeof runAgent
 
   constructor(private readonly deps: StoreDeps) {
-    this.now = deps.now ?? Date.now
-    this.run = deps.run ?? runAgent
+    this.chat = new ChatController<ConversationMeta>({
+      kv: deps.kv,
+      fetch: deps.fetch,
+      now: deps.now,
+      htmlToText: deps.htmlToText,
+      run: deps.run,
+      resolveRun: (meta) => this.resolveRun(meta),
+    })
+    this.state = this.compose()
+    this.chat.subscribe(() => this.publish())
   }
 
   // ── subscription ───────────────────────────────────────────────────────────
@@ -100,47 +65,41 @@ export class AppStore {
     return () => this.listeners.delete(listener)
   }
 
-  private set(patch: Partial<AppState>): void {
-    this.state = { ...this.state, ...patch }
+  private compose(): AppState {
+    const chat = this.chat.getState()
+    return { ...chat, loaded: chat.loaded && this.settingsLoaded, settings: this.settings }
+  }
+
+  private publish(): void {
+    this.state = this.compose()
     for (const listener of this.listeners) listener()
   }
 
-  // ── loading ────────────────────────────────────────────────────────────────
-
   async load(): Promise<void> {
-    const [settings, conversations] = await Promise.all([
+    const [settings] = await Promise.all([
       this.deps.kv.get<Settings>(SETTINGS_KEY),
-      this.deps.kv.get<ConversationMeta[]>(CONVERSATIONS_KEY),
+      this.chat.load(),
     ])
-    this.set({
-      loaded: true,
-      settings: {
-        ...DEFAULT_SETTINGS,
-        ...settings,
-        tools: { ...DEFAULT_SETTINGS.tools, ...settings?.tools },
-        approvals: { ...DEFAULT_SETTINGS.approvals, ...settings?.approvals },
-      },
-      conversations: [...(conversations ?? [])].sort((a, b) => b.updatedAt - a.updatedAt),
-    })
-  }
-
-  /** Load a conversation's transcript if not loaded yet. */
-  async openConversation(id: string): Promise<void> {
-    if (this.state.messages[id]) return
-    const stored = (await this.deps.kv.get<ChatMessage[]>(messagesKey(id))) ?? []
-    if (this.state.messages[id] || this.deleted.has(id)) return
-    this.set({ messages: { ...this.state.messages, [id]: settleInterrupted(stored) } })
+    this.settings = {
+      ...DEFAULT_SETTINGS,
+      ...settings,
+      tools: { ...DEFAULT_SETTINGS.tools, ...settings?.tools },
+      approvals: { ...DEFAULT_SETTINGS.approvals, ...settings?.approvals },
+    }
+    this.settingsLoaded = true
+    this.publish()
   }
 
   // ── settings & profiles ────────────────────────────────────────────────────
 
   async updateSettings(patch: Partial<Settings>): Promise<void> {
-    this.set({ settings: { ...this.state.settings, ...patch } })
-    await this.deps.kv.set(SETTINGS_KEY, this.state.settings)
+    this.settings = { ...this.settings, ...patch }
+    this.publish()
+    await this.deps.kv.set(SETTINGS_KEY, this.settings)
   }
 
   activeProfile(): Profile | undefined {
-    const { profiles, activeProfileId } = this.state.settings
+    const { profiles, activeProfileId } = this.settings
     return profiles.find((p) => p.id === activeProfileId) ?? profiles[0]
   }
 
@@ -151,7 +110,7 @@ export class AppStore {
    */
   conversationProfile(meta: ConversationMeta): Profile | undefined {
     if (meta.profileId === undefined) return undefined
-    return this.state.settings.profiles.find((p) => p.id === meta.profileId)
+    return this.settings.profiles.find((p) => p.id === meta.profileId)
   }
 
   /** Why a run cannot start for this conversation, or undefined when it can. */
@@ -160,7 +119,7 @@ export class AppStore {
     if (profile) {
       return meta.model || profile.model ? undefined : 'Choose a model from the model menu first.'
     }
-    if (this.state.settings.profiles.length === 0) {
+    if (this.settings.profiles.length === 0) {
       return 'Set up an endpoint and model in Settings first.'
     }
     return meta.profileId === undefined
@@ -168,31 +127,36 @@ export class AppStore {
       : "This conversation's profile is unavailable. Choose another from the model menu."
   }
 
-  /** Record why a run did not start; true when it was blocked. */
-  private blockRun(id: string, meta: ConversationMeta): boolean {
-    const message = this.runBlocker(meta)
-    if (!message) return false
-    this.set({ errors: { ...this.state.errors, [id]: { message, at: this.now() } } })
-    return true
+  private resolveRun(meta: ConversationMeta): RunResolution {
+    const blocked = this.runBlocker(meta)
+    if (blocked) return { blocked }
+    // Not blocked: the profile exists and a model is set.
+    const profile = this.conversationProfile(meta) as Profile
+    return {
+      baseUrl: profile.baseUrl,
+      apiKey: profile.apiKey || undefined,
+      model: meta.model || profile.model,
+      system: this.settings.systemPrompt,
+      tools: this.settings.tools,
+      approvals: this.settings.approvals,
+    }
   }
 
   /** Insert or replace a profile; the first profile becomes active. */
   async saveProfile(profile: Profile): Promise<void> {
-    const profiles = this.state.settings.profiles.some((p) => p.id === profile.id)
-      ? this.state.settings.profiles.map((p) => (p.id === profile.id ? profile : p))
-      : [...this.state.settings.profiles, profile]
+    const profiles = this.settings.profiles.some((p) => p.id === profile.id)
+      ? this.settings.profiles.map((p) => (p.id === profile.id ? profile : p))
+      : [...this.settings.profiles, profile]
     await this.updateSettings({
       profiles,
-      activeProfileId: this.state.settings.activeProfileId ?? profile.id,
+      activeProfileId: this.settings.activeProfileId ?? profile.id,
     })
   }
 
   async deleteProfile(id: string): Promise<void> {
-    const profiles = this.state.settings.profiles.filter((p) => p.id !== id)
+    const profiles = this.settings.profiles.filter((p) => p.id !== id)
     const activeProfileId =
-      this.state.settings.activeProfileId === id
-        ? profiles[0]?.id
-        : this.state.settings.activeProfileId
+      this.settings.activeProfileId === id ? profiles[0]?.id : this.settings.activeProfileId
     await this.updateSettings({ profiles, activeProfileId })
   }
 
@@ -208,205 +172,47 @@ export class AppStore {
     }).listModels(signal)
   }
 
-  // ── conversations ──────────────────────────────────────────────────────────
-
-  private async saveConversations(conversations: ConversationMeta[]): Promise<void> {
-    const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
-    this.set({ conversations: sorted })
-    await this.deps.kv.set(CONVERSATIONS_KEY, sorted)
-  }
+  // ── conversations (the controller's) ───────────────────────────────────────
 
   conversation(id: string): ConversationMeta | undefined {
-    return this.state.conversations.find((c) => c.id === id)
+    return this.chat.conversation(id)
   }
 
-  async createConversation(): Promise<ConversationMeta> {
+  /** Start a conversation bound to the active profile and its model. */
+  createConversation(): Promise<ConversationMeta> {
     const profile = this.activeProfile()
-    const at = this.now()
-    const meta: ConversationMeta = {
-      id: newId('c'),
-      title: 'New chat',
-      createdAt: at,
-      updatedAt: at,
-      profileId: profile?.id,
-      model: profile?.model,
-    }
-    this.set({ messages: { ...this.state.messages, [meta.id]: [] } })
-    await this.saveConversations([meta, ...this.state.conversations])
-    return meta
+    return this.chat.createConversation({ profileId: profile?.id, model: profile?.model })
   }
 
-  async updateConversation(
-    id: string,
-    patch: Partial<Omit<ConversationMeta, 'id'>>,
-  ): Promise<void> {
-    await this.saveConversations(
-      this.state.conversations.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    )
+  openConversation(id: string): Promise<void> {
+    return this.chat.openConversation(id)
   }
 
-  async deleteConversation(id: string): Promise<void> {
-    this.deleted.add(id)
-    this.stop(id)
-    const timer = this.saveTimers.get(id)
-    if (timer) clearTimeout(timer)
-    this.saveTimers.delete(id)
-    const { [id]: _messages, ...messages } = this.state.messages
-    const { [id]: _error, ...errors } = this.state.errors
-    this.set({ messages, errors })
-    await this.deps.kv.delete(messagesKey(id))
-    await this.saveConversations(this.state.conversations.filter((c) => c.id !== id))
+  updateConversation(id: string, patch: Partial<Omit<ConversationMeta, 'id'>>): Promise<void> {
+    return this.chat.updateConversation(id, patch)
   }
 
-  // ── transcript persistence ─────────────────────────────────────────────────
-
-  private setMessages(id: string, messages: ChatMessage[]): void {
-    if (this.deleted.has(id)) return
-    this.set({ messages: { ...this.state.messages, [id]: messages } })
-    this.scheduleSave(id)
+  deleteConversation(id: string): Promise<void> {
+    return this.chat.deleteConversation(id)
   }
 
-  private scheduleSave(id: string): void {
-    if (this.saveTimers.has(id)) return
-    this.saveTimers.set(
-      id,
-      setTimeout(() => void this.flush(id), SAVE_DELAY_MS),
-    )
-  }
-
-  /** Write a conversation's transcript now. */
-  async flush(id: string): Promise<void> {
-    const timer = this.saveTimers.get(id)
-    if (timer) clearTimeout(timer)
-    this.saveTimers.delete(id)
-    const messages = this.state.messages[id]
-    if (messages && !this.deleted.has(id)) await this.deps.kv.set(messagesKey(id), messages)
-  }
-
-  private upsertMessage(id: string, message: ChatMessage): void {
-    const current = this.state.messages[id] ?? []
-    const index = current.findIndex((m) => m.id === message.id)
-    const next =
-      index === -1 ? [...current, message] : current.map((m, i) => (i === index ? message : m))
-    this.setMessages(id, next)
-  }
-
-  // ── runs ───────────────────────────────────────────────────────────────────
-
-  /** Send a user message and start an agent turn. */
-  async send(
+  send(
     id: string,
     text: string,
     attachments?: ChatMessage['attachments'],
   ): Promise<RunResult | undefined> {
-    await this.openConversation(id)
-    const meta = this.conversation(id)
-    if (!meta || this.state.runs[id] || this.blockRun(id, meta)) return undefined
-    const user: ChatMessage = {
-      id: newId('u'),
-      role: 'user',
-      blocks: [{ type: 'text', id: newId('t'), text }],
-      createdAt: this.now(),
-      ...(attachments && attachments.length > 0 ? { attachments } : {}),
-    }
-    const history = [...(this.state.messages[id] ?? []), user]
-    this.setMessages(id, history)
-    const isFirst = !history.some((m) => m.role === 'user' && m !== user)
-    await this.updateConversation(id, {
-      updatedAt: this.now(),
-      ...(isFirst ? { title: titleFrom(text) } : {}),
-    })
-    return this.startRun(id, history)
+    return this.chat.send(id, text, attachments)
   }
 
-  /** Re-run the turn that produced assistant message `messageId` (or the last turn). */
-  async regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
-    await this.openConversation(id)
-    const meta = this.conversation(id)
-    // Checked before cutting the transcript, so a blocked regenerate keeps it.
-    if (!meta || this.state.runs[id] || this.blockRun(id, meta)) return undefined
-    const messages = this.state.messages[id] ?? []
-    let cut = messageId ? messages.findIndex((m) => m.id === messageId) : -1
-    if (cut === -1) {
-      cut = messages.length
-      while (cut > 0 && messages[cut - 1]?.role !== 'user') cut--
-    }
-    const history = messages.slice(0, cut)
-    if (history.at(-1)?.role !== 'user') return undefined
-    this.setMessages(id, history)
-    return this.startRun(id, history)
+  regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
+    return this.chat.regenerate(id, messageId)
   }
 
   stop(id: string): void {
-    this.controllers.get(id)?.abort()
+    this.chat.stop(id)
   }
 
-  private async startRun(id: string, history: ChatMessage[]): Promise<RunResult | undefined> {
-    const meta = this.conversation(id)
-    // Deleted while `send` awaited its own writes.
-    if (!meta) return undefined
-    const profile = this.conversationProfile(meta)
-    const model = meta.model || profile?.model
-    if (!profile || !model) {
-      this.blockRun(id, meta)
-      return undefined
-    }
-    const { [id]: _previous, ...errors } = this.state.errors
-    const controller = new AbortController()
-    const messageId = newId('a')
-    this.controllers.set(id, controller)
-    this.set({ runs: { ...this.state.runs, [id]: { messageId } }, errors })
-
-    const { settings } = this.state
-    const result = await this.run({
-      client: createClient({
-        baseUrl: profile.baseUrl,
-        apiKey: profile.apiKey || undefined,
-        fetch: this.deps.fetch,
-      }),
-      model,
-      history,
-      system: settings.systemPrompt,
-      tools: buildTools(settings.tools, settings.approvals, {
-        fetch: this.deps.fetch,
-        ...(this.deps.htmlToText ? { htmlToText: this.deps.htmlToText } : {}),
-      }),
-      approve: (call, signal) => this.requestApproval(id, call, signal),
-      signal: controller.signal,
-      messageId,
-      onUpdate: (message) => this.upsertMessage(id, message),
-    })
-
-    this.controllers.delete(id)
-    const { [id]: _run, ...runs } = this.state.runs
-    // A failed or stopped run is described by the message's own outcome, which
-    // the transcript renders (with the footer's regenerate action as retry).
-    this.set({ runs })
-    if (this.deleted.has(id)) return result
-    await this.updateConversation(id, { updatedAt: this.now() })
-    await this.flush(id)
-    return result
-  }
-
-  // ── approvals ──────────────────────────────────────────────────────────────
-
-  private requestApproval(
-    conversationId: string,
-    call: ToolCallBlock,
-    signal: AbortSignal,
-  ): Promise<boolean> {
-    return new Promise((resolve) => {
-      const approval: PendingApproval = {
-        id: newId('p'),
-        conversationId,
-        call,
-        resolve: (approved) => {
-          this.set({ approvals: this.state.approvals.filter((a) => a !== approval) })
-          resolve(approved)
-        },
-      }
-      signal.addEventListener('abort', () => approval.resolve(false), { once: true })
-      this.set({ approvals: [...this.state.approvals, approval] })
-    })
+  flush(id: string): Promise<void> {
+    return this.chat.flush(id)
   }
 }

@@ -27,6 +27,13 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - The package MUST be named `@fx/chat-agent`, live at `packages/agent/`, ship ESM + `.d.ts`, and
   depend only on `@fx/chat-core`.
 - It MUST NOT import React, any renderer, or any platform API other than the injected `fetch`.
+  The one exception is the opt-in `indexedDbStore()` persistence adapter, which touches
+  `indexedDB` only when a host chooses it and first reads or writes through it.
+- Language and runtime globals common to every supported runtime (browsers, Node, Bun) are not
+  platform APIs: timers (`setTimeout` / `clearTimeout`), `queueMicrotask`, `AbortController`,
+  `TextDecoder`, `structuredClone`, and `Date.now` / `Math.random` as the defaults of an
+  injectable clock or id factory. Time is read only through the injected clock (`now`, default
+  `Date.now`), never `performance`, so a host or test controls it.
 - The HTTP transport MUST be injectable: the host MAY pass its own `fetch` (e.g. a native,
   CORS-exempt fetch on mobile); the global `fetch` is the default.
 
@@ -167,6 +174,59 @@ receives an immutable snapshot after every applied delta.
 - **THEN** the run resolves `aborted`, the reasoning block has a `durationMs`, and the text so far is
   kept.
 
+### Conversation Controller
+
+- The package MUST export `ChatController`, a framework-free conversation controller
+  (`subscribe` / `getState`, usable with `useSyncExternalStore` or any loop) that owns the
+  conversation list, lazily loaded transcripts, active runs, run errors, the tool-approval queue and
+  messages queued while a run streams.
+- Persistence MUST go through an injected `KeyValueStore` (`get` / `set` / `delete`); the package
+  ships `memoryStore()` and the lazily opened `indexedDbStore(name?)`, and the host picks one.
+  Transcript writes are debounced; tool calls left running by a killed process are marked failed on
+  load. A method's in-memory change (creating, updating, clearing or deleting a conversation) is
+  applied whole, in one state change before any storage write, so storage that is slow, fails or is
+  cut short by `dispose()` never leaves state half-applied.
+- Endpoints, models and tool settings MUST stay host-owned: the controller asks
+  `resolveRun(meta)` per conversation for a `RunConfig` (base URL, key, model, system prompt, tools,
+  approvals, extra tools) or `{ blocked }`, which is surfaced as the conversation's run error.
+- `send` and `regenerate` MUST start their run synchronously once the transcript is loaded, so the
+  user message and the run are in state as soon as the call returns. A message sent while a run is
+  active is queued (option `queue`) or dropped; queued messages are sent in order when the run ends,
+  and `unqueue` takes the newest back.
+- Streamed updates MAY be throttled (`updateIntervalMs`); pending updates MUST be applied before an
+  approval is shown and when the run ends. `stop(id)` aborts one run.
+- `dispose()` MUST NOT lose pending work: it applies pending streamed updates and starts every
+  pending (debounced) transcript save, then stops every run. After it the controller MUST NOT write
+  to the store, set a timer, start a run (`send` / `regenerate` resolve undefined; queued messages
+  are not sent), apply a streamed update or ask an approval (answered `false`). A stopped run's
+  closing update is therefore not stored; its unfinished tool calls are marked failed on the next
+  load. Work already awaiting storage or a run when `dispose()` comes (a list load, a transcript
+  open, a `send` / `regenerate` opening its transcript, a delete, a run's start or end) MUST stop
+  where it resumes, without changing state or storage. State stays readable with no active run
+  or pending approval, and a second `dispose()` does nothing.
+- Storage failures MUST NOT leave a run stuck or reject unhandled. `send` / `regenerate` (and so a
+  queued send) never reject: a transcript that fails to load records `Could not load this
+  conversation: …` and starts no run; a failed list write before the agent starts ends the run
+  with `Could not save this conversation: …`; a run whose agent throws ends with that error; a
+  failed list or transcript write at run end records the save error and leaves the queue waiting.
+  A failed debounced save records the save error. A storage or run failure never replaces an
+  error already recorded for the conversation (a run start or `clear` resets it). A save failing at `dispose()` is dropped
+  silently. Direct calls (`load`, `openConversation`, `createConversation`, `updateConversation`,
+  `flush`, `deleteConversation`) reject to their caller, leaving state retryable;
+  `deleteConversation` still takes the conversation off the list when its transcript delete fails.
+- Host callbacks MUST NOT wedge a run or reject unhandled. `resolveRun` must answer
+  synchronously: a throw (or a returned promise, whose rejection is handled) records
+  `Could not start this run: …` and starts no run, as a blocked run does, including for a queued
+  send. A `run` (agent loop) that throws or rejects ends the run with that error. A subscriber
+  that throws does not stop other subscribers or the controller; its error is rethrown from a
+  microtask. `fetch`, `htmlToText` and extra tools are called by the agent loop, which turns their
+  failures into tool or run outcomes. `now` and `newId` MUST NOT throw. Error text for any thrown
+  value (including a null-prototype object or one whose `toString` throws) MUST be formed without
+  throwing, falling back to `Unknown error`; a `resolveRun` answer that is not an object is a
+  `Could not start this run` error.
+- Conversation metadata is generic (`ChatController<M extends ConversationMeta>`): hosts extend it
+  with their own fields (e.g. which endpoint a conversation is bound to).
+
 ## Design
 
 ### Architecture
@@ -178,6 +238,9 @@ createClient({ baseUrl, apiKey?, fetch? })
 runAgent({ client, model, history, tools, approve?, maxSteps, signal, onUpdate })
   loop: encode(history + current turn) → stream → applyEvent* → execute tools → next step
 applyEvent(message, event) → message      (pure; the accumulator, unit-tested in isolation)
+new ChatController({ fetch, resolveRun, kv?, queue?, updateIntervalMs? })
+  state (conversations, transcripts, runs, errors, approvals, queue) ── subscribe/getState
+  send / regenerate ──► resolveRun(meta) ──► runAgent ──► debounced KeyValueStore writes
 ```
 
 The accumulator is pure so it is tested with recorded chunk sequences, no network.
@@ -208,3 +271,4 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 | 2026-10-10 | Initial spec created | [0020-agent-runtime](../../changes/0020-agent-runtime.md) |
 | 2026-10-10 | Built-in tools moved in from the mobile app; abort honoured per event | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Approval state, message outcome, cost/context metrics | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
+| 2026-10-11 | `ChatController` conversation controller; `KeyValueStore` with memory and IndexedDB stores | [0037-chat-controller](../../changes/0037-chat-controller.md) |

@@ -126,8 +126,8 @@ visual theme) stays in `apps/mobile`.
 ```
 apps/mobile
 ├── src/            React + Vite web UI
-│   ├── platform/   fetch / storage / back-button / insets adapters (Tauri on device, browser in dev)
-│   ├── store/      conversations + settings persistence
+│   ├── platform/   fetch / back-button / insets adapters (Tauri on device, browser in dev)
+│   ├── store/      settings + endpoint wiring around @fx/chat-agent's ChatController
 │   ├── agent/      wiring to @fx/chat-agent, built-in tools, approval queue
 │   ├── chat/       registry + classNames theme injected into @fx/chat
 │   └── screens/    conversation list, conversation, settings
@@ -163,3 +163,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 |------|--------|----------|
 | 2026-10-10 | Initial spec created | [0021-mobile-app](../../changes/0021-mobile-app.md) |
 | 2026-10-11 | The app's shadcn registry, `classNames` theme, markdown slot and design tokens move into `@fx/chat-shadcn` (touch mode) | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
+| 2026-10-11 | App store built on `ChatController`; IndexedDB store moved into `@fx/chat-agent` | [0037-chat-controller](../../changes/0037-chat-controller.md) |

@@ -110,7 +110,7 @@ apps/tui/
     ├── settings.ts        flags > env > stored profile; validator
     ├── theme.ts           tx appearances → @fx/chat-ink theme roles
     ├── commands.ts        slash commands as completion providers
-    ├── session.ts         the session: settings, turns, approvals, commands, queue
+    ├── session.ts         the session: settings, commands, notices; one in-memory ChatController
     ├── Fullscreen.tsx     viewport, status line, pending rows, plain composer, keys
     └── App.tsx            the inline view: transcript, composer, approvals, keys
 ```
@@ -155,3 +155,4 @@ fails with a message naming the version it needs. This repository pins the relea
 | 2026-10-10 | Initial spec created | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Fullscreen mode (viewport, status line, queue, mouse copy, images) by default; `--inline` | [0032-tui-fullscreen](../../changes/0032-tui-fullscreen.md) |
 | 2026-10-11 | The inline mode uses the package's `TerminalMarkdown`; the `marked` renderer is gone | [0035-terminal-markdown-element](../../changes/0035-terminal-markdown-element.md) |
+| 2026-10-11 | Sessions run on `@fx/chat-agent`'s `ChatController` | [0037-chat-controller](../../changes/0037-chat-controller.md) |

@@ -56,6 +56,7 @@
 | 0034 | [Activity Layout](changes/0034-activity-layout.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0025, 0028, 0033 |
 | 0035 | [Terminal Markdown Element](changes/0035-terminal-markdown-element.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0029 |
 | 0036 | [Shadcn Package](changes/0036-shadcn-package.md) | [Architecture](specs/architecture/) | complete | 0006, 0013, 0021 |
+| 0037 | [Chat Controller](changes/0037-chat-controller.md) | [Chat Agent](specs/chat-agent/) | complete | 0020, 0021, 0032 |
 | 0038 | [Android Local Network](changes/0038-android-local-network.md) | [Mobile App](specs/mobile-app/) | complete | 0021 |
 | 0040 | [Activity Summaries](changes/0040-activity-summaries.md) | [Message Rendering](specs/message-rendering/) | complete | 0023, 0034 |
 | 0041 | [Touch Presenters](changes/0041-touch-presenters.md) | [Architecture](specs/architecture/) | complete | 0036, 0040 |

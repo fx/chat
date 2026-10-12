@@ -1,7 +1,7 @@
 /**
- * Key-value persistence. IndexedDB behaves identically in the Android webview
- * (app-private storage) and in a desktop browser, so one implementation serves
- * both. The in-memory implementation backs tests.
+ * Key-value persistence for the conversation controller. IndexedDB behaves
+ * identically in a webview (app-private storage) and a desktop browser, so one
+ * implementation serves both; the in-memory store backs terminals and tests.
  */
 export interface KeyValueStore {
   get<T>(key: string): Promise<T | undefined>
@@ -18,7 +18,11 @@ function request<T>(req: IDBRequest<T>): Promise<T> {
   })
 }
 
-/** An IndexedDB-backed store in database `name`. */
+/**
+ * An IndexedDB-backed store in database `name`. The database is opened on
+ * first use, so creating the store never touches `indexedDB` (it is safe to
+ * import where IndexedDB does not exist).
+ */
 export function indexedDbStore(name = 'fx-chat'): KeyValueStore {
   let db: Promise<IDBDatabase> | undefined
   const open = () => {
@@ -45,7 +49,7 @@ export function indexedDbStore(name = 'fx-chat'): KeyValueStore {
   }
 }
 
-/** A volatile in-memory store (tests, or when IndexedDB is unavailable). */
+/** A volatile in-memory store. Values are cloned in and out, like IndexedDB. */
 export function memoryStore(initial: Record<string, unknown> = {}): KeyValueStore & {
   data: Map<string, unknown>
 } {
