@@ -5,7 +5,7 @@
 import { ChatProvider } from '@fx/chat'
 import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
 import { Calculator, Clock, Globe } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Header, Notice, errorText } from './components/ui'
 import { onAssistPrompt, onBackButton } from './platform'
 import { Conversation } from './screens/Conversation'
@@ -38,8 +38,10 @@ export function App() {
   const state = useAppState()
   const store = useStore()
   const [route, setRoute] = useState<Route>({ name: 'list' })
-  // A failure no screen shows (a spoken prompt that could not start a chat).
-  const [notice, setNotice] = useState<string>()
+  // Failures no screen shows (spoken prompts that could not start a chat),
+  // each kept until dismissed so a second one never hides the first.
+  const [notices, setNotices] = useState<{ id: number; text: string }[]>([])
+  const noticeId = useRef(0)
 
   // Back goes up a level; on the list the default (exit) applies because no
   // handler is registered.
@@ -67,7 +69,11 @@ export function App() {
     // is caught here and shown, with the prompt, instead of vanishing.
     return onAssistPrompt((text) => {
       ask(text).catch((error: unknown) => {
-        setNotice(`Couldn't start a chat for “${text}”: ${errorText(error)}`)
+        const notice = {
+          id: noticeId.current++,
+          text: `Couldn't start a chat for “${text}”: ${errorText(error)}`,
+        }
+        setNotices((all) => [...all, notice])
       })
     })
   }, [ready, store])
@@ -120,7 +126,18 @@ export function App() {
   return (
     <ChatProvider components={components} classNames={classNames}>
       {screen}
-      {notice ? <Notice onDismiss={() => setNotice(undefined)}>{notice}</Notice> : null}
+      {notices.length > 0 ? (
+        <div className="safe-bottom fixed inset-x-3 bottom-3 z-50 flex flex-col gap-2">
+          {notices.map((notice) => (
+            <Notice
+              key={notice.id}
+              onDismiss={() => setNotices((all) => all.filter((n) => n !== notice))}
+            >
+              {notice.text}
+            </Notice>
+          ))}
+        </div>
+      ) : null}
     </ChatProvider>
   )
 }

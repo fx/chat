@@ -178,7 +178,7 @@ describe('App', () => {
     }
   })
 
-  it('shows a spoken prompt that could not start a chat, until dismissed', async () => {
+  it('shows each spoken prompt that could not start a chat, until dismissed', async () => {
     const user = userEvent.setup()
     const parked: (string | null)[] = []
     const w = window as { FxAssist?: unknown }
@@ -190,14 +190,20 @@ describe('App', () => {
         (key) => key === 'conversations',
       )
       await act(() => store.load())
-      parked.push('what time is it')
-      act(() => {
-        window.dispatchEvent(new Event('fx-assist'))
-      })
-      const alert = await screen.findByRole('alert')
-      expect(alert.textContent).toContain('“what time is it”: disk full')
+      for (const prompt of ['what time is it', 'and the date']) {
+        parked.push(prompt)
+        act(() => {
+          window.dispatchEvent(new Event('fx-assist'))
+        })
+      }
+      await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2))
+      const [first, second] = screen.getAllByRole('alert') as [HTMLElement, HTMLElement]
+      expect(first.textContent).toContain('“what time is it”: disk full')
+      expect(second.textContent).toContain('“and the date”: disk full')
       expect(endpoint.requests).toHaveLength(0)
-      await user.click(within(alert).getByRole('button', { name: 'Dismiss' }))
+      await user.click(within(first).getByRole('button', { name: 'Dismiss' }))
+      expect(screen.getByRole('alert').textContent).toContain('“and the date”')
+      await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Dismiss' }))
       expect(screen.queryByRole('alert')).toBeNull()
     } finally {
       w.FxAssist = undefined
