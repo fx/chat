@@ -4,7 +4,7 @@
 
 - Add or bump a tool by editing `mise.toml` — never with curl-pipe installers, `rustup` invocations, global `npm i -g`, or ad-hoc downloads.
 - Only what mise cannot manage goes elsewhere: the Android SDK/NDK/emulator are installed by `mise run android:setup` into `.toolchain/` (gitignored, survives `$HOME` wipes); system shared libraries come from the OS package manager.
-- Tasks: `mise run android:setup`, `mise run android:build`, `mise run android:emulator`, `mise run tui:install`.
+- Tasks: `mise run android:setup`, `mise run android:build`, `mise run android:release`, `mise run android:emulator`, `mise run tui:install`.
 
 ## Task Tracking
 

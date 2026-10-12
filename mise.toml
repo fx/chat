@@ -34,6 +34,12 @@ run = "bash scripts/android-setup.sh"
 description = "Build the reference app's debug APK (x86_64 + arm64)"
 run = "bun run build && cd apps/mobile && bunx tauri android build --debug --apk --target x86_64 aarch64"
 
+[tasks."android:release"]
+description = "Build the reference app's signed release APK (arm64 + armv7)"
+# Signed when apps/mobile/src-tauri/gen/android/keystore.properties exists
+# (see apps/mobile/src-tauri/gen/android/app/build.gradle.kts), unsigned otherwise.
+run = "bun run build && cd apps/mobile && bunx tauri android build --apk --target aarch64 armv7"
+
 [tasks."android:emulator"]
 description = "Boot the test emulator"
 run = "emulator -avd fxchat -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect"

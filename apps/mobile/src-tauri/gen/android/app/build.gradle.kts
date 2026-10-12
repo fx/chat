@@ -14,6 +14,20 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing key, read from the gitignored ../keystore.properties (written by
+// the release workflow from repository secrets, or by hand for a local signed build):
+//   storeFile   = keystore path, absolute or relative to keystore.properties
+//   password    = keystore password
+//   keyAlias    = key alias
+//   keyPassword = key password (defaults to `password`)
+// Without the file the release build is left unsigned, so it still builds anywhere.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 37
     namespace = "dev.fx.chat"
@@ -26,6 +40,20 @@ android {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    if (keystorePropertiesFile.exists()) {
+        signingConfigs {
+            create("release") {
+                fun required(key: String): String =
+                    keystoreProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+                        ?: throw GradleException("keystore.properties is missing `$key`")
+                storeFile = rootProject.file(required("storeFile"))
+                storePassword = required("password")
+                keyAlias = required("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                    ?.takeIf { it.isNotBlank() } ?: storePassword
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -42,6 +70,9 @@ android {
             }
         }
         getByName("release") {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                enable = true
             }
