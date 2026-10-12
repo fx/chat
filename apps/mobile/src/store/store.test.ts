@@ -70,7 +70,11 @@ describe('AppStore', () => {
     expect(store.assistantModel()).toEqual({ profile, model: profile.model })
     await store.updateSettings({ assistant: { profileId: 'p2' } })
     expect(store.assistantModel()?.model).toBe('m2')
-    await store.updateSettings({ assistant: { profileId: 'p2', model: 'm3' } })
+    await store.setAssistantModel({ profileId: 'p1', model: profile.model })
+    expect(store.getState().settings.assistant).toEqual({})
+    expect(store.assistantMatchesNewChats()).toBe(true)
+    await store.setAssistantModel({ profileId: 'p2', model: 'm3' })
+    expect(store.assistantMatchesNewChats()).toBe(false)
     expect(await store.createAssistantConversation()).toMatchObject({
       profileId: 'p2',
       model: 'm3',

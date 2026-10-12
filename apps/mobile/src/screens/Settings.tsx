@@ -13,13 +13,13 @@ import {
   MenuRow,
   SecondaryButton,
   Section,
+  Sheet,
   TextArea,
   Toggle,
   errorText,
 } from '../components/ui'
 import { isAssistant, openAssistantSettings } from '../platform'
 import { useAppState, useStore } from '../store/context'
-import type { AssistantSettings } from '../store/types'
 import { ProfileEditor } from './ProfileEditor'
 
 export type SettingsPage = 'endpoints' | 'prompt' | 'tools' | 'assistant' | 'about'
@@ -251,18 +251,18 @@ function useAssistantRole(): boolean | undefined {
 }
 
 function Assistant() {
-  const { settings } = useAppState()
   const store = useStore()
+  useAppState() // re-render when settings change
   const held = useAssistantRole()
-  const { assistant } = settings
+  const [picking, setPicking] = useState(false)
   const target = store.assistantModel()
-  const custom = settings.profiles.some((p) => p.id === assistant.profileId)
+  const same = store.assistantMatchesNewChats()
   // The choice applies at once; a failed write would silently revert it on
   // the next launch, so say so.
   const [saveError, setSaveError] = useState<string>()
-  const save = (next: AssistantSettings) => {
+  const save = (write: Promise<void>) => {
     setSaveError(undefined)
-    store.updateSettings({ assistant: next }).catch((error: unknown) => {
+    write.catch((error: unknown) => {
       setSaveError(`Couldn't save the assistant model: ${errorText(error)}`)
     })
   }
@@ -280,25 +280,36 @@ function Assistant() {
           </SecondaryButton>
         </Section>
       ) : null}
-      <Section title="Model">
+      <MenuRow
+        title="Model"
+        summary={target ? `${target.profile.name} · ${target.model}` : 'No endpoint yet'}
+        onClick={() => setPicking(true)}
+      />
+      <div className="border-b border-border px-4">
         <Toggle
           label="Same as new chats"
-          description={target ? `${target.profile.name} · ${target.model}` : 'No endpoint yet'}
-          checked={!custom}
-          onChange={(same) => {
-            const profile = target?.profile
-            save(same || !profile ? {} : { profileId: profile.id, model: target.model })
-          }}
+          description="Follow the active endpoint and its model."
+          checked={same}
+          // On: follow new chats again. Off means choosing a different model.
+          onChange={(on) => (on ? save(store.updateSettings({ assistant: {} })) : setPicking(true))}
         />
-        {custom ? (
-          <ModelPicker profile={target?.profile} model={target?.model} onChoose={save} />
-        ) : null}
         {saveError ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="pb-3 text-xs text-destructive">
             {saveError}
           </p>
         ) : null}
-      </Section>
+      </div>
+      <Sheet open={picking} onClose={() => setPicking(false)} title="Assistant model" tall>
+        <ModelPicker
+          profile={target?.profile}
+          model={target?.model}
+          active={picking}
+          onChoose={(choice) => {
+            save(store.setAssistantModel(choice))
+            setPicking(false)
+          }}
+        />
+      </Sheet>
     </>
   )
 }

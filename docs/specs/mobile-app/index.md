@@ -37,7 +37,8 @@ visual theme) stays in `apps/mobile`.
   listing fails or the endpoint does not support listing.
 - The model picker MUST be searchable (every term, in the id or name) and SHOULD filter by provider
   and by the capabilities models declare in the listing (tools, reasoning, vision), offering a
-  filter only when some model declares it. Typing an unlisted id MUST stay available, collapsed
+  filter only when some model declares it. A filters panel MUST show every filter in effect,
+  including the capability shortcuts, so its match count is explained by what it shows. Typing an unlisted id MUST stay available, collapsed
   while there is a list to pick from.
 - The API key MUST be stored only on the device, MUST be masked in the UI after entry, MUST NOT be
   written to logs, and MUST be sent only to its own profile's base URL.
@@ -125,7 +126,9 @@ visual theme) stays in `apps/mobile`.
 - A spoken prompt that cannot start a conversation MUST be shown to the user with the error, not
   dropped.
 - The assistant MUST run on the endpoint and model chosen in its settings, or on the active
-  endpoint and its model when none is chosen or the chosen endpoint was deleted.
+  endpoint and its model when none is chosen or the chosen endpoint was deleted. "Same as new
+  chats" MUST reflect whether the two match, not a separate setting: choosing the new-chat model
+  keeps following new chats, choosing another turns it off.
 - Its settings MUST say whether the app is the digital assistant and open the system picker.
 
 ### Settings Menu

@@ -1,8 +1,8 @@
 /**
  * Pick an endpoint and one of its models: a search field with the common
  * capability filters as icon toggles (tools, reasoning, vision), and a
- * filters panel behind a sliders button for the rest — the endpoint to
- * browse and the providers. Typing an id the endpoint does not list is tucked
+ * filters panel behind a sliders button with every filter — the endpoint
+ * to browse, the providers, and the same capabilities. Typing an id the endpoint does not list is tucked
  * away as an advanced option (shown up front when the listing fails). Shared
  * by a conversation's model sheet and the assistant settings.
  */
@@ -111,6 +111,13 @@ export function ModelPicker({
         providers={providerList}
         chosen={chosen}
         onChosen={setChosen}
+        capabilityList={capabilityList}
+        capabilities={capabilities}
+        onToggle={toggle}
+        onClear={() => {
+          setChosen([])
+          setCapabilities([])
+        }}
         matches={browsing ? shown.length : undefined}
         onDone={() => setFiltersOpen(false)}
       />
@@ -222,7 +229,11 @@ export function ModelPicker({
   )
 }
 
-/** The in-depth filters: which endpoint to browse, and which providers. */
+/**
+ * Every filter: which endpoint to browse, which providers, and the
+ * capabilities (also toggled beside the search), so the count it shows is
+ * explained by what it shows.
+ */
 function FiltersPanel({
   profiles,
   browsing,
@@ -230,6 +241,10 @@ function FiltersPanel({
   providers,
   chosen,
   onChosen,
+  capabilityList,
+  capabilities,
+  onToggle,
+  onClear,
   matches,
   onDone,
 }: {
@@ -239,6 +254,10 @@ function FiltersPanel({
   providers: readonly string[]
   chosen: readonly string[]
   onChosen: (providers: string[]) => void
+  capabilityList: readonly Capability[]
+  capabilities: readonly Capability[]
+  onToggle: (capability: Capability) => void
+  onClear: () => void
   matches: number | undefined
   onDone: () => void
 }) {
@@ -268,6 +287,25 @@ function FiltersPanel({
       ) : null}
       {!browsing ? <p className="text-sm text-muted-foreground">Choose an endpoint.</p> : null}
 
+      {capabilityList.length > 0 ? (
+        <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Capabilities
+          </legend>
+          <div className="flex flex-wrap gap-1.5">
+            {capabilityList.map((c) => {
+              const Icon = CAPABILITY_ICONS[c]
+              return (
+                <Chip key={c} pressed={capabilities.includes(c)} onClick={() => onToggle(c)}>
+                  <Icon size={14} />
+                  {CAPABILITIES.find((x) => x.id === c)?.label}
+                </Chip>
+              )
+            })}
+          </div>
+        </fieldset>
+      ) : null}
+
       {providers.length > 1 ? (
         <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
           <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -294,8 +332,8 @@ function FiltersPanel({
 
       {browsing ? (
         <div className="flex gap-2">
-          {chosen.length > 0 ? (
-            <SecondaryButton className="flex-1" onClick={() => onChosen([])}>
+          {chosen.length > 0 || capabilities.length > 0 ? (
+            <SecondaryButton className="flex-1" onClick={onClear}>
               Clear
             </SecondaryButton>
           ) : null}

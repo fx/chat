@@ -108,6 +108,22 @@ describe('ModelPicker', () => {
     expect(rows()).toHaveLength(3)
   })
 
+  it('shows the capability toggles in the panel too, and clears them with the rest', async () => {
+    const user = userEvent.setup()
+    await setup()
+    await screen.findByRole('list', { name: 'Models' })
+    await user.click(screen.getByRole('button', { name: 'Tools' }))
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    const caps = () => within(screen.getByRole('group', { name: 'Capabilities' }))
+    expect(caps().getByRole('button', { name: 'Tools' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(caps().getByRole('button', { name: 'Vision' }))
+    expect(screen.getByRole('button', { name: 'Show 1 models' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(caps().getByRole('button', { name: 'Tools' })).toHaveAttribute('aria-pressed', 'false')
+    await user.click(screen.getByRole('button', { name: 'Show 3 models' }))
+    expect(screen.getByRole('button', { name: 'Vision' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('browses another endpoint from the filters, choosing a model there', async () => {
     const user = userEvent.setup()
     const other: Profile = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }

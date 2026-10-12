@@ -260,13 +260,24 @@ describe('App', () => {
       })
       expect(screen.getByRole('button', { name: 'Change assistant app' })).toBeTruthy()
 
-      await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
-      expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-1' })
-      await user.click(screen.getByRole('button', { name: 'Filters' }))
+      // Choosing the new-chat model keeps following new chats.
+      const same = () => screen.getByRole('switch', { name: /Same as new chats/ })
+      expect(same()).toBeChecked()
+      await user.click(screen.getByRole('button', { name: /^Model Fake · fake-1/ }))
+      await user.click(await screen.findByRole('button', { name: 'fake-1' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(store.getState().settings.assistant).toEqual({})
+      // Turning it off opens the picker; another model turns it off for real.
+      await user.click(same())
+      expect(same()).toBeChecked()
+      await user.click(await screen.findByRole('button', { name: 'Filters' }))
       await user.click(screen.getByRole('button', { name: /^Other/ }))
       await user.click(await screen.findByRole('button', { name: 'Show 2 models' }))
       await user.click(screen.getByRole('button', { name: 'fake-2' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
       expect(store.getState().settings.assistant).toEqual({ profileId: 'p2', model: 'fake-2' })
+      expect(same()).not.toBeChecked()
+      expect(screen.getByRole('button', { name: /^Model Other · fake-2/ })).toBeTruthy()
 
       parked.push('hello')
       act(() => {
@@ -275,6 +286,11 @@ describe('App', () => {
       await waitFor(() => expect(screen.getByText('Sure.')).toBeTruthy())
       expect(store.getState().conversations[0]).toMatchObject({ profileId: 'p2', model: 'fake-2' })
       expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')
+      await act(() => store.updateSettings({ activeProfileId: 'p2' }))
+      // Now new chats use p2's default (fake-1), which differs from fake-2.
+      expect(store.assistantMatchesNewChats()).toBe(false)
+      await act(() => store.saveProfile({ ...other, model: 'fake-2' }))
+      expect(store.assistantMatchesNewChats()).toBe(true)
     } finally {
       w.FxAssist = undefined
     }

@@ -220,6 +220,26 @@ export class AppStore {
     return active && { profile: active, model: active.model }
   }
 
+  /**
+   * Whether the assistant runs on what new chats do (the active endpoint and
+   * its model): by default, or because its own choice is the same.
+   */
+  assistantMatchesNewChats(): boolean {
+    const target = this.assistantModel()
+    const active = this.activeProfile()
+    return target?.profile.id === active?.id && target?.model === active?.model
+  }
+
+  /**
+   * Run the assistant on this endpoint and model. The same as new chats
+   * stores no choice, so the assistant keeps following new chats.
+   */
+  setAssistantModel(choice: { profileId: string; model: string }): Promise<void> {
+    const active = this.activeProfile()
+    const same = choice.profileId === active?.id && choice.model === active.model
+    return this.updateSettings({ assistant: same ? {} : choice })
+  }
+
   /** Start a conversation for a prompt spoken to the assistant. */
   createAssistantConversation(): Promise<ConversationMeta> {
     const target = this.assistantModel()
