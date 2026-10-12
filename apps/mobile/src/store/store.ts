@@ -63,6 +63,7 @@ export function migrate(settings: Settings): Settings {
   const { assistant } = settings
   return {
     ...rest,
+    profiles: settings.profiles.map(({ model: _legacy, ...profile }) => profile),
     defaultModel:
       settings.defaultModel ??
       (active?.model ? { profileId: active.id, model: active.model } : undefined),
@@ -71,6 +72,11 @@ export function migrate(settings: Settings): Settings {
         ? { ...assistant, model: modelOf(assistant.profileId) }
         : assistant,
   }
+}
+
+/** Whether stored settings are in the shape from before the default model. */
+export function isLegacy(settings: Settings): boolean {
+  return 'activeProfileId' in settings || settings.profiles.some((p) => 'model' in p)
 }
 
 const catalogKey = (profileId: string) => `models:${profileId}`
@@ -152,9 +158,16 @@ export class AppStore {
       favorites: { ...DEFAULT_SETTINGS.favorites, ...settings?.favorites },
       assistant: { ...DEFAULT_SETTINGS.assistant, ...settings?.assistant },
     }
+    const legacy = isLegacy(this.settings)
     this.settings = migrate(this.settings)
     this.settingsLoaded = true
     this.publish()
+    if (legacy) {
+      // Store the migrated shape so the legacy fields are gone for good. A
+      // failed write is not fatal: the app runs on the migrated settings, and
+      // the next load migrates again.
+      await this.deps.kv.set(SETTINGS_KEY, this.settings).catch(() => undefined)
+    }
   }
 
   // ── settings & profiles ────────────────────────────────────────────────────

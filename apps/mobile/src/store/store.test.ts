@@ -67,6 +67,39 @@ describe('AppStore', () => {
     ).toBe(undefined)
   })
 
+  it('stores migrated settings at load, without the legacy fields', async () => {
+    const { kv } = await ready([], {
+      settings: {
+        profiles: [{ ...profile, model: 'old-1' }],
+        activeProfileId: 'p1',
+        assistant: {},
+      },
+    })
+    const stored = kv.data.get('settings') as Record<string, unknown>
+    expect(stored).not.toHaveProperty('activeProfileId')
+    expect(stored.profiles).toEqual([profile])
+    expect(stored.defaultModel).toEqual({ profileId: 'p1', model: 'old-1' })
+  })
+
+  it('does not write current settings at load', async () => {
+    const kv = memoryStore({ settings: { profiles: [profile], defaultModel: onFake } })
+    const set = vi.spyOn(kv, 'set')
+    await new AppStore({ kv, fetch: fakeEndpoint([]).fetch }).load()
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('still loads migrated settings when storing them fails', async () => {
+    const kv = memoryStore({
+      settings: { profiles: [{ ...profile, model: 'old-1' }], activeProfileId: 'p1' },
+    })
+    vi.spyOn(kv, 'set').mockRejectedValue(new Error('quota'))
+    const store = new AppStore({ kv, fetch: fakeEndpoint([]).fetch })
+    await store.load()
+    expect(store.getState().loaded).toBe(true)
+    expect(store.getState().settings.defaultModel).toEqual({ profileId: 'p1', model: 'old-1' })
+    expect(store.getState().settings.profiles).toEqual([profile])
+  })
+
   it('manages profiles, and drops what referred to a deleted one', async () => {
     const { store, kv } = await ready()
     const listener = vi.fn()

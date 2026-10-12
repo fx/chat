@@ -33,7 +33,7 @@ This change MUST satisfy the project's standing testing rules (see
 - Models can be starred per endpoint (`Settings.favorites`); starred models list first.
 - An endpoint can be disabled from its editor or from the picker's listing-error notice, and enabled again from the endpoint list (`Profile.disabled`). A disabled endpoint is left out of the picker and never used for new chats or the assistant; chats already on it keep working.
 - `Settings.defaultModel` (`{ profileId, model }`) is what new chats start on. Without one, or with its endpoint deleted or disabled, a new chat opens on the picker and the first model chosen becomes the default (`AppStore.chooseModel`). Endpoints lose their model field and checkmark; "Load models" in the editor becomes a connection test.
-- Stored settings migrate (`migrate`): the active endpoint and its model become the default model, and an assistant choice naming only an endpoint gets that endpoint's old model.
+- Stored settings migrate (`migrate`): the active endpoint and its model become the default model, and an assistant choice naming only an endpoint gets that endpoint's old model. Legacy settings are written back in the migrated shape at load (endpoints lose their model field); current settings are not rewritten, and a failed write leaves the app on the migrated settings.
 - The assistant's model is chosen in a sheet that closes after a pick. "Same as new chats" is shown when the assistant's model equals the default model; choosing the new-chat model stores no separate choice, so the assistant keeps following new chats.
 
 ## Design
