@@ -1,6 +1,6 @@
 {
   "name": "@fx-/chat-shadcn",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A ready-made shadcn/ui look for @fx-/chat: component registry, classNames theme and Tailwind v4 design tokens.",
   "license": "MIT",
   "type": "module",
