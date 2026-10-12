@@ -504,6 +504,44 @@ describe('createClient() tool capability', () => {
     expect(urls).toEqual(['http://cap-bound-0/models', 'http://cap-bound-0/chat/completions'])
   })
 
+  it('keeps the standard listing fields with the right types', async () => {
+    const { fn } = fakeFetch(
+      json({
+        data: [
+          {
+            id: 'full',
+            name: 'Full',
+            owned_by: 'acme',
+            created: 1700000000,
+            context_length: 128000,
+            architecture: { input_modalities: ['text', 'image', 3] },
+            supported_parameters: ['tools'],
+          },
+          {
+            id: 'odd',
+            name: '',
+            owned_by: 4,
+            created: -1,
+            context_length: '8k',
+            architecture: null,
+          },
+        ],
+      }),
+    )
+    expect(await createClient({ baseUrl: 'http://cap-full', fetch: fn }).listModelInfo()).toEqual([
+      {
+        id: 'full',
+        name: 'Full',
+        ownedBy: 'acme',
+        created: 1700000000,
+        contextLength: 128000,
+        inputModalities: ['text', 'image'],
+        supportedParameters: ['tools'],
+      },
+      { id: 'odd' },
+    ])
+  })
+
   it('lists what models declare', async () => {
     const { fn } = fakeFetch(
       json({ data: [{ id: 'b', supported_parameters: ['tools', 7] }, { id: 'a' }] }),

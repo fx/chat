@@ -52,9 +52,24 @@ export class AgentError extends Error {
   }
 }
 
-/** A model the endpoint lists. */
+/**
+ * A model the endpoint lists, with what it declares about itself. Beyond the
+ * OpenAI fields (`id`, `owned_by`, `created`), the rest follow the
+ * OpenRouter listing convention that many gateways share; each is present
+ * only when the endpoint gives it.
+ */
 export interface ModelInfo {
   id: string
+  /** A display name. */
+  name?: string
+  /** Who owns or serves it (`owned_by`). */
+  ownedBy?: string
+  /** When it was added, in Unix seconds. */
+  created?: number
+  /** Its context window, in tokens (`context_length`). */
+  contextLength?: number
+  /** What it takes as input, e.g. `text`, `image` (`architecture.input_modalities`). */
+  inputModalities?: readonly string[]
   /**
    * The request parameters the model takes, when the endpoint says (the
    * OpenRouter `supported_parameters` convention). Without `tools`, the
@@ -153,6 +168,40 @@ function remember(key: string, models: Promise<ModelInfo[]>) {
   catalogs.set(key, models)
 }
 
+/** A model as an endpoint lists it; any field may be missing or mistyped. */
+interface RawModel {
+  id?: unknown
+  name?: unknown
+  owned_by?: unknown
+  created?: unknown
+  context_length?: unknown
+  architecture?: { input_modalities?: unknown } | null
+  supported_parameters?: unknown
+}
+
+const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
+const count = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+const texts = (value: unknown) =>
+  Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : undefined
+
+/** Keep the fields a listing gives with the expected types; drop the rest. */
+function modelInfo(raw: RawModel, id: string): ModelInfo {
+  const fields: { [K in keyof Omit<ModelInfo, 'id'>]-?: ModelInfo[K] | undefined } = {
+    name: text(raw.name),
+    ownedBy: text(raw.owned_by),
+    created: count(raw.created),
+    contextLength: count(raw.context_length),
+    inputModalities: texts(raw.architecture?.input_modalities),
+    supportedParameters: texts(raw.supported_parameters),
+  }
+  const info: ModelInfo = { id }
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) Object.assign(info, { [key]: value })
+  }
+  return info
+}
+
 export function createClient(options: ClientOptions): Client {
   const base = options.baseUrl.trim().replace(/\/+$/, '')
   const doFetch: FetchLike = options.fetch ?? ((input, init) => globalThis.fetch(input, init))
@@ -194,22 +243,13 @@ export function createClient(options: ClientOptions): Client {
     if (!response.ok) throw await errorFrom(response)
     // The body is the endpoint's: anything but `{ data: [...] }` is unexpected.
     const body = (await response.json().catch(() => undefined)) as
-      | { data?: Array<{ id?: unknown; supported_parameters?: unknown } | null> }
+      | { data?: Array<RawModel | null> }
       | null
       | undefined
     if (!Array.isArray(body?.data)) throw new AgentError('Unexpected models response')
     const models: ModelInfo[] = []
     for (const model of body.data) {
-      if (typeof model?.id !== 'string') continue
-      const params = model.supported_parameters
-      models.push(
-        Array.isArray(params)
-          ? {
-              id: model.id,
-              supportedParameters: params.filter((p): p is string => typeof p === 'string'),
-            }
-          : { id: model.id },
-      )
+      if (typeof model?.id === 'string') models.push(modelInfo(model, model.id))
     }
     models.sort((a, b) => a.id.localeCompare(b.id))
     remember(catalogKey, Promise.resolve(models))
