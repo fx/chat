@@ -27,6 +27,8 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - The package MUST be named `@fx/chat-agent`, live at `packages/agent/`, ship ESM + `.d.ts`, and
   depend only on `@fx/chat-core`.
 - It MUST NOT import React, any renderer, or any platform API other than the injected `fetch`.
+  The one exception is the opt-in `indexedDbStore()` persistence adapter, which touches
+  `indexedDB` only when a host chooses it and first reads or writes through it.
 - The HTTP transport MUST be injectable: the host MAY pass its own `fetch` (e.g. a native,
   CORS-exempt fetch on mobile); the global `fetch` is the default.
 
@@ -167,6 +169,28 @@ receives an immutable snapshot after every applied delta.
 - **THEN** the run resolves `aborted`, the reasoning block has a `durationMs`, and the text so far is
   kept.
 
+### Conversation Controller
+
+- The package MUST export `ChatController`, a framework-free conversation controller
+  (`subscribe` / `getState`, usable with `useSyncExternalStore` or any loop) that owns the
+  conversation list, lazily loaded transcripts, active runs, run errors, the tool-approval queue and
+  messages queued while a run streams.
+- Persistence MUST go through an injected `KeyValueStore` (`get` / `set` / `delete`); the package
+  ships `memoryStore()` and the lazily opened `indexedDbStore(name?)`, and the host picks one.
+  Transcript writes are debounced; tool calls left running by a killed process are marked failed on
+  load.
+- Endpoints, models and tool settings MUST stay host-owned: the controller asks
+  `resolveRun(meta)` per conversation for a `RunConfig` (base URL, key, model, system prompt, tools,
+  approvals, extra tools) or `{ blocked }`, which is surfaced as the conversation's run error.
+- `send` and `regenerate` MUST start their run synchronously once the transcript is loaded, so the
+  user message and the run are in state as soon as the call returns. A message sent while a run is
+  active is queued (option `queue`) or dropped; queued messages are sent in order when the run ends,
+  and `unqueue` takes the newest back.
+- Streamed updates MAY be throttled (`updateIntervalMs`); pending updates MUST be applied before an
+  approval is shown and when the run ends. `stop(id)` aborts one run; `dispose()` stops every run.
+- Conversation metadata is generic (`ChatController<M extends ConversationMeta>`): hosts extend it
+  with their own fields (e.g. which endpoint a conversation is bound to).
+
 ## Design
 
 ### Architecture
@@ -178,6 +202,9 @@ createClient({ baseUrl, apiKey?, fetch? })
 runAgent({ client, model, history, tools, approve?, maxSteps, signal, onUpdate })
   loop: encode(history + current turn) → stream → applyEvent* → execute tools → next step
 applyEvent(message, event) → message      (pure; the accumulator, unit-tested in isolation)
+new ChatController({ fetch, resolveRun, kv?, queue?, updateIntervalMs? })
+  state (conversations, transcripts, runs, errors, approvals, queue) ── subscribe/getState
+  send / regenerate ──► resolveRun(meta) ──► runAgent ──► debounced KeyValueStore writes
 ```
 
 The accumulator is pure so it is tested with recorded chunk sequences, no network.
@@ -208,3 +235,4 @@ The accumulator is pure so it is tested with recorded chunk sequences, no networ
 | 2026-10-10 | Initial spec created | [0020-agent-runtime](../../changes/0020-agent-runtime.md) |
 | 2026-10-10 | Built-in tools moved in from the mobile app; abort honoured per event | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Approval state, message outcome, cost/context metrics | [0023-agent-activity-model](../../changes/0023-agent-activity-model.md) |
+| 2026-10-11 | `ChatController` conversation controller; `KeyValueStore` with memory and IndexedDB stores | [0037-chat-controller](../../changes/0037-chat-controller.md) |
