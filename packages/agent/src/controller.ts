@@ -173,6 +173,8 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    * storage, so every write path checks this set.
    */
   private deleted = new Set<string>()
+  /** Set by {@link ChatController.dispose}: no store write, timer, run or approval after it. */
+  private disposed = false
   private readonly kv: KeyValueStore
   private readonly now: () => number
   private readonly newId: (prefix: string) => string
@@ -257,7 +259,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
       errors: without(this.state.errors, id),
       queued: without(this.state.queued, id),
     })
-    await this.kv.delete(messagesKey(id))
+    if (!this.disposed) await this.kv.delete(messagesKey(id))
     await this.saveConversations(this.state.conversations.filter((c) => c.id !== id))
   }
 
@@ -276,7 +278,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   private async saveConversations(conversations: M[]): Promise<void> {
     const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
     this.set({ conversations: sorted })
-    await this.kv.set(CONVERSATIONS_KEY, sorted)
+    if (!this.disposed) await this.kv.set(CONVERSATIONS_KEY, sorted)
   }
 
   // ── transcript persistence ─────────────────────────────────────────────────
@@ -284,7 +286,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   private setMessages(id: string, messages: ChatMessage[]): void {
     if (this.deleted.has(id)) return
     this.set({ messages: { ...this.state.messages, [id]: messages } })
-    if (this.saveTimers.has(id)) return
+    if (this.disposed || this.saveTimers.has(id)) return
     this.saveTimers.set(
       id,
       setTimeout(() => void this.flush(id), this.options.saveDelayMs ?? 400),
@@ -296,16 +298,19 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     this.saveTimers.delete(id)
   }
 
-  /** Write a conversation's transcript now. */
+  /** Write a conversation's transcript now (a no-op once disposed). */
   async flush(id: string): Promise<void> {
     this.cancelSave(id)
     const messages = this.state.messages[id]
-    if (messages && !this.deleted.has(id)) await this.kv.set(messagesKey(id), messages)
+    if (messages && !this.deleted.has(id) && !this.disposed)
+      await this.kv.set(messagesKey(id), messages)
   }
 
   // ── streamed updates ───────────────────────────────────────────────────────
 
   private receive(id: string, message: ChatMessage): void {
+    // A run that keeps streaming after dispose (ignoring its abort) is not shown.
+    if (this.disposed) return
     const updates = this.pending.get(id) ?? new Map<string, ChatMessage>()
     this.pending.set(id, updates)
     updates.set(message.id, message)
@@ -347,13 +352,14 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   /**
    * Send a user message and start an agent turn. While a run is active the
    * message is queued (with `queue`) or dropped; either way this resolves
-   * undefined.
+   * undefined. After dispose nothing is sent.
    */
   async send(
     id: string,
     text: string,
     attachments?: ChatMessage['attachments'],
   ): Promise<RunResult | undefined> {
+    if (this.disposed) return undefined
     // Synchronous up to the run when the transcript is loaded, so a caller
     // sees the user message (and the run) in place as soon as this returns.
     if (!this.state.messages[id]) await this.openConversation(id)
@@ -391,9 +397,11 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
 
   /**
    * Re-run the turn that produced assistant message `messageId`, or the last
-   * turn (everything after the last user message is replaced).
+   * turn (everything after the last user message is replaced). After dispose
+   * nothing is re-run.
    */
   async regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
+    if (this.disposed) return undefined
     if (!this.state.messages[id]) await this.openConversation(id)
     const meta = this.conversation(id)
     const messages = this.state.messages[id]
@@ -431,11 +439,23 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     return last
   }
 
-  /** Stop every run and drop pending timers (the controller stays usable). */
+  /**
+   * Tear down. Pending streamed updates are applied and every pending
+   * (debounced) transcript save is started now rather than dropped; then every
+   * run is stopped. From then on the controller writes nothing to the store,
+   * sets no timer, starts no run (`send` / `regenerate` resolve undefined; a
+   * queued message is not sent), shows no further streamed update and asks no
+   * approval (answered `false`). A stopped run's closing update is therefore
+   * not stored: the transcript is stored as it stood at dispose, and its
+   * unfinished tool calls are marked failed when it next loads. State stays
+   * readable. Calling it again does nothing.
+   */
   dispose(): void {
+    if (this.disposed) return
+    this.applyUpdates()
+    for (const id of [...this.saveTimers.keys()]) void this.flush(id)
+    this.disposed = true
     for (const id of Object.keys(this.state.runs)) this.stop(id)
-    clearTimeout(this.updateTimer)
-    this.updateTimer = undefined
   }
 
   /**
@@ -497,7 +517,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     this.aborts.delete(id)
     // A failed or stopped run is described by the message's own outcome.
     this.set({ runs: without(this.state.runs, id) })
-    if (this.deleted.has(id)) return result
+    if (this.deleted.has(id) || this.disposed) return result
     await this.updateConversation(id, { updatedAt: this.now() } as Partial<Omit<M, 'id'>>)
     await this.flush(id)
     const [next, ...rest] = this.state.queued[id] ?? []
@@ -515,6 +535,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     call: ToolCallBlock,
     signal: AbortSignal,
   ): Promise<boolean> {
+    if (this.disposed) return Promise.resolve(false)
     // Show the transcript as it stands when the question is asked.
     this.applyUpdates()
     return new Promise((resolve) => {

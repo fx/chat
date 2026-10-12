@@ -187,7 +187,13 @@ receives an immutable snapshot after every applied delta.
   active is queued (option `queue`) or dropped; queued messages are sent in order when the run ends,
   and `unqueue` takes the newest back.
 - Streamed updates MAY be throttled (`updateIntervalMs`); pending updates MUST be applied before an
-  approval is shown and when the run ends. `stop(id)` aborts one run; `dispose()` stops every run.
+  approval is shown and when the run ends. `stop(id)` aborts one run.
+- `dispose()` MUST NOT lose pending work: it applies pending streamed updates and starts every
+  pending (debounced) transcript save, then stops every run. After it the controller MUST NOT write
+  to the store, set a timer, start a run (`send` / `regenerate` resolve undefined; queued messages
+  are not sent), apply a streamed update or ask an approval (answered `false`). A stopped run's
+  closing update is therefore not stored; its unfinished tool calls are marked failed on the next
+  load. State stays readable, and a second `dispose()` does nothing.
 - Conversation metadata is generic (`ChatController<M extends ConversationMeta>`): hosts extend it
   with their own fields (e.g. which endpoint a conversation is bound to).
 

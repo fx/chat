@@ -26,6 +26,7 @@ The specs own the behavior. This change owns:
 - `@fx/chat-agent` exports `ChatController<M extends ConversationMeta>` (framework-free `subscribe` / `getState`) with `load`, `openConversation`, `createConversation`, `updateConversation`, `deleteConversation`, `clear`, `flush`, `send`, `regenerate`, `stop`, `unqueue` and `dispose`, plus the `newId` and `titleFrom` helpers and the `ConversationMeta`, `RunConfig`, `RunResolution`, `ControllerOptions`, `ControllerState`, `ActiveRun`, `RunError`, `PendingApproval` and `QueuedMessage` types.
 - Runs are configured per conversation by the host's `resolveRun(meta)`, which returns a `RunConfig` or `{ blocked }` (surfaced as the conversation's run error).
 - Options: `kv` (persistence), `fetch`, `htmlToText`, `now`, `newId`, `run` (injectable `runAgent`), `saveDelayMs` (debounced transcript writes), `updateIntervalMs` (throttled stream updates, flushed before an approval and at run end) and `queue` (queue messages sent during a run, sent in order when it ends).
+- `dispose()` applies pending updates and starts pending saves, then stops every run; nothing runs or writes after it.
 - `send` and `regenerate` start their run synchronously once the transcript is loaded, so the user message and the run are in state as soon as the call returns.
 - `KeyValueStore` with `memoryStore()` and a lazily opened `indexedDbStore(name?)` moves from the mobile app into `@fx/chat-agent`; tool calls left running by a killed app are marked failed when a transcript loads.
 - The mobile app store keeps settings, endpoints and model resolution and delegates conversations, transcripts, runs and approvals to a controller backed by `indexedDbStore`.
@@ -42,6 +43,8 @@ The specs own the behavior. This change owns:
 - **Throttling and queueing are options.** They generalise the terminal app's frame-rate updates and message queue; the mobile app applies every update and drops messages sent during a run, as before.
 - **Runs start synchronously.** Waiting on storage before recording the run let a second `send` race a starting run. With the transcript loaded, the user message and the run are recorded before `send` / `regenerate` return; the agent itself starts once the conversation list is stored, unless the run was stopped or the conversation deleted meanwhile. A conversation deleted while its transcript loads is not run.
 
+- **Dispose is final and loses nothing pending.** `dispose()` applies pending streamed updates and starts every debounced transcript save before stopping runs; afterwards the controller writes nothing, sets no timer, starts no run (queued messages included) and asks no approval. Review fix: the first version cleared only the update timer, so per-conversation save timers and a stopped run's closing writes still reached the store after teardown.
+
 ### Non-Goals
 
 Changes to either app's look, settings or model selection; server-side conversation storage; sharing conversations between hosts.
@@ -52,4 +55,5 @@ Changes to either app's look, settings or model selection; server-side conversat
 - [x] Mobile: build the app store on `ChatController`; drop the app's storage adapter
 - [x] `@fx/chat-agent`: start `send` / `regenerate` runs synchronously
 - [x] `tx chat`: run sessions on `ChatController`
+- [x] Review fix: `dispose()` flushes pending saves and leaves nothing running or writing
 - [x] Specs (chat-agent, mobile-app, terminal-app) and indexes

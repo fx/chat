@@ -563,7 +563,7 @@ describe('ChatController streamed updates', () => {
     expect(text(chat.getState().messages[meta.id]?.[1])).toBe('v6')
   })
 
-  it('stops runs and drops the pending update timer on dispose', async () => {
+  it('applies pending updates, starts pending saves, then stops runs on dispose', async () => {
     let update: (message: ChatMessage) => void = () => {}
     const run = vi.fn(
       (options: RunOptions) =>
@@ -574,15 +574,80 @@ describe('ChatController streamed updates', () => {
           )
         }),
     )
-    const { chat } = setup([], {}, { run, updateIntervalMs: 1000 })
+    const { chat, kv } = setup([], {}, { run, updateIntervalMs: 1000, queue: true })
     const meta = await chat.createConversation({ endpoint: 'ok' })
     const running = chat.send(meta.id, 'go')
     await vi.waitFor(() => expect(run).toHaveBeenCalled())
-    const m: ChatMessage = { id: 'b', role: 'assistant', blocks: [] }
-    update(m)
-    update(m)
+    await chat.send(meta.id, 'queued')
+    const msg = (t: string): ChatMessage => ({
+      id: 'b',
+      role: 'assistant',
+      blocks: [{ type: 'text', id: 't', text: t }],
+    })
+    update(msg('v1'))
+    update(msg('v2'))
+    const set = vi.spyOn(kv, 'set')
     chat.dispose()
+    // The throttled update is applied and the debounced save started at once.
+    expect(text(chat.getState().messages[meta.id]?.[1])).toBe('v2')
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(set).toHaveBeenCalledWith(`messages:${meta.id}`, chat.getState().messages[meta.id])
     expect((await running)?.outcome).toBe('aborted')
+    await vi.runAllTimersAsync()
+    // The stopped run writes nothing more, and the queued message is not sent.
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(chat.getState().runs).toEqual({})
     chat.dispose()
+    expect(set).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes, schedules and runs nothing once disposed', async () => {
+    const { chat, kv } = setup([], {}, { run: heldRun().run })
+    const meta = await chat.createConversation({ endpoint: 'ok' })
+    const set = vi.spyOn(kv, 'set')
+    const del = vi.spyOn(kv, 'delete')
+    chat.dispose()
+    expect(chat.clear(meta.id)).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+    await chat.flush(meta.id)
+    expect(await chat.send(meta.id, 'hi')).toBeUndefined()
+    expect(await chat.regenerate(meta.id)).toBeUndefined()
+    const other = await chat.createConversation({ endpoint: 'ok' })
+    await chat.updateConversation(other.id, { title: 'T' })
+    await chat.deleteConversation(meta.id)
+    expect(set).not.toHaveBeenCalled()
+    expect(del).not.toHaveBeenCalled()
+    expect(chat.getState().conversations.map((c) => c.id)).toEqual([other.id])
+    expect(chat.getState().runs).toEqual({})
+  })
+
+  it('neither shows nor asks about a run that outlives dispose', async () => {
+    let approved: Promise<boolean> | undefined
+    const run = vi.fn(
+      (options: RunOptions) =>
+        new Promise<RunResult>((resolve) => {
+          options.signal?.addEventListener('abort', () => {
+            const late: ChatMessage = { id: 'late', role: 'assistant', blocks: [] }
+            options.onUpdate?.(late)
+            approved = options.approve?.(
+              { type: 'tool_call', id: 'c1', name: 'fetch_url', arguments: {}, status: 'pending' },
+              new AbortController().signal,
+            )
+            resolve({ outcome: 'aborted', message: late })
+          })
+        }),
+    )
+    const { chat } = setup([], {}, { run })
+    const meta = await chat.createConversation({ endpoint: 'ok' })
+    const running = chat.send(meta.id, 'go')
+    await vi.waitFor(() => expect(run).toHaveBeenCalled())
+    chat.dispose()
+    await running
+    expect(await approved).toBe(false)
+    expect(chat.getState().approvals).toEqual([])
+    expect(chat.getState().messages[meta.id]?.map((m) => m.id)).not.toContain('late')
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
