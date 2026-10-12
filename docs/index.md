@@ -55,3 +55,4 @@
 | 0033 | [Host Instances](changes/0033-host-instances.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0028, 0029, 0030, 0031, 0032 |
 | 0034 | [Activity Layout](changes/0034-activity-layout.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0025, 0028, 0033 |
 | 0035 | [Terminal Markdown Element](changes/0035-terminal-markdown-element.md) | [Ink Renderer](specs/ink-renderer/) | complete | 0029 |
+| 0038 | [Android Local Network](changes/0038-android-local-network.md) | [Mobile App](specs/mobile-app/) | complete | 0021 |
