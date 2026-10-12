@@ -77,7 +77,10 @@ export interface ControllerState<M extends ConversationMeta = ConversationMeta> 
   /** Loaded transcripts by conversation id. */
   messages: Record<string, ChatMessage[]>
   runs: Record<string, ActiveRun>
-  /** Why the last run could not start, by conversation id. */
+  /**
+   * Why the last run failed or could not start, or a storage failure while
+   * loading or saving the conversation for a run, by conversation id.
+   */
   errors: Record<string, RunError>
   approvals: PendingApproval[]
   /** Messages waiting for the active run to end, oldest first. */
@@ -110,6 +113,8 @@ export interface ControllerOptions<M extends ConversationMeta = ConversationMeta
 }
 
 const CONVERSATIONS_KEY = 'conversations'
+const LOAD_FAILED = 'Could not load this conversation'
+const SAVE_FAILED = 'Could not save this conversation'
 const messagesKey = (id: string) => `messages:${id}`
 const TITLE_LENGTH = 48
 
@@ -267,9 +272,12 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     })
     // Once disposed nothing is written; the list is only updated in memory.
     const removing = this.disposed ? undefined : this.kv.delete(messagesKey(id))
-    await removing
+    // A failed transcript delete still takes the conversation off the list
+    // (an orphaned transcript is harmless); the failure is rethrown after.
+    const [removed] = await Promise.allSettled([removing])
     if (removing && this.disposed) return // resume point: disposed meanwhile
     await this.saveConversations(this.state.conversations.filter((c) => c.id !== id))
+    if (removed.status === 'rejected') throw removed.reason
   }
 
   /**
@@ -298,13 +306,41 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     if (this.disposed || this.saveTimers.has(id)) return
     this.saveTimers.set(
       id,
-      setTimeout(() => void this.flush(id), this.options.saveDelayMs ?? 400),
+      setTimeout(
+        () => void this.flush(id).catch((thrown) => this.fail(id, thrown, SAVE_FAILED)),
+        this.options.saveDelayMs ?? 400,
+      ),
     )
   }
 
   private cancelSave(id: string): void {
     clearTimeout(this.saveTimers.get(id))
     this.saveTimers.delete(id)
+  }
+
+  /**
+   * Record a storage or run failure as the conversation's error, keeping an
+   * earlier one. Not after dispose, nor for a deleted conversation.
+   */
+  private fail(id: string, thrown: unknown, context?: string): void {
+    if (this.disposed || this.deleted.has(id) || this.state.errors[id]) return
+    const reason = thrown instanceof Error ? thrown.message : String(thrown)
+    const message = context ? `${context}: ${reason}` : reason
+    this.set({ errors: { ...this.state.errors, [id]: { message, at: this.now() } } })
+  }
+
+  /**
+   * Open a transcript for a run: false when it failed to load (recorded as
+   * the conversation's error) or the controller was disposed meanwhile.
+   */
+  private async opened(id: string): Promise<boolean> {
+    try {
+      await this.openConversation(id)
+    } catch (thrown) {
+      this.fail(id, thrown, LOAD_FAILED)
+      return false
+    }
+    return !this.disposed // resume point
   }
 
   /** Write a conversation's transcript now (a no-op once disposed). */
@@ -371,8 +407,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     if (this.disposed) return undefined
     // Synchronous up to the run when the transcript is loaded, so a caller
     // sees the user message (and the run) in place as soon as this returns.
-    if (!this.state.messages[id]) await this.openConversation(id)
-    if (this.disposed) return undefined // resume point
+    if (!this.state.messages[id] && !(await this.opened(id))) return undefined
     const meta = this.conversation(id)
     // Opening leaves no transcript only for a conversation deleted meanwhile.
     const messages = this.state.messages[id]
@@ -412,8 +447,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    */
   async regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
     if (this.disposed) return undefined
-    if (!this.state.messages[id]) await this.openConversation(id)
-    if (this.disposed) return undefined // resume point
+    if (!this.state.messages[id] && !(await this.opened(id))) return undefined
     const meta = this.conversation(id)
     const messages = this.state.messages[id]
     if (!meta || !messages || this.state.runs[id]) return undefined
@@ -467,7 +501,8 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   dispose(): void {
     if (this.disposed) return
     this.applyUpdates()
-    for (const id of [...this.saveTimers.keys()]) void this.flush(id)
+    // A save failing now has no one left to report to.
+    for (const id of [...this.saveTimers.keys()]) void this.flush(id).catch(() => {})
     this.disposed = true
     // Aborting settles each run's pending approvals (as declined).
     for (const id of Object.keys(this.state.runs)) this.stop(id)
@@ -478,7 +513,8 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   /**
    * Run a turn. The run is recorded synchronously; the agent starts once
    * `before` (the caller's pending writes) settles, unless the run was
-   * stopped or its conversation deleted meanwhile.
+   * stopped or its conversation deleted meanwhile, or `before` failed (the
+   * run then ends with that failure as its error). Never rejects.
    */
   private async startRun(
     id: string,
@@ -494,13 +530,17 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
       errors: without(this.state.errors, id),
     })
 
-    await before
+    try {
+      await before
+    } catch (thrown) {
+      return this.endRun(id, undefined, thrown, SAVE_FAILED)
+    }
     // Resume point: stopped, deleted or disposed (which stops every run)
     // while the caller's writes settled.
     if (abort.signal.aborted) return this.endRun(id, undefined)
     const { fetch, htmlToText } = this.options
     let result: RunResult | undefined
-    let error: RunError | undefined
+    let failure: { thrown: unknown } | undefined
     try {
       result = await this.run({
         client: createClient({ baseUrl: config.baseUrl, apiKey: config.apiKey, fetch }),
@@ -521,30 +561,39 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
         onUpdate: (message) => this.receive(id, message),
       })
     } catch (thrown) {
-      error = { message: thrown instanceof Error ? thrown.message : String(thrown), at: this.now() }
+      failure = { thrown }
     }
-    return this.endRun(id, result, error)
+    return failure ? this.endRun(id, result, failure.thrown) : this.endRun(id, result)
   }
 
-  /** Every run ends here, so its resume point after the agent is this guard. */
+  /**
+   * Every run ends here, so its resume point after the agent is this guard.
+   * Never rejects: a failure (`thrown`, or a failed write here) becomes the
+   * conversation's error, and after a failed write the queue waits.
+   */
   private async endRun(
     id: string,
     result: RunResult | undefined,
-    error?: RunError,
+    ...failure: [thrown?: unknown, context?: string]
   ): Promise<RunResult | undefined> {
     if (this.disposed) return result // resume point: dispose already cleared the run
     this.applyUpdates()
     this.aborts.delete(id)
-    // A failed or stopped run is described by the message's own outcome.
-    this.set({
-      runs: without(this.state.runs, id),
-      ...(error ? { errors: { ...this.state.errors, [id]: error } } : {}),
-    })
+    // A stopped run, or one the agent ended in error, is described by the
+    // message's own outcome; a thrown one by the conversation's error.
+    this.set({ runs: without(this.state.runs, id) })
+    if (failure.length > 0) this.fail(id, failure[0], failure[1])
     if (this.deleted.has(id)) return result
-    await this.updateConversation(id, { updatedAt: this.now() } as Partial<Omit<M, 'id'>>)
-    if (this.disposed) return result // resume point
-    await this.flush(id)
-    if (this.disposed) return result // resume point
+    let saved = true
+    try {
+      await this.updateConversation(id, { updatedAt: this.now() } as Partial<Omit<M, 'id'>>)
+      if (this.disposed) return result // resume point
+      await this.flush(id)
+    } catch (thrown) {
+      this.fail(id, thrown, SAVE_FAILED)
+      saved = false
+    }
+    if (this.disposed || !saved) return result // resume point
     const [next, ...rest] = this.state.queued[id] ?? []
     if (next) {
       this.set({ queued: { ...this.state.queued, [id]: rest } })

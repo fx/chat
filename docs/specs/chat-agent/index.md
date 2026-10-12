@@ -197,6 +197,16 @@ receives an immutable snapshot after every applied delta.
   open, a `send` / `regenerate` opening its transcript, a delete, a run's start or end) MUST stop
   where it resumes, without changing state or storage. State stays readable with no active run
   or pending approval, and a second `dispose()` does nothing.
+- Storage failures MUST NOT leave a run stuck or reject unhandled. `send` / `regenerate` (and so a
+  queued send) never reject: a transcript that fails to load records `Could not load this
+  conversation: …` and starts no run; a failed list write before the agent starts ends the run
+  with `Could not save this conversation: …`; a run whose agent throws ends with that error; a
+  failed list or transcript write at run end records the save error and leaves the queue waiting.
+  A failed debounced save records the save error. A storage or run failure never replaces an
+  error already recorded for the conversation (a run start or `clear` resets it). A save failing at `dispose()` is dropped
+  silently. Direct calls (`load`, `openConversation`, `createConversation`, `updateConversation`,
+  `flush`, `deleteConversation`) reject to their caller, leaving state retryable;
+  `deleteConversation` still takes the conversation off the list when its transcript delete fails.
 - Conversation metadata is generic (`ChatController<M extends ConversationMeta>`): hosts extend it
   with their own fields (e.g. which endpoint a conversation is bound to).
 

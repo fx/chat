@@ -49,6 +49,7 @@ function gatedStore(init: Record<string, unknown> = {}) {
   let match: ((key: string) => boolean) | undefined
   let gate = Promise.resolve()
   let open = () => {}
+  let close: (error: Error) => void = () => {}
   const wait = (key: string) => (match?.(key) ? gate : undefined)
   const kv: KeyValueStore = {
     get: async <T>(key: string) => {
@@ -69,15 +70,49 @@ function gatedStore(init: Record<string, unknown> = {}) {
     inner,
     hold(keys: (key: string) => boolean) {
       match = keys
-      gate = new Promise((resolve) => {
+      gate = new Promise((resolve, reject) => {
         open = resolve
+        close = reject
       })
     },
     release() {
       match = undefined
       open()
     },
+    /** Release the held operations as failures. */
+    reject(error = new Error('store down')) {
+      match = undefined
+      close(error)
+    },
   }
+}
+
+/**
+ * A store whose operations fail while `broken` holds a prefix of
+ * `<op>:<key>` (e.g. `set:conversations`, `get:messages:`).
+ */
+function flakyStore(init: Record<string, unknown> = {}) {
+  const inner = memoryStore(init)
+  const broken = new Set<string>()
+  const check = (op: string, key: string) => {
+    for (const prefix of broken)
+      if (`${op}:${key}`.startsWith(prefix)) throw new Error(`${op} failed`)
+  }
+  const kv: KeyValueStore = {
+    get: async <T>(key: string) => {
+      check('get', key)
+      return inner.get<T>(key)
+    },
+    set: async (key, value) => {
+      check('set', key)
+      return inner.set(key, value)
+    },
+    delete: async (key) => {
+      check('delete', key)
+      return inner.delete(key)
+    },
+  }
+  return { kv, inner, broken }
 }
 
 const toolCall = (url = 'https://x.test/') =>
@@ -811,6 +846,184 @@ describe('ChatController streamed updates', () => {
       await vi.runAllTimersAsync()
       expect(held.run).toHaveBeenCalledTimes(1)
       expect(chat.getState().queued[meta.id]).toHaveLength(1)
+    })
+  })
+
+  describe('storage failures', () => {
+    const stored = (id: string): Record<string, unknown> => ({
+      conversations: [{ id, title: 'T', createdAt: 1, updatedAt: 1, endpoint: 'ok' }],
+      [`messages:${id}`]: [
+        { id: 'u1', role: 'user', blocks: [{ type: 'text', id: 't1', text: 'hi' }] },
+      ],
+    })
+
+    it('send: a failed list write ends the run with an error, and a retry works', async () => {
+      const held = heldRun()
+      const store = flakyStore()
+      const chat = new ChatController<Meta>({
+        kv: store.kv,
+        fetch: vi.fn(),
+        resolveRun,
+        run: held.run,
+      })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      store.broken.add('set:conversations')
+      expect(await chat.send(meta.id, 'go')).toBeUndefined()
+      expect(held.run).not.toHaveBeenCalled()
+      expect(chat.getState().runs).toEqual({})
+      expect(chat.stop(meta.id)).toBe(false)
+      expect(chat.getState().errors[meta.id]?.message).toBe(
+        'Could not save this conversation: set failed',
+      )
+      store.broken.clear()
+      const again = chat.send(meta.id, 'again')
+      await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
+      expect(chat.getState().errors[meta.id]).toBeUndefined()
+      held.finish()
+      expect((await again)?.outcome).toBe('complete')
+    })
+
+    it.each(['send', 'regenerate'] as const)(
+      '%s: a failed transcript load is the conversation error',
+      async (action) => {
+        const { run } = heldRun()
+        const store = flakyStore(stored('c1'))
+        const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun, run })
+        await chat.load()
+        store.broken.add('get:messages:')
+        const result = action === 'send' ? chat.send('c1', 'x') : chat.regenerate('c1')
+        expect(await result).toBeUndefined()
+        expect(run).not.toHaveBeenCalled()
+        expect(chat.getState().runs).toEqual({})
+        expect(chat.getState().errors.c1?.message).toBe(
+          'Could not load this conversation: get failed',
+        )
+      },
+    )
+
+    it('a transcript load failing after dispose records nothing', async () => {
+      const store = gatedStore(stored('c1'))
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      await chat.load()
+      store.hold((key) => key.startsWith('messages:'))
+      const sending = chat.send('c1', 'x')
+      chat.dispose()
+      store.reject()
+      expect(await sending).toBeUndefined()
+      expect(chat.getState().errors).toEqual({})
+    })
+
+    it.each([
+      ['list', 'set:conversations'],
+      ['transcript', 'set:messages:'],
+    ])('a failed %s write at run end is the error, and the queue waits', async (_, prefix) => {
+      const held = heldRun()
+      const store = flakyStore()
+      const chat = new ChatController<Meta>({
+        kv: store.kv,
+        fetch: vi.fn(),
+        resolveRun,
+        run: held.run,
+        queue: true,
+      })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      const running = chat.send(meta.id, 'go')
+      await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
+      await chat.send(meta.id, 'queued')
+      store.broken.add(prefix)
+      held.finish()
+      expect((await running)?.outcome).toBe('complete')
+      expect(chat.getState().runs).toEqual({})
+      expect(chat.getState().errors[meta.id]?.message).toBe(
+        'Could not save this conversation: set failed',
+      )
+      expect(held.run).toHaveBeenCalledTimes(1)
+      expect(chat.getState().queued[meta.id]).toHaveLength(1)
+    })
+
+    it('keeps a thrown run error over a later failed write', async () => {
+      const run = vi.fn(async () => {
+        throw new Error('agent broke')
+      })
+      const store = flakyStore()
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun, run })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      const running = chat.send(meta.id, 'go')
+      store.broken.add('set:')
+      expect(await running).toBeUndefined()
+      expect(chat.getState().errors[meta.id]?.message).toBe('agent broke')
+    })
+
+    it('a run-end write failing after dispose records nothing', async () => {
+      const held = heldRun()
+      const store = gatedStore()
+      const chat = new ChatController<Meta>({
+        kv: store.kv,
+        fetch: vi.fn(),
+        resolveRun,
+        run: held.run,
+      })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      const running = chat.send(meta.id, 'go')
+      await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
+      store.hold((key) => key === 'conversations')
+      held.finish()
+      await vi.waitFor(() => expect(chat.getState().runs).toEqual({}))
+      chat.dispose()
+      store.reject()
+      expect((await running)?.outcome).toBe('complete')
+      expect(chat.getState().errors).toEqual({})
+    })
+
+    it('a failed debounced save is the conversation error', async () => {
+      const store = flakyStore()
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      store.broken.add('set:messages:')
+      chat.clear(meta.id)
+      await vi.runAllTimersAsync()
+      expect(chat.getState().errors[meta.id]?.message).toBe(
+        'Could not save this conversation: set failed',
+      )
+    })
+
+    it('a save failing at dispose is swallowed', async () => {
+      const store = flakyStore()
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      chat.clear(meta.id)
+      store.broken.add('set:messages:')
+      chat.dispose()
+      await vi.runAllTimersAsync()
+      expect(chat.getState().errors).toEqual({})
+    })
+
+    it('a failed transcript delete still drops the conversation, then rejects', async () => {
+      const store = flakyStore(stored('c1'))
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      await chat.load()
+      store.broken.add('delete:')
+      await expect(chat.deleteConversation('c1')).rejects.toThrow('delete failed')
+      expect(chat.getState().conversations).toEqual([])
+      expect(store.inner.data.get('conversations')).toEqual([])
+    })
+
+    it('direct calls reject to the caller and can be retried', async () => {
+      const store = flakyStore(stored('c1'))
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      store.broken.add('get:')
+      await expect(chat.load()).rejects.toThrow('get failed')
+      await expect(chat.openConversation('c1')).rejects.toThrow('get failed')
+      expect(chat.getState().loaded).toBe(false)
+      expect(chat.getState().messages.c1).toBeUndefined()
+      store.broken.clear()
+      await chat.load()
+      await chat.openConversation('c1')
+      expect(chat.getState().messages.c1).toHaveLength(1)
+      store.broken.add('set:')
+      await expect(chat.createConversation({ endpoint: 'ok' })).rejects.toThrow('set failed')
+      await expect(chat.flush('c1')).rejects.toThrow('set failed')
+      expect(chat.getState().conversations).toHaveLength(2)
     })
   })
 })
