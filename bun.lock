@@ -84,14 +84,14 @@
     },
     "packages/agent": {
       "name": "@fx-/chat-agent",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fx-/chat-core": "workspace:*",
       },
     },
     "packages/chat": {
       "name": "@fx-/chat",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fx-/chat-core": "workspace:*",
       },
@@ -102,7 +102,7 @@
     },
     "packages/core": {
       "name": "@fx-/chat-core",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "peerDependencies": {
         "react": "^18.2.0 || ^19.0.0",
       },
@@ -112,7 +112,7 @@
     },
     "packages/ink": {
       "name": "@fx-/chat-ink",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fx-/chat-core": "workspace:*",
         "string-width": "8.3.0",
@@ -136,7 +136,7 @@
     },
     "packages/shadcn": {
       "name": "@fx-/chat-shadcn",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@radix-ui/react-avatar": "1.1.2",
         "@radix-ui/react-collapsible": "1.1.2",
