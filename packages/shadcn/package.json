@@ -1,11 +1,16 @@
 {
   "name": "@fx-/chat-shadcn",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A ready-made shadcn/ui look for @fx-/chat: component registry, classNames theme and Tailwind v4 design tokens.",
   "license": "MIT",
   "type": "module",
-  "sideEffects": ["**/*.css"],
-  "files": ["dist", "src/theme.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "src/theme.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
