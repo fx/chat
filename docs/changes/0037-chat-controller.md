@@ -49,7 +49,7 @@ The specs own the behavior. This change owns:
 
 - **Storage failures end runs cleanly.** Third review fix: a rejected pre-start write left the run recorded (and its abort controller held) forever. Every rejection in a run's life (the pre-start list write, the agent, the list write and transcript flush at its end, a transcript load in `send` / `regenerate`) now ends or refuses the run and records the conversation's error. A failed write at run end also holds the queue. A failed debounced save records an error, and a save failing at dispose is dropped. Direct calls reject to their caller without wedging state.
 
-- **Host callbacks cannot wedge a run.** Fourth review fix: a throwing `resolveRun` rejected `send` / `regenerate` and made a queued dispatch an unhandled rejection. `resolveRun` failures (a throw or a promise) are now recorded like a blocked run. A synchronously throwing `run` is the run's error. Subscribers are isolated, with a listener's error rethrown from a microtask. `now` and `newId` are documented as must-not-throw.
+- **Host callbacks cannot wedge a run.** Fourth review fix: a throwing `resolveRun` rejected `send` / `regenerate` and made a queued dispatch an unhandled rejection. `resolveRun` failures (a throw or a promise) are now recorded like a blocked run. A synchronously throwing `run` is the run's error. Subscribers are isolated, with a listener's error rethrown from a microtask. `now` and `newId` are documented as must-not-throw. Fifth review fix: error text uses the agent loop's total `errorMessage` (a null-prototype object or a throwing `toString` becomes `Unknown error`), and a non-object `resolveRun` answer is recorded rather than thrown.
 
 ### Non-Goals
 

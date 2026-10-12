@@ -213,7 +213,10 @@ receives an immutable snapshot after every applied delta.
   send. A `run` (agent loop) that throws or rejects ends the run with that error. A subscriber
   that throws does not stop other subscribers or the controller; its error is rethrown from a
   microtask. `fetch`, `htmlToText` and extra tools are called by the agent loop, which turns their
-  failures into tool or run outcomes. `now` and `newId` MUST NOT throw.
+  failures into tool or run outcomes. `now` and `newId` MUST NOT throw. Error text for any thrown
+  value (including a null-prototype object or one whose `toString` throws) MUST be formed without
+  throwing, falling back to `Unknown error`; a `resolveRun` answer that is not an object is a
+  `Could not start this run` error.
 - Conversation metadata is generic (`ChatController<M extends ConversationMeta>`): hosts extend it
   with their own fields (e.g. which endpoint a conversation is bound to).
 

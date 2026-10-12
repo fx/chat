@@ -10,7 +10,7 @@
  */
 import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
 import { type FetchLike, createClient } from './client'
-import { type RunResult, runAgent } from './run'
+import { type RunResult, errorMessage, runAgent } from './run'
 import { type KeyValueStore, memoryStore } from './storage'
 import { type ToolId, buildTools } from './tools/builtin'
 import type { AgentTool } from './types'
@@ -123,8 +123,11 @@ const LOAD_FAILED = 'Could not load this conversation'
 const SAVE_FAILED = 'Could not save this conversation'
 const RESOLVE_FAILED = 'Could not start this run'
 
+const UNKNOWN_ERROR = 'Unknown error'
+
+/** Text for a thrown value; never throws (see {@link errorMessage}). */
 function describe(thrown: unknown, context?: string): string {
-  const reason = thrown instanceof Error ? thrown.message : String(thrown)
+  const reason = errorMessage(thrown, UNKNOWN_ERROR)
   return context ? `${context}: ${reason}` : reason
 }
 const messagesKey = (id: string) => `messages:${id}`
@@ -417,18 +420,21 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    */
   private resolve(id: string, meta: M): Exclude<RunResolution, { blocked: string }> | undefined {
     let resolution: RunResolution
+    let blocked: boolean
     try {
       resolution = this.options.resolveRun(meta)
       if (resolution instanceof Promise) {
         resolution.catch(() => {})
         throw new TypeError('resolveRun must answer synchronously')
       }
+      // Throws for an answer that is not an object.
+      blocked = 'blocked' in resolution
     } catch (thrown) {
       this.setError(id, describe(thrown, RESOLVE_FAILED))
       return undefined
     }
-    if (!('blocked' in resolution)) return resolution
-    this.setError(id, resolution.blocked)
+    if (!blocked) return resolution as RunConfig
+    this.setError(id, (resolution as { blocked: string }).blocked)
     return undefined
   }
 

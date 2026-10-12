@@ -71,7 +71,7 @@ function toWireTools(tools: readonly AgentTool[]): WireTool[] {
  * form cannot be read (a throwing getter or `toString`, a null-prototype
  * object) yields `fallback`.
  */
-function errorMessage(error: unknown, fallback: string): string {
+export function errorMessage(error: unknown, fallback: string): string {
   try {
     if (error instanceof Error) {
       const message: unknown = error.message

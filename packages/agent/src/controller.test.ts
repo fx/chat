@@ -1056,6 +1056,45 @@ describe('ChatController streamed updates', () => {
       },
     )
 
+    it.each([
+      ['a null-prototype object', Object.create(null), 'Unknown error'],
+      [
+        'an object whose toString throws',
+        {
+          toString() {
+            throw new Error('nope')
+          },
+        },
+        'Unknown error',
+      ],
+      ['a symbol', Symbol('odd'), 'Symbol(odd)'],
+      ['undefined', undefined, 'undefined'],
+    ])('describes %s thrown by a host without throwing', async (_, value, reason) => {
+      const thrower = () => {
+        throw value
+      }
+      const resolving = setup([], {}, { resolveRun: thrower }).chat
+      const meta = await resolving.createConversation()
+      expect(await resolving.send(meta.id, 'x')).toBeUndefined()
+      expect(resolving.getState().errors[meta.id]?.message).toBe(
+        `Could not start this run: ${reason}`,
+      )
+      const running = setup([], {}, { run: thrower as never }).chat
+      const other = await running.createConversation({ endpoint: 'ok' })
+      expect(await running.send(other.id, 'x')).toBeUndefined()
+      expect(running.getState().errors[other.id]?.message).toBe(reason)
+      expect(running.getState().runs).toEqual({})
+    })
+
+    it('a resolveRun answering a non-object is an error', async () => {
+      const { run } = heldRun()
+      const { chat } = setup([], {}, { run, resolveRun: (() => undefined) as never })
+      const meta = await chat.createConversation()
+      expect(await chat.send(meta.id, 'x')).toBeUndefined()
+      expect(chat.getState().errors[meta.id]?.message).toMatch(/^Could not start this run: /)
+      expect(run).not.toHaveBeenCalled()
+    })
+
     it('a resolveRun answering a promise is an error, and its rejection is handled', async () => {
       const { run } = heldRun()
       const asyncResolve = (() => Promise.reject(new Error('later'))) as never
