@@ -1,16 +1,17 @@
 /**
- * Pick an endpoint and one of its models: a search field with the common
- * capability filters as icon toggles (tools, reasoning, vision), and a
- * filters panel behind a sliders button with every filter — the endpoint
- * to browse, the providers, and the same capabilities. Typing an id the endpoint does not list is tucked
- * away as an advanced option (shown up front when the listing fails). Shared
- * by a conversation's model sheet and the assistant settings.
+ * Pick a model from every endpoint at once: one list (each row says which
+ * endpoint it is on, when there are several), a search field with the
+ * common capability filters as icon toggles (tools, reasoning, vision), and
+ * a filters panel behind a sliders button with every filter — endpoints,
+ * providers, favorites and the same capabilities. Choosing a model binds to
+ * its endpoint. Typing an id no endpoint lists is tucked away as an advanced
+ * option (shown up front when nothing is listed). Shared by a conversation's
+ * model sheet and the assistant settings.
  */
 import type { ModelInfo } from '@fx/chat-agent'
 import { cn } from '@fx/chat-shadcn'
 import {
   Brain,
-  Check,
   ChevronLeft,
   Eye,
   RefreshCw,
@@ -40,10 +41,84 @@ export interface ModelChoice {
   model: string
 }
 
+/** A listed model, with the endpoint (profile) that lists it. */
+interface ModelEntry extends ModelInfo {
+  profileId: string
+}
+
+/** One endpoint's listing as the picker has it. */
+interface Listing {
+  catalog?: ModelCatalog | undefined
+  loading: boolean
+  error?: string | undefined
+}
+
+const entryKey = (entry: { profileId: string; id: string }) => `${entry.profileId}\n${entry.id}`
+
 const CAPABILITY_ICONS: Record<Capability, typeof Wrench> = {
   tools: Wrench,
   reasoning: Brain,
   vision: Eye,
+}
+
+/**
+ * Every endpoint's cached listing, fetched where there is none or it is
+ * old, while `active`; `refresh` fetches one again.
+ */
+function useListings(profiles: readonly Profile[], active: boolean) {
+  const store = useStore()
+  const [listings, setListings] = useState<Record<string, Listing>>({})
+  const fetching = useRef(new Map<string, AbortController>())
+  const update = useCallback(
+    (id: string, patch: Partial<Listing>) =>
+      setListings((all) => ({ ...all, [id]: { loading: false, ...all[id], ...patch } })),
+    [],
+  )
+
+  const refresh = useCallback(
+    (profile: Profile) => {
+      fetching.current.get(profile.id)?.abort()
+      const controller = new AbortController()
+      fetching.current.set(profile.id, controller)
+      update(profile.id, { loading: true, error: undefined })
+      store.refreshModels(profile, controller.signal).then(
+        (catalog) => {
+          if (!controller.signal.aborted) update(profile.id, { catalog, loading: false })
+        },
+        (e: unknown) => {
+          if (controller.signal.aborted) return
+          update(profile.id, { loading: false, error: e instanceof Error ? e.message : String(e) })
+        },
+      )
+    },
+    [store, update],
+  )
+
+  // Only an endpoint's URL or key changes its listing, not other settings.
+  const key = profiles.map((p) => `${p.id}\n${p.baseUrl}\n${p.apiKey}`).join('\n\n')
+  const latest = useRef(profiles)
+  latest.current = profiles
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the profiles' endpoints
+  useEffect(() => {
+    if (!active) return
+    let current = true
+    const controllers = fetching.current
+    setListings({})
+    for (const profile of latest.current) {
+      void store.cachedModels(profile).then((cached) => {
+        if (!current) return
+        if (cached) update(profile.id, { catalog: cached })
+        if (!cached || Date.now() - cached.fetchedAt > CATALOG_MAX_AGE_MS) refresh(profile)
+      })
+    }
+    return () => {
+      current = false
+      for (const controller of controllers.values()) controller.abort()
+      controllers.clear()
+    }
+  }, [active, key, store, refresh, update])
+
+  return { listings, refresh }
 }
 
 export function ModelPicker({
@@ -52,7 +127,7 @@ export function ModelPicker({
   active = true,
   onChoose,
 }: {
-  /** The current endpoint; browsing starts there. */
+  /** The current endpoint, with `model` the current choice on it. */
   profile: Profile | undefined
   model: string | undefined
   /** List models only while shown (a closed sheet stays quiet). */
@@ -61,14 +136,10 @@ export function ModelPicker({
 }) {
   const { settings } = useAppState()
   const store = useStore()
-  // The endpoint being browsed: models are only ever listed from the current
-  // endpoint or one the user picked in the filters.
-  const [browseId, setBrowseId] = useState(profile?.id)
-  const browsing = settings.profiles.find((p) => p.id === browseId)
-  const [catalog, setCatalog] = useState<ModelCatalog>()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>()
+  const { profiles } = settings
+  const { listings, refresh } = useListings(profiles, active)
   const [query, setQuery] = useState('')
+  const [endpoints, setEndpoints] = useState<string[]>([])
   const [chosen, setChosen] = useState<string[]>([])
   const [capabilities, setCapabilities] = useState<Capability[]>([])
   const [favoritesOnly, setFavoritesOnly] = useState(false)
@@ -77,80 +148,81 @@ export function ModelPicker({
   // filter icons back (and leaves the search).
   const [searching, setSearching] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
-  const fetching = useRef<AbortController | null>(null)
 
-  useEffect(() => setBrowseId(profile?.id), [profile?.id])
-
-  const refresh = useCallback(
-    (target: Profile) => {
-      fetching.current?.abort()
-      const controller = new AbortController()
-      fetching.current = controller
-      setLoading(true)
-      setError(undefined)
-      store
-        .refreshModels(target, controller.signal)
-        .then((fresh) => {
-          if (!controller.signal.aborted) setCatalog(fresh)
-        })
-        .catch((e: unknown) => {
-          if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e))
-        })
-        .finally(() => {
-          if (fetching.current === controller) setLoading(false)
-        })
-    },
-    [store],
-  )
-
-  // Show the cached listing at once; fetch when there is none or it is old.
-  useEffect(() => {
-    if (!active || !browsing) return
-    let current = true
-    setError(undefined)
-    // Never offer the previous endpoint's models (or its providers) under this one.
-    setCatalog(undefined)
-    setChosen([])
-    void store.cachedModels(browsing).then((cached) => {
-      if (!current) return
-      if (cached) setCatalog(cached)
-      if (!cached || Date.now() - cached.fetchedAt > CATALOG_MAX_AGE_MS) refresh(browsing)
-    })
-    return () => {
-      current = false
-      fetching.current?.abort()
+  // One list across the chosen endpoints (all by default), by id.
+  const listed = useMemo(() => {
+    const order = new Map(profiles.map((p, i) => [p.id, i]))
+    const entries: ModelEntry[] = []
+    for (const p of profiles) {
+      if (endpoints.length > 0 && !endpoints.includes(p.id)) continue
+      for (const info of listings[p.id]?.catalog?.models ?? []) {
+        entries.push({ ...info, profileId: p.id })
+      }
     }
-  }, [active, browsing, store, refresh])
-
-  const models = catalog?.models
-  const listed = useMemo(() => models ?? [], [models])
+    return entries.sort(
+      (a, b) =>
+        a.id.localeCompare(b.id) ||
+        (order.get(a.profileId) as number) - (order.get(b.profileId) as number),
+    )
+  }, [profiles, listings, endpoints])
   const providerList = useMemo(() => providers(listed), [listed])
   const capabilityList = useMemo(() => knownCapabilities(listed), [listed])
-  const starred = browsing ? settings.favorites[browsing.id] : undefined
-  const favorites = useMemo(() => new Set(starred), [starred])
+  const { favorites } = settings
   const shown = useMemo(
     () =>
-      filterModels(listed, { query, providers: chosen, capabilities, favorites, favoritesOnly }),
-    [listed, query, chosen, capabilities, favorites, favoritesOnly],
+      filterModels(listed, {
+        query,
+        providers: chosen,
+        capabilities,
+        favoritesOnly,
+        isFavorite: (m) => favorites[m.profileId]?.includes(m.id) ?? false,
+      }),
+    [listed, query, chosen, capabilities, favoritesOnly, favorites],
   )
   const toggle = (capability: Capability) =>
     setCapabilities((on) =>
       on.includes(capability) ? on.filter((c) => c !== capability) : [...on, capability],
     )
-  const choose = (id: string) => browsing && onChoose({ profileId: browsing.id, model: id })
   const filtering =
-    query.trim() !== '' || chosen.length > 0 || capabilities.length > 0 || favoritesOnly
-  const current = browsing?.id === profile?.id ? model : undefined
-  const panelCount =
-    chosen.length + (favoritesOnly ? 1 : 0) + (browsing && browsing.id !== profile?.id ? 1 : 0)
+    query.trim() !== '' ||
+    endpoints.length > 0 ||
+    chosen.length > 0 ||
+    capabilities.length > 0 ||
+    favoritesOnly
+  const panelCount = endpoints.length + chosen.length + (favoritesOnly ? 1 : 0)
+  const current = profile && model ? entryKey({ profileId: profile.id, id: model }) : undefined
+  const names = useMemo(
+    () => (profiles.length > 1 ? new Map(profiles.map((p) => [p.id, p.name])) : undefined),
+    [profiles],
+  )
 
-  if (filtersOpen || !browsing) {
+  const states = profiles
+    .filter((p) => endpoints.length === 0 || endpoints.includes(p.id))
+    .map((p) => ({ profile: p, listing: listings[p.id] }))
+  const loading = states.some((s) => s.listing?.loading)
+  const failed = states.filter((s) => s.listing?.error)
+  const pending = states.some((s) => !s.listing?.catalog && !s.listing?.error)
+  const fetchedAt = states
+    .map((s) => s.listing?.catalog?.fetchedAt)
+    .filter((t): t is number => t !== undefined)
+  const oldest = fetchedAt.length > 0 ? Math.min(...fetchedAt) : undefined
+  // Typing an id binds to the one endpoint in view, else the current one.
+  const manualTarget =
+    (endpoints.length === 1 ? profiles.find((p) => p.id === endpoints[0]) : undefined) ??
+    profile ??
+    profiles[0]
+
+  if (profiles.length === 0) {
+    return <p className="text-sm text-muted-foreground">Set up an endpoint in Settings first.</p>
+  }
+
+  if (filtersOpen) {
     return (
       <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         <FiltersPanel
-          profiles={settings.profiles}
-          browsing={browsing}
-          onBrowse={setBrowseId}
+          profiles={profiles}
+          endpoints={endpoints}
+          onEndpoints={setEndpoints}
           providers={providerList}
           chosen={chosen}
           onChosen={setChosen}
@@ -160,11 +232,12 @@ export function ModelPicker({
           favoritesOnly={favoritesOnly}
           onFavoritesOnly={setFavoritesOnly}
           onClear={() => {
+            setEndpoints([])
             setChosen([])
             setCapabilities([])
             setFavoritesOnly(false)
           }}
-          matches={browsing ? shown.length : undefined}
+          matches={shown.length}
           onDone={() => setFiltersOpen(false)}
         />
       </div>
@@ -260,16 +333,23 @@ export function ModelPicker({
             className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground"
           >
             {[
-              settings.profiles.length > 1 ? browsing.name : undefined,
+              endpoints.length > 0
+                ? endpoints.length > 2
+                  ? `${endpoints.length} endpoints`
+                  : endpoints.map((id) => names?.get(id)).join(', ')
+                : undefined,
               favoritesOnly ? 'favorites' : undefined,
               chosen.length > 2 ? `${chosen.length} providers` : chosen.join(', '),
-              models
+              listed.length > 0 || !pending
                 ? filtering
                   ? `${shown.length} of ${listed.length}`
                   : `${listed.length} models`
                 : undefined,
-              catalog && !loading ? `updated ${ago(Date.now() - catalog.fetchedAt)}` : undefined,
-              loading && catalog ? 'refreshing…' : undefined,
+              loading
+                ? 'refreshing…'
+                : oldest !== undefined
+                  ? `updated ${ago(Date.now() - oldest)}`
+                  : undefined,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -279,37 +359,61 @@ export function ModelPicker({
             aria-label="Refresh models"
             title="Refresh models"
             disabled={loading}
-            onClick={() => refresh(browsing)}
+            onClick={() => {
+              for (const s of states) refresh(s.profile)
+            }}
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted disabled:opacity-60"
           >
             <RefreshCw size={14} className={loading ? 'motion-safe:animate-spin' : undefined} />
           </button>
         </div>
+        {failed.map(({ profile: p, listing }) => (
+          <p key={p.id} className="flex items-center gap-1 px-3 text-xs text-destructive">
+            <span className="min-w-0 flex-1 truncate" title={listing?.error}>
+              Couldn’t list {p.name}: {listing?.error}
+            </span>
+            <button
+              type="button"
+              onClick={() => refresh(p)}
+              className="min-h-9 shrink-0 px-2 font-medium underline-offset-4 active:underline"
+            >
+              Retry
+            </button>
+          </p>
+        ))}
       </div>
 
       <ModelList
         models={shown}
         current={current}
-        onChoose={choose}
-        favorites={favorites}
-        onToggleFavorite={(id) => void store.toggleFavorite(browsing.id, id)}
-        resetKey={`${query}\n${chosen.join()}\n${capabilities.join()}\n${favoritesOnly}`}
+        names={names}
+        isFavorite={(m) => favorites[m.profileId]?.includes(m.id) ?? false}
+        onChoose={(m) => onChoose({ profileId: m.profileId, model: m.id })}
+        onToggleFavorite={(m) => void store.toggleFavorite(m.profileId, m.id)}
+        resetKey={`${query}\n${endpoints.join()}\n${chosen.join()}\n${capabilities.join()}\n${favoritesOnly}`}
       >
-        {error ? <p className="px-1 pt-2 text-xs text-destructive">{error}</p> : null}
-        {models === undefined && !error ? (
+        {listed.length === 0 && pending ? (
           <p className="px-1 pt-2 text-sm text-muted-foreground">Loading models…</p>
         ) : null}
-        {models?.length === 0 ? (
-          <p className="px-1 pt-2 text-sm text-muted-foreground">The endpoint lists no models.</p>
+        {listed.length === 0 && !pending && failed.length < states.length ? (
+          <p className="px-1 pt-2 text-sm text-muted-foreground">No models listed.</p>
         ) : null}
-        {models && models.length > 0 && shown.length === 0 ? (
+        {listed.length > 0 && shown.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            {favoritesOnly && favorites.size === 0
+            {favoritesOnly &&
+            !shown.length &&
+            !listed.some((m) => favorites[m.profileId]?.includes(m.id))
               ? 'No favorites yet. Star a model to keep it here.'
               : 'No models match.'}
           </p>
         ) : null}
-        <ManualModel open={Boolean(error) || models?.length === 0} onUse={(id) => choose(id)} />
+        {manualTarget ? (
+          <ManualModel
+            open={listed.length === 0 && !pending}
+            endpoint={profiles.length > 1 ? manualTarget.name : undefined}
+            onUse={(id) => onChoose({ profileId: manualTarget.id, model: id })}
+          />
+        ) : null}
       </ModelList>
     </div>
   )
@@ -340,17 +444,21 @@ const FALLBACK_HEIGHT = 800
 function ModelList({
   models,
   current,
+  names,
+  isFavorite,
   onChoose,
-  favorites,
   onToggleFavorite,
   resetKey,
   children,
 }: {
-  models: readonly ModelInfo[]
+  models: readonly ModelEntry[]
+  /** The current model's `entryKey`. */
   current: string | undefined
-  onChoose: (id: string) => void
-  favorites: ReadonlySet<string>
-  onToggleFavorite: (id: string) => void
+  /** Endpoint names by profile id, when there are several to tell apart. */
+  names: ReadonlyMap<string, string> | undefined
+  isFavorite: (model: ModelEntry) => boolean
+  onChoose: (model: ModelEntry) => void
+  onToggleFavorite: (model: ModelEntry) => void
   resetKey: string
   children: ReactNode
 }) {
@@ -382,7 +490,7 @@ function ModelList({
   useEffect(() => {
     if (opened.current || models.length === 0) return
     opened.current = true
-    const index = models.findIndex((m) => m.id === current)
+    const index = models.findIndex((m) => entryKey(m) === current)
     const el = scroller.current as HTMLDivElement
     if (index > 0) el.scrollTop = index * ROW_HEIGHT - (el.clientHeight - ROW_HEIGHT) / 2
     measure()
@@ -410,16 +518,17 @@ function ModelList({
         <ul aria-label="Models" className="relative" style={{ height: models.length * ROW_HEIGHT }}>
           {models.slice(first, last).map((m, i) => (
             <li
-              key={m.id}
+              key={entryKey(m)}
               className="absolute inset-x-0"
               style={{ top: (first + i) * ROW_HEIGHT, height: ROW_HEIGHT }}
             >
               <ModelRow
                 info={m}
-                selected={m.id === current}
-                onChoose={() => onChoose(m.id)}
-                favorite={favorites.has(m.id)}
-                onToggleFavorite={() => onToggleFavorite(m.id)}
+                endpoint={names?.get(m.profileId)}
+                selected={entryKey(m) === current}
+                onChoose={() => onChoose(m)}
+                favorite={isFavorite(m)}
+                onToggleFavorite={() => onToggleFavorite(m)}
               />
             </li>
           ))}
@@ -431,14 +540,14 @@ function ModelList({
 }
 
 /**
- * Every filter: which endpoint to browse, which providers, and the
- * capabilities (also toggled beside the search), so the count it shows is
- * explained by what it shows.
+ * Every filter: endpoints, favorites and capabilities (also toggled beside
+ * the search), and providers, so the count it shows is explained by what it
+ * shows. Several endpoints or providers match any of them; none means all.
  */
 function FiltersPanel({
   profiles,
-  browsing,
-  onBrowse,
+  endpoints,
+  onEndpoints,
   providers,
   chosen,
   onChosen,
@@ -452,8 +561,8 @@ function FiltersPanel({
   onDone,
 }: {
   profiles: readonly Profile[]
-  browsing: Profile | undefined
-  onBrowse: (id: string) => void
+  endpoints: readonly string[]
+  onEndpoints: (ids: string[]) => void
   providers: readonly string[]
   chosen: readonly string[]
   onChosen: (providers: string[]) => void
@@ -463,112 +572,119 @@ function FiltersPanel({
   favoritesOnly: boolean
   onFavoritesOnly: (on: boolean) => void
   onClear: () => void
-  matches: number | undefined
+  matches: number
   onDone: () => void
 }) {
   return (
     <div className="flex flex-col gap-4">
-      {profiles.length > 1 || !browsing ? (
-        <fieldset className="m-0 flex min-w-0 flex-col border-0 p-0">
-          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Endpoint
-          </legend>
-          {profiles.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={p.id === browsing?.id}
-              onClick={() => onBrowse(p.id)}
-              className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-left active:bg-muted"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{p.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">{p.baseUrl}</span>
-              </span>
-              {p.id === browsing?.id ? <Check size={18} className="shrink-0 text-primary" /> : null}
-            </button>
-          ))}
-        </fieldset>
+      {profiles.length > 1 ? (
+        <ChipGroup
+          legend="Endpoint"
+          options={profiles.map((p) => ({ id: p.id, label: p.name }))}
+          on={endpoints}
+          onChange={onEndpoints}
+        />
       ) : null}
-      {!browsing ? <p className="text-sm text-muted-foreground">Choose an endpoint.</p> : null}
 
-      {browsing ? (
-        <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Show
-          </legend>
-          <div className="flex flex-wrap gap-1.5">
-            <Chip pressed={favoritesOnly} onClick={() => onFavoritesOnly(!favoritesOnly)}>
-              <Star size={14} className={favoritesOnly ? 'fill-current' : undefined} />
-              Favorites
-            </Chip>
-            {capabilityList.map((c) => {
-              const Icon = CAPABILITY_ICONS[c]
-              return (
-                <Chip key={c} pressed={capabilities.includes(c)} onClick={() => onToggle(c)}>
-                  <Icon size={14} />
-                  {CAPABILITIES.find((x) => x.id === c)?.label}
-                </Chip>
-              )
-            })}
-          </div>
-        </fieldset>
-      ) : null}
+      <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+        <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Show
+        </legend>
+        <div className="flex flex-wrap gap-1.5">
+          <Chip pressed={favoritesOnly} onClick={() => onFavoritesOnly(!favoritesOnly)}>
+            <Star size={14} className={favoritesOnly ? 'fill-current' : undefined} />
+            Favorites
+          </Chip>
+          {capabilityList.map((c) => {
+            const Icon = CAPABILITY_ICONS[c]
+            return (
+              <Chip key={c} pressed={capabilities.includes(c)} onClick={() => onToggle(c)}>
+                <Icon size={14} />
+                {CAPABILITIES.find((x) => x.id === c)?.label}
+              </Chip>
+            )
+          })}
+        </div>
+      </fieldset>
 
       {providers.length > 1 ? (
-        <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Provider
-          </legend>
-          <div className="flex flex-wrap gap-1.5">
-            <Chip pressed={chosen.length === 0} onClick={() => onChosen([])}>
-              All
-            </Chip>
-            {providers.map((p) => (
-              <Chip
-                key={p}
-                pressed={chosen.includes(p)}
-                onClick={() =>
-                  onChosen(chosen.includes(p) ? chosen.filter((c) => c !== p) : [...chosen, p])
-                }
-              >
-                {p}
-              </Chip>
-            ))}
-          </div>
-        </fieldset>
+        <ChipGroup
+          legend="Provider"
+          options={providers.map((p) => ({ id: p, label: p }))}
+          on={chosen}
+          onChange={onChosen}
+        />
       ) : null}
 
-      {browsing ? (
-        <div className="flex gap-2">
-          {chosen.length > 0 || capabilities.length > 0 || favoritesOnly ? (
-            <SecondaryButton className="flex-1" onClick={onClear}>
-              Clear
-            </SecondaryButton>
-          ) : null}
-          <PrimaryButton className="flex-1" onClick={onDone}>
-            {matches === undefined ? 'Show models' : `Show ${matches} models`}
-          </PrimaryButton>
-        </div>
-      ) : null}
+      <div className="flex gap-2">
+        {endpoints.length > 0 || chosen.length > 0 || capabilities.length > 0 || favoritesOnly ? (
+          <SecondaryButton className="flex-1" onClick={onClear}>
+            Clear
+          </SecondaryButton>
+        ) : null}
+        <PrimaryButton className="flex-1" onClick={onDone}>
+          {`Show ${matches} models`}
+        </PrimaryButton>
+      </div>
     </div>
+  )
+}
+
+/** A multi-select chip group with "All" (none chosen) first. */
+function ChipGroup({
+  legend,
+  options,
+  on,
+  onChange,
+}: {
+  legend: string
+  options: readonly { id: string; label: string }[]
+  on: readonly string[]
+  onChange: (ids: string[]) => void
+}) {
+  return (
+    <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+      <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {legend}
+      </legend>
+      <div className="flex flex-wrap gap-1.5">
+        <Chip pressed={on.length === 0} onClick={() => onChange([])}>
+          All
+        </Chip>
+        {options.map((o) => (
+          <Chip
+            key={o.id}
+            pressed={on.includes(o.id)}
+            onClick={() =>
+              onChange(on.includes(o.id) ? on.filter((x) => x !== o.id) : [...on, o.id])
+            }
+          >
+            {o.label}
+          </Chip>
+        ))}
+      </div>
+    </fieldset>
   )
 }
 
 function ModelRow({
   info,
+  endpoint,
   selected,
   onChoose,
   favorite,
   onToggleFavorite,
 }: {
   info: ModelInfo
+  /** The endpoint's name, when there are several. */
+  endpoint: string | undefined
   selected: boolean
   onChoose: () => void
   favorite: boolean
   onToggleFavorite: () => void
 }) {
   const facts = [
+    endpoint,
     info.name ? info.id : undefined,
     info.contextLength && formatContext(info.contextLength),
   ]
@@ -604,7 +720,7 @@ function ModelRow({
       </button>
       <button
         type="button"
-        aria-label={favorite ? `Unstar ${name}` : `Star ${name}`}
+        aria-label={`${favorite ? 'Unstar' : 'Star'} ${name}${endpoint ? ` on ${endpoint}` : ''}`}
         aria-pressed={favorite}
         onClick={onToggleFavorite}
         className={cn(
@@ -618,8 +734,17 @@ function ModelRow({
   )
 }
 
-/** Use an id the endpoint does not list; collapsed unless there is no list to pick from. */
-function ManualModel({ open, onUse }: { open: boolean; onUse: (id: string) => void }) {
+/** Use an id no endpoint lists; collapsed unless there is no list to pick from. */
+function ManualModel({
+  open,
+  endpoint,
+  onUse,
+}: {
+  open: boolean
+  /** The endpoint it binds to, named when there are several. */
+  endpoint: string | undefined
+  onUse: (id: string) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const [typed, setTyped] = useState('')
   if (!open && !expanded) {
@@ -643,7 +768,7 @@ function ManualModel({ open, onUse }: { open: boolean; onUse: (id: string) => vo
     >
       <input
         aria-label="Model id"
-        placeholder="Type a model id"
+        placeholder={endpoint ? `Model id on ${endpoint}` : 'Type a model id'}
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}

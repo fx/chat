@@ -110,11 +110,9 @@ describe('App', () => {
     await user.click(await screen.findByText('reply'))
     expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
 
+    // Every endpoint's models are listed; each row says which endpoint it is on.
     await user.click(screen.getByRole('button', { name: 'Change model' }))
-    expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
-    expect(endpoint.requests).toHaveLength(0)
-    await user.click(screen.getByRole('button', { name: /^Other/ }))
-    await user.click(await screen.findByRole('button', { name: 'fake-1' }))
+    await user.click(await screen.findByRole('button', { name: 'fake-1 Other' }))
     expect(store.conversation('c1')).toMatchObject({ profileId: 'p2', model: 'fake-1' })
     // Still selected from the tap above: its footer now offers regenerate.
     await user.click(await screen.findByRole('button', { name: 'Regenerate' }))
@@ -269,16 +267,13 @@ describe('App', () => {
       const same = () => screen.getByRole('switch', { name: /Same as new chats/ })
       expect(same()).toBeChecked()
       await user.click(screen.getByRole('button', { name: /^Model Fake · fake-1/ }))
-      await user.click(await screen.findByRole('button', { name: 'fake-1' }))
+      await user.click(await screen.findByRole('button', { name: 'fake-1 Fake' }))
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(store.getState().settings.assistant).toEqual({})
       // Turning it off opens the picker; another model turns it off for real.
       await user.click(same())
       expect(same()).toBeChecked()
-      await user.click(await screen.findByRole('button', { name: 'Filters' }))
-      await user.click(screen.getByRole('button', { name: /^Other/ }))
-      await user.click(await screen.findByRole('button', { name: 'Show 2 models' }))
-      await user.click(screen.getByRole('button', { name: 'fake-2' }))
+      await user.click(await screen.findByRole('button', { name: 'fake-2 Other' }))
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(store.getState().settings.assistant).toEqual({ profileId: 'p2', model: 'fake-2' })
       expect(same()).not.toBeChecked()

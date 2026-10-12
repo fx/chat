@@ -35,6 +35,10 @@ visual theme) stays in `apps/mobile`.
   OPTIONAL API key, and default model, and choose the active profile.
 - The app MUST offer the endpoint's model list for selection, and MUST allow typing a model id when
   listing fails or the endpoint does not support listing.
+- The model picker MUST list the models of every endpoint at once, each row naming its endpoint
+  when there are several, and choosing one MUST bind the conversation to that endpoint. An
+  endpoint that cannot be listed MUST NOT hide the others' models; it is named with a retry. The
+  filters MUST include the endpoints (any of several; all by default).
 - The model picker MUST be searchable (every term, in the id or name) and SHOULD filter by provider
   and by the capabilities models declare in the listing (tools, reasoning, vision), offering a
   filter only when some model declares it. A filters panel MUST show every filter in effect,
@@ -204,3 +208,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-12 | Model picker search and filters | — |
 | 2026-10-12 | Cached, refreshable model listings; windowed picker list | — |
 | 2026-10-12 | Model favorites | — |
+| 2026-10-12 | One model list across all endpoints | — |

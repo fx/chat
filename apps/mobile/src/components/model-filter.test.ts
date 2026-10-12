@@ -75,8 +75,9 @@ describe('model filters', () => {
 
   it('lists favorites first, or only them', () => {
     const favorites = new Set(['bare', 'anthropic/claude'])
+    const isFavorite = (m: ModelInfo) => favorites.has(m.id)
     const ids = (favoritesOnly: boolean) =>
-      filterModels(models, { query: '', capabilities: [], favorites, favoritesOnly }).map(
+      filterModels(models, { query: '', capabilities: [], isFavorite, favoritesOnly }).map(
         (m) => m.id,
       )
     expect(ids(false)).toEqual([

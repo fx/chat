@@ -47,13 +47,13 @@ export function knownCapabilities(models: readonly ModelInfo[]): Capability[] {
   )
 }
 
-export interface ModelFilter {
+export interface ModelFilter<M extends ModelInfo = ModelInfo> {
   query: string
   /** Any of these providers; none means all. */
   providers?: readonly string[] | undefined
   capabilities: readonly Capability[]
-  /** Starred model ids: listed first. */
-  favorites?: ReadonlySet<string> | undefined
+  /** Whether a model is starred: starred ones list first. */
+  isFavorite?: ((model: M) => boolean) | undefined
   /** Only the starred models. */
   favoritesOnly?: boolean | undefined
 }
@@ -62,22 +62,21 @@ export interface ModelFilter {
  * The models matching every search term (in the id or name), any chosen
  * provider, all capabilities and (when asked) the favorites; favorites first.
  */
-export function filterModels(models: readonly ModelInfo[], filter: ModelFilter): ModelInfo[] {
+export function filterModels<M extends ModelInfo>(
+  models: readonly M[],
+  filter: ModelFilter<M>,
+): M[] {
   const terms = filter.query.toLowerCase().split(/\s+/).filter(Boolean)
-  const favorites = filter.favorites ?? new Set<string>()
+  const starred = filter.isFavorite ?? (() => false)
   const matches = models.filter((model) => {
-    if (filter.favoritesOnly && !favorites.has(model.id)) return false
+    if (filter.favoritesOnly && !starred(model)) return false
     const chosen = filter.providers
     if (chosen?.length && !chosen.includes(providerOf(model) as string)) return false
     if (filter.capabilities.some((c) => !declares(model, c))) return false
     const haystack = `${model.id} ${model.name ?? ''}`.toLowerCase()
     return terms.every((term) => haystack.includes(term))
   })
-  if (favorites.size === 0) return matches
-  return [
-    ...matches.filter((m) => favorites.has(m.id)),
-    ...matches.filter((m) => !favorites.has(m.id)),
-  ]
+  return [...matches.filter(starred), ...matches.filter((m) => !starred(m))]
 }
 
 /** A context window in short form: `8K`, `131K`, `1M`, `1.5M`. */
