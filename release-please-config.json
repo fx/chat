@@ -18,6 +18,21 @@
         { "type": "generic", "path": "packages/chat/src/index.ts" },
         {
           "type": "json",
+          "path": "apps/mobile/src-tauri/tauri.conf.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "toml",
+          "path": "apps/mobile/src-tauri/Cargo.toml",
+          "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "apps/mobile/src-tauri/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='fx-chat')].version"
+        },
+        {
+          "type": "json",
           "path": "apps/tui/package.json",
           "jsonpath": "$.dependencies['@fx-/chat-agent']"
         },

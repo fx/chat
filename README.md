@@ -54,6 +54,11 @@ package at the same version (npm trusted publishing, with provenance).
 npm install @fx-/chat
 ```
 
+Each release also carries the Android reference app: download `fx-chat-<version>.apk` from the
+release's assets on GitHub, open it on the phone and allow installs from that source when Android
+asks. Every release is signed with the same key, so a newer APK installs over an older one and
+keeps its data. The release app id is `dev.fx.chat`, so it installs alongside the `.debug` build.
+
 ## Public entry points
 
 `@fx-/chat` exposes three subpath exports:

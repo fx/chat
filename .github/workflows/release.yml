@@ -1,8 +1,9 @@
 # Release `@fx-/chat-core`, `@fx-/chat`, `@fx-/chat-agent`, `@fx-/chat-ink` and
-# `@fx-/chat-shadcn` to npm, in lockstep.
+# `@fx-/chat-shadcn` to npm, in lockstep, and attach the reference app's signed
+# Android APK to the GitHub release.
 #
 # release-please keeps a release pull request open on `main`; merging it tags
-# the release, and only then are the packages published.
+# the release, and only then are the packages published and the APK built.
 name: Release
 
 on:
@@ -142,3 +143,88 @@ jobs:
             "
             npm publish "$tarball"
           done
+
+  android:
+    needs: release-please
+    # Same gate as `publish`: only a merged release pull request ships an APK.
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # `gh release upload` attaches the APK to the release release-please created.
+      contents: write
+      # `bun install` resolves `@fx/ui` (the demo's fx-ui registry) from GitHub Packages.
+      packages: read
+    steps:
+      - name: Check out the released tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          persist-credentials: false
+
+      # mise-first: bun, node, Java and Rust (+ Android targets) from mise.toml.
+      - uses: jdx/mise-action@v2
+
+      - name: Install Android SDK and NDK
+        run: mise run android:setup --no-emulator
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          # `.npmrc` authenticates the `@fx` GitHub Packages registry with this.
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Every release must be signed with the same key, or installed copies
+      # cannot be upgraded in place. Without the key the build would silently
+      # fall back to an unsigned APK (see gen/android/app/build.gradle.kts), so
+      # missing secrets fail the job here instead.
+      - name: Install the release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Repository secret ANDROID_KEYSTORE_BASE64 is not set"
+            exit 1
+          fi
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "::error::Repository secret ANDROID_KEYSTORE_PASSWORD is not set"
+            exit 1
+          fi
+          # keystore.properties is a Java properties file, where a backslash
+          # starts an escape sequence and would corrupt the password.
+          case "$ANDROID_KEYSTORE_PASSWORD" in
+            *\\*) echo "::error::ANDROID_KEYSTORE_PASSWORD must not contain a backslash"; exit 1 ;;
+          esac
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            printf 'password=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=fx-chat"
+          } > apps/mobile/src-tauri/gen/android/keystore.properties
+
+      - name: Build the release APK
+        run: mise run android:release
+
+      # The APK is checked before it is attached: an unsigned APK cannot be
+      # installed, and a version that does not match the tag means
+      # release-please did not bump tauri.conf.json.
+      - name: Attach the APK to the release
+        env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?ANDROID_HOME is not set; mise-action exports it from mise.toml}"
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          version="${TAG#v}"
+          apk="$RUNNER_TEMP/fx-chat-$version.apk"
+          cp apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk "$apk"
+          "$build_tools/apksigner" verify --print-certs "$apk"
+          version_name=$("$build_tools/aapt" dump badging "$apk" | sed -n "s/^package: .* versionName='\([^']*\)'.*/\1/p")
+          if [ "$version_name" != "$version" ]; then
+            echo "::error::APK versionName is '$version_name', expected '$version'"
+            exit 1
+          fi
+          gh release upload "$TAG" "$apk" --clobber --repo "$GITHUB_REPOSITORY"
