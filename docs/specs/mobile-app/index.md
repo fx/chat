@@ -101,6 +101,9 @@ visual theme) stays in `apps/mobile`.
 - The user MUST be able to copy a message and regenerate the last assistant turn.
 - The user SHOULD be able to attach images from the device to a message; they MUST be sent to the
   endpoint as image inputs.
+- A picked image that cannot be read MUST NOT fail silently: the readable ones attach, and the app
+  MUST say how many could not be read. The notice clears on the next pick that reads every image, or
+  on send.
 
 #### Scenario: Stop mid-stream
 
@@ -218,3 +221,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-12 | One model list across all endpoints | [0045-model-picker](../../changes/0045-model-picker.md) |
 | 2026-10-12 | Disable endpoints | [0045-model-picker](../../changes/0045-model-picker.md) |
 | 2026-10-12 | Default model replaces the active endpoint | [0045-model-picker](../../changes/0045-model-picker.md) |
+| 2026-10-12 | Say when a picked image cannot be read | [0046-unreadable-images](../../changes/0046-unreadable-images.md) |

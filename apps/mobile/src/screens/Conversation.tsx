@@ -23,6 +23,63 @@ function readAsDataUrl(file: Blob): Promise<string> {
   })
 }
 
+/**
+ * Read picked files as attachments. Non-images are skipped; a file that
+ * cannot be read (the picker's grant can fail) is counted, not thrown.
+ */
+export async function readAttachments(
+  files: File[],
+): Promise<{ added: Attachment[]; failed: number }> {
+  const results = await Promise.allSettled(files.map(fileToAttachment))
+  const added: Attachment[] = []
+  let failed = 0
+  for (const result of results) {
+    if (result.status === 'rejected') failed++
+    else if (result.value) added.push(result.value)
+  }
+  return { added, failed }
+}
+
+/** What to tell the user when picked images could not be read. */
+export function unreadable(count: number): string {
+  return `Couldn’t read ${count === 1 ? 'that image' : `${count} of those images`}. Try picking ${count === 1 ? 'it' : 'them'} again.`
+}
+
+/**
+ * The composer's picked images and the notice about any that could not be
+ * read. The notice shows after a pick with unreadable images and clears on the
+ * next pick that reads every image (picking again is the fix) or on send.
+ *
+ * Reading is async, so a pick can settle late. A pick's images append unless
+ * a send (`clear`) came after the pick started; the notice is the newest
+ * pick's, so an older pick settling later neither sets nor clears it.
+ */
+export function usePickedImages(read = readAttachments) {
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [error, setError] = useState<string>()
+  // Bumped by every send and every pick: a pick applies its images only while
+  // `sent` is unchanged, and its notice only while it is also the newest pick.
+  const sent = useRef(0)
+  const picks = useRef(0)
+  const add = useCallback(
+    async (files: File[]) => {
+      const draft = sent.current
+      const pick = ++picks.current
+      const { added, failed } = await read(files)
+      if (draft !== sent.current) return
+      setAttachments((current) => [...current, ...added])
+      if (pick === picks.current) setError(failed > 0 ? unreadable(failed) : undefined)
+    },
+    [read],
+  )
+  const clear = useCallback(() => {
+    sent.current++
+    setAttachments([])
+    setError(undefined)
+  }, [])
+  return { attachments, setAttachments, error, add, clear }
+}
+
 /** Turn a picked image into a (downscaled) data-URL attachment. */
 export async function fileToAttachment(file: File): Promise<Attachment | undefined> {
   if (!file.type.startsWith('image/')) return undefined
@@ -74,7 +131,7 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const blocker = meta ? store.runBlocker(meta) : undefined
   const blocked = Boolean(blocker)
   const approval = state.approvals.find((a) => a.conversationId === id)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const picked = usePickedImages()
   // A chat with no model (no default model yet) opens on the model picker.
   const [pickerOpen, setPickerOpen] = useState(() => meta !== undefined && !meta.model)
   // The one assistant message whose footer shows (tap a message to show it).
@@ -132,13 +189,6 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
       ],
     }
   }, [error, run, store, id, blocked])
-
-  const onAddFiles = useCallback(async (files: File[]) => {
-    const added = (await Promise.all(files.map(fileToAttachment))).filter(
-      (a): a is Attachment => a !== undefined,
-    )
-    setAttachments((current) => [...current, ...added])
-  }, [])
 
   if (!meta) {
     return (
@@ -217,17 +267,22 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
       {approval ? <ApprovalBar approval={approval} /> : null}
 
       <div className="safe-bottom shrink-0 border-t border-border bg-background px-3 pt-2 pb-2">
+        {picked.error ? (
+          <p role="alert" className="px-1 pb-1.5 text-xs text-destructive">
+            {picked.error}
+          </p>
+        ) : null}
         <ChatInput
           onSend={(text, sent) => {
             followRef.current = true
-            setAttachments([])
+            picked.clear()
             void store.send(id, text, sent)
           }}
           onStop={() => store.stop(id)}
           isStreaming={Boolean(run)}
-          attachments={attachments}
-          onAttachmentsChange={setAttachments}
-          onAddFiles={(files) => void onAddFiles(files)}
+          attachments={picked.attachments}
+          onAttachmentsChange={picked.setAttachments}
+          onAddFiles={(files) => void picked.add(files)}
           accept="image/*"
           maxLines={6}
           placeholder={blocker ?? 'Message'}

@@ -1,6 +1,14 @@
+import type { Attachment } from '@fx/chat'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { conversationStyle, selectionAfterTap, useFinishTransition } from './Conversation'
+import {
+  conversationStyle,
+  readAttachments,
+  selectionAfterTap,
+  unreadable,
+  useFinishTransition,
+  usePickedImages,
+} from './Conversation'
 
 function transcript() {
   const log = document.createElement('div')
@@ -16,6 +24,109 @@ function transcript() {
     selectionAfterTap({ target: at(selector), currentTarget: log }, current)
   return { tap }
 }
+
+describe('usePickedImages', () => {
+  it('says when a pick has unreadable images, and clears once a pick reads them all', async () => {
+    const restore = stubFileReading()
+    try {
+      const { result } = renderHook(() => usePickedImages())
+      await act(() => result.current.add([image(), broken()]))
+      expect(result.current.attachments).toHaveLength(1)
+      expect(result.current.error).toBe(unreadable(1))
+      // Picking again is the fix for a failed picker grant.
+      await act(() => result.current.add([image('c.png')]))
+      expect(result.current.attachments).toHaveLength(2)
+      expect(result.current.error).toBeUndefined()
+    } finally {
+      restore()
+    }
+  })
+
+  it('clears the images and the notice on send', async () => {
+    const restore = stubFileReading()
+    try {
+      const { result } = renderHook(() => usePickedImages())
+      await act(() => result.current.add([image(), broken()]))
+      act(() => result.current.clear())
+      expect(result.current.attachments).toEqual([])
+      expect(result.current.error).toBeUndefined()
+    } finally {
+      restore()
+    }
+  })
+})
+
+describe('usePickedImages with reads settling late', () => {
+  const att = (id: string) => ({ id, kind: 'image', url: `data:image/png,${id}` }) as Attachment
+  /** A reader whose reads settle when the test says so. */
+  function deferredReads() {
+    const pending: Array<(result: { added: Attachment[]; failed: number }) => void> = []
+    const read = vi.fn(
+      () =>
+        new Promise<{ added: Attachment[]; failed: number }>((resolve) => {
+          pending.push(resolve)
+        }),
+    )
+    return { read, pending }
+  }
+
+  it('drops a pick still being read when the message is sent', async () => {
+    const { read, pending } = deferredReads()
+    const { result } = renderHook(() => usePickedImages(read))
+    let picked!: Promise<void>
+    act(() => {
+      picked = result.current.add([])
+    })
+    act(() => result.current.clear())
+    await act(async () => {
+      pending[0]?.({ added: [att('a')], failed: 1 })
+      await picked
+    })
+    expect(result.current.attachments).toEqual([])
+    expect(result.current.error).toBeUndefined()
+  })
+
+  it('appends every pick, but shows only the newest pick’s notice', async () => {
+    const { read, pending } = deferredReads()
+    const { result } = renderHook(() => usePickedImages(read))
+    let older!: Promise<void>
+    let newer!: Promise<void>
+    act(() => {
+      older = result.current.add([])
+      newer = result.current.add([])
+    })
+    await act(async () => {
+      pending[1]?.({ added: [att('new')], failed: 1 })
+      await newer
+    })
+    expect(result.current.error).toBe(unreadable(1))
+    // The older pick read cleanly but settled last: its image still attaches,
+    // and it does not clear the newer pick's notice.
+    await act(async () => {
+      pending[0]?.({ added: [att('old')], failed: 0 })
+      await older
+    })
+    expect(result.current.attachments.map((a) => a.id)).toEqual(['new', 'old'])
+    expect(result.current.error).toBe(unreadable(1))
+  })
+
+  it('does not let an older failed pick raise a notice over a newer clean one', async () => {
+    const { read, pending } = deferredReads()
+    const { result } = renderHook(() => usePickedImages(read))
+    let older!: Promise<void>
+    let newer!: Promise<void>
+    act(() => {
+      older = result.current.add([])
+      newer = result.current.add([])
+    })
+    await act(async () => {
+      pending[1]?.({ added: [att('new')], failed: 0 })
+      pending[0]?.({ added: [], failed: 2 })
+      await Promise.all([older, newer])
+    })
+    expect(result.current.error).toBeUndefined()
+  })
+})
 
 describe('selectionAfterTap', () => {
   it('selects the tapped assistant message, and moves to another', () => {
@@ -151,5 +262,57 @@ describe('useFinishTransition', () => {
       expect(result.current).toBeUndefined()
       expect(start).not.toHaveBeenCalled()
     }
+  })
+})
+
+/**
+ * jsdom decodes no images (downscaling falls back to the original), and a file
+ * named `b.png` fails to read, as when the picker's grant failed.
+ */
+function stubFileReading() {
+  vi.stubGlobal(
+    'Image',
+    class {
+      onerror?: () => void
+      set src(_: string) {
+        queueMicrotask(() => this.onerror?.())
+      }
+    },
+  )
+  const original = FileReader.prototype.readAsDataURL
+  FileReader.prototype.readAsDataURL = function (this: FileReader, blob: Blob) {
+    if ((blob as File).name === 'b.png') {
+      Object.defineProperty(this, 'error', { value: new DOMException('gone', 'NotFoundError') })
+      queueMicrotask(() => this.onerror?.(new ProgressEvent('error')))
+      return
+    }
+    original.call(this, blob)
+  }
+  return () => {
+    FileReader.prototype.readAsDataURL = original
+    vi.unstubAllGlobals()
+  }
+}
+
+const image = (name = 'a.png') => new File([new Uint8Array([1, 2, 3])], name, { type: 'image/png' })
+const broken = () => new File([], 'b.png', { type: 'image/png' })
+
+describe('readAttachments', () => {
+  it('reads images, skips other files, and counts the ones it cannot read', async () => {
+    const text = new File(['x'], 'a.txt', { type: 'text/plain' })
+    const restore = stubFileReading()
+    try {
+      const { added, failed } = await readAttachments([image(), text, broken()])
+      expect(added).toHaveLength(1)
+      expect(added[0]?.url).toMatch(/^data:image\/png/)
+      expect(failed).toBe(1)
+    } finally {
+      restore()
+    }
+  })
+
+  it('says how many could not be read', () => {
+    expect(unreadable(1)).toBe('Couldn’t read that image. Try picking it again.')
+    expect(unreadable(2)).toBe('Couldn’t read 2 of those images. Try picking them again.')
   })
 })
