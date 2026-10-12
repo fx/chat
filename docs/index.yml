@@ -356,3 +356,10 @@ changes:
     spec: chat-agent
     status: complete
     depends_on: ["0039"]
+  - id: "0045"
+    name: model-picker
+    path: changes/0045-model-picker.md
+    description: "Android model picker: search, capability and provider/endpoint filters, favourites, cached windowed list across every enabled endpoint; disable endpoints; a default model replaces the default endpoint"
+    spec: mobile-app
+    status: complete
+    depends_on: ["0039", "0042", "0043", "0044"]

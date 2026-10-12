@@ -212,9 +212,9 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-11 | App store built on `ChatController`; IndexedDB store moved into `@fx/chat-agent` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
 | 2026-10-11 | Digital assistant | [0043-digital-assistant](../../changes/0043-digital-assistant.md) |
 | 2026-10-12 | Settings sub-menus; assistant model | [0043-digital-assistant](../../changes/0043-digital-assistant.md) |
-| 2026-10-12 | Model picker search and filters | — |
-| 2026-10-12 | Cached, refreshable model listings; windowed picker list | — |
-| 2026-10-12 | Model favorites | — |
-| 2026-10-12 | One model list across all endpoints | — |
-| 2026-10-12 | Disable endpoints | — |
-| 2026-10-12 | Default model replaces the active endpoint | — |
+| 2026-10-12 | Model picker search and filters | [0045-model-picker](../../changes/0045-model-picker.md) |
+| 2026-10-12 | Cached, refreshable model listings; windowed picker list | [0045-model-picker](../../changes/0045-model-picker.md) |
+| 2026-10-12 | Model favorites | [0045-model-picker](../../changes/0045-model-picker.md) |
+| 2026-10-12 | One model list across all endpoints | [0045-model-picker](../../changes/0045-model-picker.md) |
+| 2026-10-12 | Disable endpoints | [0045-model-picker](../../changes/0045-model-picker.md) |
+| 2026-10-12 | Default model replaces the active endpoint | [0045-model-picker](../../changes/0045-model-picker.md) |
