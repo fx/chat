@@ -293,3 +293,10 @@ changes:
     spec: ink-renderer
     status: complete
     depends_on: ["0029"]
+  - id: "0038"
+    name: android-local-network
+    path: changes/0038-android-local-network.md
+    description: "Request Android 17's local-network permission at launch; host keyboard on the fxchat AVD"
+    spec: mobile-app
+    status: complete
+    depends_on: ["0021"]

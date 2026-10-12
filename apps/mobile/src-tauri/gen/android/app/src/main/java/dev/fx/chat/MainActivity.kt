@@ -1,5 +1,7 @@
 package dev.fx.chat
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import androidx.activity.enableEdgeToEdge
@@ -24,5 +26,24 @@ class MainActivity : TauriActivity() {
       view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       WindowInsetsCompat.CONSUMED
     }
+    requestLocalNetwork()
+  }
+
+  /**
+   * Android 17 (API 37) blocks connections to local-network addresses unless
+   * the app holds ACCESS_LOCAL_NETWORK. Endpoints are often on the LAN (a home
+   * server, or a public name that split DNS resolves to one), so ask at every
+   * launch until it is granted; after repeated denials Android stops showing
+   * the dialog.
+   */
+  private fun requestLocalNetwork() {
+    if (Build.VERSION.SDK_INT < 37) return
+    if (checkSelfPermission(LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED) return
+    requestPermissions(arrayOf(LOCAL_NETWORK), LOCAL_NETWORK_REQUEST)
+  }
+
+  private companion object {
+    const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
+    const val LOCAL_NETWORK_REQUEST = 1
   }
 }

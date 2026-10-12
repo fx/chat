@@ -34,4 +34,6 @@ if ! "$ANDROID_HOME/emulator/emulator" -list-avds | grep -qx fxchat; then
   echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
     -n fxchat -k "system-images;android-35;google_apis;x86_64" -d pixel_7 --force
 fi
+# avdmanager defaults hw.keyboard to no, which drops host keyboard input.
+sed -i 's/^hw.keyboard = no$/hw.keyboard = yes/' "$ANDROID_AVD_HOME/fxchat.avd/config.ini"
 echo "Android SDK ready in $ANDROID_HOME"
