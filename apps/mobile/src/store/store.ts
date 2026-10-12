@@ -26,6 +26,9 @@ import {
 
 const SETTINGS_KEY = 'settings'
 
+/** How often streamed updates reach the transcript, at most (ms). */
+export const UPDATE_INTERVAL_MS = 50
+
 export interface StoreDeps {
   kv: KeyValueStore
   fetch: FetchLike
@@ -34,6 +37,8 @@ export interface StoreDeps {
   htmlToText?: (html: string) => string
   /** Injectable for tests. */
   run?: typeof runAgent
+  /** Streamed-update interval; tests pass 0 to apply every chunk at once. */
+  updateIntervalMs?: number
 }
 
 export class AppStore {
@@ -51,6 +56,9 @@ export class AppStore {
       htmlToText: deps.htmlToText,
       run: deps.run,
       resolveRun: (meta) => this.resolveRun(meta),
+      // Streamed chunks arrive far faster than a phone needs to repaint the
+      // transcript; apply them at most every UPDATE_INTERVAL_MS.
+      updateIntervalMs: deps.updateIntervalMs ?? UPDATE_INTERVAL_MS,
     })
     this.state = this.compose()
     this.chat.subscribe(() => this.publish())

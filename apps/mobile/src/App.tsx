@@ -4,6 +4,7 @@
  */
 import { ChatProvider } from '@fx/chat'
 import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
+import { Calculator, Clock, Globe } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Header } from './components/ui'
 import { onBackButton } from './platform'
@@ -14,7 +15,12 @@ import { Settings } from './screens/Settings'
 import { useAppState, useStore } from './store/context'
 
 /** Touch-tuned shadcn registry: longer tooltip delay, 44px disclosure rows. */
-const components = createShadcnComponents({ touch: true, tooltipDelay: 300 })
+const components = createShadcnComponents({
+  touch: true,
+  tooltipDelay: 300,
+  // The built-in tools' activity tiles.
+  toolIcons: { fetch_url: Globe, calculator: Calculator, current_time: Clock },
+})
 const classNames = createShadcnClassNames({ touch: true })
 
 export type Route = { name: 'list' } | { name: 'chat'; id: string } | { name: 'settings' }

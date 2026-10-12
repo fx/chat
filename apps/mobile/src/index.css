@@ -55,3 +55,27 @@ body {
 .safe-bottom {
   padding-bottom: var(--safe-bottom);
 }
+
+/* A message's footer appears when the message is tapped (see Conversation). */
+@keyframes footer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.conversation-log .chat-footer {
+  animation: footer-in 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-log .chat-footer {
+    animation: none;
+  }
+}
+
+/* Finishing an answer morphs its activity tiles into its footer (see Conversation). */
+::view-transition-group(answer-activity) {
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}

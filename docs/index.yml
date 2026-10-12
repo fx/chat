@@ -328,3 +328,10 @@ changes:
     spec: architecture
     status: complete
     depends_on: ["0036", "0040"]
+  - id: "0042"
+    name: mobile-activity-tiles
+    path: changes/0042-mobile-activity-tiles.md
+    description: "Android app adopts the touch activity presenters: tiles, footer activity, one footer shown, finish morphs tiles; 50ms streamed updates"
+    spec: mobile-app
+    status: complete
+    depends_on: ["0037", "0040", "0041"]

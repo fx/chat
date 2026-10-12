@@ -5,6 +5,7 @@
 import { type Attachment, type ChatExtensions, ChatInput, MessageLog } from '@fx/chat'
 import { ArrowLeft, ChevronDown, RotateCcw, ShieldQuestion } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Header, IconButton, PrimaryButton, SecondaryButton, Sheet } from '../components/ui'
 import { useAppState, useStore } from '../store/context'
 import type { PendingApproval } from '../store/types'
@@ -62,6 +63,10 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const meta = state.conversations.find((c) => c.id === id)
   const messages = state.messages[id]
   const run = state.runs[id]
+  // The transcript sees a finished run one render late, inside a view
+  // transition, so the live activity tiles morph into the footer.
+  const shownRun = useFinishTransition(run)
+  const lastAnswer = messages?.filter((message) => message.role === 'assistant').at(-1)?.id
   const error = state.errors[id]
   // A conversation runs only against its own profile; when that is gone,
   // every run-starting action is withheld until the user re-binds it.
@@ -70,6 +75,8 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
   const approval = state.approvals.find((a) => a.conversationId === id)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
+  // The one assistant message whose footer shows (tap a message to show it).
+  const [selected, setSelected] = useState<string>()
   const scrollRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
 
@@ -170,7 +177,18 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
         }
       />
 
-      <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <style>{conversationStyle(selected, lastAnswer)}</style>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: tapping shows the message's footer; its actions stay reachable from the keyboard */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        onClick={(event) => {
+          // Read the event now: `currentTarget` is only set during dispatch.
+          const tap = { target: event.target, currentTarget: event.currentTarget }
+          setSelected((current) => selectionAfterTap(tap, current))
+        }}
+        className="conversation-log min-h-0 flex-1 overflow-y-auto px-3 py-3"
+      >
         {messages && messages.length === 0 && !run ? (
           <p className="px-6 py-16 text-center text-sm text-muted-foreground">
             Ask anything. Reasoning and tool calls show up live as the model works.
@@ -179,10 +197,13 @@ export function Conversation({ id, onBack }: { id: string; onBack: () => void })
         {messages ? (
           <MessageLog
             messages={messages}
-            isStreaming={Boolean(run)}
-            {...(run ? { streamingMessageId: run.messageId } : {})}
+            isStreaming={Boolean(shownRun)}
+            {...(shownRun ? { streamingMessageId: shownRun.messageId } : {})}
             showFooter
             compactFooter
+            activityDisplay="summary"
+            activityPlacement="after-content"
+            finishedActivity="footer"
             {...(blocker
               ? {}
               : { onRegenerate: (messageId: string) => void store.regenerate(id, messageId) })}
@@ -341,4 +362,75 @@ function ModelSheet({
       </div>
     </Sheet>
   )
+}
+
+/**
+ * Footers are hidden except the last answer's and the selected message's,
+ * and the last answer's activity tiles and footer share a view-transition
+ * name, so finishing morphs one into the other. Message ids go into the rules
+ * (escaped), so they are generated rather than static classes.
+ */
+export function conversationStyle(selected: string | undefined, last: string | undefined): string {
+  const is = (id: string) => `[data-message-id="${CSS.escape(id)}"]`
+  const kept = [selected, last]
+    .filter((id): id is string => id !== undefined)
+    .map((id) => `:not(${is(id)})`)
+    .join('')
+  const hide = `.conversation-log .chat-message${kept} .chat-footer { display: none; }`
+  if (last === undefined) return hide
+  const morph = `.conversation-log .chat-message${is(last)} :is(.chat-tiles, .chat-footer) { view-transition-name: answer-activity; }`
+  return `${hide}\n${morph}`
+}
+
+/**
+ * `run`, except that its end reaches the transcript inside a view transition
+ * (where supported and motion is welcome): the transcript still shows the
+ * live tiles in the snapshot taken before, and the footer after.
+ */
+export function useFinishTransition<T>(run: T | undefined): T | undefined {
+  const [shown, setShown] = useState(run)
+  useEffect(() => {
+    if (run !== undefined || shown === undefined) {
+      setShown(run)
+      return
+    }
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (!document.startViewTransition || still) {
+      setShown(undefined)
+      return
+    }
+    // React refuses `flushSync` while it is running an effect, so start the
+    // transition once the effect has returned: its callback must commit the
+    // end synchronously for the snapshot after it to show the footer.
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      document.startViewTransition(() => {
+        if (!cancelled) flushSync(() => setShown(undefined))
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [run, shown])
+  return shown
+}
+
+/**
+ * The selected message after a tap in the transcript: an assistant message
+ * becomes selected (tapping it again on its text deselects it), anywhere else
+ * clears the selection. Taps on a footer, and those bubbling through React
+ * from a portal (the details sheet), change nothing.
+ */
+export function selectionAfterTap(
+  event: { target: EventTarget; currentTarget: Element },
+  current: string | undefined,
+): string | undefined {
+  const target = event.target as Element
+  if (!event.currentTarget.contains(target) || target.closest('.chat-footer')) return current
+  const message = target.closest<HTMLElement>('.chat-message[data-role="assistant"]')
+  const id = message?.dataset.messageId
+  if (!id) return undefined
+  const control = target.closest('button, a, input, textarea, select, [role="button"]')
+  return id === current && !control ? undefined : id
 }
