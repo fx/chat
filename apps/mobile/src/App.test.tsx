@@ -1,4 +1,4 @@
-import { memoryStore } from '@fx/chat-agent'
+import { type FetchLike, memoryStore } from '@fx/chat-agent'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -233,6 +233,49 @@ describe('App', () => {
     } finally {
       w.FxAssist = undefined
     }
+  })
+
+  it('drops a connection test result once the URL or key changes', async () => {
+    const user = userEvent.setup()
+    const endpoint = fakeEndpoint([])
+    // Listings wait for `release` while `hold` is set.
+    let hold = false
+    let release = () => {}
+    const fetch: FetchLike = async (url, init) => {
+      if (hold)
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+      return endpoint.fetch(url, init)
+    }
+    const store = new AppStore({ kv: memoryStore(), fetch })
+    render(
+      <StoreProvider store={store}>
+        <App />
+      </StoreProvider>,
+    )
+    await act(() => store.load())
+    const url = screen.getByLabelText('Base URL')
+    const test = screen.getByRole('button', { name: 'Test connection' })
+    await user.type(url, 'https://fake.test/v1')
+    await user.click(test)
+    await screen.findByText('Connected: 2 models available.')
+    // Editing the URL, or the key, drops the result.
+    await user.type(url, '/')
+    expect(screen.queryByText(/Connected/)).toBeNull()
+    await user.click(test)
+    await screen.findByText('Connected: 2 models available.')
+    await user.type(screen.getByLabelText('API key'), 'k')
+    expect(screen.queryByText(/Connected/)).toBeNull()
+    // A test still running when the key changes never shows its result.
+    hold = true
+    await user.click(test)
+    await waitFor(() => expect(test).toBeDisabled())
+    await user.type(screen.getByLabelText('API key'), 'x')
+    expect(test).toBeEnabled()
+    hold = false
+    await act(async () => release())
+    expect(screen.queryByText(/Connected/)).toBeNull()
   })
 
   it('says when the assistant model could not be saved', async () => {

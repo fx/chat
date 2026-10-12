@@ -57,6 +57,17 @@ export function ProfileEditor({
 
   const urlError = validateBaseUrl(baseUrl)
 
+  /**
+   * The test result describes the URL and key it ran with; editing either
+   * drops it, and cancels a test still running so its result never lands.
+   */
+  const endpointChanged = () => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+    setTested(undefined)
+  }
+
   /** List the endpoint's models: proof the URL and key work. */
   const testConnection = async () => {
     if (urlError) {
@@ -70,6 +81,7 @@ export function ProfileEditor({
     setTested(undefined)
     try {
       const list = await store.listModels({ baseUrl: baseUrl.trim(), apiKey }, controller.signal)
+      if (controller.signal.aborted) return
       setTested({
         ok: true,
         text:
@@ -121,7 +133,10 @@ export function ProfileEditor({
             spellCheck={false}
             placeholder="https://api.example.com/v1"
             value={baseUrl}
-            onChange={(event) => setBaseUrl(event.target.value)}
+            onChange={(event) => {
+              setBaseUrl(event.target.value)
+              endpointChanged()
+            }}
           />
         )}
       </Field>
@@ -137,7 +152,10 @@ export function ProfileEditor({
               spellCheck={false}
               placeholder="sk-…"
               value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
+              onChange={(event) => {
+                setApiKey(event.target.value)
+                endpointChanged()
+              }}
             />
             <IconButton
               label={showKey ? 'Hide key' : 'Show key'}
