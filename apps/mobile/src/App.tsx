@@ -6,7 +6,7 @@ import { ChatProvider } from '@fx/chat'
 import { createShadcnClassNames, createShadcnComponents } from '@fx/chat-shadcn'
 import { Calculator, Clock, Globe } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Header } from './components/ui'
+import { Header, Notice, errorText } from './components/ui'
 import { onAssistPrompt, onBackButton } from './platform'
 import { Conversation } from './screens/Conversation'
 import { ConversationList } from './screens/ConversationList'
@@ -38,6 +38,8 @@ export function App() {
   const state = useAppState()
   const store = useStore()
   const [route, setRoute] = useState<Route>({ name: 'list' })
+  // A failure no screen shows (a spoken prompt that could not start a chat).
+  const [notice, setNotice] = useState<string>()
 
   // Back goes up a level; on the list the default (exit) applies because no
   // handler is registered.
@@ -56,10 +58,17 @@ export function App() {
   const ready = state.loaded && state.settings.profiles.length > 0
   useEffect(() => {
     if (!ready) return
-    return onAssistPrompt(async (text) => {
+    const ask = async (text: string) => {
       const meta = await store.createAssistantConversation()
       setRoute({ name: 'chat', id: meta.id })
       await store.send(meta.id, text)
+    }
+    // The bridge ignores the handler's result, so a failure (storage, say)
+    // is caught here and shown, with the prompt, instead of vanishing.
+    return onAssistPrompt((text) => {
+      ask(text).catch((error: unknown) => {
+        setNotice(`Couldn't start a chat for “${text}”: ${errorText(error)}`)
+      })
     })
   }, [ready, store])
 
@@ -111,6 +120,7 @@ export function App() {
   return (
     <ChatProvider components={components} classNames={classNames}>
       {screen}
+      {notice ? <Notice onDismiss={() => setNotice(undefined)}>{notice}</Notice> : null}
     </ChatProvider>
   )
 }

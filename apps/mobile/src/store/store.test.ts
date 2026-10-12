@@ -82,6 +82,19 @@ describe('AppStore', () => {
     expect(await store.createAssistantConversation()).toMatchObject({ profileId: undefined })
   })
 
+  it('runs the assistant on the active endpoint when its stored endpoint is gone', async () => {
+    const kv = memoryStore({
+      settings: { profiles: [profile], assistant: { profileId: 'gone', model: 'm9' } },
+    })
+    const store = new AppStore({ kv, fetch: fakeEndpoint([]).fetch })
+    await store.load()
+    expect(store.assistantModel()).toEqual({ profile, model: profile.model })
+    expect(await store.createAssistantConversation()).toMatchObject({
+      profileId: profile.id,
+      model: profile.model,
+    })
+  })
+
   it('lists models through the injected fetch with the key', async () => {
     const { store, endpoint } = await ready()
     expect(await store.listModels(profile)).toEqual(['fake-1', 'fake-2'])

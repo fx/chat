@@ -118,6 +118,8 @@ visual theme) stays in `apps/mobile`.
 - The app MUST be selectable as the Android digital assistant app (it handles `ACTION_ASSIST`).
 - Invoked as the assistant, it MUST listen for one spoken prompt with the system speech recognizer
   and start a new conversation with it; a cancelled or empty recognition MUST just open the app.
+- A spoken prompt that cannot start a conversation MUST be shown to the user with the error, not
+  dropped.
 - The assistant MUST run on the endpoint and model chosen in its settings, or on the active
   endpoint and its model when none is chosen or the chosen endpoint was deleted.
 - Its settings MUST say whether the app is the digital assistant and open the system picker.

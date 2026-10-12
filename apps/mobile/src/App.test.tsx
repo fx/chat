@@ -7,9 +7,19 @@ import { StoreProvider } from './store/context'
 import { AppStore } from './store/store'
 import { fakeEndpoint, sseBody } from './test-helpers'
 
-function setup(completions: string[], kvInit: Record<string, unknown> = {}) {
+function setup(
+  completions: string[],
+  kvInit: Record<string, unknown> = {},
+  failWrites: (key: string) => boolean = () => false,
+) {
   const endpoint = fakeEndpoint(completions)
-  const store = new AppStore({ kv: memoryStore(kvInit), fetch: endpoint.fetch })
+  const memory = memoryStore(kvInit)
+  const kv = {
+    ...memory,
+    set: (key: string, value: unknown) =>
+      failWrites(key) ? Promise.reject(new Error('disk full')) : memory.set(key, value),
+  }
+  const store = new AppStore({ kv, fetch: endpoint.fetch })
   const view = render(
     <StoreProvider store={store}>
       <App />
@@ -166,6 +176,53 @@ describe('App', () => {
     } finally {
       w.FxAssist = undefined
     }
+  })
+
+  it('shows a spoken prompt that could not start a chat, until dismissed', async () => {
+    const user = userEvent.setup()
+    const parked: (string | null)[] = []
+    const w = window as { FxAssist?: unknown }
+    w.FxAssist = { takePrompt: () => parked.shift() ?? null }
+    try {
+      const { store, endpoint } = setup(
+        [],
+        { settings: { profiles: [profile] } },
+        (key) => key === 'conversations',
+      )
+      await act(() => store.load())
+      parked.push('what time is it')
+      act(() => {
+        window.dispatchEvent(new Event('fx-assist'))
+      })
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toContain('“what time is it”: disk full')
+      expect(endpoint.requests).toHaveLength(0)
+      await user.click(within(alert).getByRole('button', { name: 'Dismiss' }))
+      expect(screen.queryByRole('alert')).toBeNull()
+    } finally {
+      w.FxAssist = undefined
+    }
+  })
+
+  it('says when the assistant model could not be saved', async () => {
+    const user = userEvent.setup()
+    let fail = false
+    const { store } = setup([], { settings: { profiles: [profile] } }, (key) =>
+      fail ? key === 'settings' : false,
+    )
+    await act(() => store.load())
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.click(screen.getByRole('button', { name: /Assistant Fake · fake-1/ }))
+    fail = true
+    await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      "Couldn't save the assistant model: disk full",
+    )
+    // A later save clears it.
+    fail = false
+    await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-2' })
   })
 
   it('sets the assistant model, and runs spoken prompts on it', async () => {

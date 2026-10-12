@@ -15,9 +15,11 @@ import {
   Section,
   TextArea,
   Toggle,
+  errorText,
 } from '../components/ui'
 import { isAssistant, openAssistantSettings } from '../platform'
 import { useAppState, useStore } from '../store/context'
+import type { AssistantSettings } from '../store/types'
 import { ProfileEditor } from './ProfileEditor'
 
 export type SettingsPage = 'endpoints' | 'prompt' | 'tools' | 'assistant' | 'about'
@@ -255,6 +257,15 @@ function Assistant() {
   const { assistant } = settings
   const target = store.assistantModel()
   const custom = settings.profiles.some((p) => p.id === assistant.profileId)
+  // The choice applies at once; a failed write would silently revert it on
+  // the next launch, so say so.
+  const [saveError, setSaveError] = useState<string>()
+  const save = (next: AssistantSettings) => {
+    setSaveError(undefined)
+    store.updateSettings({ assistant: next }).catch((error: unknown) => {
+      setSaveError(`Couldn't save the assistant model: ${errorText(error)}`)
+    })
+  }
   return (
     <>
       {held !== undefined ? (
@@ -276,17 +287,16 @@ function Assistant() {
           checked={!custom}
           onChange={(same) => {
             const profile = target?.profile
-            void store.updateSettings({
-              assistant: same || !profile ? {} : { profileId: profile.id, model: target.model },
-            })
+            save(same || !profile ? {} : { profileId: profile.id, model: target.model })
           }}
         />
         {custom ? (
-          <ModelPicker
-            profile={target?.profile}
-            model={target?.model}
-            onChoose={(choice) => void store.updateSettings({ assistant: choice })}
-          />
+          <ModelPicker profile={target?.profile} model={target?.model} onChoose={save} />
+        ) : null}
+        {saveError ? (
+          <p role="alert" className="text-xs text-destructive">
+            {saveError}
+          </p>
         ) : null}
       </Section>
     </>

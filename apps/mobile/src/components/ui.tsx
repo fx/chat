@@ -257,3 +257,23 @@ export function MenuRow({
     </button>
   )
 }
+
+/** A thrown value as text for a notice. */
+export function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/** A dismissible error banner, pinned above the bottom edge of any screen. */
+export function Notice({ children, onDismiss }: { children: ReactNode; onDismiss: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="safe-bottom fixed inset-x-3 bottom-3 z-50 flex items-start gap-2 rounded-md border border-destructive/50 bg-background p-3 text-sm shadow-lg"
+    >
+      <p className="min-w-0 flex-1 text-destructive [overflow-wrap:anywhere]">{children}</p>
+      <SecondaryButton className="shrink-0" onClick={onDismiss}>
+        Dismiss
+      </SecondaryButton>
+    </div>
+  )
+}
