@@ -71,6 +71,7 @@ describe('ModelPicker', () => {
     await user.type(search, 'acme')
     expect(rows()).toHaveLength(2)
     expect(screen.getByText('2 of 3 · updated just now')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Show filters' }))
     await user.click(screen.getByRole('button', { name: 'Tools' }))
     expect(screen.getByRole('button', { name: 'Tools' })).toHaveAttribute('aria-pressed', 'true')
     expect(rows()).toHaveLength(1)
@@ -221,6 +222,23 @@ describe('ModelPicker', () => {
     expect(rows()).toHaveLength(3)
     await user.click(screen.getByRole('button', { name: 'Unstar Acme Vision' }))
     expect(store.getState().settings.favorites).toEqual({ p1: [] })
+  })
+
+  it('gives the search the whole row while it has focus, and a caret to leave it', async () => {
+    const user = userEvent.setup()
+    await setup()
+    const search = await screen.findByRole('searchbox', { name: 'Search models' })
+    await user.click(search)
+    expect(screen.queryByRole('button', { name: 'Filters' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tools' })).toBeNull()
+    await user.type(search, 'acme')
+    // Clearing keeps the search focused and expanded.
+    await user.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(search).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Show filters' }))
+    expect(search).not.toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Show filters' })).toBeNull()
   })
 
   it('draws only the rows in view of a long list', async () => {

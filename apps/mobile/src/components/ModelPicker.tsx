@@ -11,6 +11,7 @@ import { cn } from '@fx/chat-shadcn'
 import {
   Brain,
   Check,
+  ChevronLeft,
   Eye,
   RefreshCw,
   Search,
@@ -72,6 +73,10 @@ export function ModelPicker({
   const [capabilities, setCapabilities] = useState<Capability[]>([])
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  // While the search has focus it takes the whole row; a caret gives the
+  // filter icons back (and leaves the search).
+  const [searching, setSearching] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
   const fetching = useRef<AbortController | null>(null)
 
   useEffect(() => setBrowseId(profile?.id), [profile?.id])
@@ -168,7 +173,7 @@ export function ModelPicker({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col gap-1 border-b border-border pb-1">
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center">
           <div className="relative min-w-0 flex-1">
             <Search
               size={16}
@@ -182,14 +187,20 @@ export function ModelPicker({
               autoCorrect="off"
               spellCheck={false}
               enterKeyHint="search"
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setSearching(true)}
+              onBlur={() => setSearching(false)}
               className="min-h-11 w-full rounded-full border border-input bg-muted/40 pr-10 pl-9 text-base [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
               <button
                 type="button"
                 aria-label="Clear search"
+                // Keep the search focused (and expanded) through the tap.
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setQuery('')}
                 className="absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground"
               >
@@ -197,41 +208,57 @@ export function ModelPicker({
               </button>
             ) : null}
           </div>
-          <IconToggle
-            label="Favorites"
-            pressed={favoritesOnly}
-            onClick={() => setFavoritesOnly((on) => !on)}
-          >
-            <Star size={18} className={favoritesOnly ? 'fill-current' : undefined} />
-          </IconToggle>
-          {capabilityList.map((c) => {
-            const Icon = CAPABILITY_ICONS[c]
-            const label = CAPABILITIES.find((x) => x.id === c)?.label as string
-            return (
+          {searching ? (
+            <button
+              type="button"
+              aria-label="Show filters"
+              title="Show filters"
+              onPointerDown={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => searchRef.current?.blur()}
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          ) : (
+            <>
               <IconToggle
-                key={c}
-                label={label}
-                pressed={capabilities.includes(c)}
-                onClick={() => toggle(c)}
+                label="Favorites"
+                pressed={favoritesOnly}
+                onClick={() => setFavoritesOnly((on) => !on)}
               >
-                <Icon size={18} />
+                <Star size={18} className={favoritesOnly ? 'fill-current' : undefined} />
               </IconToggle>
-            )
-          })}
-          <button
-            type="button"
-            aria-label={panelCount > 0 ? `Filters, ${panelCount} on` : 'Filters'}
-            title="Filters"
-            onClick={() => setFiltersOpen(true)}
-            className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
-          >
-            <SlidersHorizontal size={18} />
-            {panelCount > 0 ? (
-              <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] font-medium text-primary-foreground">
-                {panelCount}
-              </span>
-            ) : null}
-          </button>
+              {capabilityList.map((c) => {
+                const Icon = CAPABILITY_ICONS[c]
+                const label = CAPABILITIES.find((x) => x.id === c)?.label as string
+                return (
+                  <IconToggle
+                    key={c}
+                    label={label}
+                    pressed={capabilities.includes(c)}
+                    onClick={() => toggle(c)}
+                  >
+                    <Icon size={18} />
+                  </IconToggle>
+                )
+              })}
+              <button
+                type="button"
+                aria-label={panelCount > 0 ? `Filters, ${panelCount} on` : 'Filters'}
+                title="Filters"
+                onClick={() => setFiltersOpen(true)}
+                className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
+              >
+                <SlidersHorizontal size={18} />
+                {panelCount > 0 ? (
+                  <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] font-medium text-primary-foreground">
+                    {panelCount}
+                  </span>
+                ) : null}
+              </button>
+            </>
+          )}
         </div>
         <div className="flex items-center">
           <p
@@ -653,7 +680,7 @@ function IconToggle({
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        'relative inline-flex size-11 shrink-0 items-center justify-center rounded-full',
+        'relative inline-flex size-10 shrink-0 items-center justify-center rounded-full',
         pressed ? 'bg-primary text-primary-foreground' : 'text-muted-foreground active:bg-muted',
       )}
     >
