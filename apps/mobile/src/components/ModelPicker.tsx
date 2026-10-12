@@ -1,13 +1,14 @@
 /**
- * Pick an endpoint and one of its models: a searchable list, filtered by
- * provider and by what models declare (tools, reasoning, vision). Typing an
- * id the endpoint does not list is tucked away as an advanced option (shown
- * up front when the listing fails). Shared by a conversation's model sheet
- * and the assistant settings.
+ * Pick an endpoint and one of its models: a search field with the common
+ * capability filters as icon toggles (tools, reasoning, vision), and a
+ * filters panel behind a sliders button for the rest — the endpoint to
+ * browse and the provider. Typing an id the endpoint does not list is tucked
+ * away as an advanced option (shown up front when the listing fails). Shared
+ * by a conversation's model sheet and the assistant settings.
  */
 import type { ModelInfo } from '@fx/chat-agent'
 import { cn } from '@fx/chat-shadcn'
-import { Brain, Eye, Search, Wrench, X } from 'lucide-react'
+import { Brain, Check, Eye, Search, SlidersHorizontal, Wrench, X } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState, useStore } from '../store/context'
 import type { Profile } from '../store/types'
@@ -20,7 +21,7 @@ import {
   knownCapabilities,
   providers,
 } from './model-filter'
-import { PrimaryButton } from './ui'
+import { PrimaryButton, SecondaryButton } from './ui'
 
 export interface ModelChoice {
   profileId: string
@@ -39,7 +40,7 @@ export function ModelPicker({
   active = true,
   onChoose,
 }: {
-  /** The chosen endpoint; models are only ever listed from it. */
+  /** The current endpoint; browsing starts there. */
   profile: Profile | undefined
   model: string | undefined
   /** List models only while shown (a closed sheet stays quiet). */
@@ -48,27 +49,34 @@ export function ModelPicker({
 }) {
   const { settings } = useAppState()
   const store = useStore()
+  // The endpoint being browsed: models are only ever listed from the current
+  // endpoint or one the user picked in the filters.
+  const [browseId, setBrowseId] = useState(profile?.id)
+  const browsing = settings.profiles.find((p) => p.id === browseId)
   const [models, setModels] = useState<ModelInfo[]>()
   const [error, setError] = useState<string>()
   const [query, setQuery] = useState('')
   const [provider, setProvider] = useState<string>()
   const [capabilities, setCapabilities] = useState<Capability[]>([])
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  useEffect(() => setBrowseId(profile?.id), [profile?.id])
 
   useEffect(() => {
-    if (!active || !profile) return
+    if (!active || !browsing) return
     const controller = new AbortController()
     setError(undefined)
-    // Never offer the previous profile's models (or its filters) under the new one.
+    // Never offer the previous endpoint's models (or its providers) under this one.
     setModels(undefined)
     setProvider(undefined)
     store
-      .listModelInfo(profile, controller.signal)
+      .listModelInfo(browsing, controller.signal)
       .then(setModels)
       .catch((e: unknown) => {
         if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e))
       })
     return () => controller.abort()
-  }, [active, profile, store])
+  }, [active, browsing, store])
 
   const listed = useMemo(() => models ?? [], [models])
   const listRef = useRef<HTMLUListElement>(null)
@@ -78,6 +86,7 @@ export function ModelPicker({
     if (!models) return
     listRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'center' })
   }, [models])
+
   const providerList = useMemo(() => providers(listed), [listed])
   const capabilityList = useMemo(() => knownCapabilities(listed), [listed])
   const shown = useMemo(
@@ -88,29 +97,31 @@ export function ModelPicker({
     setCapabilities((on) =>
       on.includes(capability) ? on.filter((c) => c !== capability) : [...on, capability],
     )
-  const choose = (id: string) => profile && onChoose({ profileId: profile.id, model: id })
+  const choose = (id: string) => browsing && onChoose({ profileId: browsing.id, model: id })
   const filtering = query.trim() !== '' || provider !== undefined || capabilities.length > 0
+  const current = browsing?.id === profile?.id ? model : undefined
+  const panelCount = (provider ? 1 : 0) + (browsing && browsing.id !== profile?.id ? 1 : 0)
+
+  if (filtersOpen || !browsing) {
+    return (
+      <FiltersPanel
+        profiles={settings.profiles}
+        browsing={browsing}
+        onBrowse={setBrowseId}
+        providers={providerList}
+        provider={provider}
+        onProvider={setProvider}
+        matches={browsing ? shown.length : undefined}
+        onDone={() => setFiltersOpen(false)}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-2">
-      {settings.profiles.length > 1 || !profile ? (
-        <fieldset aria-label="Endpoint" className="m-0 flex min-w-0 flex-wrap gap-1.5 border-0 p-0">
-          {settings.profiles.map((p) => (
-            <Chip
-              key={p.id}
-              pressed={p.id === profile?.id}
-              onClick={() => onChoose({ profileId: p.id, model: p.model })}
-            >
-              {p.name}
-            </Chip>
-          ))}
-        </fieldset>
-      ) : null}
-      {!profile ? <p className="text-sm text-muted-foreground">Choose an endpoint.</p> : null}
-
-      {profile && listed.length > 0 ? (
-        <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-2 bg-background px-1 pb-1">
-          <div className="relative">
+      <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-1 bg-background px-1 pb-1">
+        <div className="flex items-center gap-0.5">
+          <div className="relative min-w-0 flex-1">
             <Search
               size={16}
               className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
@@ -118,7 +129,7 @@ export function ModelPicker({
             <input
               type="search"
               aria-label="Search models"
-              placeholder={`Search ${listed.length} models`}
+              placeholder="Search models"
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
@@ -138,70 +149,154 @@ export function ModelPicker({
               </button>
             ) : null}
           </div>
-          {capabilityList.length > 0 || providerList.length > 1 ? (
-            <fieldset
-              aria-label="Filters"
-              className="-mx-1 m-0 flex min-w-0 gap-1.5 overflow-x-auto border-0 px-1 pt-0 pb-0.5 [scrollbar-width:none]"
-            >
-              {capabilityList.map((c) => {
-                const Icon = CAPABILITY_ICONS[c]
-                return (
-                  <Chip key={c} pressed={capabilities.includes(c)} onClick={() => toggle(c)}>
-                    <Icon size={14} />
-                    {CAPABILITIES.find((x) => x.id === c)?.label}
-                  </Chip>
-                )
-              })}
-              {capabilityList.length > 0 && providerList.length > 1 ? (
-                <span aria-hidden className="my-2 w-px shrink-0 bg-border" />
-              ) : null}
-              {providerList.length > 1
-                ? providerList.map((p) => (
-                    <Chip
-                      key={p}
-                      pressed={p === provider}
-                      onClick={() => setProvider((on) => (on === p ? undefined : p))}
-                    >
-                      {p}
-                    </Chip>
-                  ))
-                : null}
-            </fieldset>
-          ) : null}
-          {filtering ? (
-            <p aria-live="polite" className="px-1 text-xs text-muted-foreground">
-              {shown.length} of {listed.length}
-            </p>
-          ) : null}
+          {capabilityList.map((c) => {
+            const Icon = CAPABILITY_ICONS[c]
+            const label = CAPABILITIES.find((x) => x.id === c)?.label as string
+            return (
+              <IconToggle
+                key={c}
+                label={label}
+                pressed={capabilities.includes(c)}
+                onClick={() => toggle(c)}
+              >
+                <Icon size={18} />
+              </IconToggle>
+            )
+          })}
+          <button
+            type="button"
+            aria-label={panelCount > 0 ? `Filters, ${panelCount} on` : 'Filters'}
+            title="Filters"
+            onClick={() => setFiltersOpen(true)}
+            className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
+          >
+            <SlidersHorizontal size={18} />
+            {panelCount > 0 ? (
+              <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] font-medium text-primary-foreground">
+                {panelCount}
+              </span>
+            ) : null}
+          </button>
         </div>
-      ) : null}
+        <p aria-live="polite" className="truncate px-3 text-xs text-muted-foreground">
+          {[
+            settings.profiles.length > 1 ? browsing.name : undefined,
+            provider,
+            models
+              ? filtering
+                ? `${shown.length} of ${listed.length}`
+                : `${listed.length} models`
+              : undefined,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      </div>
 
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
-      {profile && models === undefined && !error ? (
+      {models === undefined && !error ? (
         <p className="text-sm text-muted-foreground">Loading models…</p>
       ) : null}
-      {profile && models?.length === 0 ? (
+      {models?.length === 0 ? (
         <p className="text-sm text-muted-foreground">The endpoint lists no models.</p>
       ) : null}
 
-      {profile && shown.length > 0 ? (
+      {shown.length > 0 ? (
         <ul ref={listRef} aria-label="Models" className="-mx-1 flex flex-col">
           {shown.map((m) => (
             <li
               key={m.id}
-              className="[content-visibility:auto] [contain-intrinsic-size:auto_3.5rem]"
+              className="[contain-intrinsic-size:auto_3.5rem] [content-visibility:auto]"
             >
-              <ModelRow info={m} selected={m.id === model} onChoose={() => choose(m.id)} />
+              <ModelRow info={m} selected={m.id === current} onChoose={() => choose(m.id)} />
             </li>
           ))}
         </ul>
       ) : null}
-      {profile && models && models.length > 0 && shown.length === 0 ? (
+      {models && models.length > 0 && shown.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">No models match.</p>
       ) : null}
 
-      {profile ? (
-        <ManualModel open={Boolean(error) || models?.length === 0} onUse={(id) => choose(id)} />
+      <ManualModel open={Boolean(error) || models?.length === 0} onUse={(id) => choose(id)} />
+    </div>
+  )
+}
+
+/** The in-depth filters: which endpoint to browse, and the provider. */
+function FiltersPanel({
+  profiles,
+  browsing,
+  onBrowse,
+  providers,
+  provider,
+  onProvider,
+  matches,
+  onDone,
+}: {
+  profiles: readonly Profile[]
+  browsing: Profile | undefined
+  onBrowse: (id: string) => void
+  providers: readonly string[]
+  provider: string | undefined
+  onProvider: (provider: string | undefined) => void
+  matches: number | undefined
+  onDone: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {profiles.length > 1 || !browsing ? (
+        <fieldset className="m-0 flex min-w-0 flex-col border-0 p-0">
+          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Endpoint
+          </legend>
+          {profiles.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={p.id === browsing?.id}
+              onClick={() => onBrowse(p.id)}
+              className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-left active:bg-muted"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{p.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">{p.baseUrl}</span>
+              </span>
+              {p.id === browsing?.id ? <Check size={18} className="shrink-0 text-primary" /> : null}
+            </button>
+          ))}
+        </fieldset>
+      ) : null}
+      {!browsing ? <p className="text-sm text-muted-foreground">Choose an endpoint.</p> : null}
+
+      {providers.length > 1 ? (
+        <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+          <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Provider
+          </legend>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip pressed={provider === undefined} onClick={() => onProvider(undefined)}>
+              All
+            </Chip>
+            {providers.map((p) => (
+              <Chip key={p} pressed={p === provider} onClick={() => onProvider(p)}>
+                {p}
+              </Chip>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {browsing ? (
+        <div className="flex gap-2">
+          {provider ? (
+            <SecondaryButton className="flex-1" onClick={() => onProvider(undefined)}>
+              Clear
+            </SecondaryButton>
+          ) : null}
+          <PrimaryButton className="flex-1" onClick={onDone}>
+            {matches === undefined ? 'Show models' : `Show ${matches} models`}
+          </PrimaryButton>
+        </div>
       ) : null}
     </div>
   )
@@ -283,6 +378,34 @@ function ManualModel({ open, onUse }: { open: boolean; onUse: (id: string) => vo
       />
       <PrimaryButton type="submit">Use</PrimaryButton>
     </form>
+  )
+}
+
+function IconToggle({
+  label,
+  pressed,
+  onClick,
+  children,
+}: {
+  label: string
+  pressed: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn(
+        'relative inline-flex size-11 shrink-0 items-center justify-center rounded-full',
+        pressed ? 'bg-primary text-primary-foreground' : 'text-muted-foreground active:bg-muted',
+      )}
+    >
+      {children}
+    </button>
   )
 }
 

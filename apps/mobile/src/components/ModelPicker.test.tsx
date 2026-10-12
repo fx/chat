@@ -48,10 +48,8 @@ const rows = () =>
 describe('ModelPicker', () => {
   it('lists models by name with their facts and capabilities, the current one pressed', async () => {
     await setup()
-    expect(await screen.findByRole('searchbox', { name: 'Search models' })).toHaveAttribute(
-      'placeholder',
-      'Search 3 models',
-    )
+    await screen.findByRole('list', { name: 'Models' })
+    expect(screen.getByText('3 models')).toBeTruthy()
     expect(rows()).toEqual([
       'llama',
       'openrouter/acme/plain',
@@ -61,7 +59,7 @@ describe('ModelPicker', () => {
     expect(screen.getByRole('button', { name: 'llama' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('searches, filters by capability and provider, and picks', async () => {
+  it('searches, filters by capability icon, and picks', async () => {
     const user = userEvent.setup()
     const { onChoose } = await setup()
     const search = await screen.findByRole('searchbox', { name: 'Search models' })
@@ -69,18 +67,51 @@ describe('ModelPicker', () => {
     expect(rows()).toHaveLength(2)
     expect(screen.getByText('2 of 3')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Tools' }))
+    expect(screen.getByRole('button', { name: 'Tools' })).toHaveAttribute('aria-pressed', 'true')
     expect(rows()).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Tools' }))
     await user.click(screen.getByRole('button', { name: 'Clear search' }))
-    const filters = screen.getByRole('group', { name: 'Filters' })
-    await user.click(within(filters).getByRole('button', { name: 'llamacpp' }))
-    expect(rows()).toEqual(['llama'])
-    await user.click(within(filters).getByRole('button', { name: 'llamacpp' }))
     await user.type(search, 'nothing')
     expect(screen.getByText('No models match.')).toBeTruthy()
     await user.clear(search)
     await user.click(screen.getByRole('button', { name: /^Acme Vision/ }))
     expect(onChoose).toHaveBeenCalledWith({ profileId: 'p1', model: 'openrouter/acme/vision' })
+  })
+
+  it('filters by provider in the filters panel', async () => {
+    const user = userEvent.setup()
+    await setup()
+    await screen.findByRole('list', { name: 'Models' })
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    // One endpoint: nothing to switch.
+    expect(screen.queryByRole('group', { name: 'Endpoint' })).toBeNull()
+    const providers = screen.getByRole('group', { name: 'Provider' })
+    await user.click(within(providers).getByRole('button', { name: 'llamacpp' }))
+    await user.click(screen.getByRole('button', { name: 'Show 1 models' }))
+    expect(rows()).toEqual(['llama'])
+    expect(screen.getByText('llamacpp · 1 of 3')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Filters, 1 on' }))
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await user.click(screen.getByRole('button', { name: 'Show 3 models' }))
+    expect(rows()).toHaveLength(3)
+  })
+
+  it('browses another endpoint from the filters, choosing a model there', async () => {
+    const user = userEvent.setup()
+    const other: Profile = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }
+    const { onChoose } = await setup(fakeEndpoint([], listing).fetch, [profile, other])
+    await screen.findByRole('list', { name: 'Models' })
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    const endpoints = screen.getByRole('group', { name: 'Endpoint' })
+    await user.click(within(endpoints).getByRole('button', { name: /^Other/ }))
+    expect(onChoose).not.toHaveBeenCalled()
+    await user.click(await screen.findByRole('button', { name: 'Show 3 models' }))
+    expect(screen.getByText('Other · 3 models')).toBeTruthy()
+    // The current model is the first endpoint's, so nothing is pressed here.
+    expect(screen.getByRole('button', { name: 'llama' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'llama' }))
+    expect(onChoose).toHaveBeenCalledWith({ profileId: 'p2', model: 'llama' })
   })
 
   it('tucks typing an id away, and uses it', async () => {
@@ -99,7 +130,6 @@ describe('ModelPicker', () => {
     await setup(fakeEndpoint([], []).fetch)
     expect(await screen.findByText('The endpoint lists no models.')).toBeTruthy()
     expect(screen.getByRole('textbox', { name: 'Model id' })).toBeTruthy()
-    expect(screen.queryByRole('searchbox')).toBeNull()
   })
 
   it('shows a listing failure with the id field', async () => {
@@ -108,10 +138,18 @@ describe('ModelPicker', () => {
     expect(screen.getByRole('textbox', { name: 'Model id' })).toBeTruthy()
   })
 
+  it('offers only the capabilities some model declares', async () => {
+    await setup(fakeEndpoint([], [{ id: 'a', architecture: { input_modalities: ['text'] } }]).fetch)
+    await screen.findByRole('list', { name: 'Models' })
+    expect(screen.getByRole('button', { name: 'Vision' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Tools' })).toBeNull()
+  })
+
   it('asks for an endpoint when there is none chosen', async () => {
+    const user = userEvent.setup()
     const store = new AppStore({
       kv: memoryStore({ settings: { profiles: [profile] } }),
-      fetch: fakeEndpoint([]).fetch,
+      fetch: fakeEndpoint([], listing).fetch,
     })
     await act(() => store.load())
     render(
@@ -120,6 +158,7 @@ describe('ModelPicker', () => {
       </StoreProvider>,
     )
     expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
-    expect(screen.getByRole('group', { name: 'Endpoint' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: /^Fake/ }))
+    expect(await screen.findByRole('list', { name: 'Models' })).toBeTruthy()
   })
 })

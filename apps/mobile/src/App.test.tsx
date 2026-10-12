@@ -113,7 +113,8 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Change model' }))
     expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
     expect(endpoint.requests).toHaveLength(0)
-    await user.click(screen.getByRole('button', { name: 'Other' }))
+    await user.click(screen.getByRole('button', { name: /^Other/ }))
+    await user.click(await screen.findByRole('button', { name: 'fake-1' }))
     expect(store.conversation('c1')).toMatchObject({ profileId: 'p2', model: 'fake-1' })
     // Still selected from the tap above: its footer now offers regenerate.
     await user.click(await screen.findByRole('button', { name: 'Regenerate' }))
@@ -261,8 +262,10 @@ describe('App', () => {
 
       await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
       expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-1' })
-      await user.click(screen.getByRole('button', { name: 'Other' }))
-      await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+      await user.click(screen.getByRole('button', { name: 'Filters' }))
+      await user.click(screen.getByRole('button', { name: /^Other/ }))
+      await user.click(await screen.findByRole('button', { name: 'Show 2 models' }))
+      await user.click(screen.getByRole('button', { name: 'fake-2' }))
       expect(store.getState().settings.assistant).toEqual({ profileId: 'p2', model: 'fake-2' })
 
       parked.push('hello')
