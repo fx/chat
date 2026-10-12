@@ -45,7 +45,7 @@ This change MUST satisfy the project's standing testing rules (see
 
 Trusted publishers can only be added to a package that already exists, so the maintainer does this once before the first release:
 
-1. Publish each package once by hand, in dependency order (`packages/core`, `packages/chat`, `packages/agent`, `packages/ink`, `packages/shadcn`), at the placeholder version `0.0.0`. Run `bun run build` once at the repository root, then in each package directory run `bun pm pack` and `npm publish <tarball> --access public`. Never publish by hand at a version release-please will produce, or the release job would skip it as already published.
+1. Publish each package once by hand, in dependency order (`packages/core`, `packages/chat`, `packages/agent`, `packages/ink`, `packages/shadcn`), at the placeholder version `0.0.0`. Run `bun run build` once at the repository root, then in each package directory run `bun pm pack` and `npm publish <tarball> --access public --provenance=false` (provenance can only be generated inside a supported CI provider, so a local publish fails with it on; the CI releases still carry provenance). Never publish by hand at a version release-please will produce, or the release job would skip it as already published.
 2. On npmjs.com, add a trusted publisher to each of the five packages: GitHub Actions, repository `fx/chat`, workflow `release.yml`, no environment.
 3. In the repository settings, add the variable `RELEASE_PLEASE_APP_ID` and the secret `RELEASE_PLEASE_PRIVATE_KEY`, and install the release-please GitHub App on `fx/chat`.
 
