@@ -141,7 +141,8 @@ export function ModelPicker({
   const filtering =
     query.trim() !== '' || chosen.length > 0 || capabilities.length > 0 || favoritesOnly
   const current = browsing?.id === profile?.id ? model : undefined
-  const panelCount = chosen.length + (browsing && browsing.id !== profile?.id ? 1 : 0)
+  const panelCount =
+    chosen.length + (favoritesOnly ? 1 : 0) + (browsing && browsing.id !== profile?.id ? 1 : 0)
 
   if (filtersOpen || !browsing) {
     return (
@@ -222,13 +223,6 @@ export function ModelPicker({
             </button>
           ) : (
             <>
-              <IconToggle
-                label="Favorites"
-                pressed={favoritesOnly}
-                onClick={() => setFavoritesOnly((on) => !on)}
-              >
-                <Star size={18} className={favoritesOnly ? 'fill-current' : undefined} />
-              </IconToggle>
               {capabilityList.map((c) => {
                 const Icon = CAPABILITY_ICONS[c]
                 const label = CAPABILITIES.find((x) => x.id === c)?.label as string
@@ -267,6 +261,7 @@ export function ModelPicker({
           >
             {[
               settings.profiles.length > 1 ? browsing.name : undefined,
+              favoritesOnly ? 'favorites' : undefined,
               chosen.length > 2 ? `${chosen.length} providers` : chosen.join(', '),
               models
                 ? filtering

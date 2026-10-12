@@ -38,14 +38,14 @@ visual theme) stays in `apps/mobile`.
 - The model picker MUST be searchable (every term, in the id or name) and SHOULD filter by provider
   and by the capabilities models declare in the listing (tools, reasoning, vision), offering a
   filter only when some model declares it. A filters panel MUST show every filter in effect,
-  including the capability shortcuts, so its match count is explained by what it shows.
+  including the capability shortcuts, so its match count is explained by what it shows. Typing an
+  unlisted id MUST stay available, collapsed while there is a list to pick from.
 - Model listings MUST be cached per endpoint (its URL and key) and shown at once from the cache,
   fetched again when older than a day, and refreshable on demand from the picker and from each
   endpoint's row in settings. Long listings MUST stay smooth to scroll (only rows in view are
   drawn), and nothing may scroll under the picker's search.
 - The user MUST be able to star models per endpoint; starred models MUST list first, and a
-  favorites-only filter MUST sit with the capability toggles (and in the filters panel). Typing an unlisted id MUST stay available, collapsed
-  while there is a list to pick from.
+  favorites-only filter MUST be in the filters panel.
 - The API key MUST be stored only on the device, MUST be masked in the UI after entry, MUST NOT be
   written to logs, and MUST be sent only to its own profile's base URL.
 - Requests MUST bypass browser CORS restrictions on device, and plain-HTTP endpoints on the local

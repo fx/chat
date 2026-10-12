@@ -196,13 +196,20 @@ describe('ModelPicker', () => {
     expect(await screen.findByRole('list', { name: 'Models' })).toBeTruthy()
   })
 
-  it('stars models: favorites first, and a favorites-only filter', async () => {
+  it('stars models: favorites first, and a favorites-only filter in the panel', async () => {
     const user = userEvent.setup()
     const { store } = await setup()
     await screen.findByRole('list', { name: 'Models' })
-    await user.click(screen.getByRole('button', { name: 'Favorites' }))
+    // Not on the bar: favorites already list first.
+    expect(screen.queryByRole('button', { name: 'Favorites' })).toBeNull()
+    const show = () => within(screen.getByRole('group', { name: 'Show' }))
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    await user.click(show().getByRole('button', { name: 'Favorites' }))
+    await user.click(screen.getByRole('button', { name: 'Show 0 models' }))
     expect(screen.getByText('No favorites yet. Star a model to keep it here.')).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Favorites' }))
+    await user.click(screen.getByRole('button', { name: 'Filters, 1 on' }))
+    await user.click(show().getByRole('button', { name: 'Favorites' }))
+    await user.click(screen.getByRole('button', { name: 'Show 3 models' }))
     await user.click(screen.getByRole('button', { name: 'Star Acme Vision' }))
     expect(store.getState().settings.favorites).toEqual({ p1: ['openrouter/acme/vision'] })
     expect(rows()[0]).toMatch(/^Acme Vision/)
@@ -210,13 +217,12 @@ describe('ModelPicker', () => {
       'aria-pressed',
       'true',
     )
-    await user.click(screen.getByRole('button', { name: 'Favorites' }))
-    expect(rows()).toHaveLength(1)
-    expect(screen.getByText('1 of 3 · updated just now')).toBeTruthy()
-    // The panel shows it too, and Clear turns it off.
     await user.click(screen.getByRole('button', { name: 'Filters' }))
-    const show = within(screen.getByRole('group', { name: 'Show' }))
-    expect(show.getByRole('button', { name: 'Favorites' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(show().getByRole('button', { name: 'Favorites' }))
+    await user.click(screen.getByRole('button', { name: 'Show 1 models' }))
+    expect(rows()).toHaveLength(1)
+    expect(screen.getByText('favorites · 1 of 3 · updated just now')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Filters, 1 on' }))
     await user.click(screen.getByRole('button', { name: 'Clear' }))
     await user.click(screen.getByRole('button', { name: 'Show 3 models' }))
     expect(rows()).toHaveLength(3)
