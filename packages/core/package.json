@@ -1,11 +1,13 @@
 {
   "name": "@fx-/chat-core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Renderer-agnostic core of @fx-/chat: message model, transcript logic, completion contract, and DOM-free React hooks.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

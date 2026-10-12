@@ -1,11 +1,13 @@
 {
   "name": "@fx-/chat-agent",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "UI-free agent runtime for @fx-/chat: streams any OpenAI-compatible endpoint into ChatMessages and runs the tool loop.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
