@@ -638,6 +638,40 @@ describe('ChatController streamed updates', () => {
     expect(text(chat.getState().messages[meta.id]?.[1])).toBe('v6')
   })
 
+  it('throttles updates by the injected clock', async () => {
+    let clock = 5_000
+    const message = (n: number): ChatMessage => ({
+      id: 'a1',
+      role: 'assistant',
+      blocks: [{ type: 'text', id: 't', text: `v${n}` }],
+    })
+    let update: (message: ChatMessage) => void = () => {}
+    const run = vi.fn(
+      (options: RunOptions) =>
+        new Promise<RunResult>(() => {
+          update = (m) => options.onUpdate?.(m)
+        }),
+    )
+    const { chat } = setup([], {}, { run, updateIntervalMs: 1000, now: () => clock })
+    const meta = await chat.createConversation({ endpoint: 'ok' })
+    void chat.send(meta.id, 'go')
+    await vi.waitFor(() => expect(run).toHaveBeenCalled())
+    const last = () => text(chat.getState().messages[meta.id]?.at(-1))
+    update(message(1))
+    expect(last()).toBe('v1')
+    // Within the interval on the injected clock: held for the timer.
+    clock += 999
+    update(message(2))
+    expect(last()).toBe('v1')
+    await vi.advanceTimersByTimeAsync(1)
+    expect(last()).toBe('v2')
+    // A full interval later on the injected clock (no timer time passes).
+    clock += 1000
+    update(message(3))
+    expect(last()).toBe('v3')
+    chat.dispose()
+  })
+
   it('applies pending updates, starts pending saves, then stops runs on dispose', async () => {
     let update: (message: ChatMessage) => void = () => {}
     const run = vi.fn(

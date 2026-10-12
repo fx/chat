@@ -390,7 +390,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     this.pending.set(id, updates)
     updates.set(message.id, message)
     if (this.updateTimer !== undefined) return
-    const wait = (this.options.updateIntervalMs ?? 0) - (performance.now() - this.lastUpdate)
+    const wait = (this.options.updateIntervalMs ?? 0) - (this.now() - this.lastUpdate)
     if (wait <= 0) this.applyUpdates()
     else this.updateTimer = setTimeout(() => this.applyUpdates(), wait)
   }
@@ -399,7 +399,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   private applyUpdates(): void {
     clearTimeout(this.updateTimer)
     this.updateTimer = undefined
-    this.lastUpdate = performance.now()
+    this.lastUpdate = this.now()
     const all = [...this.pending]
     this.pending.clear()
     for (const [id, updates] of all) {

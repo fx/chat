@@ -29,6 +29,11 @@ Related: [chat-core](../chat-core/) (the model it produces), [message-model](../
 - It MUST NOT import React, any renderer, or any platform API other than the injected `fetch`.
   The one exception is the opt-in `indexedDbStore()` persistence adapter, which touches
   `indexedDB` only when a host chooses it and first reads or writes through it.
+- Language and runtime globals common to every supported runtime (browsers, Node, Bun) are not
+  platform APIs: timers (`setTimeout` / `clearTimeout`), `queueMicrotask`, `AbortController`,
+  `TextDecoder`, `structuredClone`, and `Date.now` / `Math.random` as the defaults of an
+  injectable clock or id factory. Time is read only through the injected clock (`now`, default
+  `Date.now`), never `performance`, so a host or test controls it.
 - The HTTP transport MUST be injectable: the host MAY pass its own `fetch` (e.g. a native,
   CORS-exempt fetch on mobile); the global `fetch` is the default.
 
