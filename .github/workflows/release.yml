@@ -107,6 +107,9 @@ jobs:
       # the lockfile is refreshed first.
       - name: Refresh workspace versions in the lockfile
         run: bun install
+        env:
+          # `.npmrc` authenticates the `@fx` GitHub Packages registry with this.
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # `npm publish` does not rewrite `workspace:*`, so each package is packed
       # with `bun pm pack` (which pins internal dependencies to the released
@@ -118,8 +121,8 @@ jobs:
       - name: Publish to npm
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/pack"
           for dir in packages/core packages/chat packages/agent packages/ink packages/shadcn; do
+            rm -rf "$RUNNER_TEMP/pack" && mkdir -p "$RUNNER_TEMP/pack"
             name=$(node -p "require('./$dir/package.json').name")
             version=$(node -p "require('./$dir/package.json').version")
             if npm view "$name@$version" version >/dev/null 2>&1; then
@@ -138,5 +141,4 @@ jobs:
               }
             "
             npm publish "$tarball"
-            rm "$tarball"
           done
