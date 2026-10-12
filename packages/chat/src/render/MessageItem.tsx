@@ -249,34 +249,12 @@ export const MessageItem = memo(function MessageItem({
   // forced compact footer, and the `data-minimal` attribute).
   const minimalActive = minimal && !flat && !raw
   const effectiveCompactFooter = minimalActive || compactFooter
-  // Row + footer planning is shared with every renderer (`planMessage` in
-  // core). The flat and raw paths plan no grouping — so they perform no
-  // timeline-behavior lookups — and raw never shows a footer. The footer gate is
-  // short-circuited so the content-block walk only runs when a footer could
-  // render: a completed assistant turn with at least one content (non-aux)
-  // block; an aux-only turn is part of the answer that follows.
-  const plan = planMessage(message, {
-    isActive,
-    minimal: minimalActive,
-    ...(activityPlacement ? { activityPlacement } : {}),
-    ...(liveTail !== undefined ? { liveTail } : {}),
-    ...(finishedActivity
-      ? { finishedActivity: activityShown && !expandInFooter ? 'row' : finishedActivity }
-      : {}),
-    flat: flat || raw,
-    showFooter: showFooter && !raw,
-    overrides: behaviorOverrides,
-  })
-  const showContentFooter = plan.showFooter
-  const plannedRows =
-    !flat && !raw ? plan.rows.filter((row): row is GroupedRow => row.kind !== 'pending') : []
+  const assistant = message.role === 'assistant'
   const isAux = (block: RenderableBlock) =>
     getBlockTimelineBehavior(block, behaviorOverrides).auxEligible
-  const assistant = message.role === 'assistant'
   // Activity as a summary: each run of activity rows (groups and bare activity
   // blocks; a live tail's `earlier` row folds away) becomes one summary row.
   const summary = activityDisplay === 'summary' && ActivitySummary !== undefined && !flat && !raw
-  const groupedItems: DisplayRow[] = summary ? summarize(plannedRows, isAux) : plannedRows
   // The message owns its details presenter (so live activity can open it too)
   // when the registry provides one and something opens it.
   const ownsDetails =
@@ -287,6 +265,53 @@ export const MessageItem = memo(function MessageItem({
     !flat && !raw && (summary || ownsDetails || finishedActivity === 'footer')
       ? blocks.filter(isAux)
       : []
+  // What a settled assistant footer would carry, decided ONCE before planning
+  // so the plan's footer and the rendered footer can never disagree: the plan
+  // hides activity rows only for a footer that renders (`hasFooterContent`,
+  // the zero-affordance gate) AND carries facts standing in for them. Only a
+  // footer candidate (settled assistant turn, footers on, not raw) walks the
+  // content for copy text and facts.
+  const footerCandidate = showFooter && !raw && assistant && !isActive
+  const copyText = footerCandidate ? messageCopyText(message) : ''
+  const facts =
+    footerCandidate && finishedActivity === 'footer' && !flat ? activityFacts(auxBlocks) : []
+  const footerHasContent =
+    footerCandidate &&
+    hasFooterContent({
+      copyText,
+      onRegenerate,
+      onFork,
+      onReset,
+      metrics: message.metrics,
+      outcome: message.outcome,
+      activity: facts,
+    })
+  // Row + footer planning is shared with every renderer (`planMessage` in
+  // core). The flat and raw paths plan no grouping — so they perform no
+  // timeline-behavior lookups — and raw never shows a footer. `planMessage`
+  // adds its own gate (a content block or an outcome; an aux-only turn is part
+  // of the answer that follows), so `plan.showFooter` is the single decision.
+  // Activity is left to the footer only while it has facts to toggle it back
+  // and is not shown again as rows.
+  const plan = planMessage(message, {
+    isActive,
+    minimal: minimalActive,
+    ...(activityPlacement ? { activityPlacement } : {}),
+    ...(liveTail !== undefined ? { liveTail } : {}),
+    ...(finishedActivity
+      ? {
+          finishedActivity:
+            facts.length > 0 && !(activityShown && !expandInFooter) ? 'footer' : 'row',
+        }
+      : {}),
+    flat: flat || raw,
+    showFooter: footerHasContent,
+    overrides: behaviorOverrides,
+  })
+  const showContentFooter = plan.showFooter
+  const plannedRows =
+    !flat && !raw ? plan.rows.filter((row): row is GroupedRow => row.kind !== 'pending') : []
+  const groupedItems: DisplayRow[] = summary ? summarize(plannedRows, isAux) : plannedRows
   const openDetails = (focusId?: string) =>
     setDetails({ open: true, ...(focusId !== undefined ? { focusId } : {}) })
   const itemContext = {
@@ -479,18 +504,11 @@ export const MessageItem = memo(function MessageItem({
       ) : null}
       {showContentFooter
         ? (() => {
-            const copyText = messageCopyText(message)
-            // Gate the ENTIRE branch — including the gutter-row wrapper below —
-            // on the footer having something to render. `MessageFooter` would
-            // return null anyway (zero-affordance early return), but without
-            // this gate a timestamp-gutter layout would still emit an empty
-            // `.chat-gutter-row` with a blank clock cell around it.
+            // `showContentFooter` already holds only for a footer with content
+            // (`hasFooterContent`), so no empty footer — or, with the gutter on,
+            // empty `.chat-gutter-row` — is ever emitted.
             const metrics = message.metrics
             const outcome = message.outcome
-            if (!hasFooterContent({ copyText, onRegenerate, onFork, onReset, metrics, outcome })) {
-              return null
-            }
-            const facts = finishedActivity === 'footer' && !flat ? activityFacts(auxBlocks) : []
             const footer = (
               <MessageFooter
                 copyText={copyText}

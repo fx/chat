@@ -29,6 +29,7 @@ The specs own the behavior. This change owns:
 - Optional icon `info` (an `OptionalIconName` with a headless glyph), used by the footer's details control, so `Record<IconName, …>` host maps keep compiling.
 - `MessageLog`/`MessageItem` take `finishedActivity` (`row` default | `footer`) and `activityDisplay` (`rows` default | `summary`). With `footer`, a finished message's footer shows activity facts (tool calls and failures, thinking time or size, plan progress); each fact toggles the activity back — as rows in place, or with summary display as summaries inside the footer after the facts.
 - The message (not the footer) owns the details presenter, so summary items — live or finished — open it at their own block.
+- One footer decision: `hasFooterContent` counts activity facts, and `MessageItem` decides it once before planning and passes it to `planMessage`, so finished activity rows are dropped only for a footer that renders and carries facts standing in for them (never for a whitespace-only, empty or custom-only answer with nothing else in the footer, or for activity no fact stands for).
 - The pending placeholder item (`Starting`) carries the message's `createdAt` as `startedAt`.
 - `MessageItem` is memoized and `MessageLog` passes per-message action callbacks with stable identity that call the host's latest handlers, so only the changed message re-renders even when a host passes fresh handlers each render.
 
@@ -40,6 +41,7 @@ The specs own the behavior. This change owns:
 - **Items are plain data.** `ActivitySummaryProps` carries no React nodes, class strings or icons — a host maps `kind`/`name`/`status` to its own visuals and ticks live time from `startedAt`. Only `MessageDetailsProps.activity` is a node, because it is the package's own rows (so the host need not re-implement reasoning, tool and plan rendering).
 - **Facts toggle in place.** The footer facts are buttons that show the activity again rather than opening a surface, keeping the footer one run of controls; the details surface is a separate `info` control.
 - **The message owns details.** Live summary items must open the details before a footer exists, so the presenter's state lives in `MessageItem`.
+- **One footer decision.** Review found `planMessage` hiding a finished answer's activity for a footer that then rendered nothing (whitespace-only or custom-only content, no actions or metrics), losing the activity. The footer's content (including its facts) is now computed before planning and is the plan's `showFooter`, and footer-only activity requires at least one fact, so the two cannot disagree.
 - **Stable callbacks over host discipline.** Memoization only pays off if bound callbacks keep their identity; `MessageLog` caches them per message id and reads the host's latest handlers through a ref, so hosts need not memoize.
 
 ### Non-Goals
@@ -55,4 +57,5 @@ A shipped summary or details presenter (those belong to a design-system package 
 - [x] Details item a summary opened marked `data-focused`
 - [x] Memoized messages with stable per-message callbacks
 - [x] Pending status item carries the message's start
+- [x] Review fix: single-sourced footer decision shared by the plan and the footer gate
 - [x] Tests (footer, message log, activity items, icons); specs and indexes

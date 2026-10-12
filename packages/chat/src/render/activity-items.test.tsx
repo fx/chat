@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../registry'
 import type { ActivitySummaryProps, MessageDetailsProps } from '../registry'
-import { MessageFooter } from './MessageFooter'
+import { MessageFooter, hasFooterContent } from './MessageFooter'
 import { MessageItem } from './MessageItem'
 import { activityFacts, activityItem } from './activity-items'
 import type { RenderableBlock } from './extensions'
@@ -398,5 +398,124 @@ describe('MessageItem finishedActivity="footer"', () => {
     expect(rec.details.at(-1)?.outcome).toEqual({ kind: 'error', message: 'boom' })
     expect(rec.details.at(-1)?.actions.map((a) => a.id)).toEqual(['regenerate'])
     expect(rec.details.at(-1)?.activity).toBeUndefined()
+  })
+})
+
+describe('MessageItem finishedActivity="footer": the plan and the footer agree', () => {
+  const activity: Block[] = [
+    { type: 'reasoning', id: 'r', text: 'x', durationMs: 1000 },
+    tool({ id: 'c1' }),
+  ]
+  const custom = { type: 'card', id: 'k' } as RenderableBlock
+  const contents: Record<string, RenderableBlock[]> = {
+    empty: [{ type: 'text', id: 't', text: '' }],
+    whitespace: [{ type: 'text', id: 't', text: '   ' }],
+    custom: [custom],
+    text: [{ type: 'text', id: 't', text: 'done' }],
+  }
+  const registries = {
+    none: {},
+    summary: { ActivitySummary: recording(false).components.ActivitySummary },
+    both: recording().components,
+  }
+  const activityVisible = () =>
+    document.querySelector('.chat-row') !== null || screen.queryByTestId('summary') !== null
+
+  for (const [content, extra] of Object.entries(contents)) {
+    for (const display of ['rows', 'summary'] as const) {
+      for (const [registry, components] of Object.entries(registries)) {
+        for (const finishedActivity of ['row', 'footer'] as const) {
+          it(`never loses the activity (${content}, ${display}, ${registry}, ${finishedActivity})`, () => {
+            render(
+              <ChatProvider components={components}>
+                <MessageItem
+                  finishedActivity={finishedActivity}
+                  activityDisplay={display}
+                  message={{ id: 'm', role: 'assistant', blocks: [...activity, ...extra] }}
+                />
+              </ChatProvider>,
+            )
+            const facts = document.querySelector('.chat-footer-activity')
+            // Exactly one of: the activity in place, or footer facts standing in for it.
+            expect(activityVisible() || facts !== null).toBe(true)
+            if (finishedActivity === 'row') {
+              expect(facts).toBeNull()
+              expect(activityVisible()).toBe(true)
+            } else {
+              expect(activityVisible()).toBe(false)
+              expect(facts).not.toBeNull()
+            }
+          })
+        }
+      }
+    }
+  }
+
+  it('leaves the rows of a whitespace-only answer to a facts-only footer that shows them again', () => {
+    render(
+      <MessageItem
+        finishedActivity="footer"
+        message={answer([...activity, { type: 'text', id: 't', text: ' ' }])}
+      />,
+    )
+    expect(document.querySelector('.chat-row')).toBeNull()
+    const footer = document.querySelector('.chat-footer') as HTMLElement
+    expect(footer.querySelector('.chat-footer-copy')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show activity: 1 tool call' }))
+    expect(document.querySelector('.chat-row')).not.toBeNull()
+  })
+
+  it('keeps activity rows that no fact stands for', () => {
+    // Empty reasoning yields no fact, so there is nothing to toggle it back.
+    render(
+      <MessageItem
+        finishedActivity="footer"
+        message={answer([
+          { type: 'reasoning', id: 'r', text: '' },
+          { type: 'text', id: 't', text: 'done' },
+        ])}
+      />,
+    )
+    expect(document.querySelector('.chat-row')).not.toBeNull()
+    expect(document.querySelector('.chat-footer-activity')).toBeNull()
+  })
+
+  it('keeps the rows when footers are off or the message is raw', () => {
+    const message = answer([...activity, { type: 'text', id: 't', text: 'done' }])
+    const { unmount } = render(
+      <MessageItem finishedActivity="footer" showFooter={false} message={message} />,
+    )
+    expect(document.querySelector('.chat-row')).not.toBeNull()
+    expect(document.querySelector('.chat-footer')).toBeNull()
+    unmount()
+    render(<MessageItem finishedActivity="footer" raw message={message} />)
+    expect(document.querySelector('.chat-footer')).toBeNull()
+  })
+
+  it('emits no empty footer gutter row for a settled answer with nothing to show', () => {
+    render(
+      <MessageItem
+        timestampGutter
+        finishedActivity="footer"
+        message={answer([{ type: 'text', id: 't', text: ' ' }])}
+      />,
+    )
+    expect(document.querySelector('.chat-footer')).toBeNull()
+    expect(document.querySelectorAll('.chat-gutter-row')).toHaveLength(1)
+  })
+
+  it('counts activity facts as footer content', () => {
+    const base = {
+      copyText: '',
+      onRegenerate: undefined,
+      onFork: undefined,
+      onReset: undefined,
+      metrics: undefined,
+    }
+    expect(hasFooterContent(base)).toBe(false)
+    expect(hasFooterContent({ ...base, activity: [] })).toBe(false)
+    expect(
+      hasFooterContent({ ...base, activity: [{ key: 'tools', text: '1', label: '1 tool call' }] }),
+    ).toBe(true)
   })
 })

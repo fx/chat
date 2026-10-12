@@ -426,12 +426,14 @@ scope** and MUST NOT appear in this package.
   has ZERO blocks (e.g. a just-created streaming placeholder). The footer affordances are
   completion actions; they render only once the assistant turn has settled and has content.
   The footer also renders NOTHING when it has no renderable affordances or metrics to show —
-  no copyable (non-whitespace) text, no action callbacks, and no renderable metrics — so a
-  settled turn with nothing actionable gets no empty footer chrome. This gate applies to the
+  no outcome, no copyable (non-whitespace) text, no action callbacks, no renderable metrics and
+  no activity facts — so a settled turn with nothing actionable gets no empty footer chrome. This gate applies to the
   footer's WRAPPER chrome too: with `timestampGutter` enabled, `MessageItem` MUST NOT emit the
   footer's `.chat-gutter-row` (blank clock cell) when the footer has nothing to render. The
   zero-affordance decision is the exported pure predicate `hasFooterContent`, shared by
-  `MessageItem`'s branch gate and `MessageFooter`'s safety-net early return.
+  `MessageItem`'s branch gate and `MessageFooter`'s safety-net early return. `MessageItem`
+  decides it once, before planning, and passes it to `planMessage` as `showFooter`, so the
+  plan's footer (which drops finished activity rows) and the rendered footer are one decision.
 - **Host responsibilities:** hosts MUST eventually clear `isStreaming`/`streamingMessageId`
   (terminalize runs, including on error) — a permanently-active message never shows a footer,
   by design. A failed or stopped turn is described by the message `outcome` (see Agent Activity),
@@ -556,7 +558,9 @@ How every renderer shows an agent's work. The decisions live in the shared rende
   in either placement. Without a footer the rows stay. Hosts ask for it only while activity is
   collapsed. `MessageLog`/`MessageItem` take it as `finishedActivity`; the footer then shows the
   activity as facts — tool calls (and failures), thinking time (or size when untimed), plan
-  progress — each an icon and short text with a readable label. Each fact is a button that shows the
+  progress — each an icon and short text with a readable label. Rows are left to the footer only
+  when that footer renders and carries at least one fact; otherwise (no footer content, or only
+  activity no fact stands for) the activity keeps its rows, so it is never lost. Each fact is a button that shows the
   message's activity again, and hides it on the next press: as rows back where they were, or — with
   summary display — as summaries inside the footer right after the facts
   (`.chat-footer-activity-items`), so the footer stays one run of controls. The facts' wrapper says
@@ -933,3 +937,4 @@ attachments through the registry, accessibly, responsively, and theme-aware.
 | 2026-10-11 | `finishedActivity` and `activityDisplay="summary"` in `@fx/chat`; footer activity facts; message-owned details with activity | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
 | 2026-10-11 | Footer activity facts toggle the activity in place; details control uses the optional `info` icon | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
 | 2026-10-11 | Summarized activity shown from the footer renders inside it, after the facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
+| 2026-10-12 | Footer-only finished activity and the footer gate are one decision: activity facts count as footer content, and rows are left to the footer only when it renders with facts | [0040-activity-summaries](../../changes/0040-activity-summaries.md) |
