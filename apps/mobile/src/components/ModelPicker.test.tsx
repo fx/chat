@@ -47,6 +47,7 @@ async function setup(
 const rows = () =>
   within(screen.getByRole('list', { name: 'Models' }))
     .getAllByRole('button')
+    .filter((b) => !b.hasAttribute('aria-label'))
     .map((b) => b.textContent)
 
 describe('ModelPicker', () => {
@@ -118,7 +119,7 @@ describe('ModelPicker', () => {
     await screen.findByRole('list', { name: 'Models' })
     await user.click(screen.getByRole('button', { name: 'Tools' }))
     await user.click(screen.getByRole('button', { name: 'Filters' }))
-    const caps = () => within(screen.getByRole('group', { name: 'Capabilities' }))
+    const caps = () => within(screen.getByRole('group', { name: 'Show' }))
     expect(caps().getByRole('button', { name: 'Tools' })).toHaveAttribute('aria-pressed', 'true')
     await user.click(caps().getByRole('button', { name: 'Vision' }))
     expect(screen.getByRole('button', { name: 'Show 1 models' })).toBeTruthy()
@@ -192,6 +193,34 @@ describe('ModelPicker', () => {
     expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /^Fake/ }))
     expect(await screen.findByRole('list', { name: 'Models' })).toBeTruthy()
+  })
+
+  it('stars models: favorites first, and a favorites-only filter', async () => {
+    const user = userEvent.setup()
+    const { store } = await setup()
+    await screen.findByRole('list', { name: 'Models' })
+    await user.click(screen.getByRole('button', { name: 'Favorites' }))
+    expect(screen.getByText('No favorites yet. Star a model to keep it here.')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Favorites' }))
+    await user.click(screen.getByRole('button', { name: 'Star Acme Vision' }))
+    expect(store.getState().settings.favorites).toEqual({ p1: ['openrouter/acme/vision'] })
+    expect(rows()[0]).toMatch(/^Acme Vision/)
+    expect(screen.getByRole('button', { name: 'Unstar Acme Vision' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await user.click(screen.getByRole('button', { name: 'Favorites' }))
+    expect(rows()).toHaveLength(1)
+    expect(screen.getByText('1 of 3 · updated just now')).toBeTruthy()
+    // The panel shows it too, and Clear turns it off.
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    const show = within(screen.getByRole('group', { name: 'Show' }))
+    expect(show.getByRole('button', { name: 'Favorites' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await user.click(screen.getByRole('button', { name: 'Show 3 models' }))
+    expect(rows()).toHaveLength(3)
+    await user.click(screen.getByRole('button', { name: 'Unstar Acme Vision' }))
+    expect(store.getState().settings.favorites).toEqual({ p1: [] })
   })
 
   it('draws only the rows in view of a long list', async () => {

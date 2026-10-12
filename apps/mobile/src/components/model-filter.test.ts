@@ -73,6 +73,23 @@ describe('model filters', () => {
     ])
   })
 
+  it('lists favorites first, or only them', () => {
+    const favorites = new Set(['bare', 'anthropic/claude'])
+    const ids = (favoritesOnly: boolean) =>
+      filterModels(models, { query: '', capabilities: [], favorites, favoritesOnly }).map(
+        (m) => m.id,
+      )
+    expect(ids(false)).toEqual([
+      'anthropic/claude',
+      'bare',
+      'openrouter/acme/vision-pro',
+      'openrouter/acme/plain',
+      'local-model',
+    ])
+    expect(ids(true)).toEqual(['anthropic/claude', 'bare'])
+    expect(filterModels(models, { query: '', capabilities: [], favoritesOnly: true })).toEqual([])
+  })
+
   it('shortens context windows', () => {
     expect([200, 8192, 131072, 1_000_000, 1_500_000].map(formatContext)).toEqual([
       '1K',

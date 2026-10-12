@@ -120,6 +120,7 @@ export class AppStore {
       ...settings,
       tools: { ...DEFAULT_SETTINGS.tools, ...settings?.tools },
       approvals: { ...DEFAULT_SETTINGS.approvals, ...settings?.approvals },
+      favorites: { ...DEFAULT_SETTINGS.favorites, ...settings?.favorites },
       assistant: { ...DEFAULT_SETTINGS.assistant, ...settings?.assistant },
     }
     this.settingsLoaded = true
@@ -194,13 +195,22 @@ export class AppStore {
     const activeProfileId =
       this.settings.activeProfileId === id ? profiles[0]?.id : this.settings.activeProfileId
     const { assistant } = this.settings
+    const { [id]: _dropped, ...favorites } = this.settings.favorites
     await this.updateSettings({
       profiles,
       activeProfileId,
       assistant: assistant.profileId === id ? {} : assistant,
+      favorites,
     })
     this.catalogs.delete(id)
     await this.deps.kv.delete(catalogKey(id))
+  }
+
+  /** Star or unstar a model of a profile's endpoint. */
+  toggleFavorite(profileId: string, model: string): Promise<void> {
+    const starred = this.settings.favorites[profileId] ?? []
+    const next = starred.includes(model) ? starred.filter((m) => m !== model) : [...starred, model]
+    return this.updateSettings({ favorites: { ...this.settings.favorites, [profileId]: next } })
   }
 
   /** List models offered by a profile's endpoint. */

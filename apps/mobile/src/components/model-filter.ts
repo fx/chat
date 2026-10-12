@@ -52,18 +52,32 @@ export interface ModelFilter {
   /** Any of these providers; none means all. */
   providers?: readonly string[] | undefined
   capabilities: readonly Capability[]
+  /** Starred model ids: listed first. */
+  favorites?: ReadonlySet<string> | undefined
+  /** Only the starred models. */
+  favoritesOnly?: boolean | undefined
 }
 
-/** The models matching every search term (in the id or name), any chosen provider and all capabilities. */
+/**
+ * The models matching every search term (in the id or name), any chosen
+ * provider, all capabilities and (when asked) the favorites; favorites first.
+ */
 export function filterModels(models: readonly ModelInfo[], filter: ModelFilter): ModelInfo[] {
   const terms = filter.query.toLowerCase().split(/\s+/).filter(Boolean)
-  return models.filter((model) => {
+  const favorites = filter.favorites ?? new Set<string>()
+  const matches = models.filter((model) => {
+    if (filter.favoritesOnly && !favorites.has(model.id)) return false
     const chosen = filter.providers
     if (chosen?.length && !chosen.includes(providerOf(model) as string)) return false
     if (filter.capabilities.some((c) => !declares(model, c))) return false
     const haystack = `${model.id} ${model.name ?? ''}`.toLowerCase()
     return terms.every((term) => haystack.includes(term))
   })
+  if (favorites.size === 0) return matches
+  return [
+    ...matches.filter((m) => favorites.has(m.id)),
+    ...matches.filter((m) => !favorites.has(m.id)),
+  ]
 }
 
 /** A context window in short form: `8K`, `131K`, `1M`, `1.5M`. */

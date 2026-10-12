@@ -26,6 +26,8 @@ export interface Settings {
   tools: Record<ToolId, boolean>
   /** Per-tool approval requirement. */
   approvals: Record<ToolId, boolean>
+  /** Starred model ids, per profile id: listed first, and filterable. */
+  favorites: Record<string, string[]>
   /** What prompts spoken to the app as the digital assistant run on. */
   assistant: AssistantSettings
 }
@@ -56,5 +58,6 @@ export const DEFAULT_SETTINGS: Settings = {
   systemPrompt: '',
   tools: { current_time: true, calculator: true, fetch_url: false },
   approvals: { current_time: false, calculator: false, fetch_url: true },
+  favorites: {},
   assistant: {},
 }

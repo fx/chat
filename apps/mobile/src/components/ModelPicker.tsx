@@ -8,7 +8,17 @@
  */
 import type { ModelInfo } from '@fx/chat-agent'
 import { cn } from '@fx/chat-shadcn'
-import { Brain, Check, Eye, RefreshCw, Search, SlidersHorizontal, Wrench, X } from 'lucide-react'
+import {
+  Brain,
+  Check,
+  Eye,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Wrench,
+  X,
+} from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState, useStore } from '../store/context'
 import { CATALOG_MAX_AGE_MS, type ModelCatalog } from '../store/store'
@@ -60,6 +70,7 @@ export function ModelPicker({
   const [query, setQuery] = useState('')
   const [chosen, setChosen] = useState<string[]>([])
   const [capabilities, setCapabilities] = useState<Capability[]>([])
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const fetching = useRef<AbortController | null>(null)
 
@@ -110,16 +121,20 @@ export function ModelPicker({
   const listed = useMemo(() => models ?? [], [models])
   const providerList = useMemo(() => providers(listed), [listed])
   const capabilityList = useMemo(() => knownCapabilities(listed), [listed])
+  const starred = browsing ? settings.favorites[browsing.id] : undefined
+  const favorites = useMemo(() => new Set(starred), [starred])
   const shown = useMemo(
-    () => filterModels(listed, { query, providers: chosen, capabilities }),
-    [listed, query, chosen, capabilities],
+    () =>
+      filterModels(listed, { query, providers: chosen, capabilities, favorites, favoritesOnly }),
+    [listed, query, chosen, capabilities, favorites, favoritesOnly],
   )
   const toggle = (capability: Capability) =>
     setCapabilities((on) =>
       on.includes(capability) ? on.filter((c) => c !== capability) : [...on, capability],
     )
   const choose = (id: string) => browsing && onChoose({ profileId: browsing.id, model: id })
-  const filtering = query.trim() !== '' || chosen.length > 0 || capabilities.length > 0
+  const filtering =
+    query.trim() !== '' || chosen.length > 0 || capabilities.length > 0 || favoritesOnly
   const current = browsing?.id === profile?.id ? model : undefined
   const panelCount = chosen.length + (browsing && browsing.id !== profile?.id ? 1 : 0)
 
@@ -136,9 +151,12 @@ export function ModelPicker({
           capabilityList={capabilityList}
           capabilities={capabilities}
           onToggle={toggle}
+          favoritesOnly={favoritesOnly}
+          onFavoritesOnly={setFavoritesOnly}
           onClear={() => {
             setChosen([])
             setCapabilities([])
+            setFavoritesOnly(false)
           }}
           matches={browsing ? shown.length : undefined}
           onDone={() => setFiltersOpen(false)}
@@ -179,6 +197,13 @@ export function ModelPicker({
               </button>
             ) : null}
           </div>
+          <IconToggle
+            label="Favorites"
+            pressed={favoritesOnly}
+            onClick={() => setFavoritesOnly((on) => !on)}
+          >
+            <Star size={18} className={favoritesOnly ? 'fill-current' : undefined} />
+          </IconToggle>
           {capabilityList.map((c) => {
             const Icon = CAPABILITY_ICONS[c]
             const label = CAPABILITIES.find((x) => x.id === c)?.label as string
@@ -244,7 +269,9 @@ export function ModelPicker({
         models={shown}
         current={current}
         onChoose={choose}
-        resetKey={`${query}\n${chosen.join()}\n${capabilities.join()}`}
+        favorites={favorites}
+        onToggleFavorite={(id) => void store.toggleFavorite(browsing.id, id)}
+        resetKey={`${query}\n${chosen.join()}\n${capabilities.join()}\n${favoritesOnly}`}
       >
         {error ? <p className="px-1 pt-2 text-xs text-destructive">{error}</p> : null}
         {models === undefined && !error ? (
@@ -254,7 +281,11 @@ export function ModelPicker({
           <p className="px-1 pt-2 text-sm text-muted-foreground">The endpoint lists no models.</p>
         ) : null}
         {models && models.length > 0 && shown.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No models match.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            {favoritesOnly && favorites.size === 0
+              ? 'No favorites yet. Star a model to keep it here.'
+              : 'No models match.'}
+          </p>
         ) : null}
         <ManualModel open={Boolean(error) || models?.length === 0} onUse={(id) => choose(id)} />
       </ModelList>
@@ -288,12 +319,16 @@ function ModelList({
   models,
   current,
   onChoose,
+  favorites,
+  onToggleFavorite,
   resetKey,
   children,
 }: {
   models: readonly ModelInfo[]
   current: string | undefined
   onChoose: (id: string) => void
+  favorites: ReadonlySet<string>
+  onToggleFavorite: (id: string) => void
   resetKey: string
   children: ReactNode
 }) {
@@ -357,7 +392,13 @@ function ModelList({
               className="absolute inset-x-0"
               style={{ top: (first + i) * ROW_HEIGHT, height: ROW_HEIGHT }}
             >
-              <ModelRow info={m} selected={m.id === current} onChoose={() => onChoose(m.id)} />
+              <ModelRow
+                info={m}
+                selected={m.id === current}
+                onChoose={() => onChoose(m.id)}
+                favorite={favorites.has(m.id)}
+                onToggleFavorite={() => onToggleFavorite(m.id)}
+              />
             </li>
           ))}
         </ul>
@@ -382,6 +423,8 @@ function FiltersPanel({
   capabilityList,
   capabilities,
   onToggle,
+  favoritesOnly,
+  onFavoritesOnly,
   onClear,
   matches,
   onDone,
@@ -395,6 +438,8 @@ function FiltersPanel({
   capabilityList: readonly Capability[]
   capabilities: readonly Capability[]
   onToggle: (capability: Capability) => void
+  favoritesOnly: boolean
+  onFavoritesOnly: (on: boolean) => void
   onClear: () => void
   matches: number | undefined
   onDone: () => void
@@ -425,12 +470,16 @@ function FiltersPanel({
       ) : null}
       {!browsing ? <p className="text-sm text-muted-foreground">Choose an endpoint.</p> : null}
 
-      {capabilityList.length > 0 ? (
+      {browsing ? (
         <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
           <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Capabilities
+            Show
           </legend>
           <div className="flex flex-wrap gap-1.5">
+            <Chip pressed={favoritesOnly} onClick={() => onFavoritesOnly(!favoritesOnly)}>
+              <Star size={14} className={favoritesOnly ? 'fill-current' : undefined} />
+              Favorites
+            </Chip>
             {capabilityList.map((c) => {
               const Icon = CAPABILITY_ICONS[c]
               return (
@@ -470,7 +519,7 @@ function FiltersPanel({
 
       {browsing ? (
         <div className="flex gap-2">
-          {chosen.length > 0 || capabilities.length > 0 ? (
+          {chosen.length > 0 || capabilities.length > 0 || favoritesOnly ? (
             <SecondaryButton className="flex-1" onClick={onClear}>
               Clear
             </SecondaryButton>
@@ -488,10 +537,14 @@ function ModelRow({
   info,
   selected,
   onChoose,
+  favorite,
+  onToggleFavorite,
 }: {
   info: ModelInfo
   selected: boolean
   onChoose: () => void
+  favorite: boolean
+  onToggleFavorite: () => void
 }) {
   const facts = [
     info.name ? info.id : undefined,
@@ -500,28 +553,46 @@ function ModelRow({
     .filter(Boolean)
     .join(' · ')
   const caps = CAPABILITIES.filter((c) => declares(info, c.id))
+  const name = info.name ?? info.id
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onChoose}
-      className="flex h-14 w-full items-center gap-3 rounded-lg px-3 text-left active:bg-muted aria-pressed:bg-muted"
+    <div
+      className={cn('flex h-14 items-center rounded-lg', selected && 'bg-muted')}
+      data-selected={selected || undefined}
     >
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{info.name ?? info.id}</span>
-        {facts ? (
-          <span className="block truncate text-xs text-muted-foreground">{facts}</span>
-        ) : null}
-      </span>
-      {caps.length > 0 ? (
-        <span className="flex shrink-0 gap-1.5 text-muted-foreground">
-          {caps.map((c) => {
-            const Icon = CAPABILITY_ICONS[c.id]
-            return <Icon key={c.id} size={14} aria-label={c.label} role="img" />
-          })}
+      <button
+        type="button"
+        aria-pressed={selected}
+        onClick={onChoose}
+        className="flex h-full min-w-0 flex-1 items-center gap-3 rounded-lg pl-3 text-left active:bg-muted"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{name}</span>
+          {facts ? (
+            <span className="block truncate text-xs text-muted-foreground">{facts}</span>
+          ) : null}
         </span>
-      ) : null}
-    </button>
+        {caps.length > 0 ? (
+          <span className="flex shrink-0 gap-1.5 text-muted-foreground">
+            {caps.map((c) => {
+              const Icon = CAPABILITY_ICONS[c.id]
+              return <Icon key={c.id} size={14} aria-label={c.label} role="img" />
+            })}
+          </span>
+        ) : null}
+      </button>
+      <button
+        type="button"
+        aria-label={favorite ? `Unstar ${name}` : `Star ${name}`}
+        aria-pressed={favorite}
+        onClick={onToggleFavorite}
+        className={cn(
+          'inline-flex size-11 shrink-0 items-center justify-center rounded-full active:bg-muted',
+          favorite ? 'text-amber-500' : 'text-muted-foreground/50',
+        )}
+      >
+        <Star size={16} className={favorite ? 'fill-current' : undefined} />
+      </button>
+    </div>
   )
 }
 

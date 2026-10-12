@@ -111,7 +111,12 @@ describe('AppStore', () => {
     expect(await again.cachedModels(profile)).toEqual(fresh)
     // Another URL or key is another endpoint.
     expect(await store.cachedModels({ ...profile, apiKey: 'sk-2' })).toBeUndefined()
+    await store.toggleFavorite(profile.id, 'fake-2')
+    await store.toggleFavorite(profile.id, 'fake-1')
+    await store.toggleFavorite(profile.id, 'fake-2')
+    expect(store.getState().settings.favorites).toEqual({ [profile.id]: ['fake-1'] })
     await store.deleteProfile(profile.id)
+    expect(store.getState().settings.favorites).toEqual({})
     expect(kv.data.has(`models:${profile.id}`)).toBe(false)
     expect(await store.cachedModels(profile)).toBeUndefined()
   })
