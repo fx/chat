@@ -154,4 +154,4 @@ fails with a message naming the version it needs. This repository pins the relea
 |------|--------|----------|
 | 2026-10-10 | Initial spec created | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Fullscreen mode (viewport, status line, queue, mouse copy, images) by default; `--inline` | [0032-tui-fullscreen](../../changes/0032-tui-fullscreen.md) |
-| 2026-10-11 | The inline mode uses the package's `TerminalMarkdown`; the `marked` renderer is gone | — |
+| 2026-10-11 | The inline mode uses the package's `TerminalMarkdown`; the `marked` renderer is gone | [0035-terminal-markdown-element](../../changes/0035-terminal-markdown-element.md) |

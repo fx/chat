@@ -286,3 +286,10 @@ changes:
     spec: ink-renderer
     status: complete
     depends_on: ["0025", "0028", "0033"]
+  - id: "0035"
+    name: terminal-markdown-element
+    path: changes/0035-terminal-markdown-element.md
+    description: "TerminalMarkdown element for the inline markdown slot; inline character references; tx chat drops marked"
+    spec: ink-renderer
+    status: complete
+    depends_on: ["0029"]
