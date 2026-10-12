@@ -92,6 +92,25 @@ export function domHtmlToText(html: string): string {
 /** The bridge the Android shell installs as `window.FxAssist`. */
 interface AssistBridge {
   takePrompt(): string | null
+  isAssistant(): boolean
+  openAssistantSettings(): void
+}
+
+function assistBridge(): AssistBridge | undefined {
+  return (window as { FxAssist?: AssistBridge }).FxAssist
+}
+
+/**
+ * Whether the app is the device's digital assistant: true or false in the
+ * Android shell, undefined elsewhere (where it cannot be one).
+ */
+export function isAssistant(): boolean | undefined {
+  return assistBridge()?.isAssistant()
+}
+
+/** Open the system screen where the digital assistant app is chosen. */
+export function openAssistantSettings(): void {
+  assistBridge()?.openAssistantSettings()
 }
 
 /**
@@ -100,7 +119,7 @@ interface AssistBridge {
  * was listening (a cold start) is taken right away.
  */
 export function onAssistPrompt(handler: (text: string) => void): Unlisten {
-  const bridge = (window as { FxAssist?: AssistBridge }).FxAssist
+  const bridge = assistBridge()
   if (!bridge) return () => {}
   const take = () => {
     const text = bridge.takePrompt()

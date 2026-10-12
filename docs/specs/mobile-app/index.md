@@ -117,8 +117,15 @@ visual theme) stays in `apps/mobile`.
 
 - The app MUST be selectable as the Android digital assistant app (it handles `ACTION_ASSIST`).
 - Invoked as the assistant, it MUST listen for one spoken prompt with the system speech recognizer
-  and start a new conversation with it on the active profile; a cancelled or empty recognition
-  MUST just open the app.
+  and start a new conversation with it; a cancelled or empty recognition MUST just open the app.
+- The assistant MUST run on the endpoint and model chosen in its settings, or on the active
+  endpoint and its model when none is chosen or the chosen endpoint was deleted.
+- Its settings MUST say whether the app is the digital assistant and open the system picker.
+
+### Settings Menu
+
+- Settings MUST be a menu of sub-pages (endpoints, system prompt, tools, assistant, about), each
+  row summarizing its current value; the back action MUST go up one level.
 
 #### Scenario: Ask by long-pressing power
 
@@ -178,3 +185,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-11 | The app's shadcn registry, `classNames` theme, markdown slot and design tokens move into `@fx/chat-shadcn` (touch mode) | [0036-shadcn-package](../../changes/0036-shadcn-package.md) |
 | 2026-10-11 | App store built on `ChatController`; IndexedDB store moved into `@fx/chat-agent` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
 | 2026-10-11 | Digital assistant | — |
+| 2026-10-12 | Settings sub-menus; assistant model | — |

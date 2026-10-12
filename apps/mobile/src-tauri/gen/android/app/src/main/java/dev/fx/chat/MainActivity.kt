@@ -1,11 +1,13 @@
 package dev.fx.chat
 
 import android.app.Activity
+import android.app.role.RoleManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -93,6 +95,26 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun takePrompt(): String? = synchronized(this@MainActivity) {
       assistPrompt.also { assistPrompt = null }
+    }
+
+    /** Whether this app holds the assistant role. */
+    @JavascriptInterface
+    fun isAssistant(): Boolean {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+      val roles = getSystemService(RoleManager::class.java) ?: return false
+      return roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)
+    }
+
+    /** Open the system's digital-assistant picker. */
+    @JavascriptInterface
+    fun openAssistantSettings() {
+      runOnUiThread {
+        try {
+          startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+        } catch (_: ActivityNotFoundException) {
+          startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
+      }
     }
   }
 

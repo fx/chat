@@ -93,6 +93,7 @@ export class AppStore {
       ...settings,
       tools: { ...DEFAULT_SETTINGS.tools, ...settings?.tools },
       approvals: { ...DEFAULT_SETTINGS.approvals, ...settings?.approvals },
+      assistant: { ...DEFAULT_SETTINGS.assistant, ...settings?.assistant },
     }
     this.settingsLoaded = true
     this.publish()
@@ -165,7 +166,12 @@ export class AppStore {
     const profiles = this.settings.profiles.filter((p) => p.id !== id)
     const activeProfileId =
       this.settings.activeProfileId === id ? profiles[0]?.id : this.settings.activeProfileId
-    await this.updateSettings({ profiles, activeProfileId })
+    const { assistant } = this.settings
+    await this.updateSettings({
+      profiles,
+      activeProfileId,
+      assistant: assistant.profileId === id ? {} : assistant,
+    })
   }
 
   /** List models offered by a profile's endpoint. */
@@ -190,6 +196,21 @@ export class AppStore {
   createConversation(): Promise<ConversationMeta> {
     const profile = this.activeProfile()
     return this.chat.createConversation({ profileId: profile?.id, model: profile?.model })
+  }
+
+  /** The endpoint and model the assistant runs on (see `AssistantSettings`). */
+  assistantModel(): { profile: Profile; model: string } | undefined {
+    const { profileId, model } = this.settings.assistant
+    const bound = this.settings.profiles.find((p) => p.id === profileId)
+    if (bound) return { profile: bound, model: model || bound.model }
+    const active = this.activeProfile()
+    return active && { profile: active, model: active.model }
+  }
+
+  /** Start a conversation for a prompt spoken to the assistant. */
+  createAssistantConversation(): Promise<ConversationMeta> {
+    const target = this.assistantModel()
+    return this.chat.createConversation({ profileId: target?.profile.id, model: target?.model })
   }
 
   openConversation(id: string): Promise<void> {

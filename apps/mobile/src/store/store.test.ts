@@ -62,6 +62,26 @@ describe('AppStore', () => {
     expect((kv.data.get('settings') as { profiles: unknown[] }).profiles).toEqual([])
   })
 
+  it('runs the assistant on its own model, else on the active endpoint', async () => {
+    const { store } = await ready()
+    expect(store.assistantModel()).toBeUndefined()
+    await store.saveProfile(profile)
+    await store.saveProfile({ ...profile, id: 'p2', model: 'm2' })
+    expect(store.assistantModel()).toEqual({ profile, model: profile.model })
+    await store.updateSettings({ assistant: { profileId: 'p2' } })
+    expect(store.assistantModel()?.model).toBe('m2')
+    await store.updateSettings({ assistant: { profileId: 'p2', model: 'm3' } })
+    expect(await store.createAssistantConversation()).toMatchObject({
+      profileId: 'p2',
+      model: 'm3',
+    })
+    // Deleting its endpoint puts it back on the active one.
+    await store.deleteProfile('p2')
+    expect(store.getState().settings.assistant).toEqual({})
+    await store.deleteProfile('p1')
+    expect(await store.createAssistantConversation()).toMatchObject({ profileId: undefined })
+  })
+
   it('lists models through the injected fetch with the key', async () => {
     const { store, endpoint } = await ready()
     expect(await store.listModels(profile)).toEqual(['fake-1', 'fake-2'])

@@ -11,7 +11,7 @@ import { onAssistPrompt, onBackButton } from './platform'
 import { Conversation } from './screens/Conversation'
 import { ConversationList } from './screens/ConversationList'
 import { ProfileEditor } from './screens/ProfileEditor'
-import { Settings } from './screens/Settings'
+import { Settings, type SettingsPath, parentPath } from './screens/Settings'
 import { useAppState, useStore } from './store/context'
 
 /** Touch-tuned shadcn registry: longer tooltip delay, 44px disclosure rows. */
@@ -23,19 +23,29 @@ const components = createShadcnComponents({
 })
 const classNames = createShadcnClassNames({ touch: true })
 
-export type Route = { name: 'list' } | { name: 'chat'; id: string } | { name: 'settings' }
+export type Route =
+  | { name: 'list' }
+  | { name: 'chat'; id: string }
+  | { name: 'settings'; path: SettingsPath }
+
+/** Where the back action goes: up the settings menu, else to the list. */
+export function parentRoute(route: Route): Route {
+  const up = route.name === 'settings' ? parentPath(route.path) : undefined
+  return up ? { name: 'settings', path: up } : { name: 'list' }
+}
 
 export function App() {
   const state = useAppState()
   const store = useStore()
   const [route, setRoute] = useState<Route>({ name: 'list' })
 
-  // Back goes to the list from anywhere else; on the list the default (exit)
-  // applies because no handler is registered.
+  // Back goes up a level; on the list the default (exit) applies because no
+  // handler is registered.
+  const atList = route.name === 'list'
   useEffect(() => {
-    if (route.name === 'list') return
-    return onBackButton(() => setRoute({ name: 'list' }))
-  }, [route.name])
+    if (atList) return
+    return onBackButton(() => setRoute(parentRoute))
+  }, [atList])
 
   const newChat = async () => {
     const meta = await store.createConversation()
@@ -47,7 +57,7 @@ export function App() {
   useEffect(() => {
     if (!ready) return
     return onAssistPrompt(async (text) => {
-      const meta = await store.createConversation()
+      const meta = await store.createAssistantConversation()
       setRoute({ name: 'chat', id: meta.id })
       await store.send(meta.id, text)
     })
@@ -81,13 +91,19 @@ export function App() {
   } else if (route.name === 'chat') {
     screen = <Conversation key={route.id} id={route.id} onBack={() => setRoute({ name: 'list' })} />
   } else if (route.name === 'settings') {
-    screen = <Settings onBack={() => setRoute({ name: 'list' })} />
+    screen = (
+      <Settings
+        path={route.path}
+        onNavigate={(path) => setRoute({ name: 'settings', path })}
+        onBack={() => setRoute({ name: 'list' })}
+      />
+    )
   } else {
     screen = (
       <ConversationList
         onOpen={(id) => setRoute({ name: 'chat', id })}
         onNew={() => void newChat()}
-        onSettings={() => setRoute({ name: 'settings' })}
+        onSettings={() => setRoute({ name: 'settings', path: [] })}
       />
     )
   }

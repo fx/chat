@@ -1,8 +1,8 @@
 import { memoryStore } from '@fx/chat-agent'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
-import { App } from './App'
+import { describe, expect, it, vi } from 'vitest'
+import { App, parentRoute } from './App'
 import { StoreProvider } from './store/context'
 import { AppStore } from './store/store'
 import { fakeEndpoint, sseBody } from './test-helpers'
@@ -101,7 +101,7 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Regenerate' })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Change model' }))
-    expect(screen.getByText('Choose a profile for this conversation.')).toBeTruthy()
+    expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
     expect(endpoint.requests).toHaveLength(0)
     await user.click(screen.getByRole('button', { name: 'Other' }))
     expect(store.conversation('c1')).toMatchObject({ profileId: 'p2', model: 'fake-1' })
@@ -120,9 +120,27 @@ describe('App', () => {
     await act(() => store.load())
     expect(screen.getByText('Old chat')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Settings' }))
-    expect(screen.getByText('Endpoints')).toBeTruthy()
+    const menu = screen.getByRole('navigation', { name: 'Settings' })
+    expect(within(menu).getByRole('button', { name: /Endpoints Fake · fake-1/ })).toBeTruthy()
+    await user.click(within(menu).getByRole('button', { name: /Tools 2 of 3 on/ }))
     await user.click(screen.getByRole('switch', { name: /Fetch web page/ }))
     expect(store.getState().settings.tools.fetch_url).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    await user.click(screen.getByRole('button', { name: /Tools 3 of 3 on/ }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    await user.click(screen.getByRole('button', { name: /Endpoints/ }))
+    await user.click(screen.getByRole('button', { name: /^Fake fake-1/ }))
+    expect(screen.getByRole('heading', { name: 'Edit endpoint' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    await user.click(screen.getByRole('button', { name: 'Add endpoint' }))
+    expect(screen.getByRole('heading', { name: 'Add endpoint' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    for (const page of ['System prompt', 'About']) {
+      await user.click(screen.getByRole('button', { name: new RegExp(`^${page}`) }))
+      expect(screen.getByRole('heading', { name: page })).toBeTruthy()
+      await user.click(screen.getByRole('button', { name: 'Back' }))
+    }
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await user.click(screen.getByText('Old chat'))
     expect(await screen.findByRole('button', { name: 'Change model' })).toBeTruthy()
@@ -148,5 +166,64 @@ describe('App', () => {
     } finally {
       w.FxAssist = undefined
     }
+  })
+
+  it('sets the assistant model, and runs spoken prompts on it', async () => {
+    const user = userEvent.setup()
+    const parked: (string | null)[] = []
+    const openSettings = vi.fn()
+    let held = false
+    const w = window as { FxAssist?: unknown }
+    w.FxAssist = {
+      takePrompt: () => parked.shift() ?? null,
+      isAssistant: () => held,
+      openAssistantSettings: openSettings,
+    }
+    try {
+      const other = { ...profile, id: 'p2', name: 'Other', baseUrl: 'https://other.test/v1' }
+      const { store, endpoint } = setup([sseBody([{ content: 'Sure.' }])], {
+        settings: { profiles: [profile, other] },
+      })
+      await act(() => store.load())
+      await user.click(screen.getByRole('button', { name: 'Settings' }))
+      await user.click(screen.getByRole('button', { name: /Assistant Fake · fake-1/ }))
+      expect(screen.getByText(/Make this app your digital assistant/)).toBeTruthy()
+      await user.click(screen.getByRole('button', { name: 'Choose assistant app' }))
+      expect(openSettings).toHaveBeenCalledOnce()
+      held = true
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+      expect(screen.getByRole('button', { name: 'Change assistant app' })).toBeTruthy()
+
+      await user.click(screen.getByRole('switch', { name: /Same as new chats/ }))
+      expect(store.getState().settings.assistant).toEqual({ profileId: 'p1', model: 'fake-1' })
+      await user.click(screen.getByRole('button', { name: 'Other' }))
+      await user.click(await screen.findByRole('button', { name: 'fake-2' }))
+      expect(store.getState().settings.assistant).toEqual({ profileId: 'p2', model: 'fake-2' })
+
+      parked.push('hello')
+      act(() => {
+        window.dispatchEvent(new Event('fx-assist'))
+      })
+      await waitFor(() => expect(screen.getByText('Sure.')).toBeTruthy())
+      expect(store.getState().conversations[0]).toMatchObject({ profileId: 'p2', model: 'fake-2' })
+      expect(endpoint.requests.at(-1)?.url).toBe('https://other.test/v1/chat/completions')
+    } finally {
+      w.FxAssist = undefined
+    }
+  })
+
+  it('goes back up the settings menu with the Android back action', () => {
+    expect(parentRoute({ name: 'settings', path: ['endpoints', 'p1'] })).toEqual({
+      name: 'settings',
+      path: ['endpoints'],
+    })
+    expect(parentRoute({ name: 'settings', path: ['tools'] })).toEqual({
+      name: 'settings',
+      path: [],
+    })
+    expect(parentRoute({ name: 'settings', path: [] })).toEqual({ name: 'list' })
+    expect(parentRoute({ name: 'chat', id: 'c1' })).toEqual({ name: 'list' })
   })
 })
