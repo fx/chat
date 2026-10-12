@@ -2,6 +2,7 @@ import {
   ChatController,
   type FetchLike,
   type KeyValueStore,
+  type ModelInfo,
   type RunResolution,
   type RunResult,
   createClient,
@@ -184,6 +185,18 @@ export class AppStore {
       apiKey: profile.apiKey || undefined,
       fetch: this.deps.fetch,
     }).listModels(signal)
+  }
+
+  /** List a profile's models with what each declares (name, context, capabilities). */
+  listModelInfo(
+    profile: Pick<Profile, 'baseUrl' | 'apiKey'>,
+    signal?: AbortSignal,
+  ): Promise<ModelInfo[]> {
+    return createClient({
+      baseUrl: profile.baseUrl,
+      apiKey: profile.apiKey || undefined,
+      fetch: this.deps.fetch,
+    }).listModelInfo(signal)
   }
 
   // ── conversations (the controller's) ───────────────────────────────────────

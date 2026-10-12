@@ -180,11 +180,14 @@ export function Sheet({
   open,
   onClose,
   title,
+  tall = false,
   children,
 }: {
   open: boolean
   onClose: () => void
   title: string
+  /** Fill most of the screen, so content that filters down does not resize it. */
+  tall?: boolean
   children: ReactNode
 }) {
   useEffect(() => {
@@ -208,7 +211,10 @@ export function Sheet({
         open
         aria-modal="true"
         aria-label={title}
-        className="safe-bottom relative m-0 max-h-[85%] w-full max-w-none overflow-y-auto rounded-t-xl border-0 border-t border-border bg-background px-4 pt-3 text-foreground"
+        className={cn(
+          'safe-bottom relative m-0 max-h-[85%] w-full max-w-none overflow-y-auto rounded-t-xl border-0 border-t border-border bg-background px-4 pt-3 text-foreground',
+          tall && 'h-[85%]',
+        )}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" />
         <h2 className="mb-3 text-base font-semibold">{title}</h2>

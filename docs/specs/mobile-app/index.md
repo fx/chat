@@ -35,6 +35,10 @@ visual theme) stays in `apps/mobile`.
   OPTIONAL API key, and default model, and choose the active profile.
 - The app MUST offer the endpoint's model list for selection, and MUST allow typing a model id when
   listing fails or the endpoint does not support listing.
+- The model picker MUST be searchable (every term, in the id or name) and SHOULD filter by provider
+  and by the capabilities models declare in the listing (tools, reasoning, vision), offering a
+  filter only when some model declares it. Typing an unlisted id MUST stay available, collapsed
+  while there is a list to pick from.
 - The API key MUST be stored only on the device, MUST be masked in the UI after entry, MUST NOT be
   written to logs, and MUST be sent only to its own profile's base URL.
 - Requests MUST bypass browser CORS restrictions on device, and plain-HTTP endpoints on the local
@@ -188,3 +192,4 @@ Platform adapters isolate every Tauri API so the same UI runs in a desktop brows
 | 2026-10-11 | App store built on `ChatController`; IndexedDB store moved into `@fx/chat-agent` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
 | 2026-10-11 | Digital assistant | [0043-digital-assistant](../../changes/0043-digital-assistant.md) |
 | 2026-10-12 | Settings sub-menus; assistant model | [0043-digital-assistant](../../changes/0043-digital-assistant.md) |
+| 2026-10-12 | Model picker search and filters | — |

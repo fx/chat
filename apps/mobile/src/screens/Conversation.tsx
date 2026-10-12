@@ -281,7 +281,7 @@ function ModelSheet({
   // model to) another endpoint without the user picking that profile.
   const profile = meta ? store.conversationProfile(meta) : undefined
   return (
-    <Sheet open={open} onClose={onClose} title="Model">
+    <Sheet open={open} onClose={onClose} title="Model" tall>
       <ModelPicker
         profile={profile}
         model={meta?.model}
