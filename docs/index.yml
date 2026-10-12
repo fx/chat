@@ -314,3 +314,10 @@ changes:
     spec: message-rendering
     status: complete
     depends_on: ["0023", "0034"]
+  - id: "0041"
+    name: touch-presenters
+    path: changes/0041-touch-presenters.md
+    description: "@fx/chat-shadcn touch look: touch classNames theme, details bottom sheet and activity tiles for 0040's presenter slots"
+    spec: architecture
+    status: complete
+    depends_on: ["0036", "0040"]
