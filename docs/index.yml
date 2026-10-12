@@ -363,3 +363,10 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0039", "0042", "0043", "0044"]
+  - id: "0046"
+    name: unreadable-images
+    path: changes/0046-unreadable-images.md
+    description: "Android app says when a picked image cannot be read: readable images still attach, and an alert above the composer counts the unreadable ones until the next send"
+    spec: mobile-app
+    status: complete
+    depends_on: ["0021", "0045"]

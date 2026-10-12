@@ -65,3 +65,4 @@
 | 0043 | [Digital Assistant](changes/0043-digital-assistant.md) | [Mobile App](specs/mobile-app/) | complete | 0021, 0037, 0038 |
 | 0044 | [Model Listing Fields](changes/0044-model-listing-fields.md) | [Chat Agent](specs/chat-agent/) | complete | 0039 |
 | 0045 | [Model Picker](changes/0045-model-picker.md) | [Mobile App](specs/mobile-app/) | complete | 0039, 0042, 0043, 0044 |
+| 0046 | [Unreadable Images](changes/0046-unreadable-images.md) | [Mobile App](specs/mobile-app/) | complete | 0021, 0045 |
