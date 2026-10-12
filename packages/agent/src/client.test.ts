@@ -104,7 +104,7 @@ describe('createClient().listModels', () => {
 
 describe('createClient().streamCompletion', () => {
   it('POSTs a streaming request with usage, tools and extra body fields', async () => {
-    const { fn, calls } = fakeFetch(sseResponse(sse([])))
+    const { fn, calls: all } = fakeFetch(json({ data: [{ id: 'm' }] }), sseResponse(sse([])))
     const client = createClient({ baseUrl: 'https://api.test/v1', apiKey: 'k', fetch: fn })
     const signal = new AbortController().signal
     const tools = [
@@ -119,6 +119,8 @@ describe('createClient().streamCompletion', () => {
     })) {
       // drain
     }
+    expect(all[0]?.url).toBe('https://api.test/v1/models')
+    const calls = all.slice(1)
     expect(calls[0]?.url).toBe('https://api.test/v1/chat/completions')
     expect(calls[0]?.init.method).toBe('POST')
     expect(calls[0]?.init.signal).toBe(signal)
@@ -455,5 +457,176 @@ describe('createClient() with hostile host and endpoint values', () => {
       { type: 'tool_call', index: 3 },
       { type: 'usage', usage: { total: 4 } },
     ])
+  })
+})
+
+describe('createClient() tool capability', () => {
+  const tools = [
+    { type: 'function' as const, function: { name: 'calc', description: 'd', parameters: {} } },
+  ]
+  const history: CompletionRequest['messages'] = [
+    { role: 'user', content: 'sum' },
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [{ id: 'c1', type: 'function', function: { name: 'calc', arguments: '{}' } }],
+    },
+    { role: 'tool', tool_call_id: 'c1', content: '4' },
+    { role: 'assistant', content: 'It is 4.' },
+    { role: 'user', content: 'thanks' },
+  ]
+  const flat = [
+    { role: 'user', content: 'sum' },
+    { role: 'assistant', content: '[called calc({})]\n\n[calc returned]\n4\n\nIt is 4.' },
+    { role: 'user', content: 'thanks' },
+  ]
+  const drain = async (
+    client: ReturnType<typeof createClient>,
+    request: Partial<CompletionRequest>,
+  ) => {
+    for await (const _ of client.streamCompletion({ model: 'm', messages: history, ...request })) {
+      // drain
+    }
+  }
+  const body = (call: { init: RequestInit } | undefined) => JSON.parse(call?.init.body as string)
+
+  it('bounds the shared listing cache', async () => {
+    const urls: string[] = []
+    const fn: FetchLike = async (url) => {
+      urls.push(url)
+      return url.endsWith('/models') ? json({ data: [] }) : sseResponse(sse([]))
+    }
+    for (let i = 0; i <= 256; i++)
+      await createClient({ baseUrl: `http://cap-bound-${i}`, fetch: fn }).listModelInfo()
+    urls.length = 0
+    // The first endpoint's listing was dropped when the cache filled, so it is fetched again.
+    await drain(createClient({ baseUrl: 'http://cap-bound-0', fetch: fn }), { tools })
+    expect(urls).toEqual(['http://cap-bound-0/models', 'http://cap-bound-0/chat/completions'])
+  })
+
+  it('lists what models declare', async () => {
+    const { fn } = fakeFetch(
+      json({ data: [{ id: 'b', supported_parameters: ['tools', 7] }, { id: 'a' }] }),
+    )
+    expect(await createClient({ baseUrl: 'http://cap-list', fetch: fn }).listModelInfo()).toEqual([
+      { id: 'a' },
+      { id: 'b', supportedParameters: ['tools'] },
+    ])
+  })
+
+  it('sends no tools, and the tool history as text, to a model declaring none', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [{ id: 'm', supported_parameters: ['temperature'] }] }),
+      sseResponse(sse([])),
+      sseResponse(sse([])),
+    )
+    const client = createClient({ baseUrl: 'http://cap-none', fetch: fn })
+    await drain(client, { tools })
+    expect(body(calls[1])).not.toHaveProperty('tools')
+    expect(body(calls[1]).messages).toEqual(flat)
+    // The listing is fetched once per endpoint, by any client.
+    await drain(createClient({ baseUrl: 'http://cap-none', fetch: fn }), { tools })
+    expect(calls.map((c) => c.url.split('/').pop())).toEqual([
+      'models',
+      'completions',
+      'completions',
+    ])
+  })
+
+  it('lists afresh on every explicit call, refreshing what the tool check reads', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [{ id: 'm', supported_parameters: ['temperature'] }] }),
+      json({ data: [{ id: 'm', supported_parameters: ['tools'] }] }),
+      sseResponse(sse([])),
+    )
+    const client = createClient({ baseUrl: 'http://cap-refresh', fetch: fn })
+    await client.listModelInfo()
+    expect(await client.listModels()).toEqual(['m'])
+    await drain(client, { tools })
+    expect(calls.map((c) => c.url.split('/').pop())).toEqual(['models', 'models', 'completions'])
+    // The second listing replaced the first: the model now takes tools.
+    expect(body(calls[2]).tools).toEqual(tools)
+  })
+
+  it('sends tools to a model declaring them, and to one the listing does not describe', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [{ id: 'm', supported_parameters: ['tools'] }] }),
+      sseResponse(sse([])),
+    )
+    await drain(createClient({ baseUrl: 'http://cap-yes', fetch: fn }), { tools })
+    expect(body(calls[1]).tools).toEqual(tools)
+    expect(body(calls[1]).messages).toEqual(history)
+
+    const unknown = fakeFetch(json({ error: 'no listing' }, 404), sseResponse(sse([])))
+    await drain(createClient({ baseUrl: 'http://cap-unknown', fetch: unknown.fn }), { tools })
+    expect(body(unknown.calls[1]).tools).toEqual(tools)
+  })
+
+  it('skips the listing when nothing is tool-related', async () => {
+    const { fn, calls } = fakeFetch(sseResponse(sse([])))
+    await drain(createClient({ baseUrl: 'http://cap-plain', fetch: fn }), {
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+    expect(calls).toHaveLength(1)
+  })
+
+  it('retries without tools when the endpoint rejects them, and remembers the model', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [{ id: 'm' }] }),
+      json({ error: { message: 'the field "tools" is not supported' } }, 400),
+      sseResponse(sse([delta({ content: 'ok' })])),
+      sseResponse(sse([])),
+    )
+    const client = createClient({ baseUrl: 'http://cap-reject', fetch: fn })
+    await drain(client, { tools })
+    expect(body(calls[2])).not.toHaveProperty('tools')
+    expect(body(calls[2]).messages).toEqual(flat)
+    await drain(client, { tools })
+    expect(calls).toHaveLength(4)
+    expect(body(calls[3])).not.toHaveProperty('tools')
+  })
+
+  it('sends tool history alone as text once a tool rejection names it', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [] }),
+      json({ error: { message: 'a message carries the role "tool"' } }, 400),
+      sseResponse(sse([])),
+    )
+    await drain(createClient({ baseUrl: 'http://cap-history', fetch: fn }), {})
+    expect(body(calls[1]).messages).toEqual(history)
+    expect(body(calls[2]).messages).toEqual(flat)
+  })
+
+  it('throws a tool rejection that dropping tools cannot fix', async () => {
+    const { fn, calls } = fakeFetch(
+      json({ data: [] }),
+      json({ error: { message: 'tools rejected' } }, 400),
+      json({ error: { message: 'tool still rejected' } }, 400),
+    )
+    await expect(
+      drain(createClient({ baseUrl: 'http://cap-twice', fetch: fn }), { tools }),
+    ).rejects.toThrow('HTTP 400: tool still rejected')
+    expect(calls).toHaveLength(3)
+  })
+
+  it('lists again after an aborted listing', async () => {
+    const controller = new AbortController()
+    const { fn, calls } = fakeFetch(
+      json({ data: [{ id: 'm', supported_parameters: [] }] }),
+      sseResponse(sse([])),
+    )
+    const aborting: FetchLike = async (url, init) => {
+      if (url.endsWith('/models') && calls.length === 0 && !controller.signal.aborted) {
+        controller.abort()
+        throw new DOMException('aborted', 'AbortError')
+      }
+      if (init?.signal?.aborted) throw new DOMException('aborted', 'AbortError')
+      return fn(url, init)
+    }
+    const client = createClient({ baseUrl: 'http://cap-abort', fetch: aborting })
+    await expect(drain(client, { tools, signal: controller.signal })).rejects.toThrow()
+    await drain(client, { tools })
+    expect(calls.map((c) => c.url.split('/').pop())).toEqual(['models', 'completions'])
+    expect(body(calls[1])).not.toHaveProperty('tools')
   })
 })

@@ -20,6 +20,7 @@ describe('@fx/chat-agent public surface', () => {
       'endStep',
       'evaluateArithmetic',
       'finalizeTurn',
+      'flattenToolHistory',
       'indexedDbStore',
       'memoryStore',
       'newId',

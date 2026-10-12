@@ -314,6 +314,13 @@ changes:
     spec: mobile-app
     status: complete
     depends_on: ["0021"]
+  - id: "0039"
+    name: model-tool-support
+    path: changes/0039-model-tool-support.md
+    description: "@fx/chat-agent honours a model's declared tool support: supported_parameters, retry without tools on rejection, tool history as text (flattenToolHistory)"
+    spec: chat-agent
+    status: complete
+    depends_on: ["0020", "0037"]
   - id: "0040"
     name: activity-summaries
     path: changes/0040-activity-summaries.md
