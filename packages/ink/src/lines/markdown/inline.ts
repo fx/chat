@@ -1,7 +1,7 @@
 /**
  * Inline markdown → spans: code spans, emphasis at word boundaries, strike,
- * links and autolinks, images as text, backslash escapes. Unmatched markers
- * stay as written.
+ * links and autolinks, images as text, backslash escapes, character
+ * references. Unmatched markers stay as written.
  */
 import type { InkGlyphs } from '../../theme'
 import type { Span } from '../model'
@@ -12,6 +12,31 @@ export type InlineStyle = Omit<Span, 'text'>
 const PUNCTUATION = /[!-/:-@[-`{-~]/
 const WORD = /[\p{L}\p{N}]/u
 const SPACE = /\s/
+
+const ENTITY = /^&(?:#(\d{1,7})|#[xX]([\da-fA-F]{1,6})|(amp|lt|gt|quot|apos|nbsp));/
+const NAMED: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0',
+}
+
+/**
+ * The character reference at the start of `text` and its length, or
+ * undefined. A numeric one naming a control character (or no character)
+ * stays as written: decoding must not smuggle controls past sanitising.
+ */
+function entity(text: string): [string, number] | undefined {
+  const match = ENTITY.exec(text)
+  if (!match) return undefined
+  if (match[3]) return [NAMED[match[3]] as string, match[0].length]
+  const code = match[1] ? Number.parseInt(match[1], 10) : Number.parseInt(match[2] as string, 16)
+  const control = code < 0x20 || (code >= 0x7f && code < 0xa0)
+  if (control || code > 0x10ffff || (code >= 0xd800 && code < 0xe000)) return undefined
+  return [String.fromCodePoint(code), match[0].length]
+}
 
 /** Show a source the way a reader can use it: a `data:` URL as its type. */
 export function describeSource(src: string): string {
@@ -217,6 +242,14 @@ export function parseInline(text: string, base: InlineStyle, glyphs: InkGlyphs):
       plain += text.slice(i, i + run)
       i += run
       continue
+    }
+    if (ch === '&') {
+      const ref = entity(text.slice(i, i + 12))
+      if (ref) {
+        plain += ref[0]
+        i += ref[1]
+        continue
+      }
     }
     plain += ch
     i++
