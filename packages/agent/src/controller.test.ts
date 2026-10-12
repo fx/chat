@@ -9,7 +9,7 @@ import {
   titleFrom,
 } from './controller'
 import type { RunOptions, RunResult } from './run'
-import { memoryStore } from './storage'
+import { type KeyValueStore, memoryStore } from './storage'
 import { fakeEndpoint, sseBody } from './test-helpers'
 
 interface Meta extends ConversationMeta {
@@ -38,6 +38,46 @@ function setup(
   const endpoint = fakeEndpoint(completions)
   const chat = new ChatController<Meta>({ kv, fetch: endpoint.fetch, resolveRun, ...options })
   return { chat, kv, endpoint }
+}
+
+/**
+ * A store whose operations on keys matching `hold(match)` wait until
+ * `release()`, so a test can dispose while the controller awaits storage.
+ */
+function gatedStore(init: Record<string, unknown> = {}) {
+  const inner = memoryStore(init)
+  let match: ((key: string) => boolean) | undefined
+  let gate = Promise.resolve()
+  let open = () => {}
+  const wait = (key: string) => (match?.(key) ? gate : undefined)
+  const kv: KeyValueStore = {
+    get: async <T>(key: string) => {
+      await wait(key)
+      return inner.get<T>(key)
+    },
+    set: async (key, value) => {
+      await wait(key)
+      return inner.set(key, value)
+    },
+    delete: async (key) => {
+      await wait(key)
+      return inner.delete(key)
+    },
+  }
+  return {
+    kv,
+    inner,
+    hold(keys: (key: string) => boolean) {
+      match = keys
+      gate = new Promise((resolve) => {
+        open = resolve
+      })
+    },
+    release() {
+      match = undefined
+      open()
+    },
+  }
 }
 
 const toolCall = (url = 'https://x.test/') =>
@@ -649,5 +689,128 @@ describe('ChatController streamed updates', () => {
     expect(chat.getState().approvals).toEqual([])
     expect(chat.getState().messages[meta.id]?.map((m) => m.id)).not.toContain('late')
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  describe('dispose while awaiting storage or a run', () => {
+    const transcript = (id: string): Record<string, unknown> => ({
+      conversations: [{ id, title: 'T', createdAt: 1, updatedAt: 1, endpoint: 'ok' }],
+      [`messages:${id}`]: [
+        { id: 'u1', role: 'user', blocks: [{ type: 'text', id: 't1', text: 'hi' }] },
+      ],
+    })
+
+    it('load: the list read does not land', async () => {
+      const store = gatedStore(transcript('c1'))
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      store.hold(() => true)
+      const loading = chat.load()
+      chat.dispose()
+      store.release()
+      await loading
+      expect(chat.getState().loaded).toBe(false)
+      expect(chat.getState().conversations).toEqual([])
+    })
+
+    it('openConversation: the transcript read does not land', async () => {
+      const store = gatedStore(transcript('c1'))
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      await chat.load()
+      store.hold((key) => key.startsWith('messages:'))
+      const opening = chat.openConversation('c1')
+      chat.dispose()
+      store.release()
+      await opening
+      expect(chat.getState().messages.c1).toBeUndefined()
+    })
+
+    it.each(['send', 'regenerate'] as const)(
+      '%s on an unloaded transcript starts no run',
+      async (action) => {
+        const { run } = heldRun()
+        const store = gatedStore(transcript('c1'))
+        const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun, run })
+        await chat.load()
+        store.hold((key) => key.startsWith('messages:'))
+        const pending = action === 'send' ? chat.send('c1', 'again') : chat.regenerate('c1')
+        chat.dispose()
+        store.release()
+        expect(await pending).toBeUndefined()
+        expect(run).not.toHaveBeenCalled()
+        expect(chat.getState().runs).toEqual({})
+        expect(chat.getState().messages.c1).toBeUndefined()
+      },
+    )
+
+    it('send: a run waiting on the list write never starts the agent', async () => {
+      const { run } = heldRun()
+      const store = gatedStore()
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun, run })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      store.hold((key) => key === 'conversations')
+      const sending = chat.send(meta.id, 'go')
+      expect(chat.getState().runs[meta.id]).toBeDefined()
+      chat.dispose()
+      expect(chat.getState().runs).toEqual({})
+      store.release()
+      expect(await sending).toBeUndefined()
+      expect(run).not.toHaveBeenCalled()
+    })
+
+    it('deleteConversation: the list write is skipped', async () => {
+      const store = gatedStore()
+      const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      store.hold((key) => key.startsWith('messages:'))
+      const deleting = chat.deleteConversation(meta.id)
+      chat.dispose()
+      store.release()
+      await deleting
+      expect(chat.conversation(meta.id)).toBeDefined()
+      expect((store.inner.data.get('conversations') as Meta[]).map((c) => c.id)).toEqual([meta.id])
+    })
+
+    it('a run that throws after dispose records no error', async () => {
+      const run = vi.fn(
+        (options: RunOptions) =>
+          new Promise<RunResult>((_, reject) => {
+            options.signal?.addEventListener('abort', () => reject(new Error('boom')))
+          }),
+      )
+      const { chat } = setup([], {}, { run })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      const running = chat.send(meta.id, 'go')
+      await vi.waitFor(() => expect(run).toHaveBeenCalled())
+      chat.dispose()
+      expect(await running).toBeUndefined()
+      expect(chat.getState().errors).toEqual({})
+    })
+
+    it.each([
+      ['the list write', (key: string) => key === 'conversations'],
+      ['the transcript write', (key: string) => key.startsWith('messages:')],
+    ])('a run ending while %s is pending sends no queued message', async (_, keys) => {
+      const held = heldRun()
+      const store = gatedStore()
+      const chat = new ChatController<Meta>({
+        kv: store.kv,
+        fetch: vi.fn(),
+        resolveRun,
+        run: held.run,
+        queue: true,
+      })
+      const meta = await chat.createConversation({ endpoint: 'ok' })
+      const running = chat.send(meta.id, 'go')
+      await vi.waitFor(() => expect(held.run).toHaveBeenCalled())
+      await chat.send(meta.id, 'queued')
+      store.hold(keys)
+      held.finish()
+      await vi.waitFor(() => expect(chat.getState().runs).toEqual({}))
+      chat.dispose()
+      store.release()
+      expect((await running)?.outcome).toBe('complete')
+      await vi.runAllTimersAsync()
+      expect(held.run).toHaveBeenCalledTimes(1)
+      expect(chat.getState().queued[meta.id]).toHaveLength(1)
+    })
   })
 })

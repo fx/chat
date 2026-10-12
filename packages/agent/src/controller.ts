@@ -173,7 +173,11 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    * storage, so every write path checks this set.
    */
   private deleted = new Set<string>()
-  /** Set by {@link ChatController.dispose}: no store write, timer, run or approval after it. */
+  /**
+   * Set by {@link ChatController.dispose}: no store write, timer, run or
+   * approval after it. Every point where work resumes after an `await`
+   * re-checks it (marked "resume point") before touching state or storage.
+   */
   private disposed = false
   private readonly kv: KeyValueStore
   private readonly now: () => number
@@ -206,6 +210,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   /** Read the conversation list. */
   async load(): Promise<void> {
     const conversations = (await this.kv.get<M[]>(CONVERSATIONS_KEY)) ?? []
+    if (this.disposed) return // resume point
     this.set({
       loaded: true,
       conversations: [...conversations].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -220,7 +225,8 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   async openConversation(id: string): Promise<void> {
     if (this.state.messages[id]) return
     const stored = (await this.kv.get<ChatMessage[]>(messagesKey(id))) ?? []
-    if (this.state.messages[id] || this.deleted.has(id)) return
+    // Resume point.
+    if (this.disposed || this.state.messages[id] || this.deleted.has(id)) return
     this.set({ messages: { ...this.state.messages, [id]: settleInterrupted(stored) } })
   }
 
@@ -259,7 +265,10 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
       errors: without(this.state.errors, id),
       queued: without(this.state.queued, id),
     })
-    if (!this.disposed) await this.kv.delete(messagesKey(id))
+    // Once disposed nothing is written; the list is only updated in memory.
+    const removing = this.disposed ? undefined : this.kv.delete(messagesKey(id))
+    await removing
+    if (removing && this.disposed) return // resume point: disposed meanwhile
     await this.saveConversations(this.state.conversations.filter((c) => c.id !== id))
   }
 
@@ -363,6 +372,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     // Synchronous up to the run when the transcript is loaded, so a caller
     // sees the user message (and the run) in place as soon as this returns.
     if (!this.state.messages[id]) await this.openConversation(id)
+    if (this.disposed) return undefined // resume point
     const meta = this.conversation(id)
     // Opening leaves no transcript only for a conversation deleted meanwhile.
     const messages = this.state.messages[id]
@@ -403,6 +413,7 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
   async regenerate(id: string, messageId?: string): Promise<RunResult | undefined> {
     if (this.disposed) return undefined
     if (!this.state.messages[id]) await this.openConversation(id)
+    if (this.disposed) return undefined // resume point
     const meta = this.conversation(id)
     const messages = this.state.messages[id]
     if (!meta || !messages || this.state.runs[id]) return undefined
@@ -447,15 +458,21 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
    * queued message is not sent), shows no further streamed update and asks no
    * approval (answered `false`). A stopped run's closing update is therefore
    * not stored: the transcript is stored as it stood at dispose, and its
-   * unfinished tool calls are marked failed when it next loads. State stays
-   * readable. Calling it again does nothing.
+   * unfinished tool calls are marked failed when it next loads. Work that was
+   * awaiting storage or a run when dispose came (a load, a transcript open, a
+   * `send` / `regenerate`, a run's end) stops where it resumes. State stays
+   * readable, with no active run or pending approval. Calling it again does
+   * nothing.
    */
   dispose(): void {
     if (this.disposed) return
     this.applyUpdates()
     for (const id of [...this.saveTimers.keys()]) void this.flush(id)
     this.disposed = true
+    // Aborting settles each run's pending approvals (as declined).
     for (const id of Object.keys(this.state.runs)) this.stop(id)
+    this.aborts.clear()
+    this.set({ runs: {} })
   }
 
   /**
@@ -478,10 +495,12 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     })
 
     await before
-    // Stopped (or deleted) while the caller's writes settled.
+    // Resume point: stopped, deleted or disposed (which stops every run)
+    // while the caller's writes settled.
     if (abort.signal.aborted) return this.endRun(id, undefined)
     const { fetch, htmlToText } = this.options
     let result: RunResult | undefined
+    let error: RunError | undefined
     try {
       result = await this.run({
         client: createClient({ baseUrl: config.baseUrl, apiKey: config.apiKey, fetch }),
@@ -501,25 +520,31 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
         now: this.now,
         onUpdate: (message) => this.receive(id, message),
       })
-    } catch (error) {
-      this.set({
-        errors: {
-          ...this.state.errors,
-          [id]: { message: error instanceof Error ? error.message : String(error), at: this.now() },
-        },
-      })
+    } catch (thrown) {
+      error = { message: thrown instanceof Error ? thrown.message : String(thrown), at: this.now() }
     }
-    return this.endRun(id, result)
+    return this.endRun(id, result, error)
   }
 
-  private async endRun(id: string, result: RunResult | undefined): Promise<RunResult | undefined> {
+  /** Every run ends here, so its resume point after the agent is this guard. */
+  private async endRun(
+    id: string,
+    result: RunResult | undefined,
+    error?: RunError,
+  ): Promise<RunResult | undefined> {
+    if (this.disposed) return result // resume point: dispose already cleared the run
     this.applyUpdates()
     this.aborts.delete(id)
     // A failed or stopped run is described by the message's own outcome.
-    this.set({ runs: without(this.state.runs, id) })
-    if (this.deleted.has(id) || this.disposed) return result
+    this.set({
+      runs: without(this.state.runs, id),
+      ...(error ? { errors: { ...this.state.errors, [id]: error } } : {}),
+    })
+    if (this.deleted.has(id)) return result
     await this.updateConversation(id, { updatedAt: this.now() } as Partial<Omit<M, 'id'>>)
+    if (this.disposed) return result // resume point
     await this.flush(id)
+    if (this.disposed) return result // resume point
     const [next, ...rest] = this.state.queued[id] ?? []
     if (next) {
       this.set({ queued: { ...this.state.queued, [id]: rest } })
