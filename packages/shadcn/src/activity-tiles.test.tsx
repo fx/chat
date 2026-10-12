@@ -68,6 +68,15 @@ describe('ActivityTiles', () => {
       false,
     ])
     expect(tiles[2]).toHaveAttribute('data-status', 'error')
+    // The waiting spinner turns; nothing else does.
+    expect(tiles.map((t) => t.querySelector('.motion-safe\\:animate-spin') !== null)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+    ])
     // One tile size everywhere: the footer's fact tiles use the same classes.
     expect(tiles[0]).toHaveClass('size-11')
     expect(createShadcnClassNames({ touch: true }).footerFactBody).toContain('size-11')

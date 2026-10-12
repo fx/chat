@@ -82,7 +82,14 @@ function Tile({
   )
   const body = [
     spinning ? <span key="ring" aria-hidden className="chat-tile-ring" /> : null,
-    <Icon key="icon" className={TILE_ICON} />,
+    <Icon
+      key="icon"
+      className={cn(
+        TILE_ICON,
+        // The waiting kind's icon is a spinner: it turns while it waits.
+        item.kind === 'waiting' && item.status === 'running' && 'motion-safe:animate-spin',
+      )}
+    />,
     text ? (
       <span key="text" className="max-w-full truncate px-1">
         {text}
