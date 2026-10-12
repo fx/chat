@@ -6,7 +6,7 @@
  * event stream the accumulator consumes, so a second transport can feed the
  * same accumulator later.
  */
-import type { ToolCallBlock } from '@fx/chat-core'
+import type { ToolCallBlock } from '@fx-/chat-core'
 
 /** Delta fields that carry reasoning on common OpenAI-compatible servers. */
 export type ReasoningField = 'reasoning_content' | 'reasoning'

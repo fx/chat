@@ -2,7 +2,7 @@
 
 ## Overview
 
-This spec defines the headless message composer and its completion system. `@fx/chat` ships a
+This spec defines the headless message composer and its completion system. `@fx-/chat` ships a
 keyboard-first textarea composer with autosize, Enter-to-send, attachment hooks, a mention
 highlight overlay, and a **pluggable completion-provider interface** with a portal-rendered
 completion popup. The package MUST NOT ship any application-specific completion provider (no

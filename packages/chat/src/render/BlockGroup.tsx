@@ -1,4 +1,4 @@
-import { planGroupHeader } from '@fx/chat-core'
+import { planGroupHeader } from '@fx-/chat-core'
 /**
  * `BlockGroup` — renders a collapsed run of auxiliary blocks under one
  * disclosure, with the header core plans (`planGroupHeader`): a tool group's

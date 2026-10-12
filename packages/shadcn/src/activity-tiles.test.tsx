@@ -1,4 +1,4 @@
-import type { ActivityItem, IconProps } from '@fx/chat'
+import type { ActivityItem, IconProps } from '@fx-/chat'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TILE_TICK_MS, createActivityTiles, tileText } from './activity-tiles'

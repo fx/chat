@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import * as agent from './index'
 
-describe('@fx/chat-agent public surface', () => {
+describe('@fx-/chat-agent public surface', () => {
   it('exports the runtime entry points', () => {
     expect(Object.keys(agent).sort()).toEqual([
       'AGENT_META_KEY',

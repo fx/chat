@@ -1,7 +1,7 @@
 [package]
 name = "fx-chat"
 version = "0.1.0"
-description = "Reference app for the @fx/chat libraries"
+description = "Reference app for the @fx-/chat libraries"
 authors = []
 license = "MIT"
 repository = "https://github.com/fx/chat"

@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@fx/chat-core'
+import type { ChatMessage } from '@fx-/chat-core'
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MessageLog } from '../render/MessageLog'

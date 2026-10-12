@@ -1,4 +1,4 @@
-# @fx/chat
+# @fx-/chat
 
 Framework-light, **design-system-agnostic** React component library for rendering and
 composing LLM chat conversations — messages, reasoning, tool calls, status lifecycle, and a
@@ -15,11 +15,11 @@ conversation can render through any design system with no change to the package.
 ## Repository layout
 
 ```
-packages/core/   @fx/chat-core — renderer-agnostic model, transcript logic, DOM-free hooks
-packages/chat/   @fx/chat — the published React-DOM renderers (re-exports core)
-packages/agent/  @fx/chat-agent — UI-free OpenAI-compatible agent runtime, built-in tools, conversation controller (optional)
-packages/ink/    @fx/chat-ink — terminal (Ink) renderer
-packages/shadcn/ @fx/chat-shadcn — optional ready-made shadcn/ui look (registry + classNames + tokens)
+packages/core/   @fx-/chat-core — renderer-agnostic model, transcript logic, DOM-free hooks
+packages/chat/   @fx-/chat — the published React-DOM renderers (re-exports core)
+packages/agent/  @fx-/chat-agent — UI-free OpenAI-compatible agent runtime, built-in tools, conversation controller (optional)
+packages/ink/    @fx-/chat-ink — terminal (Ink) renderer
+packages/shadcn/ @fx-/chat-shadcn — optional ready-made shadcn/ui look (registry + classNames + tokens)
 apps/mobile/     Android reference app (Tauri v2)
 apps/tui/        `tx chat` terminal reference app (tx plugin; .tx/config.json)
 demos/chat-demo/  static Vite + React demo (deployed to GitHub Pages under /chat/)
@@ -34,7 +34,7 @@ This is a [Bun](https://bun.sh) workspaces monorepo.
 ```sh
 bun install              # install all workspaces from one lockfile
 
-bun run build            # build the library (@fx/chat) → ESM + .d.ts in dist/
+bun run build            # build the library (@fx-/chat) → ESM + .d.ts in dist/
 bun run build:demo       # build the static demo → demos/chat-demo/dist
 bun run typecheck        # strict TypeScript project-references build
 bun run check            # Biome lint + format check
@@ -45,11 +45,11 @@ bun run check:no-internal-refs  # fail on any private-application reference
 
 ## Public entry points
 
-`@fx/chat` exposes three subpath exports:
+`@fx-/chat` exposes three subpath exports:
 
-- `@fx/chat` — the root surface (provider, renderers, composer, hooks, types).
-- `@fx/chat/headless` — the default unstyled registry, with zero design-system dependencies.
-- `@fx/chat/structure.css` — optional layout-only stylesheet (animation keyframes, the
+- `@fx-/chat` — the root surface (provider, renderers, composer, hooks, types).
+- `@fx-/chat/headless` — the default unstyled registry, with zero design-system dependencies.
+- `@fx-/chat/structure.css` — optional layout-only stylesheet (animation keyframes, the
   mention-overlay alignment box, and the lightbox/completion positioning). It carries NO theme;
   a host that uses only the transcript and supplies a full `classNames` theme needs none of it.
 
@@ -59,24 +59,24 @@ prop on `<ChatProvider>`, applied onto the stable `.chat-*` DOM hooks. React (`r
 `react-dom`) is a peer dependency; the package supports React 18 and 19 and bundles no UI kit,
 icon set, or markdown engine.
 
-### A ready-made look: `@fx/chat-shadcn`
+### A ready-made look: `@fx-/chat-shadcn`
 
-For a sensible default instead of a custom design system, `@fx/chat-shadcn` supplies one host
+For a sensible default instead of a custom design system, `@fx-/chat-shadcn` supplies one host
 layer whole — the shadcn/ui component registry (Radix primitives, lucide icons, react-markdown
 with GFM and network-inert images), the `classNames` theme (Tailwind v4), and the design tokens.
-It is just another host: `@fx/chat` itself stays headless.
+It is just another host: `@fx-/chat` itself stays headless.
 
 ```tsx
-import '@fx/chat/structure.css'
-import { ChatProvider } from '@fx/chat'
-import { shadcnClassNames, shadcnComponents } from '@fx/chat-shadcn'
+import '@fx-/chat/structure.css'
+import { ChatProvider } from '@fx-/chat'
+import { shadcnClassNames, shadcnComponents } from '@fx-/chat-shadcn'
 
 <ChatProvider components={shadcnComponents} classNames={shadcnClassNames}>…</ChatProvider>
 ```
 
 ```css
 @import "tailwindcss";
-@import "@fx/chat-shadcn/theme.css"; /* tokens + @source for the package's classes */
+@import "@fx-/chat-shadcn/theme.css"; /* tokens + @source for the package's classes */
 ```
 
 Dark mode follows the system; a `.dark`/`.light` class on any element forces a scheme for its

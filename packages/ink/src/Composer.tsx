@@ -2,7 +2,12 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 
-import type { Attachment, CompletionItem, CompletionMatch, CompletionProvider } from '@fx/chat-core'
+import type {
+  Attachment,
+  CompletionItem,
+  CompletionMatch,
+  CompletionProvider,
+} from '@fx-/chat-core'
 /**
  * The terminal composer: a multi-line editor with history and completion.
  *

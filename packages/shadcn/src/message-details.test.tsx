@@ -1,4 +1,4 @@
-import type { MessageDetailsProps } from '@fx/chat'
+import type { MessageDetailsProps } from '@fx-/chat'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { lucideIcons } from './icons'

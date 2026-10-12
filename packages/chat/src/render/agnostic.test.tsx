@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@fx/chat-core'
+import type { ChatMessage } from '@fx-/chat-core'
 import { fireEvent, render, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../registry'

@@ -23,11 +23,11 @@ import {
   toolDisplayInput,
   toolLabel,
   toolResultText,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 /**
  * A message in the terminal: a projection of the core render plan
  * (`planMessage` / `planGroupHeader`), so grouping, labels, timers and the
- * footer gate match `@fx/chat` exactly.
+ * footer gate match `@fx-/chat` exactly.
  */
 import type { ComponentType } from 'react'
 import { Row, clipLines, toJson } from './Row'

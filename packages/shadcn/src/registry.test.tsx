@@ -1,4 +1,4 @@
-import { HEADLESS_ICON_NAMES } from '@fx/chat/headless'
+import { HEADLESS_ICON_NAMES } from '@fx-/chat/headless'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodeBlock, JsonView } from './code'

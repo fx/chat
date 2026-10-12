@@ -1,14 +1,14 @@
-import type { FetchLike } from '@fx/chat-agent'
+import type { FetchLike } from '@fx-/chat-agent'
 /** @jsxRuntime classic */
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 /**
- * The `tx chat` session: an agent conversation rendered by `@fx/chat-ink`,
- * driven by `@fx/chat-agent`, with tool approvals, slash commands and
+ * The `tx chat` session: an agent conversation rendered by `@fx-/chat-ink`,
+ * driven by `@fx-/chat-agent`, with tool approvals, slash commands and
  * keyboard control. Conversations live for the session only.
  */
-import { React, ink } from '@fx/chat-ink'
-import { Composer, Styled, Transcript } from '@fx/chat-ink'
+import { React, ink } from '@fx-/chat-ink'
+import { Composer, Styled, Transcript } from '@fx-/chat-ink'
 import { approvalArguments } from './approval'
 import { type ExitReason, useChatSession } from './session'
 import { type ChatSettings, hostOf } from './settings'

@@ -69,7 +69,7 @@ export const FORBIDDEN_PATTERNS = [
   },
   {
     label: 'direct headless entry import',
-    re: /(?:^\s*(?:import|export)\b[^'"]*?from\s+|import\s*\(\s*|require\s*\(\s*)['"]@fx\/chat\/headless['"]/gm,
+    re: /(?:^\s*(?:import|export)\b[^'"]*?from\s+|import\s*\(\s*|require\s*\(\s*)['"]@fx-\/chat\/headless['"]/gm,
   },
   {
     // The in-package headless barrel (`packages/chat/src/headless.ts`) reached
@@ -81,7 +81,7 @@ export const FORBIDDEN_PATTERNS = [
   {
     // The headless registry's named exports (`headlessComponents`,
     // `headlessIcons`, `HeadlessMarkdown`) are also re-exported from
-    // `../registry` and the package root `@fx/chat`, so a path-based rule misses
+    // `../registry` and the package root `@fx-/chat`, so a path-based rule misses
     // `import { headlessComponents } from '../registry'`. Flag the identifiers
     // wherever they appear in a real import binding (anchored to a statement so
     // a commented-out mention is ignored), regardless of specifier.

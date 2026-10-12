@@ -1,4 +1,4 @@
-import type { ChatMessage, ToolCallBlock } from '@fx/chat-core'
+import type { ChatMessage, ToolCallBlock } from '@fx-/chat-core'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../registry'

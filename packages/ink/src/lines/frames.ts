@@ -3,7 +3,7 @@
  * (the default) and `threaded`; hosts may supply their own. Frames draw only
  * with injected roles and glyphs.
  */
-import { formatClockTime } from '@fx/chat-core'
+import { formatClockTime } from '@fx-/chat-core'
 import type { FrameInput, LineDraft, MessageFrame } from './layout'
 import { truncate, wrapLines } from './measure'
 import { type Span, span } from './model'

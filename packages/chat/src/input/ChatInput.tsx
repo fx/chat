@@ -1,5 +1,5 @@
-import { mentionsToSegments } from '@fx/chat-core'
-import type { Attachment } from '@fx/chat-core'
+import { mentionsToSegments } from '@fx-/chat-core'
+import type { Attachment } from '@fx-/chat-core'
 /**
  * `ChatInput` — the headless message composer.
  *

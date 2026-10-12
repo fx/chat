@@ -71,10 +71,10 @@ describe('scanForForbiddenImports', () => {
     expect(v[0].label).toContain('direct headless')
   })
 
-  it('flags a direct @fx/chat/headless entry import', () => {
+  it('flags a direct @fx-/chat/headless entry import', () => {
     writeFileSync(
       join(root, ...RENDER_DIR, 'd.tsx'),
-      "import { Avatar } from '@fx/chat/headless'\n",
+      "import { Avatar } from '@fx-/chat/headless'\n",
     )
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
@@ -118,7 +118,7 @@ describe('scanForForbiddenImports', () => {
   it('flags importing a headless symbol from the package root specifier', () => {
     writeFileSync(
       join(root, ...INPUT_DIR, 'sym2.tsx'),
-      "import { ChatProvider, headlessIcons } from '@fx/chat'\n",
+      "import { ChatProvider, headlessIcons } from '@fx-/chat'\n",
     )
     const v = scanForForbiddenImports(root, GUARDED_DIRS)
     expect(v).toHaveLength(1)
@@ -163,7 +163,7 @@ describe('scanForForbiddenImports', () => {
         "// import { headlessComponents } from '../registry/headless'",
         "// import { Check } from 'lucide-react'",
         "  //   import '../../headless'",
-        "/* import { Avatar } from '@fx/chat/headless' */",
+        "/* import { Avatar } from '@fx-/chat/headless' */",
       ].join('\n'),
     )
     expect(scanForForbiddenImports(root, GUARDED_DIRS)).toEqual([])

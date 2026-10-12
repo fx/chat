@@ -2,7 +2,7 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 
-import type { RenderableMessage } from '@fx/chat-core'
+import type { RenderableMessage } from '@fx-/chat-core'
 import { type InkExtensions, MessageView } from './MessageView'
 /**
  * The terminal transcript. Finished messages are written once through Ink's

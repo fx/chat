@@ -2,7 +2,7 @@
 
 Part of the [ink-renderer spec](./index.md).
 
-The markdown engine is injected, as in `@fx/chat` (see [architecture](../architecture/index.md)): the
+The markdown engine is injected, as in `@fx-/chat` (see [architecture](../architecture/index.md)): the
 line viewport takes a **markdown layout** slot — a function from source, width and options
 (streaming, an image hook, the measure) to lines. The package ships a **dependency-free default**,
 the terminal counterpart of the headless DOM markdown, which the line viewport uses unless the host

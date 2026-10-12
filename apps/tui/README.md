@@ -1,7 +1,7 @@
 # `tx chat`
 
 Agent chat in the terminal, as a plugin for the [tx](https://github.com/fx/tx) toolbox. It renders
-with `@fx/chat-ink`, runs turns with `@fx/chat-agent` against any OpenAI-compatible endpoint, and
+with `@fx-/chat-ink`, runs turns with `@fx-/chat-agent` against any OpenAI-compatible endpoint, and
 uses tx for settings storage, the theme, and setup dialogs. See the
 [terminal-app spec](../../docs/specs/terminal-app/index.md).
 
@@ -10,11 +10,11 @@ uses tx for settings storage, the theme, and setup dialogs. See the
 This repository is a tx marketplace (`.tx/config.json` at the root declares the `chat` plugin):
 
 ```sh
-mise run tui:install   # builds the @fx/chat-* packages, adds this marketplace
+mise run tui:install   # builds the @fx-/chat-* packages, adds this marketplace
 tx chat
 ```
 
-`tui:install` runs `bun run build` (the plugin imports the built `@fx/chat-*` packages) and
+`tui:install` runs `bun run build` (the plugin imports the built `@fx-/chat-*` packages) and
 `tx marketplace add "$PWD" --name chat`, a live reference: edits apply on the next run (rebuild
 the packages after changing them). `mise install` installs the released tx 2.0.0 that
 `mise.toml` pins; the manifest declares support for tx `^2.0.0` (the plugin needs tx 2's Ink 8).

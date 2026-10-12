@@ -7,16 +7,16 @@ import {
   type RunResult,
   createClient,
   type runAgent,
-} from '@fx/chat-agent'
+} from '@fx-/chat-agent'
 /**
- * The app store: settings and endpoint profiles on top of `@fx/chat-agent`'s
+ * The app store: settings and endpoint profiles on top of `@fx-/chat-agent`'s
  * `ChatController`, which owns conversations, transcripts, runs and the
  * tool-approval queue. Both persist to the same key-value store.
  *
  * Framework-free (subscribe / getState) so it is testable without React; the
  * UI binds to it with `useSyncExternalStore`.
  */
-import type { ChatMessage } from '@fx/chat-core'
+import type { ChatMessage } from '@fx-/chat-core'
 import {
   type AppState,
   type ConversationMeta,

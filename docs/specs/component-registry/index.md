@@ -2,7 +2,7 @@
 
 ## Overview
 
-The component registry is the mechanism that makes `@fx/chat` design-system-agnostic. Every
+The component registry is the mechanism that makes `@fx-/chat` design-system-agnostic. Every
 visual atom (button, badge, tooltip, collapsible, code/JSON viewer, avatar, scroll container)
 and every icon and the markdown renderer are **injected by the host** through a single
 `ChatComponents` registry provided via `<ChatProvider>`. The package's renderers know the
@@ -82,7 +82,7 @@ consume the registry; [architecture](../architecture/) forbids depending on any 
     sheet, a popover). It receives `{ open; onOpenChange; details; outcome?; copyText; actions }`:
     `details` are labelled, formatted metric facts (`Model`, `Duration`, `Speed`, `Tokens`,
     `Cost`, `Context`, present ones only), `actions` the message's Regenerate/Fork/Reset with
-    label, icon and handler. Its props reference no `@fx/chat-core` type. There is no headless
+    label, icon and handler. Its props reference no `@fx-/chat-core` type. There is no headless
     default: when it is absent the footer reveals inline (see message-rendering). The message
     owns it (so live activity can open it too) and also passes `activity` — the message's
     activity as the package's rows, each in `.chat-details-activity-item[data-block-id]` — and
@@ -203,7 +203,7 @@ headless primitives are unstyled semantic HTML carrying those stable hooks.
 
 ### Headless Default Registry
 
-- The package MUST export a complete default registry (`@fx/chat/headless`) implementing every
+- The package MUST export a complete default registry (`@fx-/chat/headless`) implementing every
   primitive, icon, and the markdown slot with no third-party UI/icon/markdown dependency.
 - `ChatProvider` used with no `components` prop MUST behave as if given the headless default.
 

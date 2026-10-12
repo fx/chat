@@ -1,5 +1,5 @@
 /**
- * The shadcn `@fx/chat` component registry: shadcn/ui primitives (Radix under
+ * The shadcn `@fx-/chat` component registry: shadcn/ui primitives (Radix under
  * the hood), lucide icons, and a react-markdown engine, mapped onto the
  * library's slot contract. No chat logic lives here — every adapter only
  * translates slot props onto a host primitive.
@@ -14,7 +14,7 @@ import type {
   IconComponent,
   ScrollAreaProps,
   TooltipProps,
-} from '@fx/chat'
+} from '@fx-/chat'
 import { useEffect, useRef, useState } from 'react'
 import { createActivityTiles } from './activity-tiles'
 import { cn } from './cn'

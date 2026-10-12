@@ -1,6 +1,6 @@
 // @vitest-environment node
-import type { CompletionItem, CompletionProvider } from '@fx/chat-core'
-import { referenceProvider } from '@fx/chat-core'
+import type { CompletionItem, CompletionProvider } from '@fx-/chat-core'
+import { referenceProvider } from '@fx-/chat-core'
 import { describe, expect, it, vi } from 'vitest'
 import { Composer } from './Composer'
 import { KEYS, renderInk, tick, useFakeClock } from './test-helpers'

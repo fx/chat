@@ -2,7 +2,7 @@
 
 ## Overview
 
-The message model is the **normalized, transport-agnostic** data shape that every `@fx/chat`
+The message model is the **normalized, transport-agnostic** data shape that every `@fx-/chat`
 renderer consumes. It MUST be independent of any wire format, database schema, or LLM provider
 SDK. Hosts map their own message shapes into this model via a documented codec. The model is
 pure data and pure functions: it MUST NOT import React, the DOM, or any UI primitive.

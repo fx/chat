@@ -1,13 +1,13 @@
 /**
- * App stylesheet — Tailwind v4 + `@fx/chat-shadcn`'s token set.
+ * App stylesheet — Tailwind v4 + `@fx-/chat-shadcn`'s token set.
  *
- * The chat transcript is styled entirely through `@fx/chat-shadcn`'s
+ * The chat transcript is styled entirely through `@fx-/chat-shadcn`'s
  * `classNames` theme and registry primitives, both resolving against the
  * tokens its `theme.css` defines (dark follows the system preference). This
  * file adds only the app shell: full-height layout and safe areas.
  */
 @import "tailwindcss";
-@import "@fx/chat-shadcn/theme.css";
+@import "@fx-/chat-shadcn/theme.css";
 
 html,
 body,

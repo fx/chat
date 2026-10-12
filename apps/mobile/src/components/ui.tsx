@@ -1,9 +1,9 @@
-import { cn } from '@fx/chat-shadcn'
+import { cn } from '@fx-/chat-shadcn'
 import { ChevronRight } from 'lucide-react'
 /**
  * App-shell primitives (headers, buttons, sheets, form fields). These are the
  * app's own chrome — the transcript itself is styled only through the
- * `@fx/chat` registry and `classNames` theme.
+ * `@fx-/chat` registry and `classNames` theme.
  */
 import type {
   ButtonHTMLAttributes,

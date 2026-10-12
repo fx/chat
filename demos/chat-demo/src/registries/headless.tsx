@@ -9,7 +9,7 @@
  * is provided by a small scoped block in `index.css`. This is the honest "bring
  * nothing but a stylesheet" reference adapter.
  */
-import { type ChatComponents, headlessComponents } from '@fx/chat/headless'
+import { type ChatComponents, headlessComponents } from '@fx-/chat/headless'
 
 /** The headless adapter registry (the library defaults, unchanged). */
 export const headlessRegistry: ChatComponents = headlessComponents

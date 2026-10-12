@@ -2,7 +2,7 @@
  * Code + JSON view slots: a Tailwind-styled `<pre>`; `JsonView` pretty-prints
  * any value first. No syntax highlighting.
  */
-import type { CodeBlockProps, JsonViewProps } from '@fx/chat'
+import type { CodeBlockProps, JsonViewProps } from '@fx-/chat'
 import { cn } from './cn'
 
 export function CodeBlock({ code, language, className }: CodeBlockProps) {

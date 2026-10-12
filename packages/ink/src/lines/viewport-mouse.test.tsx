@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage, DetailLevel } from '@fx/chat-core'
+import type { ChatMessage, DetailLevel } from '@fx-/chat-core'
 import { cleanup, render } from 'ink-testing-library'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

@@ -19,17 +19,17 @@ const readStructureCss = (): string =>
  * UI-kit / icon-set / markdown-engine dependency. We assert these structurally
  * (the package manifest + the stylesheet text) rather than from pixels.
  */
-describe('@fx/chat public surface', () => {
+describe('@fx-/chat public surface', () => {
   it('resolves the root entry point via its package specifier', async () => {
     // Import through the published name so a broken `exports` map or a missing
     // built subpath fails the test exactly as it would fail a consumer.
-    const root = await import('@fx/chat')
+    const root = await import('@fx-/chat')
     expect(typeof root.cx).toBe('function')
     expect(root.version).toBe(pkg.version)
   })
 
   it('resolves the headless entry point via its package specifier', async () => {
-    const headless = await import('@fx/chat/headless')
+    const headless = await import('@fx-/chat/headless')
     expect(headless.headlessComponents).toBeDefined()
     expect(typeof headless.headlessComponents.Button).toBe('function')
     expect(typeof headless.headlessComponents.icons).toBe('object')
@@ -57,10 +57,10 @@ describe('@fx/chat public surface', () => {
     expect(existsSync(resolve(pkgDir, 'src/styles.css'))).toBe(false)
   })
 
-  it('keeps React as a peer dependency and depends only on @fx/chat-core', () => {
+  it('keeps React as a peer dependency and depends only on @fx-/chat-core', () => {
     expect(pkg.peerDependencies).toHaveProperty('react')
     expect(pkg.peerDependencies).toHaveProperty('react-dom')
-    expect(pkg.dependencies ?? {}).toEqual({ '@fx/chat-core': 'workspace:*' })
+    expect(pkg.dependencies ?? {}).toEqual({ '@fx-/chat-core': 'workspace:*' })
   })
 
   it('ships the animation keyframes that raw-CSS consumers cannot supply as utilities', () => {

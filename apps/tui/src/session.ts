@@ -4,15 +4,15 @@ import {
   type PendingApproval,
   type QueuedMessage,
   createClient,
-} from '@fx/chat-agent'
-import type { ChatMessage } from '@fx/chat-core'
+} from '@fx-/chat-agent'
+import type { ChatMessage } from '@fx-/chat-core'
 /**
  * The `tx chat` session, shared by the fullscreen and inline views: settings,
  * slash commands and notices over one `ChatController` conversation, which
  * owns the transcript, the running turn, tool approvals and the queue of
  * messages typed while an answer streams.
  */
-import { React, ink, stripControls } from '@fx/chat-ink'
+import { React, ink, stripControls } from '@fx-/chat-ink'
 import { COMMANDS, commandProvider, modelProvider, parseCommand } from './commands'
 import { type ChatSettings, DEFAULT_TOOLS } from './settings'
 

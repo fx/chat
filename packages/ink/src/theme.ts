@@ -1,7 +1,7 @@
 /**
  * The injected look of the terminal renderer.
  *
- * Like `@fx/chat`'s `classNames`, the package decides structure and semantics
+ * Like `@fx-/chat`'s `classNames`, the package decides structure and semantics
  * and the host decides appearance: every piece of text names its ROLE and the
  * theme answers with an appearance. Glyphs (icons, disclosure markers, spinner
  * frames) are injected the same way. The defaults are greyscale and plain, so

@@ -1,5 +1,5 @@
-import type { Attachment } from '@fx/chat-core'
-import { isSafeAttachmentUrl } from '@fx/chat-core'
+import type { Attachment } from '@fx-/chat-core'
+import { isSafeAttachmentUrl } from '@fx-/chat-core'
 /**
  * `MessageAttachments` — renders a message's `attachments` region.
  *

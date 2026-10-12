@@ -1,5 +1,5 @@
 /**
- * `@fx/chat` — framework-light, design-system-agnostic React components for
+ * `@fx-/chat` — framework-light, design-system-agnostic React components for
  * rendering and composing LLM chat conversations.
  *
  * This is the bootstrap surface. Feature changes (message model, component
@@ -17,7 +17,7 @@
 export const version = '0.0.0'
 
 /**
- * The message model, codec, and mention helpers live in `@fx/chat-core` and are
+ * The message model, codec, and mention helpers live in `@fx-/chat-core` and are
  * re-exported unchanged so existing host imports keep working.
  */
 export type {
@@ -43,7 +43,7 @@ export type {
   ToolKind,
   ToolMedia,
   ToolStatus,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 export {
   ChatMessageAssertionError,
   assertChatMessage,
@@ -55,13 +55,13 @@ export {
   normalizeTranscript,
   parseMentions,
   toJsonSafe,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 
 /**
  * The `clsx`-style class-name joiner + its value type. Implemented in the
  * dependency-free `./cx` leaf module so the render/input layers can import it
  * without an import cycle through this barrel; re-exported here so the public
- * surface (`import { cx } from '@fx/chat'`) is unchanged.
+ * surface (`import { cx } from '@fx-/chat'`) is unchanged.
  */
 export { cx } from './cx'
 export type { ClassValue } from './cx'

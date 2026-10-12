@@ -1,4 +1,4 @@
-import type { Attachment } from '@fx/chat'
+import type { Attachment } from '@fx-/chat'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {

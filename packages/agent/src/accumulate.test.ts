@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ToolCallBlock } from '@fx/chat-core'
+import type { ToolCallBlock } from '@fx-/chat-core'
 import { describe, expect, it } from 'vitest'
 import {
   AGENT_META_KEY,

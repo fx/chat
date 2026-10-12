@@ -1,7 +1,7 @@
 /**
  * The component-registry contract.
  *
- * `@fx/chat` is design-system-agnostic: every visual atom (button, badge,
+ * `@fx-/chat` is design-system-agnostic: every visual atom (button, badge,
  * tooltip, …), every semantic icon, and the markdown renderer are injected by
  * the host through a single {@link ChatComponents} registry. The package's
  * renderers know the *semantics* of each slot but never hard-code a styled

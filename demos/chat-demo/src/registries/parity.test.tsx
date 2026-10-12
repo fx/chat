@@ -8,7 +8,7 @@
  * the messages/blocks/tool-calls/grouping the library renders, these shared
  * assertions would fail for that registry alone.
  */
-import { ChatProvider, MessageLog } from '@fx/chat'
+import { ChatProvider, MessageLog } from '@fx-/chat'
 import { render, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolvedConversation } from '../fixtures/conversation'

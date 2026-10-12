@@ -1,10 +1,10 @@
 /**
- * tx's theme → `@fx/chat-ink`'s injected theme. tx names nine semantic
+ * tx's theme → `@fx-/chat-ink`'s injected theme. tx names nine semantic
  * variables and answers each with an appearance; the chat renderer's roles map
  * onto them, so `tx chat` looks like the rest of tx (greyscale by default,
  * coloured wherever a tx theme override says so).
  */
-import type { InkAppearance, InkTheme } from '@fx/chat-ink'
+import type { InkAppearance, InkTheme } from '@fx-/chat-ink'
 import type { Appearance, Theme } from '@fx/tx/theme'
 
 export function toInkAppearance(appearance: Appearance): InkAppearance {

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage, ContentBlock, CustomBlock, RenderableMessage } from '@fx/chat-core'
+import type { ChatMessage, ContentBlock, CustomBlock, RenderableMessage } from '@fx-/chat-core'
 import { describe, expect, it } from 'vitest'
 import { asciiGlyphs, plainGlyphs, plainTheme } from '../theme'
 import { compactFrame, threadedFrame } from './frames'

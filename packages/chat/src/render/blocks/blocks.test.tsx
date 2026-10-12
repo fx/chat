@@ -4,7 +4,7 @@ import type {
   SystemBlock,
   TextBlock,
   ToolCallBlock,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatProvider } from '../../registry'

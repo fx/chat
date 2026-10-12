@@ -3,10 +3,10 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@fx/chat-monorepo",
+      "name": "@fx-/chat-monorepo",
       "devDependencies": {
         "@biomejs/biome": "1.9.4",
-        "@fx/chat": "workspace:*",
+        "@fx-/chat": "workspace:*",
         "@testing-library/jest-dom": "6.6.3",
         "@testing-library/react": "16.1.0",
         "@testing-library/user-event": "14.6.1",
@@ -31,10 +31,10 @@
       "name": "chat-mobile",
       "version": "0.0.0",
       "dependencies": {
-        "@fx/chat": "workspace:*",
-        "@fx/chat-agent": "workspace:*",
-        "@fx/chat-core": "workspace:*",
-        "@fx/chat-shadcn": "workspace:*",
+        "@fx-/chat": "workspace:*",
+        "@fx-/chat-agent": "workspace:*",
+        "@fx-/chat-core": "workspace:*",
+        "@fx-/chat-shadcn": "workspace:*",
         "@tauri-apps/api": "2.12.2",
         "@tauri-apps/plugin-http": "2.8.1",
         "lucide-react": "0.469.0",
@@ -53,9 +53,9 @@
       "name": "chat-tui",
       "version": "0.0.0",
       "dependencies": {
-        "@fx/chat-agent": "workspace:*",
-        "@fx/chat-core": "workspace:*",
-        "@fx/chat-ink": "workspace:*",
+        "@fx-/chat-agent": "workspace:*",
+        "@fx-/chat-core": "workspace:*",
+        "@fx-/chat-ink": "workspace:*",
         "fast-png": "8.0.0",
         "jpeg-js": "0.4.4",
       },
@@ -69,8 +69,8 @@
       "name": "chat-demo",
       "version": "0.0.0",
       "dependencies": {
-        "@fx/chat": "workspace:*",
-        "@fx/chat-shadcn": "workspace:*",
+        "@fx-/chat": "workspace:*",
+        "@fx-/chat-shadcn": "workspace:*",
         "@fx/ui": "1.0.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
@@ -83,17 +83,17 @@
       },
     },
     "packages/agent": {
-      "name": "@fx/chat-agent",
+      "name": "@fx-/chat-agent",
       "version": "0.0.0",
       "dependencies": {
-        "@fx/chat-core": "workspace:*",
+        "@fx-/chat-core": "workspace:*",
       },
     },
     "packages/chat": {
-      "name": "@fx/chat",
+      "name": "@fx-/chat",
       "version": "0.0.0",
       "dependencies": {
-        "@fx/chat-core": "workspace:*",
+        "@fx-/chat-core": "workspace:*",
       },
       "peerDependencies": {
         "react": "^18.2.0 || ^19.0.0",
@@ -101,7 +101,7 @@
       },
     },
     "packages/core": {
-      "name": "@fx/chat-core",
+      "name": "@fx-/chat-core",
       "version": "0.0.0",
       "peerDependencies": {
         "react": "^18.2.0 || ^19.0.0",
@@ -111,10 +111,10 @@
       ],
     },
     "packages/ink": {
-      "name": "@fx/chat-ink",
+      "name": "@fx-/chat-ink",
       "version": "0.0.0",
       "dependencies": {
-        "@fx/chat-core": "workspace:*",
+        "@fx-/chat-core": "workspace:*",
         "string-width": "8.3.0",
       },
       "devDependencies": {
@@ -135,7 +135,7 @@
       ],
     },
     "packages/shadcn": {
-      "name": "@fx/chat-shadcn",
+      "name": "@fx-/chat-shadcn",
       "version": "0.0.0",
       "dependencies": {
         "@radix-ui/react-avatar": "1.1.2",
@@ -152,10 +152,10 @@
         "vaul": "1.1.2",
       },
       "devDependencies": {
-        "@fx/chat": "workspace:*",
+        "@fx-/chat": "workspace:*",
       },
       "peerDependencies": {
-        "@fx/chat": "workspace:*",
+        "@fx-/chat": "workspace:*",
         "react": "^18.2.0 || ^19.0.0",
         "react-dom": "^18.2.0 || ^19.0.0",
         "tailwindcss": "^4.0.0",
@@ -311,15 +311,15 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
 
-    "@fx/chat": ["@fx/chat@workspace:packages/chat"],
+    "@fx-/chat": ["@fx-/chat@workspace:packages/chat"],
 
-    "@fx/chat-agent": ["@fx/chat-agent@workspace:packages/agent"],
+    "@fx-/chat-agent": ["@fx-/chat-agent@workspace:packages/agent"],
 
-    "@fx/chat-core": ["@fx/chat-core@workspace:packages/core"],
+    "@fx-/chat-core": ["@fx-/chat-core@workspace:packages/core"],
 
-    "@fx/chat-ink": ["@fx/chat-ink@workspace:packages/ink"],
+    "@fx-/chat-ink": ["@fx-/chat-ink@workspace:packages/ink"],
 
-    "@fx/chat-shadcn": ["@fx/chat-shadcn@workspace:packages/shadcn"],
+    "@fx-/chat-shadcn": ["@fx-/chat-shadcn@workspace:packages/shadcn"],
 
     "@fx/tx": ["@fx/tx@2.0.0", "https://npm.pkg.github.com/download/@fx/tx/2.0.0/cf348884a7e5e29b17b535334020038b4fc36faa", { "dependencies": { "@types/node": "26.1.2", "@types/react": "19.3.0", "commander": "15.0.0", "ink": "8.0.0", "react": "19.3.0", "react-devtools-core": "8.0.0" }, "os": "linux", "cpu": "x64", "bin": { "tx": "dist/tx" } }, "sha512-VAdXJfXFwOF0f1JiZ7D9x8cd5Pc8mYs7WvXAgbwpDfplf51CtNT1ptTEZ40tNgV8FXWrGGNui2fym9aTBdYJrQ=="],
 

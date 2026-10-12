@@ -1,5 +1,5 @@
 /**
- * Pins `@fx/chat-shadcn`'s public surface: every name here is part of the
+ * Pins `@fx-/chat-shadcn`'s public surface: every name here is part of the
  * published API, so removing one is a breaking change. Extend it deliberately.
  */
 import { describe, expect, it } from 'vitest'

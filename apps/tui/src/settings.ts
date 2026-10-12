@@ -2,7 +2,7 @@
  * Endpoint settings for `tx chat`: resolved from flags, then environment
  * variables, then the profile stored in tx's per-user config document.
  */
-import type { ToolId } from '@fx/chat-agent'
+import type { ToolId } from '@fx-/chat-agent'
 
 /** The key this plugin owns in tx's config document. */
 export const CONFIG_KEY = 'chat'

@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@fx/chat-core'
+import type { ChatMessage } from '@fx-/chat-core'
 /**
  * Threading tests for the headless `classNames` injection API (STAGE A).
  *

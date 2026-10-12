@@ -1,5 +1,5 @@
-import type { FetchLike } from '@fx/chat-agent'
-import type { DetailLevel } from '@fx/chat-core'
+import type { FetchLike } from '@fx-/chat-agent'
+import type { DetailLevel } from '@fx-/chat-core'
 /** @jsxRuntime classic */
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
@@ -15,7 +15,7 @@ import type { DetailLevel } from '@fx/chat-core'
  * still winding down). Mouse drag copies. While an approval is shown, y/Enter
  * allow, n/Esc deny, and scrolling, ^T, ^O and Ctrl+C keep working.
  */
-import { React, ink } from '@fx/chat-ink'
+import { React, ink } from '@fx-/chat-ink'
 import {
   Composer,
   type ComposerValue,
@@ -30,7 +30,7 @@ import {
   emptyComposerValue,
   scrollEnd,
   threadedFrame,
-} from '@fx/chat-ink'
+} from '@fx-/chat-ink'
 import { approvalArguments } from './approval'
 import { type ExitReason, useChatSession } from './session'
 import { type ChatSettings, hostOf } from './settings'

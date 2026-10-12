@@ -1,5 +1,5 @@
 /** Test helpers: a fake OpenAI-compatible endpoint and ink-testing-library keys. */
-import type { FetchLike } from '@fx/chat-agent'
+import type { FetchLike } from '@fx-/chat-agent'
 import { afterEach, beforeEach, vi } from 'vitest'
 
 const encoder = new TextEncoder()

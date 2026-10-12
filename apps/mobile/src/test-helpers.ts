@@ -1,5 +1,5 @@
 /** Test helpers: a fake OpenAI-compatible endpoint behind a fetch function. */
-import type { FetchLike } from '@fx/chat-agent'
+import type { FetchLike } from '@fx-/chat-agent'
 
 const encoder = new TextEncoder()
 

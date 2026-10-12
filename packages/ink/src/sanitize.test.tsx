@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage } from '@fx/chat-core'
+import type { ChatMessage } from '@fx-/chat-core'
 import { renderToString } from 'ink'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'

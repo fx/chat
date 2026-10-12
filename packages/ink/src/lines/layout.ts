@@ -31,8 +31,8 @@ import {
   toolHeadline,
   toolLabel,
   toolResultText,
-} from '@fx/chat-core'
-import { layoutJson, looksLikeJson, parseLooseJson } from '@fx/chat-core/json'
+} from '@fx-/chat-core'
+import { layoutJson, looksLikeJson, parseLooseJson } from '@fx-/chat-core/json'
 import { stripControls, stripControlsDeep } from '../sanitize'
 import type { InkAppearance, InkGlyphs, InkTheme, InkThemeRole } from '../theme'
 import { type Measure, truncate, wrapLines } from './measure'

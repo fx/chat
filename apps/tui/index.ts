@@ -1,10 +1,10 @@
 /**
- * `tx chat` — an agent chat in the terminal, built on the @fx/chat libraries:
- * `@fx/chat-ink` renders, `@fx/chat-agent` talks to any OpenAI-compatible
+ * `tx chat` — an agent chat in the terminal, built on the @fx-/chat libraries:
+ * `@fx-/chat-ink` renders, `@fx-/chat-agent` talks to any OpenAI-compatible
  * endpoint, and tx supplies settings storage, the theme and setup dialogs.
  *
  * The plugin renders with the React and Ink tx injects (`api.dependencies`)
- * and ships no copy of either. `@fx/chat-ink` needs Ink 8, which tx provides
+ * and ships no copy of either. `@fx-/chat-ink` needs Ink 8, which tx provides
  * from 2.0; the manifest admits only tx 2, and the version check below
  * guards against a tx that loads the plugin regardless.
  */
@@ -13,7 +13,7 @@ import type { Dialogs } from '@fx/tx/dialogs'
 import type { Plugin } from '@fx/tx/plugin'
 import type { Theming } from '@fx/tx/theme'
 
-import { createChatInk } from '@fx/chat-ink'
+import { createChatInk } from '@fx-/chat-ink'
 import { startChat } from './src/start'
 
 /** The major version in a dependency spec such as `8.0.0` or `^8.1.0`. */

@@ -2,8 +2,8 @@
 
 ## Overview
 
-`@fx/chat-ink` renders `@fx/chat-core` conversations in a terminal with Ink, with the same injection
-philosophy as `@fx/chat`: it ships behavior and structure, and the host injects the look (colors,
+`@fx-/chat-ink` renders `@fx-/chat-core` conversations in a terminal with Ink, with the same injection
+philosophy as `@fx-/chat`: it ships behavior and structure, and the host injects the look (colors,
 glyphs, markdown-to-ANSI). It targets the same full agent-style interactions — streaming text,
 reasoning with live timers, tool calls with status — and an input composer with completion.
 
@@ -36,14 +36,14 @@ projection of it.
 
 ### Package Boundary
 
-- The package MUST be named `@fx/chat-ink`, live at `packages/ink/`, ship ESM + `.d.ts`, run on
+- The package MUST be named `@fx-/chat-ink`, live at `packages/ink/`, ship ESM + `.d.ts`, run on
   Node 22+, and peer-depend on Ink 8 and React 19.3 or newer (Ink 8's own requirement).
-- It MUST depend on `@fx/chat-core` for all transcript logic and MUST NOT import `@fx/chat` or
+- It MUST depend on `@fx-/chat-core` for all transcript logic and MUST NOT import `@fx-/chat` or
   `react-dom`.
 - The package MUST NOT load React, Ink or a JSX runtime of its own: the host hands in its instances
   with `createChatInk({ React, ink })` before anything renders, and the package renders with those
   (a plugin host such as tx gives every plugin its own, and a tree takes one instance of each). The
-  core hooks it uses come from `@fx/chat-core/hooks` bound to the same React. One process binds
+  core hooks it uses come from `@fx-/chat-core/hooks` bound to the same React. One process binds
   once; binding again with other instances MUST fail, and using the package unbound MUST fail with
   a message naming `createChatInk`. Hosts share the timers' clock through the package's own
   `ClockProvider`.
@@ -90,7 +90,7 @@ projection of it.
 #### Scenario: Same labels as the DOM renderer
 
 - **GIVEN** an assistant message with reasoning (2.4 s) and one finished tool call
-- **WHEN** it is rendered by `@fx/chat` and by `@fx/chat-ink`
+- **WHEN** it is rendered by `@fx-/chat` and by `@fx-/chat-ink`
 - **THEN** both show the same group summary label and duration text.
 
 ### Terminal Safety

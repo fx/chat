@@ -1,4 +1,4 @@
-import { type ToolCallBlock, toolDisplayInput, toolLabel } from '@fx/chat-core'
+import { type ToolCallBlock, toolDisplayInput, toolLabel } from '@fx-/chat-core'
 /**
  * `ToolCallBlockView` — a collapsible tool-invocation block.
  *

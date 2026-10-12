@@ -1,5 +1,5 @@
 // @vitest-environment node
-import type { ChatMessage, ContentBlock, CustomBlock, RenderableMessage } from '@fx/chat-core'
+import type { ChatMessage, ContentBlock, CustomBlock, RenderableMessage } from '@fx-/chat-core'
 import { Text, renderToString } from 'ink'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'

@@ -1,5 +1,5 @@
 /**
- * The single reference completion provider shipped by `@fx/chat`.
+ * The single reference completion provider shipped by `@fx-/chat`.
  *
  * It exists ONLY for demos and tests — it encodes no host domain concepts, does
  * no I/O, and is fully synchronous. It demonstrates the provider contract
@@ -35,7 +35,7 @@ const TOKEN_CHAR = /[A-Za-z0-9_-]/
 /**
  * An icon-less item. `CompletionItem<never>` is assignable to every renderer's
  * specialization (`never` fits any icon type), so the reference provider plugs
- * into `@fx/chat`, `@fx/chat-ink`, or any other renderer without a cast.
+ * into `@fx-/chat`, `@fx-/chat-ink`, or any other renderer without a cast.
  */
 type PlainItem = CompletionItem<never>
 

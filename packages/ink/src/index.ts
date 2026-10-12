@@ -1,7 +1,7 @@
 /**
- * `@fx/chat-ink` — a terminal renderer for `@fx/chat` conversations.
+ * `@fx-/chat-ink` — a terminal renderer for `@fx-/chat` conversations.
  *
- * Structure and behavior come from `@fx/chat-core` (the same render plan the
+ * Structure and behavior come from `@fx-/chat-core` (the same render plan the
  * React-DOM renderer projects); the look — theme roles, glyphs, markdown — is
  * injected through `<InkChatProvider>`, with greyscale plain defaults. React
  * and Ink are injected too: call `createChatInk({ React, ink })` with the

@@ -7,7 +7,7 @@
  * returned: the result is what may be stored, so it holds only a key the user
  * typed (or a stored key they kept).
  */
-import { type FetchLike, createClient } from '@fx/chat-agent'
+import { type FetchLike, createClient } from '@fx-/chat-agent'
 import type { Dialogs } from '@fx/tx/dialogs'
 import type { ChatSettings } from './settings'
 

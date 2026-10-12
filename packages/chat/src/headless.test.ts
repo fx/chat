@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import * as headless from './headless'
 
 /**
- * The `@fx/chat/headless` entry must expose the complete default registry plus
+ * The `@fx-/chat/headless` entry must expose the complete default registry plus
  * its building blocks. These assertions guard the public shape of that entry;
  * behavioral coverage of each component lives in the registry test suite.
  */
-describe('@fx/chat/headless entry', () => {
+describe('@fx-/chat/headless entry', () => {
   it('exports the complete headless registry with every contract slot', () => {
     const r = headless.headlessComponents
     expect(typeof r.Button).toBe('function')

@@ -8,7 +8,7 @@ import {
   type RenderableMessage,
   type ToolCallBlock,
   toolResultText,
-} from '@fx/chat-core'
+} from '@fx-/chat-core'
 /**
  * The fullscreen transcript: exactly `height` rows of laid-out lines, either
  * following new output or pinned to a top line. Any message may be redrawn

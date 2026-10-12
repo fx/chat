@@ -2,9 +2,9 @@
 
 ## Overview
 
-`apps/tui` is the terminal reference application for `@fx/chat`: an agent chat that runs as a
-plugin of the `tx` command-line toolbox (`tx chat`). It renders with `@fx/chat-ink`, runs turns with
-`@fx/chat-agent` against any OpenAI-compatible endpoint, and takes its settings storage, theme and
+`apps/tui` is the terminal reference application for `@fx-/chat`: an agent chat that runs as a
+plugin of the `tx` command-line toolbox (`tx chat`). It renders with `@fx-/chat-ink`, runs turns with
+`@fx-/chat-agent` against any OpenAI-compatible endpoint, and takes its settings storage, theme and
 setup dialogs from tx's capabilities. Like the mobile app, it is product code that carries features
 the libraries deliberately do not.
 
@@ -73,7 +73,7 @@ Related: [ink-renderer](../ink-renderer/), [chat-agent](../chat-agent/),
 ### Chat
 
 - The app MUST stream agent turns live (reasoning, tool calls, text, footer metrics) through
-  `@fx/chat-ink`, with tx's theme mapped onto the renderer's theme roles. Both modes use the
+  `@fx-/chat-ink`, with tx's theme mapped onto the renderer's theme roles. Both modes use the
   package's dependency-free terminal markdown: the line layout in fullscreen, its `TerminalMarkdown`
   element in the inline mode.
 - Tools that require approval MUST prompt inline with the tool name and arguments; `y`/Enter allows
@@ -108,7 +108,7 @@ apps/tui/
     ├── start.tsx          settings resolution, setup loop, render (fullscreen or --inline)
     ├── setup.ts           tx dialogs: base URL, key, model
     ├── settings.ts        flags > env > stored profile; validator
-    ├── theme.ts           tx appearances → @fx/chat-ink theme roles
+    ├── theme.ts           tx appearances → @fx-/chat-ink theme roles
     ├── commands.ts        slash commands as completion providers
     ├── session.ts         the session: settings, commands, notices; one in-memory ChatController
     ├── Fullscreen.tsx     viewport, status line, pending rows, plain composer, keys
@@ -121,7 +121,7 @@ rewritten). Ink measures every visible row on every frame, so its speed on Bun d
 `string-width` (the package's emoji check is pathologically slow on Bun) and on the host building
 React for production; both belong to tx, whose React and Ink the plugin renders with.
 
-The plugin renders with the React and Ink tx hands it (`api.dependencies`), binding `@fx/chat-ink`
+The plugin renders with the React and Ink tx hands it (`api.dependencies`), binding `@fx-/chat-ink`
 to them before anything renders; it ships no copy of either. It needs Ink 8, which tx provides from
 2.0: the manifest admits only tx 2, and should an older tx load the plugin anyway, the command
 fails with a message naming the version it needs. This repository pins the released tx 2.0.0 in
@@ -133,7 +133,7 @@ fails with a message naming the version it needs. This repository pins the relea
   and images the user clicked to show.
 - Conversations are not persisted; they last for the session.
 - Model-controlled text the app draws itself (the approval prompt's arguments, its markdown) MUST go
-  through the same terminal-control sanitization as `@fx/chat-ink`'s own rendering, so content
+  through the same terminal-control sanitization as `@fx-/chat-ink`'s own rendering, so content
   cannot drive the terminal.
 
 ## Open Questions
@@ -155,4 +155,4 @@ fails with a message naming the version it needs. This repository pins the relea
 | 2026-10-10 | Initial spec created | [0022-ink-renderer](../../changes/0022-ink-renderer.md) |
 | 2026-10-10 | Fullscreen mode (viewport, status line, queue, mouse copy, images) by default; `--inline` | [0032-tui-fullscreen](../../changes/0032-tui-fullscreen.md) |
 | 2026-10-11 | The inline mode uses the package's `TerminalMarkdown`; the `marked` renderer is gone | [0035-terminal-markdown-element](../../changes/0035-terminal-markdown-element.md) |
-| 2026-10-11 | Sessions run on `@fx/chat-agent`'s `ChatController` | [0037-chat-controller](../../changes/0037-chat-controller.md) |
+| 2026-10-11 | Sessions run on `@fx-/chat-agent`'s `ChatController` | [0037-chat-controller](../../changes/0037-chat-controller.md) |

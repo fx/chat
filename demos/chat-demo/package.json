@@ -10,8 +10,8 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@fx/chat": "workspace:*",
-    "@fx/chat-shadcn": "workspace:*",
+    "@fx-/chat": "workspace:*",
+    "@fx-/chat-shadcn": "workspace:*",
     "@fx/ui": "1.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

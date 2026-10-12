@@ -5,7 +5,7 @@
  * then full-width actions (copy first). Touch-first; the registry provides it
  * with `createShadcnComponents({ touch: true })`.
  */
-import type { MessageDetailsProps } from '@fx/chat'
+import type { MessageDetailsProps } from '@fx-/chat'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from './cn'
 import { lucideIcons } from './icons'

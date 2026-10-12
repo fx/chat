@@ -6,9 +6,9 @@
  * every library icon name, and the badge-tone mappings are correct. These are
  * the thin adapters' only non-presentational logic.
  */
-import type { ChatComponents } from '@fx/chat'
-import { lucideIcons } from '@fx/chat-shadcn'
-import { HEADLESS_ICON_NAMES } from '@fx/chat/headless'
+import type { ChatComponents } from '@fx-/chat'
+import { lucideIcons } from '@fx-/chat-shadcn'
+import { HEADLESS_ICON_NAMES } from '@fx-/chat/headless'
 import { describe, expect, it } from 'vitest'
 import { REGISTRIES, REGISTRY_IDS } from './index'
 

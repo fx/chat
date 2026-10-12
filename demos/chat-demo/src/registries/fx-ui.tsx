@@ -3,7 +3,7 @@
  *
  * A THIN contract→host mapping onto `@fx/ui` (a shared, Tailwind + Base UI
  * design system installed from GitHub Packages), the lucide icon set, and a
- * `react-markdown` engine for the `Markdown` slot (both from `@fx/chat-shadcn`). `@fx/ui` ships Button, Badge,
+ * `react-markdown` engine for the `Markdown` slot (both from `@fx-/chat-shadcn`). `@fx/ui` ships Button, Badge,
  * Collapsible, and Tooltip; the registry's ScrollArea and Avatar slots, which
  * `@fx/ui` does not export, are small Tailwind-styled elements over the same
  * design tokens. Only slot translation lives here — no chat logic.
@@ -20,10 +20,10 @@ import type {
   CopyButtonProps,
   ScrollAreaProps,
   TooltipProps,
-} from '@fx/chat'
+} from '@fx-/chat'
 // The Tailwind-styled code/markdown slots and lucide icons are design-system
-// neutral, so this adapter reuses `@fx/chat-shadcn`'s rather than its own copy.
-import { CodeBlock, JsonView, MarkdownView, cn, lucideIcons } from '@fx/chat-shadcn'
+// neutral, so this adapter reuses `@fx-/chat-shadcn`'s rather than its own copy.
+import { CodeBlock, JsonView, MarkdownView, cn, lucideIcons } from '@fx-/chat-shadcn'
 import {
   Badge as FxBadge,
   Button as FxButton,

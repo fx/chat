@@ -1,5 +1,5 @@
-import { TOOL_INFO } from '@fx/chat-agent'
-import { cn } from '@fx/chat-shadcn'
+import { TOOL_INFO } from '@fx-/chat-agent'
+import { cn } from '@fx-/chat-shadcn'
 /**
  * Settings: a menu of sub-pages — endpoint profiles, system prompt, built-in
  * tools, the digital assistant, and about. The page shown is part of the app
@@ -396,7 +396,7 @@ function About() {
   return (
     <Section>
       <p className="text-xs text-muted-foreground">
-        A reference app for the @fx/chat libraries. Everything stays on this device; requests go
+        A reference app for the @fx-/chat libraries. Everything stays on this device; requests go
         only to the endpoints you configure and the pages tools fetch with your approval.
       </p>
     </Section>

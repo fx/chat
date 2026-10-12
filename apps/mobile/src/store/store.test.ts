@@ -1,4 +1,4 @@
-import { memoryStore } from '@fx/chat-agent'
+import { memoryStore } from '@fx-/chat-agent'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeEndpoint, sseBody } from '../test-helpers'
 import { AppStore, migrate } from './store'
