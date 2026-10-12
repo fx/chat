@@ -51,6 +51,7 @@ The specs own the behavior. This change owns:
 
 - **Host callbacks cannot wedge a run.** Fourth review fix: a throwing `resolveRun` rejected `send` / `regenerate` and made a queued dispatch an unhandled rejection. `resolveRun` failures (a throw or a promise) are now recorded like a blocked run. A synchronously throwing `run` is the run's error. Subscribers are isolated, with a listener's error rethrown from a microtask. `now` and `newId` are documented as must-not-throw. Fifth review fix: error text uses the agent loop's total `errorMessage` (a null-prototype object or a throwing `toString` becomes `Unknown error`), and a non-object `resolveRun` answer is recorded rather than thrown.
 - **One clock.** Review fix: the update throttle read `performance.now()`. It now uses the injected `now`, and the chat-agent spec's package boundary lists the runtime globals the package may use.
+- **In-memory changes are whole.** Review fix: `deleteConversation` dropped the transcript, error and queue at once but the list entry only after its transcript delete, so a dispose during that await left a listed conversation with no transcript. It now applies every in-memory removal in one change before any storage write. `createConversation` sets its transcript and list entry in one change too.
 
 ### Non-Goals
 

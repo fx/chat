@@ -531,7 +531,7 @@ describe('ChatController runs', () => {
       conversations: [{ id: 'c1', title: 'C', createdAt: 1, updatedAt: 1, endpoint: 'ok' }],
       'messages:c1': [{ id: 'u', role: 'user', blocks: [{ type: 'text', id: 't', text: 'q' }] }],
     })
-    // The delete's storage write stays pending, so the list still has it.
+    // The delete's storage write stays pending; memory is updated at once.
     kv.delete = () => new Promise(() => {})
     const run = vi.fn()
     const chat = new ChatController<Meta>({ kv, fetch: vi.fn(), resolveRun, run })
@@ -542,7 +542,7 @@ describe('ChatController runs', () => {
     expect(await sending).toBeUndefined()
     expect(await regenerating).toBeUndefined()
     expect(run).not.toHaveBeenCalled()
-    expect(chat.conversation('c1')).toBeDefined()
+    expect(chat.conversation('c1')).toBeUndefined()
   })
 
   it('does not regenerate a conversation deleted mid-regenerate', async () => {
@@ -825,7 +825,7 @@ describe('ChatController streamed updates', () => {
       expect(run).not.toHaveBeenCalled()
     })
 
-    it('deleteConversation: the list write is skipped', async () => {
+    it('deleteConversation: memory is fully updated, the list write skipped', async () => {
       const store = gatedStore()
       const chat = new ChatController<Meta>({ kv: store.kv, fetch: vi.fn(), resolveRun })
       const meta = await chat.createConversation({ endpoint: 'ok' })
@@ -834,7 +834,9 @@ describe('ChatController streamed updates', () => {
       chat.dispose()
       store.release()
       await deleting
-      expect(chat.conversation(meta.id)).toBeDefined()
+      expect(chat.conversation(meta.id)).toBeUndefined()
+      expect(chat.getState().conversations).toEqual([])
+      expect(chat.getState().messages[meta.id]).toBeUndefined()
       expect((store.inner.data.get('conversations') as Meta[]).map((c) => c.id)).toEqual([meta.id])
     })
 

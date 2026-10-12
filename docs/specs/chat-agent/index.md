@@ -183,7 +183,9 @@ receives an immutable snapshot after every applied delta.
 - Persistence MUST go through an injected `KeyValueStore` (`get` / `set` / `delete`); the package
   ships `memoryStore()` and the lazily opened `indexedDbStore(name?)`, and the host picks one.
   Transcript writes are debounced; tool calls left running by a killed process are marked failed on
-  load.
+  load. A method's in-memory change (creating, updating, clearing or deleting a conversation) is
+  applied whole, in one state change before any storage write, so storage that is slow, fails or is
+  cut short by `dispose()` never leaves state half-applied.
 - Endpoints, models and tool settings MUST stay host-owned: the controller asks
   `resolveRun(meta)` per conversation for a `RunConfig` (base URL, key, model, system prompt, tools,
   approvals, extra tools) or `{ blocked }`, which is surfaced as the conversation's run error.

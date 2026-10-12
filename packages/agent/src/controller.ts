@@ -281,8 +281,10 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
       id: init.id ?? this.newId('c'),
     } as M
     this.deleted.delete(meta.id)
-    this.set({ messages: { ...this.state.messages, [meta.id]: [] } })
-    await this.saveConversations([meta, ...this.state.conversations])
+    // One in-memory change (transcript and list), then the list write.
+    await this.saveConversations([meta, ...this.state.conversations], {
+      messages: { ...this.state.messages, [meta.id]: [] },
+    })
     return meta
   }
 
@@ -297,18 +299,20 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     this.stop(id)
     this.cancelSave(id)
     this.pending.delete(id)
+    // Every in-memory removal happens now, in one change; storage follows.
     this.set({
+      conversations: this.state.conversations.filter((c) => c.id !== id),
       messages: without(this.state.messages, id),
       errors: without(this.state.errors, id),
       queued: without(this.state.queued, id),
     })
-    // Once disposed nothing is written; the list is only updated in memory.
-    const removing = this.disposed ? undefined : this.kv.delete(messagesKey(id))
-    // A failed transcript delete still takes the conversation off the list
-    // (an orphaned transcript is harmless); the failure is rethrown after.
-    const [removed] = await Promise.allSettled([removing])
-    if (removing && this.disposed) return // resume point: disposed meanwhile
-    await this.saveConversations(this.state.conversations.filter((c) => c.id !== id))
+    // Once disposed nothing is written.
+    if (this.disposed) return
+    // A failed transcript delete still takes the conversation off the stored
+    // list (an orphaned transcript is harmless); the failure is rethrown after.
+    const [removed] = await Promise.allSettled([this.kv.delete(messagesKey(id))])
+    if (this.disposed) return // resume point: storage skipped, memory already done
+    await this.kv.set(CONVERSATIONS_KEY, this.state.conversations)
     if (removed.status === 'rejected') throw removed.reason
   }
 
@@ -324,9 +328,13 @@ export class ChatController<M extends ConversationMeta = ConversationMeta> {
     return true
   }
 
-  private async saveConversations(conversations: M[]): Promise<void> {
+  /** Set the list (with any other state in the same change), then store it. */
+  private async saveConversations(
+    conversations: M[],
+    also: Partial<ControllerState<M>> = {},
+  ): Promise<void> {
     const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
-    this.set({ conversations: sorted })
+    this.set({ ...also, conversations: sorted })
     if (!this.disposed) await this.kv.set(CONVERSATIONS_KEY, sorted)
   }
 
