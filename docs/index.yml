@@ -293,6 +293,13 @@ changes:
     spec: ink-renderer
     status: complete
     depends_on: ["0029"]
+  - id: "0036"
+    name: shadcn-package
+    path: changes/0036-shadcn-package.md
+    description: "@fx/chat-shadcn: the shadcn/ui registry, classNames theme and tokens as a package; demo and Android app consume it"
+    spec: architecture
+    status: complete
+    depends_on: ["0006", "0013", "0021"]
   - id: "0038"
     name: android-local-network
     path: changes/0038-android-local-network.md
