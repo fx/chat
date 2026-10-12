@@ -1,6 +1,12 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { conversationStyle, selectionAfterTap, useFinishTransition } from './Conversation'
+import {
+  conversationStyle,
+  readAttachments,
+  selectionAfterTap,
+  unreadable,
+  useFinishTransition,
+} from './Conversation'
 
 function transcript() {
   const log = document.createElement('div')
@@ -151,5 +157,47 @@ describe('useFinishTransition', () => {
       expect(result.current).toBeUndefined()
       expect(start).not.toHaveBeenCalled()
     }
+  })
+})
+
+describe('readAttachments', () => {
+  it('reads images, skips other files, and counts the ones it cannot read', async () => {
+    const image = new File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' })
+    const text = new File(['x'], 'a.txt', { type: 'text/plain' })
+    const broken = new File([], 'b.png', { type: 'image/png' })
+    // jsdom decodes no images: downscaling falls back to the original.
+    vi.stubGlobal(
+      'Image',
+      class {
+        onerror?: () => void
+        set src(_: string) {
+          queueMicrotask(() => this.onerror?.())
+        }
+      },
+    )
+    // The picker's grant failed: reading the file errors.
+    const original = FileReader.prototype.readAsDataURL
+    FileReader.prototype.readAsDataURL = function (this: FileReader, blob: Blob) {
+      if ((blob as File).name === 'b.png') {
+        Object.defineProperty(this, 'error', { value: new DOMException('gone', 'NotFoundError') })
+        queueMicrotask(() => this.onerror?.(new ProgressEvent('error')))
+        return
+      }
+      original.call(this, blob)
+    }
+    try {
+      const { added, failed } = await readAttachments([image, text, broken])
+      expect(added).toHaveLength(1)
+      expect(added[0]?.url).toMatch(/^data:image\/png/)
+      expect(failed).toBe(1)
+    } finally {
+      FileReader.prototype.readAsDataURL = original
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('says how many could not be read', () => {
+    expect(unreadable(1)).toBe('Couldn’t read that image. Try picking it again.')
+    expect(unreadable(2)).toBe('Couldn’t read 2 of those images. Try picking them again.')
   })
 })
