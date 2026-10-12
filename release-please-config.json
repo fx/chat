@@ -14,7 +14,8 @@
         { "type": "json", "path": "packages/chat/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "packages/agent/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "packages/ink/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "packages/shadcn/package.json", "jsonpath": "$.version" }
+        { "type": "json", "path": "packages/shadcn/package.json", "jsonpath": "$.version" },
+        { "type": "generic", "path": "packages/chat/src/index.ts" }
       ]
     }
   }
