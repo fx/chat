@@ -14,7 +14,7 @@
  * smoke test (`smoke.test.ts`) asserts `version === package.json.version`, so
  * any drift fails CI rather than shipping silently.
  */
-export const version = '0.0.0'
+export const version = '0.0.0' // x-release-please-version
 
 /**
  * The message model, codec, and mention helpers live in `@fx-/chat-core` and are
