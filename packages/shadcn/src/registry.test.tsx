@@ -37,6 +37,9 @@ describe('shadcn registry slots', () => {
     )
     const button = screen.getByRole('button', { name: 'Retry' })
     expect(button).toHaveClass('min-h-11', 'min-w-11', 'extra')
+    // Not a fixed 28px square: a labelled button grows to fit its label.
+    expect(button).toHaveClass('w-auto')
+    expect(button).not.toHaveClass('w-7')
     expect(button).toHaveAttribute('type', 'button')
     fireEvent.click(button)
     expect(onClick).toHaveBeenCalledOnce()
@@ -163,6 +166,22 @@ describe('copy button', () => {
     expect(button).toHaveAttribute('data-copied', 'true')
   })
 
+  it('restarts the reset on a second copy and clears it on unmount', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('navigator', {})
+    const { unmount } = render(<CopyButton value="v" />)
+    const button = screen.getByRole('button', { name: 'Copy' })
+    fireEvent.click(button)
+    act(() => vi.advanceTimersByTime(1000))
+    fireEvent.click(button)
+    act(() => vi.advanceTimersByTime(1000))
+    // The first click's reset no longer fires; only the second's is pending.
+    expect(button).toHaveAttribute('data-copied', 'true')
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('confirms when there is no navigator at all', () => {
     vi.stubGlobal('navigator', undefined)
     render(<CopyButton value="v" />)
@@ -177,7 +196,8 @@ describe('options', () => {
     const { Collapsible: Touch } = createShadcnComponents({ touch: true, tooltipDelay: 300 })
     render(<Touch header="Row" />)
     const trigger = screen.getByRole('button', { name: 'Row' })
-    expect(trigger).toHaveClass('min-h-11')
+    // Row height comes from the classNames theme's row header, not the trigger.
+    expect(trigger).not.toHaveClass('min-h-11')
     expect(trigger).not.toHaveClass('hover:text-foreground/80')
   })
 

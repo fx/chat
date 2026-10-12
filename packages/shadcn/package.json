@@ -20,6 +20,7 @@
   "dependencies": {
     "@radix-ui/react-avatar": "1.1.2",
     "@radix-ui/react-collapsible": "1.1.2",
+    "@radix-ui/react-dialog": "1.2.0",
     "@radix-ui/react-scroll-area": "1.2.2",
     "@radix-ui/react-tooltip": "1.1.6",
     "class-variance-authority": "0.7.1",
@@ -27,7 +28,8 @@
     "lucide-react": "0.469.0",
     "react-markdown": "9.0.3",
     "remark-gfm": "4.0.0",
-    "tailwind-merge": "2.6.0"
+    "tailwind-merge": "2.6.0",
+    "vaul": "1.1.2"
   },
   "peerDependencies": {
     "@fx/chat": "workspace:*",

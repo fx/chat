@@ -11,14 +11,17 @@ import type {
   ChatComponents,
   CollapsibleProps,
   CopyButtonProps,
+  IconComponent,
   ScrollAreaProps,
   TooltipProps,
 } from '@fx/chat'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createActivityTiles } from './activity-tiles'
 import { cn } from './cn'
 import { CodeBlock, JsonView } from './code'
 import { lucideIcons } from './icons'
 import { MarkdownView } from './markdown'
+import { MessageDetailsSheet } from './message-details'
 import { Avatar, AvatarFallback } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -35,11 +38,16 @@ export interface ShadcnComponentsOptions {
    */
   copyResetMs?: number
   /**
-   * Touch-first tuning: disclosure rows get a 44px-tall tap target and drop
-   * their hover tint (touch has no hover). Icon-only buttons always get a
-   * 44×44 target. Default false.
+   * Touch-first tuning: disclosure triggers drop their hover tint (touch has
+   * no hover); row height comes from the classNames theme
+   * (`createShadcnClassNames({ touch: true })`); a compact footer's "…" opens
+   * the message's details and actions in a bottom sheet instead of revealing
+   * them inline, and activity shown as a summary renders as tiles. Icon-only
+   * buttons always get a 44×44 target. Default false.
    */
   touch?: boolean
+  /** Icons for tool calls by tool name (activity tiles); others get the wrench. */
+  toolIcons?: Record<string, IconComponent>
 }
 
 function toneVariant(tone: BadgeProps['tone']): 'default' | 'destructive' | 'success' {
@@ -55,19 +63,22 @@ const CopyIcon = lucideIcons.copy
 
 /**
  * `icon-sm` is 28×28 — below the 44×44 minimum touch target. Icon-only
- * buttons get a 44×44 tappable area; the glyph stays small.
+ * buttons get a 44×44 tappable area; the glyph stays small. The width is not
+ * fixed: a button the package gives a label (a revealed footer action) grows
+ * to fit it instead of spilling over its neighbours.
  */
-const ICON_TOUCH = 'min-h-11 min-w-11'
+const ICON_TOUCH = 'min-h-11 min-w-11 w-auto px-2'
 
 /** Build the shadcn registry, tuned by `options`. */
 export function createShadcnComponents({
   tooltipDelay = 150,
   copyResetMs = 1500,
   touch = false,
+  toolIcons,
 }: ShadcnComponentsOptions = {}): ChatComponents {
   const triggerClass = cn(
     'flex w-full cursor-pointer items-center gap-1.5 text-left text-sm',
-    touch ? 'min-h-11' : 'hover:text-foreground/80',
+    !touch && 'hover:text-foreground/80',
   )
 
   return {
@@ -126,7 +137,7 @@ export function createShadcnComponents({
             <ChevronIcon size={14} className="shrink-0 text-muted-foreground" />
             {header}
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-1">{children}</CollapsibleContent>
+          <CollapsibleContent>{children}</CollapsibleContent>
         </Collapsible>
       )
     },
@@ -146,6 +157,8 @@ export function createShadcnComponents({
 
     CopyButton: ({ value, className, 'aria-label': ariaLabel }: CopyButtonProps) => {
       const [copied, setCopied] = useState(false)
+      const reset = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+      useEffect(() => () => clearTimeout(reset.current), [])
       return (
         <Button
           variant="ghost"
@@ -156,7 +169,8 @@ export function createShadcnComponents({
           onClick={() => {
             const done = () => {
               setCopied(true)
-              if (copyResetMs > 0) setTimeout(() => setCopied(false), copyResetMs)
+              clearTimeout(reset.current)
+              if (copyResetMs > 0) reset.current = setTimeout(() => setCopied(false), copyResetMs)
             }
             const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
             if (clip?.writeText) clip.writeText(value).then(done, done)
@@ -169,6 +183,9 @@ export function createShadcnComponents({
     },
 
     Markdown: MarkdownView,
+    ...(touch
+      ? { MessageDetails: MessageDetailsSheet, ActivitySummary: createActivityTiles(toolIcons) }
+      : {}),
     icons: lucideIcons,
   }
 }
