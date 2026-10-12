@@ -366,7 +366,7 @@ changes:
   - id: "0046"
     name: unreadable-images
     path: changes/0046-unreadable-images.md
-    description: "Android app says when a picked image cannot be read: readable images still attach, and an alert above the composer counts the unreadable ones until the next send"
+    description: "Android app says when a picked image cannot be read: readable images still attach, and an alert above the composer counts the unreadable ones until a pick reads every image or the message is sent"
     spec: mobile-app
     status: complete
     depends_on: ["0021", "0045"]
