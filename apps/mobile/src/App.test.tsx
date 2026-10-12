@@ -140,6 +140,11 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /Tools 3 of 3 on/ }))
     await user.click(screen.getByRole('button', { name: 'Back' }))
     await user.click(screen.getByRole('button', { name: /Endpoints/ }))
+    // Each endpoint row refreshes its model listing.
+    await user.click(screen.getByRole('button', { name: 'Refresh Fake models' }))
+    expect(
+      await screen.findByRole('button', { name: 'Refresh Fake models (2 listed)' }),
+    ).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /^Fake fake-1/ }))
     expect(screen.getByRole('heading', { name: 'Edit endpoint' })).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Back' }))

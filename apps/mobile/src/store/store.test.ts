@@ -99,6 +99,23 @@ describe('AppStore', () => {
     })
   })
 
+  it('caches model listings per endpoint and key, dropping them with the profile', async () => {
+    const { store, kv, endpoint } = await ready()
+    await store.saveProfile(profile)
+    expect(await store.cachedModels(profile)).toBeUndefined()
+    const fresh = await store.refreshModels(profile)
+    expect(fresh.models.map((m) => m.id)).toEqual(['fake-1', 'fake-2'])
+    expect(await store.cachedModels(profile)).toEqual(fresh)
+    // Read back from storage by a new store.
+    const again = new AppStore({ kv, fetch: endpoint.fetch })
+    expect(await again.cachedModels(profile)).toEqual(fresh)
+    // Another URL or key is another endpoint.
+    expect(await store.cachedModels({ ...profile, apiKey: 'sk-2' })).toBeUndefined()
+    await store.deleteProfile(profile.id)
+    expect(kv.data.has(`models:${profile.id}`)).toBe(false)
+    expect(await store.cachedModels(profile)).toBeUndefined()
+  })
+
   it('lists models through the injected fetch with the key', async () => {
     const { store, endpoint } = await ready()
     expect(await store.listModels(profile)).toEqual(['fake-1', 'fake-2'])

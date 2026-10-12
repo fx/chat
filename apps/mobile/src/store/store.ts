@@ -30,6 +30,31 @@ const SETTINGS_KEY = 'settings'
 /** How often streamed updates reach the transcript, at most (ms). */
 export const UPDATE_INTERVAL_MS = 50
 
+/** A profile's model listing, as last fetched. */
+export interface ModelCatalog {
+  models: ModelInfo[]
+  fetchedAt: number
+}
+
+/** How long a cached listing is used before the picker fetches it again (ms). */
+export const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+/** A cached listing, tied to the URL and key it came from. */
+interface StoredCatalog extends ModelCatalog {
+  endpoint: string
+}
+
+const catalogKey = (profileId: string) => `models:${profileId}`
+
+/** The endpoint a listing belongs to: its URL and a hash of its key (not the key). */
+function endpointOf(profile: Pick<Profile, 'baseUrl' | 'apiKey'>): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < profile.apiKey.length; i++) {
+    hash = Math.imul(hash ^ profile.apiKey.charCodeAt(i), 0x01000193)
+  }
+  return `${profile.baseUrl}\n${(hash >>> 0).toString(16)}`
+}
+
 export interface StoreDeps {
   kv: KeyValueStore
   fetch: FetchLike
@@ -48,6 +73,7 @@ export class AppStore {
   private settingsLoaded = false
   private state: AppState
   private listeners = new Set<() => void>()
+  private catalogs = new Map<string, StoredCatalog>()
 
   constructor(private readonly deps: StoreDeps) {
     this.chat = new ChatController<ConversationMeta>({
@@ -173,6 +199,8 @@ export class AppStore {
       activeProfileId,
       assistant: assistant.profileId === id ? {} : assistant,
     })
+    this.catalogs.delete(id)
+    await this.deps.kv.delete(catalogKey(id))
   }
 
   /** List models offered by a profile's endpoint. */
@@ -187,16 +215,32 @@ export class AppStore {
     }).listModels(signal)
   }
 
-  /** List a profile's models with what each declares (name, context, capabilities). */
-  listModelInfo(
-    profile: Pick<Profile, 'baseUrl' | 'apiKey'>,
-    signal?: AbortSignal,
-  ): Promise<ModelInfo[]> {
-    return createClient({
+  /**
+   * A profile's last fetched model listing (memory, then storage), or
+   * undefined when there is none for its current URL and key.
+   */
+  async cachedModels(profile: Profile): Promise<ModelCatalog | undefined> {
+    let entry = this.catalogs.get(profile.id)
+    if (!entry) {
+      entry = await this.deps.kv.get<StoredCatalog>(catalogKey(profile.id))
+      if (entry) this.catalogs.set(profile.id, entry)
+    }
+    if (entry?.endpoint !== endpointOf(profile)) return undefined
+    return { models: entry.models, fetchedAt: entry.fetchedAt }
+  }
+
+  /** Fetch a profile's model listing (with what each model declares) and cache it. */
+  async refreshModels(profile: Profile, signal?: AbortSignal): Promise<ModelCatalog> {
+    const models = await createClient({
       baseUrl: profile.baseUrl,
       apiKey: profile.apiKey || undefined,
       fetch: this.deps.fetch,
     }).listModelInfo(signal)
+    const catalog = { models, fetchedAt: (this.deps.now ?? Date.now)() }
+    const entry = { ...catalog, endpoint: endpointOf(profile) }
+    this.catalogs.set(profile.id, entry)
+    await this.deps.kv.set(catalogKey(profile.id), entry)
+    return catalog
   }
 
   // ── conversations (the controller's) ───────────────────────────────────────

@@ -6,7 +6,7 @@ import { StoreProvider } from '../store/context'
 import { AppStore } from '../store/store'
 import type { Profile } from '../store/types'
 import { fakeEndpoint } from '../test-helpers'
-import { ModelPicker } from './ModelPicker'
+import { ModelPicker, ROW_HEIGHT, ago } from './ModelPicker'
 
 const profile: Profile = {
   id: 'p1',
@@ -28,8 +28,12 @@ const listing = [
   { id: 'llama', owned_by: 'llamacpp' },
 ]
 
-async function setup(fetch = fakeEndpoint([], listing).fetch, profiles = [profile]) {
-  const store = new AppStore({ kv: memoryStore({ settings: { profiles } }), fetch })
+async function setup(
+  fetch = fakeEndpoint([], listing).fetch,
+  profiles = [profile],
+  kv = memoryStore({ settings: { profiles } }),
+) {
+  const store = new AppStore({ kv, fetch })
   await store.load()
   const onChoose = vi.fn()
   render(
@@ -37,7 +41,7 @@ async function setup(fetch = fakeEndpoint([], listing).fetch, profiles = [profil
       <ModelPicker profile={profiles[0]} model="llama" onChoose={onChoose} />
     </StoreProvider>,
   )
-  return { onChoose }
+  return { onChoose, store }
 }
 
 const rows = () =>
@@ -49,7 +53,7 @@ describe('ModelPicker', () => {
   it('lists models by name with their facts and capabilities, the current one pressed', async () => {
     await setup()
     await screen.findByRole('list', { name: 'Models' })
-    expect(screen.getByText('3 models')).toBeTruthy()
+    expect(screen.getByText('3 models · updated just now')).toBeTruthy()
     expect(rows()).toEqual([
       'llama',
       'openrouter/acme/plain',
@@ -65,7 +69,7 @@ describe('ModelPicker', () => {
     const search = await screen.findByRole('searchbox', { name: 'Search models' })
     await user.type(search, 'acme')
     expect(rows()).toHaveLength(2)
-    expect(screen.getByText('2 of 3')).toBeTruthy()
+    expect(screen.getByText('2 of 3 · updated just now')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Tools' }))
     expect(screen.getByRole('button', { name: 'Tools' })).toHaveAttribute('aria-pressed', 'true')
     expect(rows()).toHaveLength(1)
@@ -90,13 +94,13 @@ describe('ModelPicker', () => {
     await user.click(chip('llamacpp'))
     await user.click(screen.getByRole('button', { name: 'Show 1 models' }))
     expect(rows()).toEqual(['llama'])
-    expect(screen.getByText('llamacpp · 1 of 3')).toBeTruthy()
+    expect(screen.getByText('llamacpp · 1 of 3 · updated just now')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Filters, 1 on' }))
     // Several at once; tapping one again drops it, and All clears them.
     await user.click(chip('openrouter'))
     expect(chip('All')).toHaveAttribute('aria-pressed', 'false')
     await user.click(screen.getByRole('button', { name: 'Show 3 models' }))
-    expect(screen.getByText('llamacpp, openrouter · 3 of 3')).toBeTruthy()
+    expect(screen.getByText('llamacpp, openrouter · 3 of 3 · updated just now')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Filters, 2 on' }))
     await user.click(chip('openrouter'))
     expect(screen.getByRole('button', { name: 'Show 1 models' })).toBeTruthy()
@@ -134,7 +138,7 @@ describe('ModelPicker', () => {
     await user.click(within(endpoints).getByRole('button', { name: /^Other/ }))
     expect(onChoose).not.toHaveBeenCalled()
     await user.click(await screen.findByRole('button', { name: 'Show 3 models' }))
-    expect(screen.getByText('Other · 3 models')).toBeTruthy()
+    expect(screen.getByText('Other · 3 models · updated just now')).toBeTruthy()
     // The current model is the first endpoint's, so nothing is pressed here.
     expect(screen.getByRole('button', { name: 'llama' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeTruthy()
@@ -188,5 +192,69 @@ describe('ModelPicker', () => {
     expect(screen.getByText('Choose an endpoint.')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /^Fake/ }))
     expect(await screen.findByRole('list', { name: 'Models' })).toBeTruthy()
+  })
+
+  it('draws only the rows in view of a long list', async () => {
+    const many = Array.from({ length: 500 }, (_, i) => ({ id: `m${String(i).padStart(3, '0')}` }))
+    await setup(fakeEndpoint([], many).fetch)
+    const list = await screen.findByRole('list', { name: 'Models' })
+    expect(list.style.height).toBe(`${500 * ROW_HEIGHT}px`)
+    const drawn = within(list).getAllByRole('listitem')
+    expect(drawn.length).toBeGreaterThan(10)
+    expect(drawn.length).toBeLessThan(40)
+    // Scrolling draws the rows there instead.
+    const scroller = list.parentElement as HTMLElement
+    scroller.scrollTop = 300 * ROW_HEIGHT
+    act(() => {
+      scroller.dispatchEvent(new Event('scroll'))
+    })
+    expect(within(list).getByRole('button', { name: 'm300' })).toBeTruthy()
+    expect(within(list).queryByRole('button', { name: 'm000' })).toBeNull()
+  })
+
+  it('uses the cached listing, and refreshes it on demand', async () => {
+    const user = userEvent.setup()
+    const endpoint = fakeEndpoint([], listing)
+    const kv = memoryStore({
+      settings: { profiles: [profile] },
+      'models:p1': {
+        endpoint: 'https://fake.test/v1\n811c9dc5',
+        fetchedAt: Date.now() - 2 * 60 * 60 * 1000,
+        models: [{ id: 'cached' }],
+      },
+    })
+    await setup(endpoint.fetch, [profile], kv)
+    expect(await screen.findByRole('button', { name: 'cached' })).toBeTruthy()
+    expect(screen.getByText('1 models · updated 2h ago')).toBeTruthy()
+    expect(endpoint.requests).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Refresh models' }))
+    expect(await screen.findByRole('button', { name: 'llama' })).toBeTruthy()
+    expect(endpoint.requests.map((r) => r.url)).toEqual(['https://fake.test/v1/models'])
+  })
+
+  it('fetches again when the cached listing is old, showing it meanwhile', async () => {
+    const endpoint = fakeEndpoint([], listing)
+    const kv = memoryStore({
+      settings: { profiles: [profile] },
+      'models:p1': {
+        endpoint: 'https://fake.test/v1\n811c9dc5',
+        fetchedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+        models: [{ id: 'cached' }],
+      },
+    })
+    await setup(endpoint.fetch, [profile], kv)
+    expect(await screen.findByRole('button', { name: 'llama' })).toBeTruthy()
+    expect(endpoint.requests).toHaveLength(1)
+  })
+})
+
+describe('ago', () => {
+  it('says how long ago, coarsely', () => {
+    expect([0, 5 * 60_000, 3 * 3_600_000, 50 * 3_600_000].map(ago)).toEqual([
+      'just now',
+      '5m ago',
+      '3h ago',
+      '2d ago',
+    ])
   })
 })

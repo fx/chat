@@ -4,7 +4,7 @@ import { TOOL_INFO } from '@fx/chat-agent'
  * tools, the digital assistant, and about. The page shown is part of the app
  * route (`path`), so the Android back action walks back up the menu.
  */
-import { ArrowLeft, Check, Plus } from 'lucide-react'
+import { ArrowLeft, Check, Plus, RefreshCw } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { ModelPicker } from '../components/ModelPicker'
 import {
@@ -20,6 +20,7 @@ import {
 } from '../components/ui'
 import { isAssistant, openAssistantSettings } from '../platform'
 import { useAppState, useStore } from '../store/context'
+import type { Profile } from '../store/types'
 import { ProfileEditor } from './ProfileEditor'
 
 export type SettingsPage = 'endpoints' | 'prompt' | 'tools' | 'assistant' | 'about'
@@ -140,6 +141,7 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
                 {p.model} · {p.baseUrl}
               </span>
             </button>
+            <RefreshModels profile={p} />
             <IconButton
               label={p.id === active?.id ? `${p.name} is active` : `Use ${p.name}`}
               aria-pressed={p.id === active?.id}
@@ -158,6 +160,50 @@ function Endpoints({ onEdit }: { onEdit: (id: string) => void }) {
         The active endpoint is used for new chats; each chat remembers its own.
       </p>
     </Section>
+  )
+}
+
+/** Refresh an endpoint's cached model listing; says how many it lists, or why it failed. */
+function RefreshModels({ profile }: { profile: Profile }) {
+  const store = useStore()
+  const [state, setState] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [count, setCount] = useState<number>()
+  useEffect(() => {
+    let current = true
+    void store.cachedModels(profile).then((cached) => {
+      if (current) setCount(cached?.models.length)
+    })
+    return () => {
+      current = false
+    }
+  }, [store, profile])
+  const label =
+    state === 'loading'
+      ? `Refreshing ${profile.name} models`
+      : state === 'failed'
+        ? `Refreshing ${profile.name} models failed; try again`
+        : `Refresh ${profile.name} models${count === undefined ? '' : ` (${count} listed)`}`
+  return (
+    <IconButton
+      label={label}
+      disabled={state === 'loading'}
+      className={state === 'failed' ? 'text-destructive' : 'text-muted-foreground'}
+      onClick={() => {
+        setState('loading')
+        store.refreshModels(profile).then(
+          (catalog) => {
+            setCount(catalog.models.length)
+            setState('idle')
+          },
+          () => setState('failed'),
+        )
+      }}
+    >
+      <RefreshCw
+        size={18}
+        className={state === 'loading' ? 'motion-safe:animate-spin' : undefined}
+      />
+    </IconButton>
   )
 }
 

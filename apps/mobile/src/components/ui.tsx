@@ -186,7 +186,10 @@ export function Sheet({
   open: boolean
   onClose: () => void
   title: string
-  /** Fill most of the screen, so content that filters down does not resize it. */
+  /**
+   * Fill most of the screen, so content that filters down does not resize
+   * it, with the content laying itself out (and scrolling) in the space.
+   */
   tall?: boolean
   children: ReactNode
 }) {
@@ -212,13 +215,13 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          'safe-bottom relative m-0 max-h-[85%] w-full max-w-none overflow-y-auto rounded-t-xl border-0 border-t border-border bg-background px-4 pt-3 text-foreground',
-          tall && 'h-[85%]',
+          'safe-bottom relative m-0 max-h-[85%] w-full max-w-none rounded-t-xl border-0 border-t border-border bg-background px-4 pt-3 text-foreground',
+          tall ? 'flex h-[85%] flex-col overflow-hidden' : 'overflow-y-auto',
         )}
       >
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" />
-        <h2 className="mb-3 text-base font-semibold">{title}</h2>
-        <div className="pb-4">{children}</div>
+        <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
+        <h2 className="mb-3 shrink-0 text-base font-semibold">{title}</h2>
+        <div className={tall ? 'flex min-h-0 flex-1 flex-col' : 'pb-4'}>{children}</div>
       </dialog>
     </div>
   )

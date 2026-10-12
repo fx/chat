@@ -8,9 +8,10 @@
  */
 import type { ModelInfo } from '@fx/chat-agent'
 import { cn } from '@fx/chat-shadcn'
-import { Brain, Check, Eye, Search, SlidersHorizontal, Wrench, X } from 'lucide-react'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { Brain, Check, Eye, RefreshCw, Search, SlidersHorizontal, Wrench, X } from 'lucide-react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState, useStore } from '../store/context'
+import { CATALOG_MAX_AGE_MS, type ModelCatalog } from '../store/store'
 import type { Profile } from '../store/types'
 import {
   CAPABILITIES,
@@ -53,40 +54,60 @@ export function ModelPicker({
   // endpoint or one the user picked in the filters.
   const [browseId, setBrowseId] = useState(profile?.id)
   const browsing = settings.profiles.find((p) => p.id === browseId)
-  const [models, setModels] = useState<ModelInfo[]>()
+  const [catalog, setCatalog] = useState<ModelCatalog>()
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
   const [query, setQuery] = useState('')
   const [chosen, setChosen] = useState<string[]>([])
   const [capabilities, setCapabilities] = useState<Capability[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const fetching = useRef<AbortController | null>(null)
 
   useEffect(() => setBrowseId(profile?.id), [profile?.id])
 
+  const refresh = useCallback(
+    (target: Profile) => {
+      fetching.current?.abort()
+      const controller = new AbortController()
+      fetching.current = controller
+      setLoading(true)
+      setError(undefined)
+      store
+        .refreshModels(target, controller.signal)
+        .then((fresh) => {
+          if (!controller.signal.aborted) setCatalog(fresh)
+        })
+        .catch((e: unknown) => {
+          if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e))
+        })
+        .finally(() => {
+          if (fetching.current === controller) setLoading(false)
+        })
+    },
+    [store],
+  )
+
+  // Show the cached listing at once; fetch when there is none or it is old.
   useEffect(() => {
     if (!active || !browsing) return
-    const controller = new AbortController()
+    let current = true
     setError(undefined)
     // Never offer the previous endpoint's models (or its providers) under this one.
-    setModels(undefined)
+    setCatalog(undefined)
     setChosen([])
-    store
-      .listModelInfo(browsing, controller.signal)
-      .then(setModels)
-      .catch((e: unknown) => {
-        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e))
-      })
-    return () => controller.abort()
-  }, [active, browsing, store])
+    void store.cachedModels(browsing).then((cached) => {
+      if (!current) return
+      if (cached) setCatalog(cached)
+      if (!cached || Date.now() - cached.fetchedAt > CATALOG_MAX_AGE_MS) refresh(browsing)
+    })
+    return () => {
+      current = false
+      fetching.current?.abort()
+    }
+  }, [active, browsing, store, refresh])
 
+  const models = catalog?.models
   const listed = useMemo(() => models ?? [], [models])
-  const listRef = useRef<HTMLUListElement>(null)
-
-  // Once listed, bring the current model into view: it may be far down a long list.
-  useEffect(() => {
-    if (!models) return
-    listRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'center' })
-  }, [models])
-
   const providerList = useMemo(() => providers(listed), [listed])
   const capabilityList = useMemo(() => knownCapabilities(listed), [listed])
   const shown = useMemo(
@@ -104,29 +125,31 @@ export function ModelPicker({
 
   if (filtersOpen || !browsing) {
     return (
-      <FiltersPanel
-        profiles={settings.profiles}
-        browsing={browsing}
-        onBrowse={setBrowseId}
-        providers={providerList}
-        chosen={chosen}
-        onChosen={setChosen}
-        capabilityList={capabilityList}
-        capabilities={capabilities}
-        onToggle={toggle}
-        onClear={() => {
-          setChosen([])
-          setCapabilities([])
-        }}
-        matches={browsing ? shown.length : undefined}
-        onDone={() => setFiltersOpen(false)}
-      />
+      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <FiltersPanel
+          profiles={settings.profiles}
+          browsing={browsing}
+          onBrowse={setBrowseId}
+          providers={providerList}
+          chosen={chosen}
+          onChosen={setChosen}
+          capabilityList={capabilityList}
+          capabilities={capabilities}
+          onToggle={toggle}
+          onClear={() => {
+            setChosen([])
+            setCapabilities([])
+          }}
+          matches={browsing ? shown.length : undefined}
+          onDone={() => setFiltersOpen(false)}
+        />
+      </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-1 bg-background px-1 pb-1">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-1 border-b border-border pb-1">
         <div className="flex items-center gap-0.5">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -185,46 +208,161 @@ export function ModelPicker({
             ) : null}
           </button>
         </div>
-        <p aria-live="polite" className="truncate px-3 text-xs text-muted-foreground">
-          {[
-            settings.profiles.length > 1 ? browsing.name : undefined,
-            chosen.length > 2 ? `${chosen.length} providers` : chosen.join(', '),
-            models
-              ? filtering
-                ? `${shown.length} of ${listed.length}`
-                : `${listed.length} models`
-              : undefined,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+        <div className="flex items-center">
+          <p
+            aria-live="polite"
+            className="min-w-0 flex-1 truncate px-3 text-xs text-muted-foreground"
+          >
+            {[
+              settings.profiles.length > 1 ? browsing.name : undefined,
+              chosen.length > 2 ? `${chosen.length} providers` : chosen.join(', '),
+              models
+                ? filtering
+                  ? `${shown.length} of ${listed.length}`
+                  : `${listed.length} models`
+                : undefined,
+              catalog && !loading ? `updated ${ago(Date.now() - catalog.fetchedAt)}` : undefined,
+              loading && catalog ? 'refreshing…' : undefined,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          <button
+            type="button"
+            aria-label="Refresh models"
+            title="Refresh models"
+            disabled={loading}
+            onClick={() => refresh(browsing)}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground active:bg-muted disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={loading ? 'motion-safe:animate-spin' : undefined} />
+          </button>
+        </div>
       </div>
 
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
-      {models === undefined && !error ? (
-        <p className="text-sm text-muted-foreground">Loading models…</p>
-      ) : null}
-      {models?.length === 0 ? (
-        <p className="text-sm text-muted-foreground">The endpoint lists no models.</p>
-      ) : null}
+      <ModelList
+        models={shown}
+        current={current}
+        onChoose={choose}
+        resetKey={`${query}\n${chosen.join()}\n${capabilities.join()}`}
+      >
+        {error ? <p className="px-1 pt-2 text-xs text-destructive">{error}</p> : null}
+        {models === undefined && !error ? (
+          <p className="px-1 pt-2 text-sm text-muted-foreground">Loading models…</p>
+        ) : null}
+        {models?.length === 0 ? (
+          <p className="px-1 pt-2 text-sm text-muted-foreground">The endpoint lists no models.</p>
+        ) : null}
+        {models && models.length > 0 && shown.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">No models match.</p>
+        ) : null}
+        <ManualModel open={Boolean(error) || models?.length === 0} onUse={(id) => choose(id)} />
+      </ModelList>
+    </div>
+  )
+}
 
-      {shown.length > 0 ? (
-        <ul ref={listRef} aria-label="Models" className="-mx-1 flex flex-col">
-          {shown.map((m) => (
+/** "just now", "5m ago", "3h ago", "2d ago". */
+export function ago(ms: number): string {
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`
+}
+
+/** Every row is this tall (px), so the list can draw only the rows in view. */
+export const ROW_HEIGHT = 56
+/** Rows drawn beyond each edge of the view. */
+const OVERSCAN = 8
+/** The view height assumed before it is measured. */
+const FALLBACK_HEIGHT = 800
+
+/**
+ * The models as a windowed list: a full-height track with only the rows in
+ * (or near) view drawn into it. It owns the scrolling, so nothing slides
+ * under the search above it. Opens at the current model; a new filter
+ * (`resetKey`) goes back to the top. `children` follow the list.
+ */
+function ModelList({
+  models,
+  current,
+  onChoose,
+  resetKey,
+  children,
+}: {
+  models: readonly ModelInfo[]
+  current: string | undefined
+  onChoose: (id: string) => void
+  resetKey: string
+  children: ReactNode
+}) {
+  const scroller = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState({ top: 0, height: FALLBACK_HEIGHT })
+
+  const measure = useCallback(() => {
+    const el = scroller.current as HTMLDivElement
+    const next = { top: el.scrollTop, height: el.clientHeight || FALLBACK_HEIGHT }
+    // Re-render only when the drawn range changes, not on every scrolled pixel.
+    setView((prev) =>
+      Math.floor(prev.top / ROW_HEIGHT) === Math.floor(next.top / ROW_HEIGHT) &&
+      prev.height === next.height
+        ? prev
+        : next,
+    )
+  }, [])
+
+  useEffect(() => {
+    const el = scroller.current as HTMLDivElement
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [measure])
+
+  // Open at the current model: it may be far down a long list.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (opened.current || models.length === 0) return
+    opened.current = true
+    const index = models.findIndex((m) => m.id === current)
+    const el = scroller.current as HTMLDivElement
+    if (index > 0) el.scrollTop = index * ROW_HEIGHT - (el.clientHeight - ROW_HEIGHT) / 2
+    measure()
+  }, [models, current, measure])
+
+  // A new search or filter starts from the top.
+  const lastKey = useRef(resetKey)
+  useEffect(() => {
+    if (lastKey.current === resetKey) return
+    lastKey.current = resetKey
+    ;(scroller.current as HTMLDivElement).scrollTop = 0
+    measure()
+  }, [resetKey, measure])
+
+  const first = Math.max(0, Math.floor(view.top / ROW_HEIGHT) - OVERSCAN)
+  const last = Math.min(models.length, Math.ceil((view.top + view.height) / ROW_HEIGHT) + OVERSCAN)
+
+  return (
+    <div
+      ref={scroller}
+      onScroll={measure}
+      className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-1 pb-4"
+    >
+      {models.length > 0 ? (
+        <ul aria-label="Models" className="relative" style={{ height: models.length * ROW_HEIGHT }}>
+          {models.slice(first, last).map((m, i) => (
             <li
               key={m.id}
-              className="[contain-intrinsic-size:auto_3.5rem] [content-visibility:auto]"
+              className="absolute inset-x-0"
+              style={{ top: (first + i) * ROW_HEIGHT, height: ROW_HEIGHT }}
             >
-              <ModelRow info={m} selected={m.id === current} onChoose={() => choose(m.id)} />
+              <ModelRow info={m} selected={m.id === current} onChoose={() => onChoose(m.id)} />
             </li>
           ))}
         </ul>
       ) : null}
-      {models && models.length > 0 && shown.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">No models match.</p>
-      ) : null}
-
-      <ManualModel open={Boolean(error) || models?.length === 0} onUse={(id) => choose(id)} />
+      {children}
     </div>
   )
 }
@@ -367,7 +505,7 @@ function ModelRow({
       type="button"
       aria-pressed={selected}
       onClick={onChoose}
-      className="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left active:bg-muted aria-pressed:bg-muted"
+      className="flex h-14 w-full items-center gap-3 rounded-lg px-3 text-left active:bg-muted aria-pressed:bg-muted"
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{info.name ?? info.id}</span>
