@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/fx/chat/compare/v0.1.1...v0.1.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **tui:** install the tx plugin from the published libraries ([#49](https://github.com/fx/chat/issues/49)) ([5af6f41](https://github.com/fx/chat/commit/5af6f418e52e71e1f6960a15acd197fb18d0d046))
+
 ## [0.1.1](https://github.com/fx/chat/compare/v0.1.0...v0.1.1) (2026-10-12)
 
 
